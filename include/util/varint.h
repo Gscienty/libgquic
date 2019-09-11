@@ -9,10 +9,10 @@ struct gquic_util_varint_s {
     unsigned long value;
 };
 
-int varint_wrap(gquic_util_varint_t *, const unsigned long);
+int gquic_varint_wrap(gquic_util_varint_t *, const unsigned long);
 
-ssize_t varint_serialize(const gquic_util_varint_t *, void *, const size_t);
+ssize_t gquic_varint_serialize(const gquic_util_varint_t *, void *, const size_t);
 
-ssize_t varint_deserialize(gquic_util_varint_t *, const void *, const size_t);
+ssize_t gquic_varint_deserialize(gquic_util_varint_t *, const void *, const size_t);
 
 #endif
