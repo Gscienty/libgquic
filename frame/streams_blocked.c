@@ -59,7 +59,7 @@ static ssize_t gquic_frame_streams_blocked_deserialize(gquic_abstract_frame_ptr_
         return -2;
     }
     type = ((gquic_frame_type_t *) buf)[off++];
-    if (type == 0x16 || type == 0x17) {
+    if (type != 0x16 && type != 0x17) {
         return -3;
     }
     GQUIC_FRAME_META(spec).type = type;

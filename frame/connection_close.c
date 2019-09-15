@@ -17,7 +17,7 @@ gquic_frame_connecion_close_t *gquic_frame_connection_close_alloc() {
     GQUIC_FRAME_META(frame).type = 0x00;
     GQUIC_FRAME_META(frame).deserialize_func = gquic_frame_connection_close_deserialize;
     GQUIC_FRAME_META(frame).init_func = gquic_frame_connection_close_init;
-    GQUIC_FRAME_META(frame).release_func = gquic_frame_release;
+    GQUIC_FRAME_META(frame).release_func = gquic_frame_connection_close_release;
     GQUIC_FRAME_META(frame).serialize_func = gquic_frame_connection_close_serialize;
     GQUIC_FRAME_META(frame).size_func = gquic_frame_connection_close_size;
     return frame;
@@ -50,11 +50,10 @@ static ssize_t gquic_frame_connection_close_serialize(const gquic_abstract_frame
     }
     ((gquic_frame_type_t *) buf)[off++] = GQUIC_FRAME_META(spec).type;
 
-    gquic_util_varint_t _;
-    gquic_util_varint_t *vars[] = { &spec->errcode, (GQUIC_FRAME_META(spec).type == 0x1d ? &spec->type : &_), &spec->phase_len };
+    gquic_util_varint_t *vars[] = { &spec->errcode, (GQUIC_FRAME_META(spec).type == 0x1d ? &spec->type : NULL), &spec->phase_len };
     int i;
     for (i = 0; i < 3; i++) {
-        if (vars[i] == &_) {
+        if (vars[i] == NULL) {
             continue;
         }
         serialize_len = gquic_varint_serialize(vars[i], buf + off, size - off);
@@ -79,15 +78,14 @@ static ssize_t gquic_frame_connection_close_deserialize(const gquic_abstract_fra
         return -2;
     }
     type = ((gquic_frame_type_t *) buf)[off++];
-    if (type == 0x1c || type == 0x1d) {
+    if (type != 0x1c && type != 0x1d) {
         return -3;
     }
     GQUIC_FRAME_META(spec).type = type;
-    gquic_util_varint_t _;
-    gquic_util_varint_t *vars[] = { &spec->errcode, (type == 0x1d ? &spec->type : &_), &spec->phase_len };
+    gquic_util_varint_t *vars[] = { &spec->errcode, (type == 0x1d ? &spec->type : NULL), &spec->phase_len };
     int i = 0;
     for (i = 0; i < 3; i++) {
-        if (vars[i] == &_) {
+        if (vars[i] == NULL) {
             continue;
         }
         deserialize_len = gquic_varint_deserialize(vars[i], buf + off, size - off);

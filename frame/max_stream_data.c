@@ -65,7 +65,7 @@ static ssize_t gquic_frame_max_stream_data_deserialize(gquic_abstract_frame_ptr_
     if (buf == NULL) {
         return -2;
     }
-    if (GQUIC_FRAME_META(spec).type == ((gquic_frame_type_t *) buf)[off++]) {
+    if (GQUIC_FRAME_META(spec).type != ((gquic_frame_type_t *) buf)[off++]) {
         return -3;
     }
     gquic_util_varint_t *vars[] = { &spec->id, &spec->max };

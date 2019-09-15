@@ -17,7 +17,7 @@ gquic_frame_crypto_t *gquic_frame_crypto_alloc() {
     GQUIC_FRAME_META(frame).type = 0x06;
     GQUIC_FRAME_META(frame).deserialize_func = gquic_frame_crypto_deserialize;
     GQUIC_FRAME_META(frame).init_func = gquic_frame_crypto_init;
-    GQUIC_FRAME_META(frame).release_func = gquic_frame_release;
+    GQUIC_FRAME_META(frame).release_func = gquic_frame_crypto_release;
     GQUIC_FRAME_META(frame).serialize_func = gquic_frame_crypto_serialize;
     GQUIC_FRAME_META(frame).size_func = gquic_frame_crypto_size;
     return frame;
