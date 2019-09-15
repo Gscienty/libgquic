@@ -31,6 +31,7 @@ int gquic_list_release(gquic_abstract_list_ptr_t list) {
     if (list == NULL) {
         return -1;
     }
+    gquic_list_remove(list);
     free(&GQUIC_LIST_META(list));
     return 0;
 }
@@ -79,5 +80,7 @@ int gquic_list_remove(gquic_abstract_list_ptr_t node) {
     }
     GQUIC_LIST_META(node).prev->next = GQUIC_LIST_META(node).next;
     GQUIC_LIST_META(node).next->prev = GQUIC_LIST_META(node).prev;
+    GQUIC_LIST_META(node).prev = &GQUIC_LIST_META(node);
+    GQUIC_LIST_META(node).next = &GQUIC_LIST_META(node);
     return 0;
 }
