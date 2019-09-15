@@ -95,7 +95,7 @@ static int gquic_frame_stop_sending_release(gquic_abstract_frame_ptr_t frame) {
     if (frame == NULL) {
         return -1;
     }
-    free(&GQUIC_FRAME_META(frame));
+    gquic_frame_release(frame);
     return 0;
 }
 

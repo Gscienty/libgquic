@@ -1,7 +1,7 @@
 #include "frame/padding.h"
 #include "frame/meta.h"
 
-static size_t gquic_frame_padding_size(gquic_abstract_frame_ptr_t frame);
+static size_t gquic_frame_padding_size(gquic_abstract_frame_ptr_t);
 static ssize_t gquic_frame_padding_serialize(const gquic_abstract_frame_ptr_t, void *, const size_t);
 static ssize_t gquic_frame_padding_deserialize(gquic_abstract_frame_ptr_t, const void *, const size_t);
 static int gquic_frame_padding_init(gquic_abstract_frame_ptr_t);

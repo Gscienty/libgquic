@@ -107,5 +107,6 @@ static int gquic_frame_crypto_release(gquic_abstract_frame_ptr_t frame) {
     if (spec->data != NULL) {
         free(spec->data);
     }
-    free(&GQUIC_FRAME_META(spec));
+    gquic_frame_release(spec);
+    return 0;
 }
