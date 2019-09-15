@@ -43,7 +43,7 @@ static ssize_t gquic_frame_reset_stream_serialize(const gquic_abstract_frame_ptr
     if (GQUIC_FRAME_META(frame).size_func(frame) > size) {
         return -3;
     }
-    ((unsigned char *) buf)[off++] = GQUIC_FRAME_META(frame).type;
+    ((gquic_frame_type_t *) buf)[off++] = GQUIC_FRAME_META(frame).type;
     gquic_util_varint_t *vars[] = { &spec->id, &spec->errcode, &spec->final_size };
     int i;
     for (i = 0; i < 3; i++) {
@@ -66,7 +66,7 @@ static ssize_t gquic_frame_reset_stream_deserialize(const gquic_abstract_frame_p
     if (buf == NULL) {
         return -2;
     }
-    if (((unsigned char *) buf)[off++] != GQUIC_FRAME_META(frame).type) {
+    if (((gquic_frame_type_t *) buf)[off++] != GQUIC_FRAME_META(frame).type) {
         return -3;
     }
     gquic_util_varint_t *vars[] = { &spec->id, &spec->errcode, &spec->final_size };

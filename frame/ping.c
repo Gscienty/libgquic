@@ -35,7 +35,7 @@ static ssize_t gquic_frame_ping_serialize(const gquic_abstract_frame_ptr_t frame
     if (used_size > remain_size) {
         return -1;
     }
-    ((unsigned char *) offbuf)[0] = 0x01;
+    ((gquic_frame_type_t *) offbuf)[0] = 0x01;
     return used_size;
 }
 
