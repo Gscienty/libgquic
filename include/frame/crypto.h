@@ -5,8 +5,8 @@
 
 typedef struct gquic_frame_crypto_s gquic_frame_crypto_t;
 struct gquic_frame_crypto_s {
-    gquic_util_varint_t off;
-    gquic_util_varint_t len;
+    gquic_varint_t off;
+    gquic_varint_t len;
 
     void *data;
 };

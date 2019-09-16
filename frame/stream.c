@@ -45,7 +45,7 @@ static ssize_t gquic_frame_stream_serialize(const gquic_abstract_frame_ptr_t fra
         return -3;
     }
     ((gquic_frame_type_t *) buf)[off++] = GQUIC_FRAME_META(spec).type;
-    gquic_util_varint_t *vars[] = {
+    gquic_varint_t *vars[] = {
         &spec->id,
         ((GQUIC_FRAME_META(spec).type & 0x04) == 0x04 ? &spec->off : NULL),
         ((GQUIC_FRAME_META(spec).type & 0x02) == 0x02 ? &spec->len : NULL)
@@ -81,7 +81,7 @@ static ssize_t gquic_frame_stream_deserialize(const gquic_abstract_frame_ptr_t f
         return -3;
     }
     GQUIC_FRAME_META(spec).type = type;
-    gquic_util_varint_t *vars[] = {
+    gquic_varint_t *vars[] = {
         &spec->id,
         ((GQUIC_FRAME_META(spec).type & 0x04) == 0x04 ? &spec->off : NULL),
         ((GQUIC_FRAME_META(spec).type & 0x02) == 0x02 ? &spec->len : NULL)

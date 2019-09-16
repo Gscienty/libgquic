@@ -8,7 +8,7 @@ int main(int argc, char **argv) {
         return -1;
     }
 
-    gquic_util_varint_t var;
+    gquic_varint_t var;
     gquic_varint_wrap(&var, atol(argv[1]));
 
     void *buf = malloc(var.length);

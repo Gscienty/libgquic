@@ -53,7 +53,7 @@ static ssize_t gquic_frame_ack_serialize(const gquic_abstract_frame_ptr_t frame,
         return -3;
     }
     ((gquic_frame_type_t *) buf)[off++] = GQUIC_FRAME_META(spec).type;
-    gquic_util_varint_t *vars[] = { &spec->largest_ack, &spec->delay, &spec->count, &spec->first_range };
+    gquic_varint_t *vars[] = { &spec->largest_ack, &spec->delay, &spec->count, &spec->first_range };
     int i = 0;
     for (i = 0; i < 4; i++) {
         serialize_len = gquic_varint_serialize(vars[i], buf + off, size - off);
@@ -64,7 +64,7 @@ static ssize_t gquic_frame_ack_serialize(const gquic_abstract_frame_ptr_t frame,
     }
     gquic_frame_range_t *range;
     GQUIC_LIST_FOREACH(range, &spec->range) {
-        gquic_util_varint_t *vars[] = { &range->gap, &range->range };
+        gquic_varint_t *vars[] = { &range->gap, &range->range };
         for (i = 0; i < 2; i++) {
             serialize_len = gquic_varint_serialize(vars[i], buf + off, size - off);
             if (serialize_len <= 0) {
@@ -74,7 +74,7 @@ static ssize_t gquic_frame_ack_serialize(const gquic_abstract_frame_ptr_t frame,
         }
     }
     if (GQUIC_FRAME_META(spec).type == 0x03) {
-        gquic_util_varint_t *vars[] = { &spec->ecn.ect[0], &spec->ecn.ect[1], &spec->ecn.ecn_ce };
+        gquic_varint_t *vars[] = { &spec->ecn.ect[0], &spec->ecn.ect[1], &spec->ecn.ecn_ce };
         for (i = 0; i < 3; i++) {
             serialize_len = gquic_varint_serialize(vars[i], buf + off, size - off);
             if (serialize_len <= 0) {
@@ -102,7 +102,7 @@ static ssize_t gquic_frame_ack_deserialize(const gquic_abstract_frame_ptr_t fram
         return -3;
     }
     GQUIC_FRAME_META(spec).type = type;
-    gquic_util_varint_t *vars[] = { &spec->largest_ack, &spec->delay, &spec->count, &spec->first_range };
+    gquic_varint_t *vars[] = { &spec->largest_ack, &spec->delay, &spec->count, &spec->first_range };
     size_t i = 0;
     for (i = 0; i < 4; i++) {
         deserialize_len = gquic_varint_deserialize(vars[i], buf + off, size - off);
@@ -116,7 +116,7 @@ static ssize_t gquic_frame_ack_deserialize(const gquic_abstract_frame_ptr_t fram
             return -4;
         }
         gquic_frame_range_t *range = gquic_list_prev(GQUIC_LIST_PAYLOAD(&spec->range));
-        gquic_util_varint_t *vars[] = { &range->gap, &range->range };
+        gquic_varint_t *vars[] = { &range->gap, &range->range };
         int j = 0;
         for (j = 0; j < 2; j++) {
             deserialize_len = gquic_varint_deserialize(vars[i], buf + off, size - off);
@@ -127,7 +127,7 @@ static ssize_t gquic_frame_ack_deserialize(const gquic_abstract_frame_ptr_t fram
         }
     }
     if (GQUIC_FRAME_META(spec).type == 0x03) {
-        gquic_util_varint_t *vars[] = { &spec->ecn.ect[0], &spec->ecn.ect[1], &spec->ecn.ecn_ce };
+        gquic_varint_t *vars[] = { &spec->ecn.ect[0], &spec->ecn.ect[1], &spec->ecn.ecn_ce };
         for (i = 0; i < 3; i++) {
             deserialize_len = gquic_varint_deserialize(vars[i], buf + off, size - off);
             if (deserialize_len <= 0) {

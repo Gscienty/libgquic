@@ -3,7 +3,7 @@
 
 #include "util/varint.h"
 
-typedef gquic_util_varint_t gquic_stream_id_t;
+typedef gquic_varint_t gquic_stream_id_t;
 typedef unsigned char gquic_stream_type_t;
 
 
@@ -13,5 +13,18 @@ typedef unsigned char gquic_stream_type_t;
 #define GQUIC_STREAM_BIDIRECTIONAL  0x00
 #define GQUIC_STREAM_UNIDIRECTIONAL 0x02
 
+#define GQUIC_STREAM_SENDING_STATE_READY 0x00
+#define GQUIC_STREAM_SENDING_STATE_SEND 0x01
+#define GQUIC_STREAM_SENDING_STATE_DATA_SENT 0x02
+#define GQUIC_STREAM_SENDING_STATE_DATA_RECVD 0x03
+#define GQUIC_STREAM_SENDING_STATE_RESET_SENT 0x04
+#define GQUIC_STREAM_SENDING_STATE_RESET_RECVD 0x05
+
+#define GQUIC_STREAM_RECVING_STATE_RECV 0x06
+#define GQUIC_STREAM_RECVING_STATE_SIZE_KNOWN 0x07
+#define GQUIC_STREAM_RECVING_STATE_DATA_RECVD 0x08
+#define GQUIC_STREAM_RECVING_STATE_DATA_READ 0x09
+#define GQUIC_STREAM_RECVING_STATE_RESET_RECVD 0x0a
+#define GQUIC_STREAM_RECVING_STATE_RESET_READ 0x0b
 
 #endif

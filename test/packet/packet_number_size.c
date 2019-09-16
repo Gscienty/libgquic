@@ -1,4 +1,4 @@
-#include "util/varint.h"
+#include "packet/packet_number.h"
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -6,9 +6,7 @@ int main(int argc, char **argv) {
     if (argc != 2) {
         return -1;
     }
-    gquic_varint_t var;
-    gquic_varint_wrap(&var, atol(argv[1]));
-    printf("%d\n", var.length);
-
+    gquic_packet_number_t pn = atol(argv[1]);
+    printf("%ld\n", gquic_packet_number_size(pn));
     return 0;
 }

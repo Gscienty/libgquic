@@ -45,7 +45,7 @@ static ssize_t gquic_frame_new_connection_id_serialize(const gquic_abstract_fram
         return -3;
     }
     ((gquic_frame_type_t *) buf)[off++] = GQUIC_FRAME_META(spec).type;
-    gquic_util_varint_t *vars[2] = { &spec->seq, &spec->prior };
+    gquic_varint_t *vars[2] = { &spec->seq, &spec->prior };
     int i = 0;
     for (i = 0; i < 2; i++) {
         serialize_len = gquic_varint_serialize(vars[i], buf + off, size - off);
@@ -74,7 +74,7 @@ static ssize_t gquic_frame_new_connection_id_deserialize(gquic_abstract_frame_pt
     if (GQUIC_FRAME_META(spec).type != ((gquic_frame_type_t *) buf)[off++]) {
         return -3;
     }
-    gquic_util_varint_t *vars[] = { &spec->seq, &spec->prior };
+    gquic_varint_t *vars[] = { &spec->seq, &spec->prior };
     int i = 0;
     for (i = 0; i < 2; i++) {
         deserialize_len = gquic_varint_deserialize(vars[i], buf + off, size - off);

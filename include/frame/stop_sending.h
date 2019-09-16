@@ -7,7 +7,7 @@
 typedef struct gquic_frame_stop_sending_s gquic_frame_stop_sending_t;
 struct gquic_frame_stop_sending_s {
     gquic_stream_id_t id;
-    gquic_util_varint_t errcode;
+    gquic_varint_t errcode;
 };
 
 gquic_frame_stop_sending_t *gquic_frame_stop_sending_alloc();

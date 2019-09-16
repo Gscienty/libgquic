@@ -50,7 +50,7 @@ static ssize_t gquic_frame_connection_close_serialize(const gquic_abstract_frame
     }
     ((gquic_frame_type_t *) buf)[off++] = GQUIC_FRAME_META(spec).type;
 
-    gquic_util_varint_t *vars[] = { &spec->errcode, (GQUIC_FRAME_META(spec).type == 0x1d ? &spec->type : NULL), &spec->phase_len };
+    gquic_varint_t *vars[] = { &spec->errcode, (GQUIC_FRAME_META(spec).type == 0x1d ? &spec->type : NULL), &spec->phase_len };
     int i;
     for (i = 0; i < 3; i++) {
         if (vars[i] == NULL) {
@@ -82,7 +82,7 @@ static ssize_t gquic_frame_connection_close_deserialize(const gquic_abstract_fra
         return -3;
     }
     GQUIC_FRAME_META(spec).type = type;
-    gquic_util_varint_t *vars[] = { &spec->errcode, (type == 0x1d ? &spec->type : NULL), &spec->phase_len };
+    gquic_varint_t *vars[] = { &spec->errcode, (type == 0x1d ? &spec->type : NULL), &spec->phase_len };
     int i = 0;
     for (i = 0; i < 3; i++) {
         if (vars[i] == NULL) {

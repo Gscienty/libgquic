@@ -45,7 +45,7 @@ static ssize_t gquic_frame_crypto_serialize(const gquic_abstract_frame_ptr_t fra
         return -3;
     }
     ((gquic_frame_type_t *) buf)[off++] = GQUIC_FRAME_META(frame).type;
-    gquic_util_varint_t *vars[] = { &spec->off, &spec->len };
+    gquic_varint_t *vars[] = { &spec->off, &spec->len };
     int i;
     for (i = 0; i < 2; i++) {
         serialize_len = gquic_varint_serialize(vars[i], buf + off, size - off);
@@ -71,7 +71,7 @@ static ssize_t gquic_frame_crypto_deserialize(const gquic_abstract_frame_ptr_t f
     if (((gquic_frame_type_t *) buf)[off++] != GQUIC_FRAME_META(frame).type) {
         return -3;
     }
-    gquic_util_varint_t *vars[] = { &spec->off, &spec->len };
+    gquic_varint_t *vars[] = { &spec->off, &spec->len };
     int i;
     for (i = 0; i < 2; i++) {
         deserialize_len = gquic_varint_deserialize(vars[i], buf + off, size - off);

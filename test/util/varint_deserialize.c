@@ -19,7 +19,7 @@ int main(int argc, char **argv) {
         ((unsigned char *) buf)[i / 2] |= CHAR_2_HEX(argv[1][i + 1]);
     }
 
-    gquic_util_varint_t varint;
+    gquic_varint_t varint;
     
     gquic_varint_deserialize(&varint, buf, str_size / 2);
 

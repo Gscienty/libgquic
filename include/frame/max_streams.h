@@ -5,7 +5,7 @@
 
 typedef struct gquic_frame_max_streams_s gquic_frame_max_streams_t;
 struct gquic_frame_max_streams_s {
-    gquic_util_varint_t max;
+    gquic_varint_t max;
 };
 
 gquic_frame_max_streams_t *gquic_frame_max_streams_alloc();

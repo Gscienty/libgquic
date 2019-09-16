@@ -7,8 +7,8 @@
 typedef struct gquic_frame_reset_stream_s gquic_frame_reset_stream_t;
 struct gquic_frame_reset_stream_s {
     gquic_stream_id_t id;
-    gquic_util_varint_t errcode;
-    gquic_util_varint_t final_size;
+    gquic_varint_t errcode;
+    gquic_varint_t final_size;
 };
 
 gquic_frame_reset_stream_t *gquic_frame_reset_stream_alloc();

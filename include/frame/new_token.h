@@ -5,7 +5,7 @@
 
 typedef struct gquic_frame_new_token_s gquic_frame_new_token_t;
 struct gquic_frame_new_token_s {
-    gquic_util_varint_t len;
+    gquic_varint_t len;
     void *token;
 };
 
