@@ -39,6 +39,9 @@ static ssize_t gquic_frame_max_data_serialize(const gquic_abstract_frame_ptr_t f
     if (buf == NULL) {
         return -2;
     }
+    if (gquic_frame_size(spec) > size) {
+        return -3;
+    }
     ((gquic_frame_type_t *) buf)[off++] = GQUIC_FRAME_META(spec).type;
     serialize_len = gquic_varint_serialize(&spec->max, buf + off, size - off);
     if (serialize_len <= 0) {
@@ -80,6 +83,5 @@ static int gquic_frame_max_data_release(gquic_abstract_frame_ptr_t frame) {
     if (frame == NULL) {
         return -1;
     }
-    gquic_frame_release(frame);
     return 0;
 }

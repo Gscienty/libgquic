@@ -45,7 +45,7 @@ static ssize_t gquic_frame_connection_close_serialize(const gquic_abstract_frame
     if (buf == NULL) {
         return -2;
     }
-    if (GQUIC_FRAME_META(spec).size_func(spec) > size) {
+    if (gquic_frame_size(spec) > size) {
         return -3;
     }
     ((gquic_frame_type_t *) buf)[off++] = GQUIC_FRAME_META(spec).type;
@@ -122,6 +122,5 @@ static int gquic_frame_connection_close_release(gquic_abstract_frame_ptr_t frame
     if (spec->phase != NULL) {
         free(spec->phase);
     }
-    gquic_frame_release(spec);
     return 0;
 }

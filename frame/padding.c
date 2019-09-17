@@ -31,7 +31,7 @@ static size_t gquic_frame_padding_size(gquic_abstract_frame_ptr_t frame) {
 }
 
 static ssize_t gquic_frame_padding_serialize(const gquic_abstract_frame_ptr_t frame, void *offbuf, const size_t remain_size) {
-    size_t used_size = GQUIC_FRAME_META(frame).size_func(frame);
+    size_t used_size = gquic_frame_size(frame);
     if (used_size > remain_size) {
         return -1;
     }
@@ -53,6 +53,6 @@ static int gquic_frame_padding_init(gquic_abstract_frame_ptr_t frame) {
 
 static int gquic_frame_padding_release(gquic_abstract_frame_ptr_t frame) {
     (void) frame;
-    return 0;
+    return 1;
 }
 

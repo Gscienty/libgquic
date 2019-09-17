@@ -53,6 +53,6 @@ static int gquic_frame_ping_init(gquic_abstract_frame_ptr_t frame) {
 
 static int gquic_frame_ping_release(gquic_abstract_frame_ptr_t frame) {
     (void) frame;
-    return 0;
+    return 1;
 }
 

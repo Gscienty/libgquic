@@ -41,7 +41,7 @@ static ssize_t gquic_frame_new_token_serialize(const gquic_abstract_frame_ptr_t 
     if (buf == NULL) {
         return -2;
     }
-    if (GQUIC_FRAME_META(spec).size_func(spec) > size) {
+    if (gquic_frame_size(spec) > size) {
         return -3;
     }
     ((gquic_frame_type_t *) buf)[off++] = GQUIC_FRAME_META(spec).type;
@@ -100,6 +100,5 @@ static int gquic_frame_new_token_release(gquic_abstract_frame_ptr_t frame) {
     if (spec->token != NULL) {
         free(spec->token);
     }
-    gquic_frame_release(frame);
     return 0;
 }

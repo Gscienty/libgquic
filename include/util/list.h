@@ -12,7 +12,7 @@ struct gquic_list_s {
     size_t payload_size;
 };
 
-#define GQUIC_LIST_PAYLOAD(p) ((void *) (((gquic_abstract_list_ptr_t) (p)) + (sizeof(gquic_list_t))))
+#define GQUIC_LIST_PAYLOAD(p) (((gquic_abstract_list_ptr_t) (p)) + (sizeof(gquic_list_t)))
 #define GQUIC_LIST_META(p) (*((gquic_list_t *) (((gquic_abstract_list_ptr_t) (p)) - (sizeof(gquic_list_t)))))
 #define GQUIC_LIST_FOREACH(p, h) for ((p) = gquic_list_next(GQUIC_LIST_PAYLOAD((h))); (p) != GQUIC_LIST_PAYLOAD((h)); (p) = gquic_list_next((p)))
 

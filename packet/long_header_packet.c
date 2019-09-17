@@ -178,11 +178,10 @@ static ssize_t gquic_packet_initial_header_serialize(const gquic_packet_initial_
         return -4;
     }
     off += serialize_len;
-
     gquic_big_endian_transfer(buf + off, &header->pn, gquic_packet_number_size(header->pn));
-
     return off + gquic_packet_number_size(header->pn);
 }
+
 static ssize_t gquic_packet_0rtt_header_serialize(const gquic_packet_0rtt_header_t *header, void *buf, const size_t size) {
     size_t off = 0;
     ssize_t serialize_len = 0;
@@ -200,9 +199,7 @@ static ssize_t gquic_packet_0rtt_header_serialize(const gquic_packet_0rtt_header
         return -4;
     }
     off += serialize_len;
-    
     gquic_big_endian_transfer(buf + off, &header->pn, gquic_packet_number_size(header->pn));
-
     return off + gquic_packet_number_size(header->pn);
 }
 
@@ -223,9 +220,7 @@ static ssize_t gquic_packet_handshake_header_serialize(const gquic_packet_handsh
         return -4;
     }
     off += serialize_len;
-    
     gquic_big_endian_transfer(buf + off, &header->pn, gquic_packet_number_size(header->pn));
-
     return off + gquic_packet_number_size(header->pn);
 }
 
@@ -245,8 +240,113 @@ static ssize_t gquic_packet_retry_header_serialize(const gquic_packet_retry_head
     return 1 + header->odcid_len;
 }
 
-static ssize_t gquic_packet_initial_header_deserialize(gquic_packet_initial_header_t *, const void *, const size_t);
-static ssize_t gquic_packet_0rtt_header_deserialize(gquic_packet_0rtt_header_t *, const void *, const size_t);
-static ssize_t gquic_packet_handshake_header_deserialize(gquic_packet_handshake_header_t *, const void *, const size_t);
-static ssize_t gquic_packet_retry_header_deserialize(gquic_packet_retry_header_t *, const void *, const size_t);
+static ssize_t gquic_packet_initial_header_deserialize(gquic_packet_initial_header_t *header, const void *buf, const size_t size) {
+    size_t off = 0;
+    ssize_t deserialize_len = 0;
+    if (header == NULL) {
+        return -1;
+    }
+    if (buf == NULL) {
+        return -2;
+    }
+    deserialize_len = gquic_varint_deserialize(&header->token_len, buf + off, size - off);
+    if (deserialize_len <= 0) {
+        return -3;
+    }
+    off += deserialize_len;
+    if (header->token_len.value > size - off) {
+        return -3;
+    }
+    header->token = malloc(header->token_len.value);
+    if (header->token == NULL) {
+        return -3;
+    }
+    memcpy(header->token, buf + off, header->token_len.value);
+    off += header->token_len.value;
+    deserialize_len = gquic_varint_deserialize(&header->len, buf + off, size - off);
+    if (deserialize_len <= 0) {
+        return -3;
+    }
+    off += deserialize_len;
+    deserialize_len = gquic_packet_number_flag_to_size(GQUIC_LONG_HEADER_COMMON(header).flag);
+    if ((size_t) deserialize_len > size) {
+        return -3;
+    }
+    header->pn = 0;
+    if (gquic_big_endian_transfer(&header->pn, buf + off, deserialize_len) != 0) {
+        return -3;
+    }
+    off += deserialize_len;
+    return off;
+}
+
+static ssize_t gquic_packet_0rtt_header_deserialize(gquic_packet_0rtt_header_t *header, const void *buf, const size_t size) {
+    size_t off = 0;
+    ssize_t deserialize_len = 0;
+    if (header == NULL) {
+        return -1;
+    }
+    if (buf == NULL) {
+        return -2;
+    }
+    deserialize_len = gquic_varint_deserialize(&header->len, buf + off, size - off);
+    if (deserialize_len <= 0) {
+        return -3;
+    }
+    off += deserialize_len;
+    deserialize_len = gquic_packet_number_flag_to_size(GQUIC_LONG_HEADER_COMMON(header).flag);
+    if ((size_t) deserialize_len > size) {
+        return -3;
+    }
+    header->pn = 0;
+    if (gquic_big_endian_transfer(&header->pn, buf + off, deserialize_len) != 0) {
+        return -3;
+    }
+    off += deserialize_len;
+    return off;
+}
+static ssize_t gquic_packet_handshake_header_deserialize(gquic_packet_handshake_header_t *header, const void *buf, const size_t size) {
+    size_t off = 0;
+    ssize_t deserialize_len = 0;
+    if (header == NULL) {
+        return -1;
+    }
+    if (buf == NULL) {
+        return -2;
+    }
+    deserialize_len = gquic_varint_deserialize(&header->len, buf + off, size - off);
+    if (deserialize_len <= 0) {
+        return -3;
+    }
+    off += deserialize_len;
+    deserialize_len = gquic_packet_number_flag_to_size(GQUIC_LONG_HEADER_COMMON(header).flag);
+    if ((size_t) deserialize_len > size) {
+        return -3;
+    }
+    header->pn = 0;
+    if (gquic_big_endian_transfer(&header->pn, buf + off, deserialize_len) != 0) {
+        return -3;
+    }
+    off += deserialize_len;
+    return off;
+}
+
+static ssize_t gquic_packet_retry_header_deserialize(gquic_packet_retry_header_t *header, const void *buf, const size_t size) {
+    size_t off = 0;
+    if (header == NULL) {
+        return -1;
+    }
+    if (buf == NULL) {
+        return -2;
+    }
+    if (1 > size) {
+        return -3;
+    }
+    header->odcid_len = ((unsigned char *) buf)[off++];
+    if (header->odcid_len > size - off) {
+        return -3;
+    }
+    memcpy(header->odcid, buf + off, header->odcid_len);
+    return off + header->odcid_len;
+}
 

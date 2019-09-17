@@ -39,7 +39,7 @@ static ssize_t gquic_frame_path_response_serialize(const gquic_abstract_frame_pt
     if (buf == NULL) {
         return -2;
     }
-    if (GQUIC_FRAME_META(spec).size_func(spec) > size) {
+    if (gquic_frame_size(spec) > size) {
         return -3;
     }
     ((gquic_frame_type_t *) buf)[off++] = GQUIC_FRAME_META(spec).type;
@@ -56,7 +56,7 @@ static ssize_t gquic_frame_path_response_deserialize(gquic_abstract_frame_ptr_t 
     if (buf == NULL) {
         return -2;
     }
-    if (GQUIC_FRAME_META(spec).size_func(spec) > size) {
+    if (gquic_frame_size(spec) > size) {
         return -3;
     }
     if (GQUIC_FRAME_META(spec).type != ((gquic_frame_type_t *) buf)[off++]) {
@@ -75,7 +75,6 @@ static int gquic_frame_path_response_release(gquic_abstract_frame_ptr_t frame) {
     if (frame == NULL) {
         return -1;
     }
-    gquic_frame_release(frame);
     return 0;
 }
 

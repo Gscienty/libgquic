@@ -28,7 +28,16 @@ struct gquic_frame_meta_s {
 #define GQUIC_FRAME_SPEC(frame_type_t, ptr) (*((frame_type_t *) (((void *) ptr) + sizeof(gquic_frame_meta_t))))
 
 gquic_abstract_frame_ptr_t gquic_frame_alloc(size_t size);
+
 int gquic_frame_release(gquic_abstract_frame_ptr_t frame);
+
+int gquic_frame_init(gquic_abstract_frame_ptr_t frame);
+
+ssize_t gquic_frame_serialize(const gquic_abstract_frame_ptr_t frame, void *buf, const size_t size);
+
+ssize_t gquic_frame_deserialize(gquic_abstract_frame_ptr_t frame, const void *buf, const size_t size);
+
+size_t gquic_frame_size(gquic_abstract_frame_ptr_t frame);
 
 #endif
 

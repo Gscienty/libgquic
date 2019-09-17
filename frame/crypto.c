@@ -41,7 +41,7 @@ static ssize_t gquic_frame_crypto_serialize(const gquic_abstract_frame_ptr_t fra
     if (buf == NULL) {
         return -2;
     }
-    if (GQUIC_FRAME_META(frame).size_func(frame) > size) {
+    if (gquic_frame_size(spec) > size) {
         return -3;
     }
     ((gquic_frame_type_t *) buf)[off++] = GQUIC_FRAME_META(frame).type;
@@ -110,6 +110,5 @@ static int gquic_frame_crypto_release(gquic_abstract_frame_ptr_t frame) {
     if (spec->data != NULL) {
         free(spec->data);
     }
-    gquic_frame_release(spec);
     return 0;
 }

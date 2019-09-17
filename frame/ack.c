@@ -49,7 +49,7 @@ static ssize_t gquic_frame_ack_serialize(const gquic_abstract_frame_ptr_t frame,
     if (buf == NULL) {
         return -2;
     }
-    if (GQUIC_FRAME_META(spec).size_func(spec) > size) {
+    if (gquic_frame_size(spec) > size) {
         return -3;
     }
     ((gquic_frame_type_t *) buf)[off++] = GQUIC_FRAME_META(spec).type;
@@ -86,6 +86,7 @@ static ssize_t gquic_frame_ack_serialize(const gquic_abstract_frame_ptr_t frame,
     return off;
 }
 
+#include <stdio.h>
 static ssize_t gquic_frame_ack_deserialize(const gquic_abstract_frame_ptr_t frame, const void *buf, const size_t size) {
     size_t off = 0;
     ssize_t deserialize_len = 0;
@@ -111,21 +112,22 @@ static ssize_t gquic_frame_ack_deserialize(const gquic_abstract_frame_ptr_t fram
         }
         off += deserialize_len;
     }
-    for (i = 0; i < spec->count.value; i++) {
-        if (gquic_list_insert_before(&spec->range, gquic_list_alloc(sizeof(gquic_frame_range_t))) != 0) {
+    for (i = 0; i < spec->count.value - 1; i++) {
+        gquic_frame_range_t *range = gquic_list_alloc(sizeof(gquic_frame_range_t));
+        if (gquic_list_insert_before(&spec->range, range) != 0) {
             return -4;
         }
-        gquic_frame_range_t *range = gquic_list_prev(GQUIC_LIST_PAYLOAD(&spec->range));
-        gquic_varint_t *vars[] = { &range->gap, &range->range };
+        gquic_varint_t *range_vars[] = { &range->gap, &range->range };
         int j = 0;
         for (j = 0; j < 2; j++) {
-            deserialize_len = gquic_varint_deserialize(vars[i], buf + off, size - off);
+            deserialize_len = gquic_varint_deserialize(range_vars[j], buf + off, size - off);
             if (deserialize_len <= 0) {
                 return -4;
             }
             off += deserialize_len;
         }
     }
+
     if (GQUIC_FRAME_META(spec).type == 0x03) {
         gquic_varint_t *vars[] = { &spec->ecn.ect[0], &spec->ecn.ect[1], &spec->ecn.ecn_ce };
         for (i = 0; i < 3; i++) {
@@ -163,7 +165,6 @@ static int gquic_frame_ack_release(gquic_abstract_frame_ptr_t frame) {
     while (gquic_list_next(GQUIC_LIST_PAYLOAD(&spec->range)) != GQUIC_LIST_PAYLOAD(&spec->range)) {
         gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&spec->range)));
     }
-    gquic_frame_release(spec);
     return 0;
 }
 
