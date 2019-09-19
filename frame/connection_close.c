@@ -9,8 +9,8 @@ static ssize_t gquic_frame_connection_close_deserialize(const gquic_abstract_fra
 static int gquic_frame_connection_close_init(gquic_abstract_frame_ptr_t);
 static int gquic_frame_connection_close_release(gquic_abstract_frame_ptr_t);
 
-gquic_frame_connecion_close_t *gquic_frame_connection_close_alloc() {
-    gquic_frame_connecion_close_t *frame = gquic_frame_alloc(sizeof(gquic_frame_connecion_close_t));
+gquic_frame_connection_close_t *gquic_frame_connection_close_alloc() {
+    gquic_frame_connection_close_t *frame = gquic_frame_alloc(sizeof(gquic_frame_connection_close_t));
     if (frame == NULL) {
         return NULL;
     }
@@ -24,7 +24,7 @@ gquic_frame_connecion_close_t *gquic_frame_connection_close_alloc() {
 }
 
 static size_t gquic_frame_connection_close_size(gquic_abstract_frame_ptr_t frame) {
-    gquic_frame_connecion_close_t *spec = frame;
+    gquic_frame_connection_close_t *spec = frame;
     if (spec == NULL) {
         return 0;
     }
@@ -38,7 +38,7 @@ static size_t gquic_frame_connection_close_size(gquic_abstract_frame_ptr_t frame
 static ssize_t gquic_frame_connection_close_serialize(const gquic_abstract_frame_ptr_t frame, void *buf, const size_t size) {
     size_t off = 0;
     ssize_t serialize_len = 0;
-    gquic_frame_connecion_close_t *spec = frame;
+    gquic_frame_connection_close_t *spec = frame;
     if (spec == NULL) {
         return -1;
     }
@@ -70,7 +70,7 @@ static ssize_t gquic_frame_connection_close_deserialize(const gquic_abstract_fra
     size_t off = 0;
     ssize_t deserialize_len = 0;
     gquic_frame_type_t type;
-    gquic_frame_connecion_close_t *spec = frame;
+    gquic_frame_connection_close_t *spec = frame;
     if (spec == NULL) {
         return -1;
     }
@@ -103,7 +103,7 @@ static ssize_t gquic_frame_connection_close_deserialize(const gquic_abstract_fra
 }
 
 static int gquic_frame_connection_close_init(gquic_abstract_frame_ptr_t frame) {
-    gquic_frame_connecion_close_t *spec = frame;
+    gquic_frame_connection_close_t *spec = frame;
     if (spec == NULL) {
         return -1;
     }
@@ -115,7 +115,7 @@ static int gquic_frame_connection_close_init(gquic_abstract_frame_ptr_t frame) {
 }
 
 static int gquic_frame_connection_close_release(gquic_abstract_frame_ptr_t frame) {
-    gquic_frame_connecion_close_t *spec = frame;
+    gquic_frame_connection_close_t *spec = frame;
     if (spec == NULL) {
         return -1;
     }

@@ -3,7 +3,7 @@
 
 #include "util/varint.h"
 
-typedef struct gquic_frame_connection_close_s gquic_frame_connecion_close_t;
+typedef struct gquic_frame_connection_close_s gquic_frame_connection_close_t;
 struct gquic_frame_connection_close_s {
     gquic_varint_t errcode;
     gquic_varint_t type;
@@ -11,6 +11,6 @@ struct gquic_frame_connection_close_s {
     char *phase;
 };
 
-gquic_frame_connecion_close_t *gquic_frame_connection_close_alloc();
+gquic_frame_connection_close_t *gquic_frame_connection_close_alloc();
 
 #endif
