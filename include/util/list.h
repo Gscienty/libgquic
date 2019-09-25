@@ -20,7 +20,7 @@ gquic_abstract_list_ptr_t gquic_list_alloc(size_t size);
 int gquic_list_release(gquic_abstract_list_ptr_t list);
 
 int gquic_list_head_init(gquic_list_t *head);
-int gquic_list_head_empty(gquic_list_t *head);
+int gquic_list_head_empty(const gquic_list_t *head);
 
 int gquic_list_insert_after(gquic_list_t *ref, gquic_abstract_list_ptr_t node);
 int gquic_list_insert_before(gquic_list_t *ref, gquic_abstract_list_ptr_t node);

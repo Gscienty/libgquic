@@ -20,7 +20,7 @@ int gquic_list_head_init(gquic_list_t *head) {
     return 0;
 }
 
-int gquic_list_head_empty(gquic_list_t *head) {
+int gquic_list_head_empty(const gquic_list_t *head) {
     if (head == NULL) {
         return 0;
     }
