@@ -11,4 +11,6 @@ struct gquic_str_s {
 
 int gquic_str_init(gquic_str_t *str);
 
+int gquic_str_alloc(gquic_str_t *str, size_t size);
+
 #endif
