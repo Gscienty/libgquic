@@ -170,11 +170,10 @@ ssize_t gquic_tls_client_hello_msg_deserialize(gquic_tls_client_hello_msg_t *msg
         return -2;
     }
 
-    gquic_big_endian_transfer(&ret, buf + off, 3);
-    if ((size_t) ret > size) {
+    __gquic_recovery_bytes(&ret, 3, buf, size, &off);
+    if ((size_t) ret > size - off) {
         return -3;
     }
-    off += 3;
     if ((ret = gquic_tls_client_hello_payload_deserialize(msg, buf + off, ret)) <= 0) {
         return -3;
     }
@@ -779,6 +778,9 @@ static ssize_t gquic_tls_client_hello_optional_deserialize(gquic_tls_client_hell
                 if (__gquic_recovery_str(&((gquic_tls_key_share_t *) field)->data, ((gquic_tls_key_share_t *) field)->data.size, buf, size, &off) != 0) {
                     return -2;
                 }
+                if (gquic_list_insert_before(&msg->key_shares, field) != 0) {
+                    return -2;
+                }
             }
             break;
 
@@ -817,6 +819,9 @@ static ssize_t gquic_tls_client_hello_optional_deserialize(gquic_tls_client_hell
                     return -2;
                 }
                 if (__gquic_recovery_bytes(&((gquic_tls_psk_identity_t *) field)->obfuscated_tickett_age, 4, buf, size, &off) != 0) {
+                    return -2;
+                }
+                if (gquic_list_insert_before(&msg->psk_identities, field) != 0) {
                     return -2;
                 }
             }

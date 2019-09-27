@@ -30,11 +30,11 @@
 #define GQUIC_TLS_EXTENSION_NEXT_PROTO_NEG 0x3374
 #define GQUIC_TLS_EXTENSION_RENEGOTIATION_INFO 0xff01
 
-typedef uint16_t curve_id_t;
+typedef uint16_t gquic_curve_id_t;
 
 typedef struct gquic_tls_key_share_s gquic_tls_key_share_t;
 struct gquic_tls_key_share_s {
-    curve_id_t group;
+    gquic_curve_id_t group;
     gquic_str_t data;
 };
 
