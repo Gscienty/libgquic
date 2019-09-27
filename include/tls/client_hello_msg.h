@@ -36,7 +36,9 @@ struct gquic_tls_client_hello_msg_s {
 };
 
 int gquic_tls_client_hello_msg_init(gquic_tls_client_hello_msg_t *msg);
+int gquic_tls_client_hello_msg_reset(gquic_tls_client_hello_msg_t *msg);
 ssize_t gquic_tls_client_hello_msg_size(const gquic_tls_client_hello_msg_t *msg);
 ssize_t gquic_tls_client_hello_msg_serialize(const gquic_tls_client_hello_msg_t *msg, void *buf, const size_t size);
+ssize_t gquic_tls_client_hello_msg_deserialize(gquic_tls_client_hello_msg_t *msg, const void *buf, const size_t size);
 
 #endif
