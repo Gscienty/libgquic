@@ -24,3 +24,15 @@ int gquic_str_alloc(gquic_str_t *str, size_t size) {
     }
     return 0;
 }
+
+int gquic_str_reset(gquic_str_t *str) {
+    if (str == NULL) {
+        return -1;
+    }
+
+    if (str->val != NULL) {
+        free(str->val);
+    }
+    gquic_str_init(str);
+    return 0;
+}
