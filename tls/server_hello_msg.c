@@ -337,8 +337,6 @@ ssize_t gquic_tls_server_hello_msg_deserialize(gquic_tls_server_hello_msg_t *msg
 static ssize_t gquic_tls_server_hello_payload_deserialize(gquic_tls_server_hello_msg_t *msg, const void *buf, const size_t size) {
     size_t off = 0;
     size_t prefix_len = 0;
-    size_t _;
-    void *field;
     if (msg == NULL || buf == NULL) {
         return -1;
     }
