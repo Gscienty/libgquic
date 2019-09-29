@@ -133,7 +133,13 @@ static ssize_t gquic_tls_encrypt_ext_msg_optional_deserialize(gquic_tls_encrypt_
             break;
 
         default:
-            field = gquic_list_alloc(sizeof(gquic_tls_extension_t));        
+            if ((field = gquic_list_alloc(sizeof(gquic_tls_extension_t))) == NULL) {
+                return -2;
+            }
+            field->type = 0;
+            if (gquic_str_init(&field->data) != 0) {
+                return -2;
+            }
             if (__gquic_recovery_bytes(&field->type, 2, buf, size, &off) != 0) {
                 return -2;
             }

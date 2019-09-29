@@ -542,6 +542,7 @@ static ssize_t gquic_tls_client_hello_payload_deserialize(gquic_tls_client_hello
         if ((field = gquic_list_alloc(sizeof(u_int16_t))) == NULL) {
             return -2;
         }
+        *(u_int16_t *) field = 0;
         if (__gquic_recovery_bytes(field, 2, buf, size, &off) != 0) {
             return -2;
         }
@@ -622,6 +623,7 @@ static ssize_t gquic_tls_client_hello_optional_deserialize(gquic_tls_client_hell
                 if ((field = gquic_list_alloc(sizeof(u_int16_t))) == NULL) {
                     return -2;
                 }
+                *(u_int16_t *) field = 0;
                 if (__gquic_recovery_bytes(field, 2, buf, size, &off) != 0) {
                     return -2;
                 }
@@ -660,6 +662,7 @@ static ssize_t gquic_tls_client_hello_optional_deserialize(gquic_tls_client_hell
                 if ((field = gquic_list_alloc(sizeof(u_int16_t))) == NULL) {
                     return -2;
                 }
+                *(u_int16_t *) field = 0;
                 if (__gquic_recovery_bytes(field, 2, buf, size, &off) != 0) {
                     return -2;
                 }
@@ -679,6 +682,7 @@ static ssize_t gquic_tls_client_hello_optional_deserialize(gquic_tls_client_hell
                 if ((field = gquic_list_alloc(sizeof(u_int16_t))) == NULL) {
                     return -2;
                 }
+                *(u_int16_t *) field = 0;
                 if (__gquic_recovery_bytes(field, 2, buf, size, &off) != 0) {
                     return -2;
                 }
@@ -736,6 +740,7 @@ static ssize_t gquic_tls_client_hello_optional_deserialize(gquic_tls_client_hell
                 if ((field = gquic_list_alloc(sizeof(u_int16_t))) == NULL) {
                     return -2;
                 }
+                *(u_int16_t *) field = 0;
                 if (__gquic_recovery_bytes(field, 2, buf, size, &off) != 0) {
                     return -2;
                 }

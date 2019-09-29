@@ -413,6 +413,9 @@ static ssize_t gquic_tls_server_hello_optional_deserialize(gquic_tls_server_hell
                 if ((field = gquic_list_alloc(sizeof(gquic_str_t))) == NULL) {
                     return -2;
                 }
+                if (gquic_str_init(field) != 0) {
+                    return -2;
+                }
                 if (__gquic_recovery_bytes(&((gquic_str_t *) field)->size, 1, buf, size, &off) != 0) {
                     return -2;
                 }
@@ -463,6 +466,9 @@ static ssize_t gquic_tls_server_hello_optional_deserialize(gquic_tls_server_hell
             }
             for (_ = off; off - _ < prefix_len; _++) {
                 if ((field = gquic_list_alloc(sizeof(gquic_str_t))) == NULL) {
+                    return -2;
+                }
+                if (gquic_str_init(field) != 0) {
                     return -2;
                 }
                 if (__gquic_recovery_bytes(&((gquic_str_t *) field)->size, 2, buf, size, &off) != 0) {

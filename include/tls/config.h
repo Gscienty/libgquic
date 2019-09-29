@@ -46,6 +46,8 @@
 #define GQUIC_TLS_EXTENSION_NEXT_PROTO_NEG 0x3374
 #define GQUIC_TLS_EXTENSION_RENEGOTIATION_INFO 0xff01
 
+#define GQUIC_TLS_CERT_STATUS_TYPE_OCSP 0x01
+
 typedef uint16_t gquic_curve_id_t;
 
 typedef struct gquic_tls_key_share_s gquic_tls_key_share_t;

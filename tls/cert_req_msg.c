@@ -137,7 +137,8 @@ ssize_t gquic_tls_cert_req_msg_deserialize(gquic_tls_cert_req_msg_t *msg, const 
     size_t off = 0;
     size_t prefix_len = 0;
     size_t _ = 0;
-    ssize_t ret = 0;
+    size_t start_position = 0;
+    size_t len = 0;
     u_int16_t opt_type = 0;
     void *field = NULL;
     if (msg == NULL || buf == NULL) {
@@ -147,13 +148,14 @@ ssize_t gquic_tls_cert_req_msg_deserialize(gquic_tls_cert_req_msg_t *msg, const 
         return -2;
     }
     
-    if (__gquic_recovery_bytes(&ret, 3, buf, size, &off) != 0) {
+    if (__gquic_recovery_bytes(&len, 3, buf, size, &off) != 0) {
         return -3;
     }
-    if ((size_t) ret > size - off) {
+    if (len > size - off) {
         return -3;
     }
-    while (off < size) {
+    start_position = off;
+    while (off - start_position < len) {
         opt_type = 0;
         if (__gquic_recovery_bytes(&opt_type, 2, buf, size, &off) != 0) {
             return -2;
@@ -181,6 +183,7 @@ ssize_t gquic_tls_cert_req_msg_deserialize(gquic_tls_cert_req_msg_t *msg, const 
                 if ((field = gquic_list_alloc(sizeof(u_int16_t))) == NULL) {
                     return -2;
                 }
+                *(u_int16_t *) field = 0;
                 if (__gquic_recovery_bytes(field, 2, buf, size, &off) != 0) {
                     return -2;
                 }
@@ -200,6 +203,7 @@ ssize_t gquic_tls_cert_req_msg_deserialize(gquic_tls_cert_req_msg_t *msg, const 
                 if ((field = gquic_list_alloc(sizeof(u_int16_t))) == NULL) {
                     return -2;
                 }
+                *(u_int16_t *) field = 0;
                 if (__gquic_recovery_bytes(field, 2, buf, size, &off) != 0) {
                     return -2;
                 }
