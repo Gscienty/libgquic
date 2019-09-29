@@ -58,7 +58,7 @@ ssize_t gquic_tls_cert_verify_msg_deserialize(gquic_tls_cert_verify_msg_t *msg, 
     if (msg == NULL || buf == NULL) {
         return -1;
     }
-    if (((unsigned char *) buf)[off++] != GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT_REQ) {
+    if (((unsigned char *) buf)[off++] != GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT_VERIFY) {
         return -2;
     }
     off += 3;

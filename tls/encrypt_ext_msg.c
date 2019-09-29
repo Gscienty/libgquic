@@ -55,7 +55,6 @@ ssize_t gquic_tls_encrypt_ext_msg_serialize(const gquic_tls_encrypt_ext_msg_t *m
         return -2;
     }
     gquic_list_head_init(&prefix_len_stack);
-    // server_hello
     __gquic_fill_1byte(buf, &off, GQUIC_TLS_HANDSHAKE_MSG_TYPE_ENCRYPTED_EXTS);
 
     __gquic_store_prefix_len(&prefix_len_stack, &off, 3);

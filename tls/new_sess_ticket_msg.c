@@ -2,18 +2,13 @@
 #include "tls/_msg_serialize_util.h"
 #include "tls/_msg_deserialize_util.h"
 #include "tls/config.h"
-#include "util/list.h"
 #include <unistd.h>
 
 int gquic_tls_new_sess_ticket_msg_init(gquic_tls_new_sess_ticket_msg_t *msg) {
     if (msg == NULL) {
         return -1;
     }
-    msg->age_add = 0;
-    msg->lifetime = 0;
-    msg->max_early_data = 0;
-    gquic_str_init(&msg->label);
-    gquic_str_init(&msg->nonce);
+    gquic_str_init(&msg->ticket);
     return 0;
 }
 
@@ -21,8 +16,8 @@ int gquic_tls_new_sess_ticket_msg_reset(gquic_tls_new_sess_ticket_msg_t *msg) {
     if (msg == NULL) {
         return -1;
     }
-    gquic_str_reset(&msg->label);
-    gquic_str_reset(&msg->nonce);
+    gquic_str_reset(&msg->ticket);
+    gquic_tls_new_sess_ticket_msg_init(msg);
     return 0;
 }
 
@@ -30,7 +25,7 @@ ssize_t gquic_tls_new_sess_ticket_msg_size(const gquic_tls_new_sess_ticket_msg_t
     if (msg == NULL) {
         return -1;
     }
-    return 1 + 3 + 4 + 4 + 1 + msg->nonce.size + 2 + msg->label.size + 2 + (msg->max_early_data > 0 ? 2 + 2 + 4 : 0);
+    return 1 + 3 + 4 + 2 + msg->ticket.size;
 }
 
 ssize_t gquic_tls_new_sess_ticket_msg_serialize(const gquic_tls_new_sess_ticket_msg_t *msg, void *buf, const size_t size) {
@@ -43,71 +38,30 @@ ssize_t gquic_tls_new_sess_ticket_msg_serialize(const gquic_tls_new_sess_ticket_
         return -2;
     }
     gquic_list_head_init(&prefix_len_stack);
-
-    __gquic_fill_1byte(buf, &off, GQUIC_TLS_EXTENSION_SESS_TICKET);
+    __gquic_fill_1byte(buf, &off, GQUIC_TLS_HANDSHAKE_MSG_TYPE_NEW_SESS_TICKET);
     __gquic_store_prefix_len(&prefix_len_stack, &off, 3);
-    __gquic_fill_4byte(buf, &off, msg->lifetime);
-    __gquic_fill_4byte(buf, &off, msg->age_add);
-    __gquic_store_prefix_len(&prefix_len_stack, &off, 1);
-    __gquic_fill_str(buf, &off, &msg->nonce);
-    __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 1);
-    __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
-    __gquic_fill_str(buf, &off, &msg->label);
-    __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
-    __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
-    if (msg->max_early_data > 0) {
-        __gquic_fill_2byte(buf, &off, GQUIC_TLS_EXTENSION_EARLY_DATA);
-        __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
-        __gquic_fill_4byte(buf, &off, msg->max_early_data);
-        __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
-    }
-    __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
+    off += 4;
+    __gquic_fill_2byte(buf, &off, msg->ticket.size);
+    __gquic_fill_str(buf, &off, &msg->ticket);
     __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 3);
-
-    return off;
+    return 0;
 }
 
 ssize_t gquic_tls_new_sess_ticket_msg_deserialize(gquic_tls_new_sess_ticket_msg_t *msg, const void *buf, const size_t size) {
     size_t off = 0;
-    size_t prefix_len;
     if (msg == NULL || buf == NULL) {
         return -1;
     }
-    if (((unsigned char *) buf)[off++] != GQUIC_TLS_HANDSHAKE_MSG_TYPE_ENCRYPTED_EXTS) {
+    if (((unsigned char *) buf)[off++] != GQUIC_TLS_HANDSHAKE_MSG_TYPE_NEW_SESS_TICKET) {
         return -2;
     }
-    __gquic_recovery_bytes(&prefix_len, 3, buf, size, &off);
-    if ((size_t) prefix_len > size - off) {
-        return -3;
-    }
-    if (__gquic_recovery_bytes(&msg->lifetime, 4, buf, size, &off) != 0) {
+    off += 3 + 4;
+    if (__gquic_recovery_bytes(&msg->ticket.size, 2, buf, size, &off) != 0) {
         return -2;
     }
-    if (__gquic_recovery_bytes(&msg->age_add, 4, buf, size, &off) != 0) {
+    if (__gquic_recovery_str(&msg->ticket, msg->ticket.size, buf, size, &off) != 0) {
         return -2;
     }
-    if (__gquic_recovery_bytes(&msg->nonce.size, 1, buf, size, &off) != 0) {
-        return -2;
-    }
-    if (__gquic_recovery_str(&msg->nonce, msg->nonce.size, buf, size, &off) != 0) {
-        return -2;
-    }
-    if (__gquic_recovery_bytes(&msg->label.size, 2, buf, size, &off) != 0) {
-        return -2;
-    }
-    if (__gquic_recovery_str(&msg->label, msg->label.size, buf, size, &off) != 0) {
-        return -2;
-    }
-    prefix_len = 0;
-    if (__gquic_recovery_bytes(&prefix_len, 2, buf, size, &off) != 0) {
-        return -2;
-    }
-    if (prefix_len > 0) {
-        off += 2 + 2;
-        if (__gquic_recovery_bytes(&msg->max_early_data, 4, buf, size, &off) != 0) {
-            return -2;
-        }
-    }
-
     return off;
 }
+
