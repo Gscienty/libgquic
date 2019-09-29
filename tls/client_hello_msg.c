@@ -33,6 +33,7 @@ int gquic_tls_client_hello_msg_init(gquic_tls_client_hello_msg_t *msg) {
     gquic_list_head_init(&msg->supported_sign_algos);
     gquic_list_head_init(&msg->supported_sign_algos_cert);
     msg->secure_regegotiation_supported = 0;
+    gquic_str_init(&msg->secure_regegotation);
     gquic_list_head_init(&msg->alpn_protos);
     msg->scts = 0;
     gquic_list_head_init(&msg->supported_versions);
@@ -489,7 +490,7 @@ static ssize_t gquic_tls_client_hello_optional_serialize(const gquic_tls_client_
         GQUIC_LIST_FOREACH(psk, &msg->psk_identities) {
             __gquic_fill_2byte(buf, &off, psk->label.size);
             __gquic_fill_str(buf, &off, &psk->label);
-            __gquic_fill_4byte(buf, &off, psk->obfuscated_tickett_age);
+            __gquic_fill_4byte(buf, &off, psk->obfuscated_ticket_age);
         }
         __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
         __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
@@ -619,7 +620,7 @@ static ssize_t gquic_tls_client_hello_optional_deserialize(gquic_tls_client_hell
             if (__gquic_recovery_bytes(&prefix_len, 2, buf, size, &off) != 0) {
                 return -2;
             }
-            for (_ = off; off - _ < prefix_len; _++) {
+            for (_ = off; off - _ < prefix_len;){
                 if ((field = gquic_list_alloc(sizeof(u_int16_t))) == NULL) {
                     return -2;
                 }
@@ -644,6 +645,7 @@ static ssize_t gquic_tls_client_hello_optional_deserialize(gquic_tls_client_hell
             break;
 
         case GQUIC_TLS_EXTENSION_SESS_TICKET:
+            msg->ticket_supported = 1;
             if (__gquic_recovery_bytes(&msg->sess_ticket.size, 2, buf, size, &off) != 0) {
                 return -2;
             }
@@ -694,6 +696,7 @@ static ssize_t gquic_tls_client_hello_optional_deserialize(gquic_tls_client_hell
 
         case GQUIC_TLS_EXTENSION_RENEGOTIATION_INFO:
             off += 2;
+            msg->secure_regegotiation_supported = 1;
             if (__gquic_recovery_bytes(&msg->secure_regegotation.size, 1, buf, size, &off) != 0) {
                 return -2;
             }
@@ -823,14 +826,13 @@ static ssize_t gquic_tls_client_hello_optional_deserialize(gquic_tls_client_hell
                 if (__gquic_recovery_str(&((gquic_tls_psk_identity_t *) field)->label, ((gquic_tls_psk_identity_t *) field)->label.size, buf, size, &off) != 0) {
                     return -2;
                 }
-                if (__gquic_recovery_bytes(&((gquic_tls_psk_identity_t *) field)->obfuscated_tickett_age, 4, buf, size, &off) != 0) {
+                if (__gquic_recovery_bytes(&((gquic_tls_psk_identity_t *) field)->obfuscated_ticket_age, 4, buf, size, &off) != 0) {
                     return -2;
                 }
                 if (gquic_list_insert_before(&msg->psk_identities, field) != 0) {
                     return -2;
                 }
             }
-            off += 2;
             prefix_len = 0;
             if (__gquic_recovery_bytes(&prefix_len, 2, buf, size, &off) != 0) {
                 return -2;
@@ -839,7 +841,9 @@ static ssize_t gquic_tls_client_hello_optional_deserialize(gquic_tls_client_hell
                 if ((field = gquic_list_alloc(sizeof(gquic_str_t))) == NULL) {
                     return -2;
                 }
-                ((gquic_str_t *) field)->size = 0;
+                if (gquic_str_init(field) != 0) {
+                    return -2;
+                }
                 if (__gquic_recovery_bytes(&((gquic_str_t *) field)->size, 1, buf, size, &off) != 0) {
                     return -2;
                 }

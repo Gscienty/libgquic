@@ -10,7 +10,9 @@ static inline int __gquic_recovery_bytes(void *ret, const size_t bytes, const vo
     if (bytes > size - *off) {
         return -1;
     }
-    gquic_big_endian_transfer(ret, buf + *off, bytes);
+    if (gquic_big_endian_transfer(ret, buf + *off, bytes) != 0) {
+        return -2;
+    }
     *off += bytes;
     return 0;
 }

@@ -65,7 +65,7 @@ struct gquic_tls_extension_s {
 typedef struct gquic_tls_psk_identity_s gquic_tls_psk_identity_t;
 struct gquic_tls_psk_identity_s {
     gquic_str_t label;
-    u_int32_t obfuscated_tickett_age;
+    u_int32_t obfuscated_ticket_age;
 };
 
 typedef struct gquic_tls_config_s gquic_tls_config_t;
