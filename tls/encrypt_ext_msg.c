@@ -11,7 +11,6 @@ int gquic_tls_encrypt_ext_msg_init(gquic_tls_encrypt_ext_msg_t *msg) {
     }
     gquic_str_init(&msg->alpn_proto);
     gquic_list_head_init(&msg->addition_exts);
-
     return 0;
 }
 
@@ -98,7 +97,7 @@ ssize_t gquic_tls_encrypt_ext_msg_deserialize(gquic_tls_encrypt_ext_msg_t *msg, 
     if ((size_t) prefix_len > size - off) {
         return -3;
     }
-    if ((prefix_len = gquic_tls_encrypt_ext_msg_optional_deserialize(msg, buf + off, prefix_len)) != 0) {
+    if ((prefix_len = gquic_tls_encrypt_ext_msg_optional_deserialize(msg, buf + off, prefix_len)) < 0) {
         return -2;
     }
     off += prefix_len;
@@ -135,11 +134,8 @@ static ssize_t gquic_tls_encrypt_ext_msg_optional_deserialize(gquic_tls_encrypt_
             if ((field = gquic_list_alloc(sizeof(gquic_tls_extension_t))) == NULL) {
                 return -2;
             }
-            field->type = 0;
+            field->type = opt_type;
             if (gquic_str_init(&field->data) != 0) {
-                return -2;
-            }
-            if (__gquic_recovery_bytes(&field->type, 2, buf, size, &off) != 0) {
                 return -2;
             }
             if (__gquic_recovery_bytes(&field->data.size, 2, buf, size, &off) != 0) {
