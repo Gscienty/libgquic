@@ -50,48 +50,9 @@ int main() {
     memset(result, 0, result_size);
     gquic_tls_server_hello_msg_serialize(&m, result, result_size);
 
-    gquic_tls_server_hello_msg_t r;
-    gquic_tls_server_hello_msg_init(&r);
-    i = gquic_tls_server_hello_msg_deserialize(&r, result, result_size);
 
-    printf("%x\n", r.vers);
-    for (i = 0; i < 16; i++)
-        printf("%x", ((unsigned char *) GQUIC_STR_VAL(&r.sess_id))[i]);
+    for (i = 0; i < result_size; i++) printf("%02x ", ((unsigned char *) result)[i]);
     printf("\n");
-    for (i = 0; i < 32; i++)
-        printf("%x", ((unsigned char *) GQUIC_STR_VAL(&r.random))[i]);
-    printf("\n");
-    printf("%x\n", r.cipher_suite);
-    printf("%x\n", r.compression_method);
 
-    printf("%x\n", r.next_proto_neg);
-    for (i = 0; i < 3; i++)
-        printf("%x", ((unsigned char *) GQUIC_STR_VAL(gquic_list_next(GQUIC_LIST_PAYLOAD(&r.next_protos))))[i]);
-    printf("\n");
-    printf("%d\n", r.ocsp_stapling);
-    printf("%d\n", r.ticket_supported);
-    printf("%d\n", r.secure_regegotiation_supported);
-    printf("%ld\n", r.secure_regegotation.size);
-    for (i = 0; i < 5; i++)
-        printf("%x", ((unsigned char *) GQUIC_STR_VAL(&r.secure_regegotation))[i]);
-    printf("\n");
-    for (i = 0; i < 5; i++)
-        printf("%x", ((unsigned char *) GQUIC_STR_VAL(&r.alpn_proto))[i]);
-    printf("\n");
-    for (i = 0; i < 5; i++)
-        printf("%x", ((unsigned char *) GQUIC_STR_VAL(gquic_list_next(GQUIC_LIST_PAYLOAD(&r.scts))))[i]);
-    printf("\n");
-    printf("%x\n", r.supported_version);
-    printf("%x\n", r.ser_share.group);
-    for (i = 0; i < 3; i++)
-        printf("%x", ((unsigned char *) GQUIC_STR_VAL(&r.ser_share.data))[i]);
-    printf("\n");
-    printf("%x\n", r.selected_identity_persent);
-    printf("%x\n", r.selected_identity);
-    for (i = 0; i < 5; i++)
-        printf("%x", ((unsigned char *) GQUIC_STR_VAL(&r.cookie))[i]);
-    printf("\n");
-    printf("%x\n", r.selected_group);
-    
     return 0;
 }
