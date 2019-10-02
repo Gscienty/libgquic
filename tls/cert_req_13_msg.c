@@ -118,7 +118,7 @@ ssize_t gquic_tls_cert_req_13_msg_serialize(const gquic_tls_cert_req_13_msg_t *m
         __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
         __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
         gquic_str_t *ca;
-        GQUIC_LIST_FOREACH(ca, &msg->supported_sign_algo_cert) {
+        GQUIC_LIST_FOREACH(ca, &msg->cert_auths) {
             __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
             __gquic_fill_str(buf, &off, ca);
             __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
@@ -147,8 +147,8 @@ ssize_t gquic_tls_cert_req_13_msg_deserialize(gquic_tls_cert_req_13_msg_t *msg, 
     if (((unsigned char *) buf)[off++] != GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT_REQ) {
         return -2;
     }
-    
-    if (__gquic_recovery_bytes(&len, 3, buf, size, &off) != 0) {
+    off += 3 + 1;
+    if (__gquic_recovery_bytes(&len, 2, buf, size, &off) != 0) {
         return -3;
     }
     if (len > size - off) {
@@ -214,7 +214,8 @@ ssize_t gquic_tls_cert_req_13_msg_deserialize(gquic_tls_cert_req_13_msg_t *msg, 
             break;
 
         case GQUIC_TLS_EXTENSION_CERT_AUTHS:
-           off += 4;
+           off += 2;
+           prefix_len = 0;
             if (__gquic_recovery_bytes(&prefix_len, 2, buf, size, &off) != 0) {
                 return -2;
             }
