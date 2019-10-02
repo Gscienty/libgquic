@@ -178,9 +178,7 @@ static ssize_t gquic_tls_server_hello_msg_payload_serialize(const gquic_tls_serv
     __gquic_fill_str(buf, &off, &msg->random);
 
     // sess_id
-    __gquic_store_prefix_len(&prefix_len_stack, &off, 1);
-    __gquic_fill_str(buf, &off, &msg->sess_id);
-    __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 1);
+    __gquic_fill_str_full(buf, &off, &msg->sess_id, 1);
 
     // cipher_suite
     __gquic_fill_2byte(buf, &off, msg->cipher_suite);
@@ -216,9 +214,7 @@ static ssize_t gquic_tls_server_hello_msg_optional_serialize(const gquic_tls_ser
         __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
         gquic_str_t *proto;
         GQUIC_LIST_FOREACH(proto, &msg->next_protos) {
-            __gquic_store_prefix_len(&prefix_len_stack, &off, 1);
-            __gquic_fill_str(buf, &off, proto);
-            __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 1);
+            __gquic_fill_str_full(buf, &off, proto, 1);
         }
         __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
     }
@@ -239,9 +235,7 @@ static ssize_t gquic_tls_server_hello_msg_optional_serialize(const gquic_tls_ser
     if (msg->secure_regegotiation_supported) {
         __gquic_fill_2byte(buf, &off, GQUIC_TLS_EXTENSION_RENEGOTIATION_INFO);
         __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
-        __gquic_store_prefix_len(&prefix_len_stack, &off, 1);
-        __gquic_fill_str(buf, &off, &msg->secure_regegotation);
-        __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 1);
+        __gquic_fill_str_full(buf, &off, &msg->secure_regegotation, 1);
         __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
     }
 
@@ -250,9 +244,7 @@ static ssize_t gquic_tls_server_hello_msg_optional_serialize(const gquic_tls_ser
         __gquic_fill_2byte(buf, &off, GQUIC_TLS_EXTENSION_ALPN);
         __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
         __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
-        __gquic_store_prefix_len(&prefix_len_stack, &off, 1);
-        __gquic_fill_str(buf, &off, &msg->alpn_proto);
-        __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 1);
+        __gquic_fill_str_full(buf, &off, &msg->alpn_proto, 1);
         __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
         __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
     }
@@ -264,9 +256,7 @@ static ssize_t gquic_tls_server_hello_msg_optional_serialize(const gquic_tls_ser
         __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
         gquic_str_t *sct;
         GQUIC_LIST_FOREACH(sct, &msg->scts) {
-            __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
-            __gquic_fill_str(buf, &off, sct);
-            __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
+            __gquic_fill_str_full(buf, &off, sct, 2);
         }
         __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
         __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
@@ -285,9 +275,7 @@ static ssize_t gquic_tls_server_hello_msg_optional_serialize(const gquic_tls_ser
         __gquic_fill_2byte(buf, &off, GQUIC_TLS_EXTENSION_KEY_SHARE);
         __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
         __gquic_fill_2byte(buf, &off, msg->ser_share.group);
-        __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
-        __gquic_fill_str(buf, &off, &msg->ser_share.data);
-        __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
+        __gquic_fill_str_full(buf, &off, &msg->ser_share.data, 2);
         __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
     }
 
@@ -303,9 +291,7 @@ static ssize_t gquic_tls_server_hello_msg_optional_serialize(const gquic_tls_ser
     if (msg->cookie.size > 0) {
         __gquic_fill_2byte(buf, &off, GQUIC_TLS_EXTENSION_COOKIE);
         __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
-        __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
-        __gquic_fill_str(buf, &off, &msg->cookie);
-        __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
+        __gquic_fill_str_full(buf, &off, &msg->cookie, 2);
         __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
     }
 
@@ -359,11 +345,7 @@ static ssize_t gquic_tls_server_hello_payload_deserialize(gquic_tls_server_hello
     }
 
     // sess_id
-    prefix_len = 0;
-    if (__gquic_recovery_bytes(&msg->sess_id.size, 1, buf, size, &off) != 0) {
-        return -2;
-    }
-    if (__gquic_recovery_str(&msg->sess_id, msg->sess_id.size, buf, size, &off) != 0) {
+    if (__gquic_recovery_str_full(&msg->sess_id, 1, buf, size, &off) != 0) {
         return -2;
     }
 
@@ -420,13 +402,7 @@ static ssize_t gquic_tls_server_hello_optional_deserialize(gquic_tls_server_hell
                 if ((field = gquic_list_alloc(sizeof(gquic_str_t))) == NULL) {
                     return -2;
                 }
-                if (gquic_str_init(field) != 0) {
-                    return -2;
-                }
-                if (__gquic_recovery_bytes(&((gquic_str_t *) field)->size, 1, buf, size, &off) != 0) {
-                    return -2;
-                }
-                if (__gquic_recovery_str(field, ((gquic_str_t *) field)->size, buf, size, &off) != 0) {
+                if (__gquic_recovery_str_full(field, 1, buf, size, &off) != 0) {
                     return -2;
                 }
                 if (gquic_list_insert_before(&msg->next_protos, field) != 0) {
@@ -448,20 +424,14 @@ static ssize_t gquic_tls_server_hello_optional_deserialize(gquic_tls_server_hell
         case GQUIC_TLS_EXTENSION_RENEGOTIATION_INFO:
             off += 2;
             msg->secure_regegotiation_supported = 1;
-            if (__gquic_recovery_bytes(&msg->secure_regegotation.size, 1, buf, size, &off) != 0) {
-                return -2;
-            }
-            if (__gquic_recovery_str(&msg->secure_regegotation, msg->secure_regegotation.size, buf, size, &off) != 0) {
+            if (__gquic_recovery_str_full(&msg->secure_regegotation, 1, buf, size, &off) != 0) {
                 return -2;
             }
             break;
 
         case GQUIC_TLS_EXTENSION_ALPN:
             off += 2 + 2;
-            if (__gquic_recovery_bytes(&msg->alpn_proto.size, 1, buf, size, &off) != 0) {
-                return -2;
-            }
-            if (__gquic_recovery_str(&msg->alpn_proto, msg->alpn_proto.size, buf, size, &off) != 0) {
+            if (__gquic_recovery_str_full(&msg->alpn_proto, 1, buf, size, &off) != 0) {
                 return -2;
             }
             break;
@@ -476,13 +446,7 @@ static ssize_t gquic_tls_server_hello_optional_deserialize(gquic_tls_server_hell
                 if ((field = gquic_list_alloc(sizeof(gquic_str_t))) == NULL) {
                     return -2;
                 }
-                if (gquic_str_init(field) != 0) {
-                    return -2;
-                }
-                if (__gquic_recovery_bytes(&((gquic_str_t *) field)->size, 2, buf, size, &off) != 0) {
-                    return -2;
-                }
-                if (__gquic_recovery_str(field, ((gquic_str_t *) field)->size, buf, size, &off) != 0) {
+                if (__gquic_recovery_str_full(field, 2, buf, size, &off) != 0) {
                     return -2;
                 }
                 if (gquic_list_insert_before(&msg->scts, field) != 0) {
@@ -512,10 +476,7 @@ static ssize_t gquic_tls_server_hello_optional_deserialize(gquic_tls_server_hell
                 if (__gquic_recovery_bytes(&msg->ser_share.group, 2, buf, size, &off) != 0) {
                     return -2;
                 }
-                if (__gquic_recovery_bytes(&msg->ser_share.data.size, 2, buf, size, &off) != 0) {
-                    return -2;
-                }
-                if (__gquic_recovery_str(&msg->ser_share.data, msg->ser_share.data.size, buf, size, &off) != 0) {
+                if (__gquic_recovery_str_full(&msg->ser_share.data, 2, buf, size, &off) != 0) {
                     return -2;
                 }
             }
@@ -531,10 +492,7 @@ static ssize_t gquic_tls_server_hello_optional_deserialize(gquic_tls_server_hell
 
         case GQUIC_TLS_EXTENSION_COOKIE:
             off += 2;
-            if (__gquic_recovery_bytes(&msg->cookie.size, 2, buf, size, &off) != 0) {
-                return -2;
-            }
-            if (__gquic_recovery_str(&msg->cookie, msg->cookie.size, buf, size, &off) != 0) {
+            if (__gquic_recovery_str_full(&msg->cookie, 2, buf, size, &off) != 0) {
                 return -2;
             }
             break;

@@ -39,9 +39,7 @@ ssize_t gquic_tls_server_key_exchange_msg_serialize(const gquic_tls_server_key_e
     }
     gquic_list_head_init(&prefix_len_stack);
     __gquic_fill_1byte(buf, &off, GQUIC_TLS_HANDSHAKE_MSG_TYPE_SER_KEY_EXCHANGE);
-    __gquic_store_prefix_len(&prefix_len_stack, &off, 3);
-    __gquic_fill_str(buf, &off, &msg->key);
-    __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 3);
+    __gquic_fill_str_full(buf, &off, &msg->key, 3);
     return off;
 }
 
@@ -53,10 +51,7 @@ ssize_t gquic_tls_server_key_exchange_msg_deserialize(gquic_tls_server_key_excha
     if (((unsigned char *) buf)[off++] != GQUIC_TLS_HANDSHAKE_MSG_TYPE_SER_KEY_EXCHANGE) {
         return -2;
     }
-    if (__gquic_recovery_bytes(&msg->key.size, 3, buf, size, &off) != 0) {
-        return -2;
-    }
-    if (__gquic_recovery_str(&msg->key, msg->key.size, buf, size, &off) != 0) {
+    if (__gquic_recovery_str_full(&msg->key, 3, buf, size, &off) != 0) {
         return -2;
     }
     return off;

@@ -46,9 +46,7 @@ ssize_t gquic_tls_cert_verify_msg_serialize(const gquic_tls_cert_verify_msg_t *m
     if (msg->has_sign_algo) {
         __gquic_fill_2byte(buf, &off, msg->sign_algo);
     }
-    __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
-    __gquic_fill_str(buf, &off, &msg->sign);
-    __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
+    __gquic_fill_str_full(buf, &off, &msg->sign, 2);
     __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 3);
     return off;
 }
@@ -67,10 +65,7 @@ ssize_t gquic_tls_cert_verify_msg_deserialize(gquic_tls_cert_verify_msg_t *msg, 
             return -2;
         }
     }
-    if (__gquic_recovery_bytes(&msg->sign.size, 2, buf, size, &off) != 0) {
-        return -2;
-    }
-    if (__gquic_recovery_str(&msg->sign, msg->sign.size, buf, size, &off) != 0) {
+    if (__gquic_recovery_str_full(&msg->sign, 2, buf, size, &off) != 0) {
         return -2;
     }
 

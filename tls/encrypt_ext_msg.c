@@ -62,18 +62,14 @@ ssize_t gquic_tls_encrypt_ext_msg_serialize(const gquic_tls_encrypt_ext_msg_t *m
         __gquic_fill_2byte(buf, &off, GQUIC_TLS_EXTENSION_ALPN);
         __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
         __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
-        __gquic_store_prefix_len(&prefix_len_stack, &off, 1);
-        __gquic_fill_str(buf, &off, &msg->alpn_proto);
-        __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 1);
+        __gquic_fill_str_full(buf, &off, &msg->alpn_proto, 1);
         __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
         __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
     }
     gquic_tls_extension_t *ext;
     GQUIC_LIST_FOREACH(ext, &msg->addition_exts) {
         __gquic_fill_2byte(buf, &off, ext->type);
-        __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
-        __gquic_fill_str(buf, &off, &ext->data);
-        __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
+        __gquic_fill_str_full(buf, &off, &ext->data, 2);
     }
     __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
     __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 3);
@@ -122,10 +118,7 @@ static ssize_t gquic_tls_encrypt_ext_msg_optional_deserialize(gquic_tls_encrypt_
 
         case GQUIC_TLS_EXTENSION_ALPN:
             off += 2 + 2;
-            if (__gquic_recovery_bytes(&msg->alpn_proto.size, 1, buf, size, &off) != 0) {
-                return -2;
-            }
-            if (__gquic_recovery_str(&msg->alpn_proto, msg->alpn_proto.size, buf, size, &off) != 0) {
+            if (__gquic_recovery_str_full(&msg->alpn_proto, 1, buf, size, &off) != 0) {
                 return -2;
             }
             break;
@@ -135,13 +128,7 @@ static ssize_t gquic_tls_encrypt_ext_msg_optional_deserialize(gquic_tls_encrypt_
                 return -2;
             }
             field->type = opt_type;
-            if (gquic_str_init(&field->data) != 0) {
-                return -2;
-            }
-            if (__gquic_recovery_bytes(&field->data.size, 2, buf, size, &off) != 0) {
-                return -2;
-            }
-            if (__gquic_recovery_str(&field->data, field->data.size, buf, size, &off) != 0) {
+            if (__gquic_recovery_str_full(&field->data, 2, buf, size, &off) != 0) {
                 return -2;
             }
             if (gquic_list_insert_before(&msg->addition_exts, field) != 0) {

@@ -74,18 +74,14 @@ ssize_t gquic_tls_cert_serialize(const gquic_tls_cert_t *msg, void *buf, const s
     gquic_list_head_init(&prefix_len_stack);
     __gquic_store_prefix_len(&prefix_len_stack, &off, 3);
     GQUIC_LIST_FOREACH(cert, &msg->certs) {
-        __gquic_store_prefix_len(&prefix_len_stack, &off, 3);
-        __gquic_fill_str(buf, &off, cert);
-        __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 3);
+        __gquic_fill_str_full(buf, &off, cert, 3);
         __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
         if (leaf_flag == 1) {
             if (msg->ocsp_staple.size > 0) {
                 __gquic_fill_2byte(buf, &off, GQUIC_TLS_EXTENSION_STATUS_REQUEST);
                 __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
                 __gquic_fill_1byte(buf, &off, GQUIC_TLS_CERT_STATUS_TYPE_OCSP);
-                __gquic_store_prefix_len(&prefix_len_stack, &off, 3);
-                __gquic_fill_str(buf, &off, &msg->ocsp_staple);
-                __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 3);
+                __gquic_fill_str_full(buf, &off, &msg->ocsp_staple, 3);
                 __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
             }
             if (!gquic_list_head_empty(&msg->scts)) {
@@ -93,9 +89,7 @@ ssize_t gquic_tls_cert_serialize(const gquic_tls_cert_t *msg, void *buf, const s
                 __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
                 __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
                 GQUIC_LIST_FOREACH(sct, &msg->scts) {
-                    __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
-                    __gquic_fill_str(buf, &off, sct);
-                    __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
+                    __gquic_fill_str_full(buf, &off, sct, 2);
                 }
                 __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
                 __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
@@ -131,13 +125,7 @@ ssize_t gquic_tls_cert_deserialize(gquic_tls_cert_t *msg, const void *buf, const
         if ((field = gquic_list_alloc(sizeof(gquic_str_t))) == NULL) {
             return -2;
         }
-        if (gquic_str_init(field) != 0) {
-            return -2;
-        }
-        if (__gquic_recovery_bytes(&field->size, 3, buf, size, &off) != 0) {
-            return -3;
-        }
-        if (__gquic_recovery_str(field, field->size, buf, size, &off) != 0) {
+        if (__gquic_recovery_str_full(field, 3, buf, size, &off) != 0) {
             return -3;
         }
         if (gquic_list_insert_before(&msg->certs, field) != 0) {
@@ -157,10 +145,7 @@ ssize_t gquic_tls_cert_deserialize(gquic_tls_cert_t *msg, const void *buf, const
 
                 case GQUIC_TLS_EXTENSION_STATUS_REQUEST:
                     off += 2 + 1;
-                    if (__gquic_recovery_bytes(&msg->ocsp_staple.size, 3, buf, size, &off) != 0) {
-                        return -3;
-                    }
-                    if (__gquic_recovery_str(&msg->ocsp_staple, msg->ocsp_staple.size, buf, size, &off) != 0) {
+                    if (__gquic_recovery_str_full(&msg->ocsp_staple, 3, buf, size, &off) != 0) {
                         return -3;
                     }
                     break;
@@ -175,13 +160,7 @@ ssize_t gquic_tls_cert_deserialize(gquic_tls_cert_t *msg, const void *buf, const
                         if ((field = gquic_list_alloc(sizeof(gquic_str_t))) == NULL) {
                             return -3;
                         }
-                        if (gquic_str_init(field) != 0) {
-                            return -3;
-                        }
-                        if (__gquic_recovery_bytes(&field->size, 2, buf, size, &off) != 0) {
-                            return -3;
-                        }
-                        if (__gquic_recovery_str(field, field->size, buf, size, &off) != 0) {
+                        if (__gquic_recovery_str_full(field, 2, buf, size, &off) != 0) {
                             return -3;
                         }
                         if (gquic_list_insert_before(&msg->scts, field) != 0) {

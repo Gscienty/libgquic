@@ -50,9 +50,7 @@ ssize_t gquic_tls_cert_msg_serialize(const gquic_tls_cert_msg_t *msg, void *buf,
     __gquic_store_prefix_len(&prefix_len_stack, &off, 3);
     __gquic_store_prefix_len(&prefix_len_stack, &off, 3);
     GQUIC_LIST_FOREACH(field, &msg->certs) {
-        __gquic_store_prefix_len(&prefix_len_stack, &off, 3);
-        __gquic_fill_str(buf, &off, field);
-        __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 3);
+        __gquic_fill_str_full(buf, &off, field, 3);
     }
     __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 3);
     __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 3);
@@ -81,13 +79,7 @@ ssize_t gquic_tls_cert_msg_deserialize(gquic_tls_cert_msg_t *msg, const void *bu
         if ((field = gquic_list_alloc(sizeof(gquic_str_t))) == NULL) {
             return -3;
         }
-        if (gquic_str_init(field) != 0) {
-            return -3;
-        }
-        if (__gquic_recovery_bytes(&field->size, 3, buf, size, &off) != 0) {
-            return -3;
-        }
-        if (__gquic_recovery_str(field, field->size, buf, size, &off) != 0) {
+        if (__gquic_recovery_str_full(field, 3, buf, size, &off) != 0) {
             return -3;
         }
         if (gquic_list_insert_before(&msg->certs, field) != 0) {

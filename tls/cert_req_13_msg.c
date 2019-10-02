@@ -119,9 +119,7 @@ ssize_t gquic_tls_cert_req_13_msg_serialize(const gquic_tls_cert_req_13_msg_t *m
         __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
         gquic_str_t *ca;
         GQUIC_LIST_FOREACH(ca, &msg->cert_auths) {
-            __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
-            __gquic_fill_str(buf, &off, ca);
-            __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
+            __gquic_fill_str_full(buf, &off, ca, 2);
         }
         __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
         __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
@@ -223,13 +221,7 @@ ssize_t gquic_tls_cert_req_13_msg_deserialize(gquic_tls_cert_req_13_msg_t *msg, 
                 if ((field = gquic_list_alloc(sizeof(gquic_str_t))) == NULL) {
                     return -2;
                 }
-                if (gquic_str_init(field) != 0) {
-                    return -2;
-                }
-                if (__gquic_recovery_bytes(&((gquic_str_t *) field)->size, 2, buf, size, &off) != 0) {
-                    return -2;
-                }
-                if (__gquic_recovery_str(field, ((gquic_str_t *) field)->size, buf, size, &off) != 0) {
+                if (__gquic_recovery_str_full(field, 2, buf, size, &off) != 0) {
                     return -2;
                 }
                 if (gquic_list_insert_before(&msg->cert_auths, field) != 0) {

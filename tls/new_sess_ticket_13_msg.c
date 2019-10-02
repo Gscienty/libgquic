@@ -48,12 +48,8 @@ ssize_t gquic_tls_new_sess_ticket_13_msg_serialize(const gquic_tls_new_sess_tick
     __gquic_store_prefix_len(&prefix_len_stack, &off, 3);
     __gquic_fill_4byte(buf, &off, msg->lifetime);
     __gquic_fill_4byte(buf, &off, msg->age_add);
-    __gquic_store_prefix_len(&prefix_len_stack, &off, 1);
-    __gquic_fill_str(buf, &off, &msg->nonce);
-    __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 1);
-    __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
-    __gquic_fill_str(buf, &off, &msg->label);
-    __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
+    __gquic_fill_str_full(buf, &off, &msg->nonce, 1);
+    __gquic_fill_str_full(buf, &off, &msg->label, 2);
     __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
     if (msg->max_early_data > 0) {
         __gquic_fill_2byte(buf, &off, GQUIC_TLS_EXTENSION_EARLY_DATA);
@@ -86,16 +82,10 @@ ssize_t gquic_tls_new_sess_ticket_13_msg_deserialize(gquic_tls_new_sess_ticket_1
     if (__gquic_recovery_bytes(&msg->age_add, 4, buf, size, &off) != 0) {
         return -2;
     }
-    if (__gquic_recovery_bytes(&msg->nonce.size, 1, buf, size, &off) != 0) {
+    if (__gquic_recovery_str_full(&msg->nonce, 1, buf, size, &off) != 0) {
         return -2;
     }
-    if (__gquic_recovery_str(&msg->nonce, msg->nonce.size, buf, size, &off) != 0) {
-        return -2;
-    }
-    if (__gquic_recovery_bytes(&msg->label.size, 2, buf, size, &off) != 0) {
-        return -2;
-    }
-    if (__gquic_recovery_str(&msg->label, msg->label.size, buf, size, &off) != 0) {
+    if (__gquic_recovery_str_full(&msg->label, 2, buf, size, &off) != 0) {
         return -2;
     }
     prefix_len = 0;
