@@ -75,7 +75,8 @@ struct gquic_tls_config_s {
     gquic_rbtree_t map_certs;
     X509 *cli_ca;
     X509 *ser_ca;
-    char *ser_name;
+    gquic_list_t next_protos;
+    gquic_str_t ser_name;
     int insecure_skiy_verify;
     gquic_list_t cipher_suites;
     int ser_perfer_cipher_suite;

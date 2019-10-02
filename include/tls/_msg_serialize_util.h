@@ -12,6 +12,7 @@ static inline void __gquic_fill_4byte(void *, size_t *, const u_int32_t);
 static inline void __gquic_fill_2byte(void *, size_t *, const u_int16_t);
 static inline void __gquic_fill_1byte(void *, size_t *, const u_int8_t);
 static inline void __gquic_fill_str(void *, size_t *, const gquic_str_t *);
+static inline void __gquic_fill_str_full(void *, size_t *, const gquic_str_t *, const size_t);
 
 static inline void __gquic_stack_push(gquic_list_t *stack, const size_t val) {
     gquic_list_insert_after(stack, gquic_list_alloc(sizeof(size_t)));
@@ -53,4 +54,12 @@ static inline void __gquic_fill_1byte(void *buf, size_t *off, const u_int8_t val
 static inline void __gquic_fill_str(void *buf, size_t *off, const gquic_str_t *str) {
     memcpy(buf + *off, str->val, str->size);
     *off += str->size;
+}
+
+static inline void __gquic_fill_str_full(void *buf, size_t *off, const gquic_str_t *str, const size_t prefix_len) {
+    gquic_list_t prefix_len_off;
+    gquic_list_head_init(&prefix_len_off);
+    __gquic_store_prefix_len(&prefix_len_off, off, prefix_len);
+    __gquic_fill_str(buf, off, str);
+    __gquic_fill_prefix_len(&prefix_len_off, buf, *off, prefix_len);
 }
