@@ -16,6 +16,8 @@ struct gquic_list_s {
 #define GQUIC_LIST_META(p) (*((gquic_list_t *) (((gquic_abstract_list_ptr_t) (p)) - (sizeof(gquic_list_t)))))
 #define GQUIC_LIST_FOREACH(p, h) for ((p) = gquic_list_next(GQUIC_LIST_PAYLOAD((h))); (p) != GQUIC_LIST_PAYLOAD((h)); (p) = gquic_list_next((p)))
 
+typedef int (*gquic_list_copy_payload_fptr_t) (void *, const void *);
+
 gquic_abstract_list_ptr_t gquic_list_alloc(size_t size);
 int gquic_list_release(gquic_abstract_list_ptr_t list);
 
@@ -29,5 +31,7 @@ gquic_abstract_list_ptr_t gquic_list_next(gquic_abstract_list_ptr_t node);
 gquic_abstract_list_ptr_t gquic_list_prev(gquic_abstract_list_ptr_t node);
 
 int gquic_list_remove(gquic_abstract_list_ptr_t node);
+
+int gquic_list_copy(gquic_list_t *list, const gquic_list_t *ref, gquic_list_copy_payload_fptr_t fptr);
 
 #endif
