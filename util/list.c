@@ -1,5 +1,6 @@
 #include "util/list.h"
 #include <malloc.h>
+#include <string.h>
 
 gquic_abstract_list_ptr_t gquic_list_alloc(size_t size) {
     gquic_list_t *meta = (gquic_list_t *) malloc(sizeof(gquic_list_t) + size);
@@ -82,5 +83,29 @@ int gquic_list_remove(gquic_abstract_list_ptr_t node) {
     GQUIC_LIST_META(node).next->prev = GQUIC_LIST_META(node).prev;
     GQUIC_LIST_META(node).prev = &GQUIC_LIST_META(node);
     GQUIC_LIST_META(node).next = &GQUIC_LIST_META(node);
+    return 0;
+}
+
+int gquic_list_copy(gquic_list_t *list, const gquic_list_t *ref, gquic_list_copy_payload_fptr_t fptr) {
+    void *field;
+    void *ref_field;
+    if (list == NULL || ref == NULL) {
+        return -1;
+    }
+    if (gquic_list_head_init(list) != 0) {
+        return -2;
+    }
+    GQUIC_LIST_FOREACH(ref_field, ref) {
+        if ((field = gquic_list_alloc(GQUIC_LIST_META(ref_field).payload_size)) == NULL) {
+            return -3;
+        }
+        if (fptr == NULL) {
+            memcpy(field, ref_field, GQUIC_LIST_META(ref_field).payload_size);
+        }
+        else if (fptr(field, ref_field) != 0) {
+            return -4;
+        }
+        gquic_list_insert_before(list, field);
+    }
     return 0;
 }
