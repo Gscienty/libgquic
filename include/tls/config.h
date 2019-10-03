@@ -48,6 +48,35 @@
 
 #define GQUIC_TLS_CERT_STATUS_TYPE_OCSP 0x01
 
+#define GQUIC_TLS_VERSION_10 0x0301
+#define GQUIC_TLS_VERSION_11 0x0302
+#define GQUIC_TLS_VERSION_12 0x0303
+#define GQUIC_TLS_VERSION_13 0x0304
+
+#define GQUIC_TLS_RECORD_TYPE_CHANGE_CIPHER_SEPC 0x14
+#define GQUIC_TLS_RECORD_TYPE_ALERT 0x15
+#define GQUIC_TLS_RECORD_TYPE_HANDSHAKE 0x16
+#define GQUIC_TLS_RECORD_TYPE_APP_DATA 0x17
+
+#define GQUIC_TLS_CURVE_P256 0x17
+#define GQUIC_TLS_CURVE_P384 0x18
+#define GQUIC_TLS_CURVE_P521 0x19
+#define GQUIC_TLS_CURVE_X25519 0x1d
+
+#define GQUIC_SIGALG_PKCS1_SHA1 0x0201
+#define GQUIC_SIGALG_PKCS1_SHA256 0x0401
+#define GQUIC_SIGALG_PKCS1_SHA384 0x0501
+#define GQUIC_SIGALG_PKCS1_SHA512 0x0601
+#define GQUIC_SIGALG_PSS_SHA256 0x0804
+#define GQUIC_SIGALG_PSS_SHA384 0x0805
+#define GQUIC_SIGALG_PSS_SHA512 0x0806
+#define GQUIC_SIGALG_ECDSA_SHA1 0x0203
+#define GQUIC_SIGALG_ECDSA_P256_SHA256 0x0403
+#define GQUIC_SIGALG_ECDSA_P384_SHA384 0x0503
+#define GQUIC_SIGALG_ECDSA_P512_SHA512 0x0603
+#define GQUIC_SIGALG_ED25519 0x0807
+
+
 typedef uint16_t gquic_curve_id_t;
 
 typedef struct gquic_tls_key_share_s gquic_tls_key_share_t;
@@ -98,5 +127,9 @@ struct gquic_tls_ticket_key_s {
 };
 
 int gquic_tls_ticket_key_deserialize(gquic_tls_ticket_key_t *ticket_key, const void *buf, const size_t size);
+
+int gquic_tls_config_supported_versions(gquic_list_t *ret, const gquic_tls_config_t *cfg, int is_client);
+
+int gquic_tls_config_curve_preferences(gquic_list_t *ret);
 
 #endif
