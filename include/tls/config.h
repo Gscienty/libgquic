@@ -7,6 +7,7 @@
 #include "util/list.h"
 #include "util/rbtree.h"
 #include "util/str.h"
+#include "tls/client_sess_state.h"
 
 #define GQUIC_TLS_HANDSHAKE_MSG_TYPE_HELLO_REQ 0x00
 #define GQUIC_TLS_HANDSHAKE_MSG_TYPE_CLIENT_HELLO 0x01
@@ -101,9 +102,9 @@ typedef struct gquic_tls_config_s gquic_tls_config_t;
 struct gquic_tls_config_s {
     time_t epoch;
     gquic_list_t certs;
-    gquic_rbtree_t map_certs;
-    X509 *cli_ca;
-    X509 *ser_ca;
+    gquic_rbtree_t *map_certs;
+    gquic_str_t cli_ca;
+    gquic_str_t ser_ca;
     gquic_list_t next_protos;
     gquic_str_t ser_name;
     int insecure_skiy_verify;
@@ -117,6 +118,7 @@ struct gquic_tls_config_s {
     gquic_list_t sess_ticket_keys;
     int renegotiation;
     gquic_list_t curve_perfers;
+    gquic_tls_client_sess_cache_t *cli_sess_cache;
 };
 
 typedef struct gquic_tls_ticket_key_s gquic_tls_ticket_key_t;
@@ -126,10 +128,9 @@ struct gquic_tls_ticket_key_s {
     u_int8_t hmac_key[16];
 };
 
+int gquic_tls_config_init(gquic_tls_config_t *const cfg);
 int gquic_tls_ticket_key_deserialize(gquic_tls_ticket_key_t *ticket_key, const void *buf, const size_t size);
-
 int gquic_tls_config_supported_versions(gquic_list_t *ret, const gquic_tls_config_t *cfg, int is_client);
-
 int gquic_tls_config_curve_preferences(gquic_list_t *ret);
 
 #endif
