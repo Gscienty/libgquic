@@ -17,6 +17,7 @@ static int gquic_x25519_params_public_key_wrapped(const void *, gquic_str_t *);
 static int gquic_x25519_params_shared_key_wrapped(const void *, gquic_str_t *, const gquic_str_t *);
 
 static int gquic_tls_ecdhe_params_generate_x25519(gquic_tls_ecdhe_params_t *param);
+static int gquic_tls_ecdhe_params_release_x25519(gquic_tls_ecdhe_params_t *param);
 
 int gquic_tls_ecdhe_params_generate(gquic_tls_ecdhe_params_t *param, const gquic_curve_id_t curve_id) {
     if (param == NULL) {
@@ -27,6 +28,25 @@ int gquic_tls_ecdhe_params_generate(gquic_tls_ecdhe_params_t *param, const gquic
     }
 
     return gquic_tls_ecdhe_params_generate_x25519(param);
+}
+
+int gquic_tls_ecdhe_params_release(gquic_tls_ecdhe_params_t *param) {
+    if (param == NULL) {
+        return -1;
+    }
+
+    switch (GQUIC_TLS_ECDHE_PARAMS_CURVE_ID(param)) {
+    case GQUIC_TLS_CURVE_X25519:
+        if (gquic_tls_ecdhe_params_release_x25519(param) != 0) {
+            return -3;
+        }
+        break;
+        
+    default:
+        return -2;
+    }
+
+    return 0;
 }
 
 static int gquic_tls_ecdhe_params_generate_x25519(gquic_tls_ecdhe_params_t *param) {
@@ -128,5 +148,15 @@ static int gquic_x25519_params_public_key_wrapped(const void *param, gquic_str_t
 }
 static int gquic_x25519_params_shared_key_wrapped(const void *param, gquic_str_t *ret, const gquic_str_t *ref) {
     return gquic_x25519_params_shared_key(param, ret, ref);
+}
+
+static int gquic_tls_ecdhe_params_release_x25519(gquic_tls_ecdhe_params_t *param) {
+    if (param == NULL) {
+        return -1;
+    }
+    gquic_tls_x25519_params_t *self = param->self;
+    gquic_str_reset(&self->pri_key);
+    gquic_str_reset(&self->pub_key);
+    return 0;
 }
 

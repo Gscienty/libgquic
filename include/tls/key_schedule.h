@@ -30,4 +30,6 @@ struct gquic_tls_ecdhe_params_s {
 
 int gquic_tls_ecdhe_params_generate(gquic_tls_ecdhe_params_t *param, const gquic_curve_id_t curve_id);
 
+int gquic_tls_ecdhe_params_release(gquic_tls_ecdhe_params_t *param);
+
 #endif
