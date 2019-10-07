@@ -9,6 +9,34 @@ static u_int16_t __supported_versions[] = {
     GQUIC_TLS_VERSION_13
 };
 
+int gquic_tls_config_init(gquic_tls_config_t *const cfg) {
+    if (cfg == NULL) {
+        return -1;
+    }
+
+    cfg->epoch = 0;
+    gquic_list_head_init(&cfg->certs);
+    gquic_rbtree_root_init(&cfg->map_certs);
+    gquic_str_init(&cfg->cli_ca);
+    gquic_str_init(&cfg->ser_ca);
+    gquic_list_head_init(&cfg->next_protos);
+    gquic_str_init(&cfg->ser_name);
+    cfg->insecure_skiy_verify = 0;
+    gquic_list_head_init(&cfg->cipher_suites);
+    cfg->ser_perfer_cipher_suite = 0;
+    cfg->sess_ticket_disabled = 0;
+    memset(cfg->sess_ticket_key, 0, sizeof(cfg->sess_ticket_key));
+    cfg->min_v = 0;
+    cfg->max_v = 0;
+    cfg->dynamic_record_sizing_disabled = 0;
+    gquic_list_head_init(&cfg->sess_ticket_keys);
+    cfg->renegotiation = 0;
+    gquic_list_head_init(&cfg->curve_perfers);
+    cfg->cli_sess_cache = NULL;
+
+    return 0;
+}
+
 int gquic_tls_ticket_key_deserialize(gquic_tls_ticket_key_t *ticket_key, const void *buf, const size_t size) {
     if (ticket_key == NULL || buf == NULL) {
         return -1;
