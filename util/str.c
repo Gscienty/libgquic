@@ -43,6 +43,9 @@ int gquic_str_copy(gquic_str_t *str, const gquic_str_t *ref) {
         return -1;
     }
     gquic_str_init(str);
+    if (GQUIC_STR_SIZE(ref) == 0) {
+        return 0;
+    }
     if (gquic_str_alloc(str, GQUIC_STR_SIZE(ref)) != 0) {
         return -2;
     }
