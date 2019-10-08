@@ -52,3 +52,15 @@ int gquic_str_copy(gquic_str_t *str, const gquic_str_t *ref) {
     memcpy(GQUIC_STR_VAL(str), GQUIC_STR_VAL(ref), GQUIC_STR_SIZE(str));
     return 0;
 }
+
+int gquic_str_set(gquic_str_t *const str, const char *const val) {
+    if (str == NULL || val == NULL) {
+        return -1;
+    }
+    if (gquic_str_alloc(str, strlen(val)) != 0) {
+        return -2;
+    }
+    memcpy(GQUIC_STR_VAL(str), val, GQUIC_STR_SIZE(str));
+    return 0;
+}
+
