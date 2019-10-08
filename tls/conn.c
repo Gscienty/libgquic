@@ -1,8 +1,12 @@
 #include "tls/conn.h"
 #include <openssl/x509.h>
 #include <openssl/pem.h>
+#include <openssl/sha.h>
 
 static int gquic_tls_conn_cli_sess_cache_key(gquic_str_t *const, const gquic_net_addr_t *const, const gquic_tls_config_t *const);
+
+static int __compare_now_asn1_time(const ASN1_TIME *const);
+static int __equal_common_name(const gquic_str_t *const, X509_NAME *const);
 
 int gquic_tls_conn_init(gquic_tls_conn_t *const conn,
                         const gquic_net_addr_t *const addr,
@@ -74,13 +78,10 @@ int gquic_tls_conn_load_session(const gquic_tls_conn_t *const conn,
         }
         gquic_str_t *ser_cert = gquic_list_next(GQUIC_LIST_PAYLOAD(&(*sess)->ser_certs));
         X509 *x509_ser_cert = d2i_X509(NULL, (unsigned char const **) &GQUIC_STR_VAL(ser_cert), GQUIC_STR_SIZE(ser_cert));
-        ASN1_TIME *ser_cert_not_after = X509_get_notAfter(x509_ser_cert);
-        ASN1_TIME *cfg_cur = ASN1_TIME_new();
-        ASN1_TIME_set(cfg_cur, time(NULL));
-        int cmp = ASN1_TIME_compare(cfg_cur, ser_cert_not_after);
-        ASN1_TIME_free(cfg_cur);
+        int cmp = __compare_now_asn1_time(X509_get_notAfter(x509_ser_cert));
         if (cmp == 1) {
             X509_free(x509_ser_cert);
+            conn->cfg->cli_sess_cache->put_fptr(cache_key, NULL);
             return 0;
         }
         else if (cmp == -2) {
@@ -88,21 +89,44 @@ int gquic_tls_conn_load_session(const gquic_tls_conn_t *const conn,
             return -5;
         }
 
-        X509_NAME *name = X509_get_subject_name(x509_ser_cert);
-        gquic_str_t ser_cert_common_name;
-        int ret = X509_NAME_get_text_by_NID(name, NID_commonName, NULL, 0);
-        if (gquic_str_alloc(&ser_cert_common_name, ret) != 0) {
-            X509_free(x509_ser_cert);
-            return -6;
+        if (!__equal_common_name(&conn->cfg->ser_name,
+                                X509_get_subject_name(x509_ser_cert))) {
+            return 0;
         }
-        ret = X509_NAME_get_text_by_NID(name,
-                                        NID_commonName,
-                                        GQUIC_STR_VAL(&ser_cert_common_name),
-                                        GQUIC_STR_SIZE(&ser_cert_common_name));
         X509_free(x509_ser_cert);
-
-        // TODO
     }
+
+    if ((*sess)->ver != GQUIC_TLS_VERSION_13) {
+        u_int16_t *hello_cipher_suite;
+        int finded_cipher_suite = 0;
+        GQUIC_LIST_FOREACH(hello_cipher_suite, &hello->cipher_suites) {
+            if (*hello_cipher_suite == (*sess)->cipher_suite) {
+                finded_cipher_suite = 1;
+                break;
+            }
+        }
+        if (finded_cipher_suite == 0) {
+            return 0;
+        }
+
+        gquic_str_copy(&hello->sess_ticket, &(*sess)->sess_ticket);
+        return 0;
+    }
+
+    if (time(NULL) > (*sess)->use_by) {
+        conn->cfg->cli_sess_cache->put_fptr(cache_key, NULL);
+        return 0;
+    }
+    time_t ticket_age = time(NULL) - (*sess)->recv_at;
+    gquic_tls_psk_identity_t *identity = gquic_list_alloc(sizeof(gquic_tls_psk_identity_t));
+    if (identity == NULL) {
+        return -6;
+    }
+    gquic_str_init(&identity->label);
+    gquic_str_copy(&identity->label, &(*sess)->sess_ticket);
+    identity->obfuscated_ticket_age = ticket_age + (*sess)->age_add;
+    gquic_list_insert_before(&hello->psk_identities, identity);
+
 
     return 0;
 }
@@ -117,3 +141,26 @@ static int gquic_tls_conn_cli_sess_cache_key(gquic_str_t *const ret, const gquic
     return gquic_net_addr_to_str(addr, ret);
 }
 
+static int __compare_now_asn1_time(const ASN1_TIME *const ref_time) {
+    int cmp;
+    ASN1_TIME *cur = ASN1_TIME_new();
+    ASN1_TIME_set(cur, time(NULL));
+    cmp = ASN1_TIME_compare(cur, ref_time);
+    ASN1_TIME_free(cur);
+    return cmp;
+}
+
+static int __equal_common_name(const gquic_str_t *const n1, X509_NAME *const n2) {
+    gquic_str_t n2_str;
+    int ret = X509_NAME_get_text_by_NID(n2, NID_commonName, NULL, 0);
+    if ((size_t) ret != GQUIC_STR_SIZE(n1)) {
+        return 0;
+    }
+    if (gquic_str_alloc(&n2_str, ret) != 0) {
+        return 0;
+    }
+    X509_NAME_get_text_by_NID(n2, NID_commonName, GQUIC_STR_VAL(&n2_str), GQUIC_STR_SIZE(&n2_str));
+    ret = memcmp(GQUIC_STR_VAL(&n2_str), GQUIC_STR_VAL(n1), GQUIC_STR_SIZE(n1));
+    gquic_str_reset(&n2_str);
+    return ret == 0;
+}
