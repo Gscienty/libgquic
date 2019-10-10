@@ -1,5 +1,6 @@
 #include "tls/key_schedule.h"
 #include "util/str.h"
+#include "util/big_endian.h"
 #include <openssl/evp.h>
 
 typedef struct gquic_tls_x25519_params_s gquic_tls_x25519_params_t;
@@ -30,9 +31,24 @@ int gquic_tls_ecdhe_params_generate(gquic_tls_ecdhe_params_t *param, const gquic
     return gquic_tls_ecdhe_params_generate_x25519(param);
 }
 
+int gquic_tls_ecdhe_params_init(gquic_tls_ecdhe_params_t *param) {
+    if (param == NULL) {
+        return -1;
+    }
+    param->self = NULL;
+    param->curve_id = NULL;
+    param->public_key = NULL;
+    param->shared_key = NULL;
+
+    return 0;
+}
+
 int gquic_tls_ecdhe_params_release(gquic_tls_ecdhe_params_t *param) {
     if (param == NULL) {
         return -1;
+    }
+    if (param->self == NULL) {
+        return 0;
     }
 
     switch (GQUIC_TLS_ECDHE_PARAMS_CURVE_ID(param)) {
@@ -59,9 +75,9 @@ static int gquic_tls_ecdhe_params_generate_x25519(gquic_tls_ecdhe_params_t *para
         return -2;
     }
     param->self = x25519_param;
-    param->curve_id_fptr = gquic_x25519_params_curve_id_wrapped;
-    param->public_key_fptr = gquic_x25519_params_public_key_wrapped;
-    param->shared_key_fptr = gquic_x25519_params_shared_key_wrapped;
+    param->curve_id = gquic_x25519_params_curve_id_wrapped;
+    param->public_key = gquic_x25519_params_public_key_wrapped;
+    param->shared_key = gquic_x25519_params_shared_key_wrapped;
 
     gquic_str_init(&x25519_param->pri_key);
     gquic_str_init(&x25519_param->pub_key);
@@ -82,8 +98,8 @@ static int gquic_tls_ecdhe_params_generate_x25519(gquic_tls_ecdhe_params_t *para
     if (pkey == NULL) {
         return -6;
     }
-    EVP_PKEY_get_raw_public_key(pkey, GQUIC_STR_VAL(&x25519_param->pub_key), &GQUIC_STR_SIZE(&x25519_param->pub_key));
-    EVP_PKEY_get_raw_private_key(pkey, GQUIC_STR_VAL(&x25519_param->pri_key), &GQUIC_STR_SIZE(&x25519_param->pri_key));
+    EVP_PKEY_get_raw_public_key(pkey, GQUIC_STR_VAL(&x25519_param->pub_key), &x25519_param->pub_key.size);
+    EVP_PKEY_get_raw_private_key(pkey, GQUIC_STR_VAL(&x25519_param->pri_key), &x25519_param->pri_key.size);
 
     EVP_PKEY_free(pkey);
     EVP_PKEY_CTX_free(ctx);
@@ -125,13 +141,13 @@ static int gquic_x25519_params_shared_key(const gquic_tls_x25519_params_t *param
     if (EVP_PKEY_derive_set_peer(ctx, peerkey) <= 0) {
         return -5;
     }
-    if (EVP_PKEY_derive(ctx, NULL, &GQUIC_STR_SIZE(ret)) <= 0) {
+    if (EVP_PKEY_derive(ctx, NULL, &ret->size) <= 0) {
         return -6;
     }
     if (gquic_str_alloc(ret, GQUIC_STR_SIZE(ret)) != 0) {
         return -7;
     }
-    if (EVP_PKEY_derive(ctx, GQUIC_STR_VAL(ret), &GQUIC_STR_SIZE(ret)) <= 0) {
+    if (EVP_PKEY_derive(ctx, GQUIC_STR_VAL(ret), &ret->size) <= 0) {
         return -8;
     }
     EVP_PKEY_free(peerkey);
