@@ -77,7 +77,7 @@ int gquic_tls_conn_load_session(const gquic_tls_conn_t *const conn,
             return -4;
         }
         gquic_str_t *ser_cert = gquic_list_next(GQUIC_LIST_PAYLOAD(&(*sess)->ser_certs));
-        X509 *x509_ser_cert = d2i_X509(NULL, (unsigned char const **) &GQUIC_STR_VAL(ser_cert), GQUIC_STR_SIZE(ser_cert));
+        X509 *x509_ser_cert = d2i_X509(NULL, (unsigned char const **) &ser_cert->val, GQUIC_STR_SIZE(ser_cert));
         int cmp = __compare_now_asn1_time(X509_get_notAfter(x509_ser_cert));
         if (cmp == 1) {
             X509_free(x509_ser_cert);
