@@ -77,10 +77,10 @@
 #define GQUIC_SIGALG_ECDSA_P512_SHA512 0x0603
 #define GQUIC_SIGALG_ED25519 0x0807
 
-#define GQUIC_SIG_PKCS1V15 0x00FF
-#define GQUIC_SIG_RSAPSS 0x0100
-#define GQUIC_SIG_ECDSA 0x0101
-#define GQUIC_SIG_ED25519 0x0102
+#define GQUIC_SIG_PKCS1V15 0x00
+#define GQUIC_SIG_RSAPSS 0x01
+#define GQUIC_SIG_ECDSA 0x02
+#define GQUIC_SIG_ED25519 0x03
 
 
 typedef uint16_t gquic_curve_id_t;
@@ -137,5 +137,7 @@ int gquic_tls_config_init(gquic_tls_config_t *const cfg);
 int gquic_tls_ticket_key_deserialize(gquic_tls_ticket_key_t *ticket_key, const void *buf, const size_t size);
 int gquic_tls_config_supported_versions(gquic_list_t *ret, const gquic_tls_config_t *cfg, int is_client);
 int gquic_tls_config_curve_preferences(gquic_list_t *ret);
+int gquic_tls_is_supported_sigalg(const u_int16_t sigalg, const gquic_list_t *const sigalgs);
+int gquic_tls_sig_trans(u_int8_t *const sig, const u_int16_t sigsche);
 
 #endif
