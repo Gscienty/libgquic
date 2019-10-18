@@ -94,15 +94,14 @@ int gquic_tls_config_curve_preferences(gquic_list_t *ret) {
     if (gquic_list_head_init(ret) != 0) {
         return -2;
     }
-    size_t count = sizeof(__default_curve_preferences) / sizeof(gquic_curve_id_t);
     size_t i;
-    for (i = 0; i < count; i++) {
-        gquic_curve_id_t *field = gquic_list_alloc(sizeof(gquic_curve_id_t));
-        if (field == NULL) {
+    gquic_curve_id_t *payload;
+    for (i = 0; i < sizeof(__default_curve_preferences) / sizeof(gquic_curve_id_t); i++) {
+        if ((payload = gquic_list_alloc(sizeof(gquic_curve_id_t))) == NULL) {
             return -3;
         }
-        *field = __default_curve_preferences[i];
-        if (gquic_list_insert_before(ret, field) != 0) {
+        *payload = __default_curve_preferences[i];
+        if (gquic_list_insert_before(ret, payload) != 0) {
             return -4;
         }
     }
@@ -148,5 +147,39 @@ int gquic_tls_sig_trans(u_int8_t *const sig, const u_int16_t sigsche) {
     default:
         return -2;
     }
+    return 0;
+}
+
+static u_int16_t __supported_sigalgs_tls12[] = {
+    GQUIC_SIGALG_PKCS1_SHA256,
+    GQUIC_SIGALG_ECDSA_P256_SHA256,
+    GQUIC_SIGALG_ED25519,
+    GQUIC_SIGALG_PKCS1_SHA384,
+    GQUIC_SIGALG_PKCS1_SHA512,
+    GQUIC_SIGALG_ECDSA_P384_SHA384,
+    GQUIC_SIGALG_ECDSA_P512_SHA512,
+    GQUIC_SIGALG_PKCS1_SHA1,
+    GQUIC_SIGALG_ECDSA_SHA1
+};
+
+int gquic_tls_supported_sigalgs_tls12(gquic_list_t *const sigsches) {
+    size_t i;
+    u_int16_t *payload;
+    if (sigsches == NULL) {
+        return -1;
+    }
+    if (gquic_list_head_init(sigsches) != 0) {
+        return -2;
+    }
+    for (i = 0; i < sizeof(__supported_sigalgs_tls12) / sizeof(u_int16_t); i++) {
+        if ((payload = gquic_list_alloc(sizeof(u_int16_t))) == NULL) {
+            return -3;
+        }
+        *payload = __supported_sigalgs_tls12[i];
+        if (gquic_list_insert_before(sigsches, payload) != 0) {
+            return -4;
+        }
+    }
+
     return 0;
 }
