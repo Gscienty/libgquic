@@ -2,6 +2,7 @@
 #define _LIBGQUIC_TLS_CIPHER_SUITE_H
 
 #include "tls/key_schedule.h"
+#include "tls/key_agreement.h"
 #include "tls/config.h"
 #include <sys/types.h>
 #include <openssl/evp.h>
@@ -58,7 +59,7 @@ struct gquic_tls_cipher_suite_s {
     size_t key_len;
     size_t mac_len;
     size_t iv_len;
-    const gquic_tls_key_aggrement_t *ka;
+    const gquic_tls_key_agreement_t *ka;
     int flags;
     u_int32_t hash;
 
