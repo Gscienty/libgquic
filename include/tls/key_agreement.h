@@ -41,5 +41,6 @@ struct gquic_tls_key_agreement_s {
 
 int gquic_tls_key_agreement_release(gquic_tls_key_agreement_t *const key_agreement);
 int gquic_tls_key_agreement_rsa_init(gquic_tls_key_agreement_t *const key_agreement);
+int gquic_tls_key_agreement_ecdhe_init(gquic_tls_key_agreement_t *const key_agreement);
 
 #endif

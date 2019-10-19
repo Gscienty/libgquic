@@ -24,9 +24,11 @@ struct gquic_tls_ecdhe_key_agreement_s {
     int is_rsa;
     gquic_tls_ecdhe_params_t params;
 
-    const gquic_tls_client_key_exchange_msg_t *ckex_msg;
+    gquic_tls_client_key_exchange_msg_t ckex_msg;
     gquic_str_t pre_master_sec;
 };
+
+static int gquic_tls_ecdhe_key_agreement_init(gquic_tls_ecdhe_key_agreement_t *const);
 
 static int rsa_ka_process_cli_key_exchange(gquic_str_t *const,
                                            void *const,
@@ -47,12 +49,37 @@ static int ecdhe_ka_generate_ser_key_exchange(gquic_tls_server_key_exchange_msg_
                                               const gquic_str_t *const,
                                               const gquic_tls_client_hello_msg_t *const,
                                               const gquic_tls_server_hello_msg_t *const);
+static int ecdhe_ka_process_cli_key_exchange(gquic_str_t *const,
+                                             void *const,
+                                             const gquic_tls_config_t *const,
+                                             const gquic_str_t *const,
+                                             const gquic_tls_client_key_exchange_msg_t *const,
+                                             u_int16_t);
+static int ecdhe_ka_process_ser_key_exchange(void *const,
+                                             const gquic_tls_config_t *const,
+                                             const gquic_tls_client_hello_msg_t *const,
+                                             const gquic_tls_server_hello_msg_t *const,
+                                             const gquic_str_t *const,
+                                             const gquic_tls_server_key_exchange_msg_t *const);
+static int ecdhe_ka_generate_cli_key_exchange(gquic_str_t *const,
+                                              gquic_tls_client_key_exchange_msg_t *const,
+                                              void *const,
+                                              const gquic_tls_config_t *const,
+                                              const gquic_tls_client_hello_msg_t *const,
+                                              const gquic_str_t *const);
 
 int gquic_tls_key_agreement_release(gquic_tls_key_agreement_t *const key_agreement) {
+    gquic_tls_ecdhe_key_agreement_t *ecdhe_self = NULL;
     if (key_agreement == NULL) {
         return -1;
     }
     switch (key_agreement->type) {
+    case GQUIC_TLS_KEY_AGREEMENT_TYPE_ECDHE:
+        ecdhe_self = key_agreement->self;
+        gquic_tls_ecdhe_params_release(&ecdhe_self->params);
+        gquic_tls_client_key_exchange_msg_reset(&ecdhe_self->ckex_msg);
+        gquic_str_reset(&ecdhe_self->pre_master_sec);
+        break;
     }
 
     return 0;
@@ -69,6 +96,36 @@ int gquic_tls_key_agreement_rsa_init(gquic_tls_key_agreement_t *const key_agreem
     key_agreement->process_cli_key_exchange = rsa_ka_process_cli_key_exchange;
     key_agreement->process_ser_key_exchange = NULL;
 
+    return 0;
+}
+
+int gquic_tls_key_agreement_ecdhe_init(gquic_tls_key_agreement_t *const key_agreement) {
+    if (key_agreement == NULL) {
+        return -1;
+    }
+    key_agreement->type = GQUIC_TLS_KEY_AGREEMENT_TYPE_ECDHE;
+    key_agreement->self = malloc(sizeof(gquic_tls_ecdhe_key_agreement_t));
+    if (key_agreement->self == NULL) {
+        return -2;
+    }
+    gquic_tls_ecdhe_key_agreement_init(key_agreement->self);
+    key_agreement->generate_cli_key_exchange = ecdhe_ka_generate_cli_key_exchange;
+    key_agreement->generate_ser_key_exchange = ecdhe_ka_generate_ser_key_exchange;
+    key_agreement->process_cli_key_exchange = ecdhe_ka_process_cli_key_exchange;
+    key_agreement->process_ser_key_exchange = ecdhe_ka_process_ser_key_exchange;
+
+    return 0;
+}
+
+static int gquic_tls_ecdhe_key_agreement_init(gquic_tls_ecdhe_key_agreement_t *const ka) {
+    if (ka == NULL) {
+        return -1;
+    }
+    ka->ver = 0;
+    ka->is_rsa = 0;
+    gquic_tls_ecdhe_params_init(&ka->params);
+    gquic_tls_client_key_exchange_msg_init(&ka->ckex_msg);
+    gquic_str_init(&ka->pre_master_sec);
     return 0;
 }
 
@@ -417,6 +474,219 @@ failure:
     }
 
     return ret;
+}
+static int ecdhe_ka_process_cli_key_exchange(gquic_str_t *const pre_master_sec,
+                                             void *const self,
+                                             const gquic_tls_config_t *const cfg,
+                                             const gquic_str_t *const p12_d,
+                                             const gquic_tls_client_key_exchange_msg_t *const ckex_msg,
+                                             u_int16_t ver) {
+    (void) ver;
+    (void) cfg;
+    (void) p12_d;
+    gquic_tls_ecdhe_key_agreement_t *ecdhe_self = self;
+    gquic_str_t ciphertext;
+    if (pre_master_sec == NULL || self == NULL || ckex_msg == NULL) {
+        return -1;
+    }
+    if (gquic_str_init(&ciphertext) != 0) {
+        return -2;
+    }
+    if (gquic_str_init(pre_master_sec) != 0) {
+        return -3;
+    }
+    if (GQUIC_STR_SIZE(&ckex_msg->cipher) == 0 || *((u_int8_t *) GQUIC_STR_VAL(&ckex_msg->cipher)) != GQUIC_STR_SIZE(&ckex_msg->cipher) - 1) {
+        return -4;
+    }
+    ciphertext.val = GQUIC_STR_VAL(&ckex_msg->cipher) + 1;
+    ciphertext.size = GQUIC_STR_SIZE(&ckex_msg->cipher) - 1;
+    if (GQUIC_TLS_ECDHE_PARAMS_SHARED_KEY(&ecdhe_self->params, pre_master_sec, &ciphertext) != 0) {
+        return -5;
+    }
+
+    return 0;
+}
+
+static int ecdhe_ka_process_ser_key_exchange(void *const self,
+                                             const gquic_tls_config_t *const cfg,
+                                             const gquic_tls_client_hello_msg_t *const c_hello,
+                                             const gquic_tls_server_hello_msg_t *const s_hello,
+                                             const gquic_str_t *const cert_d,
+                                             const gquic_tls_server_key_exchange_msg_t *const skex_msg) {
+    gquic_tls_ecdhe_key_agreement_t *ecdhe_self = self;
+    gquic_curve_id_t curve_id = 0;
+    gquic_str_t ser_ecdh_params;
+    gquic_str_t pubkey;
+    gquic_str_t sig;
+    gquic_str_t self_pubkey;
+    gquic_str_t sign;
+    u_int16_t sigalg = 0;
+    u_int16_t sig_len = 0;
+    u_int8_t sig_type = 0;
+    gquic_list_t c_sup_sigalgs;
+    gquic_list_t slices;
+    const EVP_MD *hash = NULL;
+    const EVP_PKEY *cert_pubkey = NULL;
+    X509 *cert = NULL;
+    int ret = 0;
+    if (self == NULL || cfg == NULL || c_hello == NULL || s_hello == NULL || cert_d == NULL || skex_msg == NULL) {
+        return -1;
+    }
+    gquic_tls_client_key_exchange_msg_init(&ecdhe_self->ckex_msg);
+    gquic_str_init(&ser_ecdh_params);
+    gquic_str_init(&pubkey);
+    gquic_str_init(&sig);
+    gquic_str_init(&self_pubkey);
+    gquic_str_init(&sign);
+    gquic_list_head_init(&c_sup_sigalgs);
+    gquic_list_head_init(&slices);
+    if ((cert = d2i_X509(NULL, (unsigned char const **) &cert_d->val, GQUIC_STR_SIZE(cert_d))) == NULL) {
+        return -1;
+    }
+    cert_pubkey = X509_get_pubkey(cert);
+    if (GQUIC_STR_SIZE(&skex_msg->key) < 4) {
+        return -2;
+    }
+    if (*((u_int8_t *) GQUIC_STR_VAL(&skex_msg->key)) != 3) {
+        return -3;
+    }
+    if (gquic_big_endian_transfer(&curve_id, GQUIC_STR_VAL(&skex_msg->key) + 1, 2) != 0) {
+        return -4;
+    }
+    if (gquic_big_endian_transfer(&pubkey.size, GQUIC_STR_VAL(&skex_msg->key) + 3, 1) != 0) {
+        return -5;
+    }
+    if (GQUIC_STR_SIZE(&pubkey) + 4 > GQUIC_STR_SIZE(&skex_msg->key)) {
+        return -6;
+    }
+    if (gquic_str_alloc(&ser_ecdh_params, 4 + GQUIC_STR_SIZE(&pubkey)) != 0) {
+        return -7;
+    }
+    memcpy(GQUIC_STR_VAL(&ser_ecdh_params), GQUIC_STR_VAL(&skex_msg->key), 4 + GQUIC_STR_SIZE(&pubkey));
+    if (gquic_str_alloc(&pubkey, GQUIC_STR_SIZE(&pubkey)) != 0) {
+        ret = -8;
+        goto failure;
+    }
+    memcpy(GQUIC_STR_VAL(&pubkey), GQUIC_STR_VAL(&ser_ecdh_params) + 4, GQUIC_STR_SIZE(&pubkey));
+    sig.size = GQUIC_STR_SIZE(&skex_msg->key) - GQUIC_STR_SIZE(&ser_ecdh_params);
+    if (GQUIC_STR_SIZE(&sig) < 2) {
+        ret = -9;
+        goto failure;
+    }
+    if (gquic_str_alloc(&sig, GQUIC_STR_SIZE(&sig)) != 0) {
+        ret = -10;
+        goto failure;
+    }
+    if (gquic_tls_ecdhe_params_generate(&ecdhe_self->params, curve_id) != 0) {
+        ret = -11;
+        goto failure;
+    }
+    if (GQUIC_TLS_ECDHE_PARAMS_SHARED_KEY(&ecdhe_self->params, &ecdhe_self->pre_master_sec, &pubkey) != 0) {
+        ret = -12;
+        goto failure;
+    }
+    if (GQUIC_TLS_ECDHE_PARAMS_PUBLIC_KEY(&ecdhe_self->params, &self_pubkey) != 0) {
+        ret = -13;
+        goto failure;
+    }
+    if (gquic_str_alloc(&ecdhe_self->ckex_msg.cipher, 1 + GQUIC_STR_SIZE(&self_pubkey)) != 0) {
+        ret = -14;
+        goto failure;
+    }
+    if (gquic_big_endian_transfer(GQUIC_STR_VAL(&ecdhe_self->ckex_msg.cipher), &self_pubkey.size, 1) != 0) {
+        ret = -15;
+        goto failure;
+    }
+    memcpy(GQUIC_STR_VAL(&ecdhe_self->ckex_msg.cipher) + 1, GQUIC_STR_VAL(&self_pubkey), GQUIC_STR_SIZE(&self_pubkey));
+
+    if (ecdhe_self->ver >= GQUIC_TLS_VERSION_12) {
+        if (gquic_big_endian_transfer(&sigalg, GQUIC_STR_VAL(&sig), 2) != 0) {
+            ret = -16;
+            goto failure;
+        }
+        memmove(GQUIC_STR_VAL(&sig), GQUIC_STR_VAL(&sig) + 2, GQUIC_STR_SIZE(&sig) - 2);
+        sig.size -= 2;
+        if (GQUIC_STR_SIZE(&sig) < 2) {
+            ret = -17;
+            goto failure;
+        }
+    }
+    gquic_list_insert_after(&c_sup_sigalgs, gquic_list_alloc(sizeof(u_int16_t)));
+    *(u_int16_t *) gquic_list_next(GQUIC_LIST_PAYLOAD(&c_sup_sigalgs)) = sigalg;
+    if (gquic_tls_selected_sigalg(&sigalg, &sig_type, &hash, cert_pubkey, &c_sup_sigalgs, &c_hello->supported_sign_algos, ecdhe_self->ver) != 0) {
+        ret = -18;
+        goto failure;
+    }
+    if (ecdhe_self->is_rsa != (sig_type == GQUIC_SIG_PKCS1V15 || sig_type == GQUIC_SIG_RSAPSS)) {
+        ret = -19;
+        goto failure;
+    }
+    if (gquic_big_endian_transfer(&sig_len, GQUIC_STR_VAL(&sig), 2) != 0) {
+        ret = -20;
+        goto failure;
+    }
+    if (sig_len + 2 != GQUIC_STR_SIZE(&sig)) {
+        ret = -21;
+        goto failure;
+    }
+    memmove(GQUIC_STR_VAL(&sig), GQUIC_STR_VAL(&sig) + 2, GQUIC_STR_SIZE(&sig) - 2);
+    sig.size -= 2;
+    gquic_list_insert_before(&slices, gquic_list_alloc(sizeof(const gquic_str_t *)));
+    *(const gquic_str_t **) gquic_list_prev(GQUIC_LIST_PAYLOAD(&slices)) = &c_hello->random;
+    gquic_list_insert_before(&slices, gquic_list_alloc(sizeof(const gquic_str_t *)));
+    *(const gquic_str_t **) gquic_list_prev(GQUIC_LIST_PAYLOAD(&slices)) = &s_hello->random;
+    gquic_list_insert_before(&slices, gquic_list_alloc(sizeof(const gquic_str_t *)));
+    *(const gquic_str_t **) gquic_list_prev(GQUIC_LIST_PAYLOAD(&slices)) = &ser_ecdh_params;
+    if (hash_for_ser_key_exchange(&sign, sig_type, hash, ecdhe_self->ver, &slices) != 0) {
+        ret = -22;
+        goto failure;
+    }
+
+    // TODO need verify handshake sign
+    
+    gquic_str_reset(&ser_ecdh_params);
+    gquic_str_reset(&pubkey);
+    gquic_str_reset(&sig);
+    gquic_str_reset(&self_pubkey);
+    while (!gquic_list_head_empty(&c_sup_sigalgs)) gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&c_sup_sigalgs)));
+    while (!gquic_list_head_empty(&slices)) gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&slices)));
+    if (cert != NULL) {
+        X509_free(cert);
+    }
+    return 0;
+failure:
+    gquic_str_reset(&ser_ecdh_params);
+    gquic_str_reset(&pubkey);
+    gquic_str_reset(&sig);
+    gquic_str_reset(&self_pubkey);
+    gquic_str_reset(&ecdhe_self->pre_master_sec);
+    while (!gquic_list_head_empty(&c_sup_sigalgs)) gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&c_sup_sigalgs)));
+    while (!gquic_list_head_empty(&slices)) gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&slices)));
+    gquic_tls_ecdhe_params_release(&ecdhe_self->params);
+    if (cert != NULL) {
+        X509_free(cert);
+    }
+    return ret;
+}
+
+static int ecdhe_ka_generate_cli_key_exchange(gquic_str_t *const pre_master_sec,
+                                              gquic_tls_client_key_exchange_msg_t *const ckex_msg,
+                                              void *const self,
+                                              const gquic_tls_config_t *const cfg,
+                                              const gquic_tls_client_hello_msg_t *const c_hello,
+                                              const gquic_str_t *const cert) {
+    (void) cfg;
+    (void) c_hello;
+    (void) cert;
+    gquic_tls_ecdhe_key_agreement_t *ecdhe_self = self;
+    if (pre_master_sec == NULL || ckex_msg == NULL || self == NULL) {
+        return -1;
+    }
+    gquic_str_init(pre_master_sec);
+    gquic_tls_client_key_exchange_msg_init(ckex_msg);
+    gquic_str_copy(pre_master_sec, &ecdhe_self->pre_master_sec);
+    gquic_str_copy(&ckex_msg->cipher, &ecdhe_self->ckex_msg.cipher);
+    return 0;
 }
 
 static int hash_for_ser_key_exchange(gquic_str_t *const ret,
