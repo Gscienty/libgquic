@@ -33,7 +33,7 @@ int gquic_net_addr_to_str(const gquic_net_addr_t *const addr, gquic_str_t *const
         return -5;
     }
     
-    GQUIC_STR_SIZE(ret) = strlen(GQUIC_STR_VAL(ret));
+    ret->size = strlen(GQUIC_STR_VAL(ret));
     if (GQUIC_STR_SIZE(ret) == 0) {
         gquic_str_reset(ret);
         return -6;
