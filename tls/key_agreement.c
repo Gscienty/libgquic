@@ -153,6 +153,7 @@ static int rsa_ka_process_cli_key_exchange(gquic_str_t *const pre_master_sec,
         return -2;
     }
     gquic_big_endian_transfer(&cipher_len, GQUIC_STR_VAL(cipher), 2);
+    printf("cipher size: %ld\n", GQUIC_STR_SIZE(cipher));
     if (cipher_len != GQUIC_STR_SIZE(cipher) - 2) {
         return -3;
     }
@@ -262,7 +263,8 @@ static int rsa_ka_generate_cli_key_exchange(gquic_str_t *const pre_master_sec,
         ret = -11;
         goto failure;
     }
-    gquic_big_endian_transfer(GQUIC_STR_VAL(&ckex_msg->cipher), &hello->vers, 2);
+    _ = GQUIC_STR_SIZE(&ckex_msg->cipher) - 2;
+    gquic_big_endian_transfer(GQUIC_STR_VAL(&ckex_msg->cipher), &_, 2);
 
     X509_free(x509_cert);
     EVP_PKEY_CTX_free(ctx);
