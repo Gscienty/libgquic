@@ -1,6 +1,12 @@
 #include "tls/cipher_suite.h"
+#include "tls/key_agreement.h"
 #include <malloc.h>
 #include <string.h>
+#include <openssl/sha.h>
+
+static int ecdhe_rsa_ka(gquic_tls_key_agreement_t *const, const u_int16_t);
+static int ecdhe_ecdsa_ka(gquic_tls_key_agreement_t *const, const u_int16_t);
+static int rsa_ka(gquic_tls_key_agreement_t *const, const u_int16_t);
 
 static int cipher_common(EVP_CIPHER_CTX **const,
                          const EVP_CIPHER *const,
@@ -11,23 +17,8 @@ static int cipher_rc4(EVP_CIPHER_CTX **const, const gquic_str_t *const, const gq
 static int cipher_3des(EVP_CIPHER_CTX **const, const gquic_str_t *const, const gquic_str_t *const, const int);
 static int cipher_aes(EVP_CIPHER_CTX **const, const gquic_str_t *const, const gquic_str_t *const, const int);
 
-static int mac_sha1_init(gquic_tls_mac_func_t *const, const u_int16_t, const gquic_str_t *const);
-static size_t mac_sha1_size();
-static int mac_sha1(gquic_str_t *const,
-                    const gquic_tls_mac_func_t *const,
-                    const gquic_str_t *const,
-                    const gquic_str_t *const,
-                    const gquic_str_t *const,
-                    const gquic_str_t *const);
-static int mac_sha256_init(gquic_tls_mac_func_t *const, const u_int16_t, const gquic_str_t *const);
-static size_t mac_sha256_size();
-static int mac_sha256(gquic_str_t *const,
-                      const gquic_tls_mac_func_t *const,
-                      const gquic_str_t *const,
-                      const gquic_str_t *const,
-                      const gquic_str_t *const,
-                      const gquic_str_t *const);
-
+static int mac_sha1_init(HMAC_CTX **const, const u_int16_t, const gquic_str_t *const);
+static int mac_sha256_init(HMAC_CTX **const, const u_int16_t, const gquic_str_t *const);
 
 static int aead_seal(gquic_str_t *const,
                      gquic_str_t *const,
@@ -44,36 +35,74 @@ static int gquic_tls_aead_seal(gquic_str_t *const,
                                gquic_str_t *const,
                                gquic_tls_aead_ctx_t *const,
                                const gquic_str_t *const,
+                               const gquic_str_t *const,
                                const gquic_str_t *const);
 
 static int gquic_tls_aead_open(gquic_str_t *const,
                                gquic_tls_aead_ctx_t *const,
                                const gquic_str_t *const,
                                const gquic_str_t *const,
+                               const gquic_str_t *const,
                                const gquic_str_t *const);
 
-static int aead_alloc(gquic_tls_aead_t *const);
+static int aead_prefix_nonce_wrapper(gquic_str_t *const, const gquic_str_t *const, const gquic_str_t *const);
+static int aead_xor_nonce_wrapper(gquic_str_t *const, const gquic_str_t *const, const gquic_str_t *const);
 
-static int aead_aes_gcm_init(gquic_tls_aead_t *const, const gquic_str_t *const, const gquic_str_t *const);
-static int aead_chacha20_poly1305_init(gquic_tls_aead_t *const, const gquic_str_t *const, const gquic_str_t *const);
+static inline int aead_aes_gcm_init(gquic_tls_aead_t *const, const gquic_str_t *const, const gquic_str_t *const);
+static inline int aead_chacha20_poly1305_init(gquic_tls_aead_t *const, const gquic_str_t *const, const gquic_str_t *const);
+static int aead_aes_gcm_init_prefix(gquic_tls_aead_t *const, const gquic_str_t *const, const gquic_str_t *const);
+static int aead_chacha20_poly1305_init_prefix(gquic_tls_aead_t *const, const gquic_str_t *const, const gquic_str_t *const);
+static int aead_aes_gcm_init_xor(gquic_tls_aead_t *const, const gquic_str_t *const, const gquic_str_t *const);
+static int aead_chacha20_poly1305_init_xor(gquic_tls_aead_t *const, const gquic_str_t *const, const gquic_str_t *const);
 
-int gquic_tls_mac_func_init(gquic_tls_mac_func_t *const mac_func) {
-    if (mac_func == NULL) {
+static gquic_tls_cipher_suite_t cipher_suites[] = {
+    { GQUIC_TLS_CIPHER_SUITE_ECDHE_RSA_WITH_CHACHA20_POLY1305, 32, 0, 12, ecdhe_rsa_ka, GQUIC_TLS_SUITE_ECDHE | GQUIC_TLS_SUITE_TLS12, 0, NULL, NULL, aead_chacha20_poly1305_init_prefix },
+    { GQUIC_TLS_CIPHER_SUITE_ECDHE_ECDSA_WITH_CHACHA20_POLY1305, 32, 0, 12, ecdhe_ecdsa_ka, GQUIC_TLS_SUITE_ECDHE | GQUIC_TLS_SUITE_EC_SIGN | GQUIC_TLS_SUITE_TLS12, 0, NULL, NULL, aead_chacha20_poly1305_init_prefix },
+    { GQUIC_TLS_CIPHER_SUITE_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, 16, 0, 4, ecdhe_rsa_ka, GQUIC_TLS_SUITE_ECDHE | GQUIC_TLS_SUITE_TLS12, 0, NULL, NULL, aead_aes_gcm_init_prefix },
+    { GQUIC_TLS_CIPHER_SUITE_ECDHE_RSA_WITH_AES_128_GCM_SHA256, 16, 0, 4, ecdhe_rsa_ka, GQUIC_TLS_SUITE_ECDHE | GQUIC_TLS_SUITE_TLS12, 0, NULL, NULL, aead_aes_gcm_init_prefix },
+    { GQUIC_TLS_CIPHER_SUITE_ECDHE_RSA_WITH_AES_256_GCM_SHA384, 32, 0, 4, ecdhe_rsa_ka, GQUIC_TLS_SUITE_ECDHE | GQUIC_TLS_SUITE_TLS12 | GQUIC_TLS_SUITE_SHA384, 0, NULL, NULL, aead_aes_gcm_init_prefix },
+    { GQUIC_TLS_CIPHER_SUITE_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384, 32, 0, 4, ecdhe_ecdsa_ka, GQUIC_TLS_SUITE_ECDHE | GQUIC_TLS_SUITE_EC_SIGN | GQUIC_TLS_SUITE_TLS12 | GQUIC_TLS_SUITE_SHA384, 0, NULL, NULL, aead_aes_gcm_init_prefix },
+    { GQUIC_TLS_CIPHER_SUITE_ECDHE_RSA_WITH_AES_128_CBC_SHA256, 16, 32, 16, ecdhe_rsa_ka, GQUIC_TLS_SUITE_ECDHE | GQUIC_TLS_SUITE_TLS12 | GQUIC_TLS_SUITE_DEF, 0, cipher_aes, mac_sha256_init, NULL },
+    { GQUIC_TLS_CIPHER_SUITE_ECDHE_RSA_WITH_AES_128_CBC_SHA, 16, 20, 16, ecdhe_rsa_ka, GQUIC_TLS_SUITE_ECDHE, 0, cipher_aes, mac_sha1_init, NULL },
+    { GQUIC_TLS_CIPHER_SUITE_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256, 16, 32, 16, ecdhe_ecdsa_ka, GQUIC_TLS_SUITE_ECDHE | GQUIC_TLS_SUITE_EC_SIGN | GQUIC_TLS_SUITE_TLS12 | GQUIC_TLS_SUITE_DEF, 0, cipher_aes, mac_sha256_init, NULL },
+    { GQUIC_TLS_CIPHER_SUITE_ECDHE_ECDSA_WITH_AES_128_CBC_SHA, 16, 20, 16, ecdhe_ecdsa_ka, GQUIC_TLS_SUITE_ECDHE | GQUIC_TLS_SUITE_EC_SIGN, 0, cipher_aes, mac_sha1_init, NULL },
+    { GQUIC_TLS_CIPHER_SUITE_ECDHE_RSA_WITH_AES_256_CBC_SHA, 32, 20, 16, ecdhe_rsa_ka, GQUIC_TLS_SUITE_ECDHE, 0, cipher_aes, mac_sha1_init, NULL },
+    { GQUIC_TLS_CIPHER_SUITE_ECDHE_ECDSA_WITH_AES_256_CBC_SHA, 32, 20, 16, ecdhe_ecdsa_ka, GQUIC_TLS_SUITE_ECDHE | GQUIC_TLS_SUITE_EC_SIGN, 0, cipher_aes, mac_sha1_init, NULL },
+    { GQUIC_TLS_CIPHER_SUITE_RSA_WITH_AES_128_GCM_SHA256, 16, 0, 4, rsa_ka, GQUIC_TLS_SUITE_TLS12, 0, NULL, NULL, aead_aes_gcm_init_prefix },
+    { GQUIC_TLS_CIPHER_SUITE_RSA_WITH_AES_256_GCM_SHA384, 32, 0, 4, rsa_ka, GQUIC_TLS_SUITE_TLS12 | GQUIC_TLS_SUITE_SHA384, 0, NULL, NULL, aead_aes_gcm_init_prefix },
+    { GQUIC_TLS_CIPHER_SUITE_RSA_WITH_AES_128_CBC_SHA256, 16, 32, 16, rsa_ka, GQUIC_TLS_SUITE_TLS12 | GQUIC_TLS_SUITE_DEF, 0, cipher_aes, mac_sha256_init, NULL },
+    { GQUIC_TLS_CIPHER_SUITE_RSA_WITH_AES_128_CBC_SHA, 16, 20, 16, rsa_ka, 0, 0, cipher_aes, mac_sha256_init, NULL },
+    { GQUIC_TLS_CIPHER_SUITE_RSA_WITH_AES_256_CBC_SHA, 32, 20, 16, rsa_ka, 0, 0, cipher_aes, mac_sha256_init, NULL },
+    { GQUIC_TLS_CIPHER_SUITE_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA, 24, 20, 8, ecdhe_rsa_ka, GQUIC_TLS_SUITE_ECDHE, 0, cipher_3des, mac_sha1_init, NULL },
+    { GQUIC_TLS_CIPHER_SUITE_RSA_WITH_3DES_EDE_CBC_SHA, 24, 20, 8, rsa_ka, 0, 0, cipher_3des, mac_sha1_init, NULL },
+
+    { GQUIC_TLS_CIPHER_SUITE_RSA_WITH_RC4_128_SHA, 16, 20, 0, rsa_ka, GQUIC_TLS_SUITE_DEF, 0, cipher_rc4, mac_sha1_init, NULL },
+    { GQUIC_TLS_CIPHER_SUITE_ECDHE_RSA_WITH_RC4_128_SHA, 16, 20, 0, ecdhe_rsa_ka, GQUIC_TLS_SUITE_ECDHE | GQUIC_TLS_SUITE_DEF, 0, cipher_rc4, mac_sha1_init, NULL },
+    { GQUIC_TLS_CIPHER_SUITE_ECDHE_ECDSA_WITH_RC4_128_SHA, 16, 20, 0, ecdhe_ecdsa_ka, GQUIC_TLS_SUITE_ECDHE | GQUIC_TLS_SUITE_EC_SIGN | GQUIC_TLS_SUITE_DEF, 0, cipher_rc4, mac_sha1_init, NULL },
+
+    { GQUIC_TLS_CIPHER_SUITE_AES_128_GCM_SHA256, 16, 0, 0, NULL, 0, GQUIC_TLS_HASH_SHA256, NULL, NULL, aead_aes_gcm_init_xor },
+    { GQUIC_TLS_CIPHER_SUITE_CHACHA20_POLY1305_SHA256, 32, 0, 0, NULL, 0, GQUIC_TLS_HASH_SHA256, NULL, NULL, aead_chacha20_poly1305_init_xor },
+    { GQUIC_TLS_CIPHER_SUITE_AES_256_GCM_SHA384, 32, 0, 0, NULL, 0, GQUIC_TLS_HASH_SHA384, NULL, NULL, aead_aes_gcm_init_xor },
+};
+
+int gquic_tls_mac_func(gquic_str_t *const ret,
+                       HMAC_CTX *const ctx,
+                       const gquic_str_t *const seq,
+                       const gquic_str_t *const header,
+                       const gquic_str_t *const data,
+                       const gquic_str_t *const extra) {
+    unsigned int size;
+    (void) extra;
+    if (ret == NULL || ctx == NULL || seq == NULL || header == NULL || data == NULL) {
         return -1;
     }
-    mac_func->ctx = NULL;
-    mac_func->mac = NULL;
-    mac_func->size = NULL;
-    return 0;
-}
-
-int gquic_tls_mac_func_reset(gquic_tls_mac_func_t *const mac_func) {
-    if (mac_func == NULL) {
-        return -1;
+    if (gquic_str_alloc(ret, HMAC_size(ctx)) != 0) {
+        return -2;
     }
-    if (mac_func->ctx != NULL) {
-        HMAC_CTX_reset(mac_func->ctx);
-    }
+    HMAC_Update(ctx, GQUIC_STR_VAL(seq), GQUIC_STR_SIZE(seq));
+    HMAC_Update(ctx, GQUIC_STR_VAL(header), GQUIC_STR_SIZE(header));
+    HMAC_Update(ctx, GQUIC_STR_VAL(data), GQUIC_STR_SIZE(data));
+    HMAC_Final(ctx, GQUIC_STR_VAL(ret), &size);
     return 0;
 }
 
@@ -81,36 +110,152 @@ int gquic_tls_aead_release(gquic_tls_aead_t *const aead) {
     if (aead == NULL) {
         return -1;
     }
-    EVP_CIPHER_CTX_free(aead->ctx.dec);
-    EVP_CIPHER_CTX_free(aead->ctx.enc);
+    gquic_str_reset(&aead->ctx.nonce);
+    gquic_str_reset(&aead->ctx.key);
 
+    return 0;
+}
+
+int gquic_tls_aead_ctx_init(gquic_tls_aead_ctx_t *const ctx) {
+    if (ctx == NULL) {
+        return -1;
+    }
+    ctx->cipher = NULL;
+    gquic_str_init(&ctx->nonce);
+    gquic_str_init(&ctx->key);
+    ctx->nonce_wrapper = NULL;
+    return 0;
+}
+
+static int ecdhe_rsa_ka(gquic_tls_key_agreement_t *const ka, const u_int16_t ver) {
+    if (ka == NULL) {
+        return -1;
+    }
+    gquic_tls_key_agreement_ecdhe_init(ka);
+    gquic_tls_key_agreement_ecdhe_set_version(ka, ver);
+    gquic_tls_key_agreement_ecdhe_set_is_rsa(ka, 1);
+    return 0;
+}
+
+static int ecdhe_ecdsa_ka(gquic_tls_key_agreement_t *const ka, const u_int16_t ver) {
+    if (ka == NULL) {
+        return -1;
+    }
+    gquic_tls_key_agreement_ecdhe_init(ka);
+    gquic_tls_key_agreement_ecdhe_set_version(ka, ver);
+    return 0;
+}
+
+static int rsa_ka(gquic_tls_key_agreement_t *const ka, const u_int16_t ver) {
+    (void) ver;
+    if (ka == NULL) {
+        return -1;
+    }
+    gquic_tls_key_agreement_rsa_init(ka);
     return 0;
 }
 
 static int gquic_tls_aead_seal(gquic_str_t *const tag,
                                gquic_str_t *const cipher_text,
                                gquic_tls_aead_ctx_t *const aead,
+                               const gquic_str_t *const nonce,
                                const gquic_str_t *const plain_text,
                                const gquic_str_t *const addata) {
 
-    if (tag == NULL || cipher_text == NULL || aead == NULL || plain_text == NULL || addata == NULL) {
+    gquic_str_t iv;
+    EVP_CIPHER_CTX *ctx = NULL;
+    int ret = 0;
+    if (tag == NULL || cipher_text == NULL || aead == NULL || plain_text == NULL || addata == NULL || aead->nonce_wrapper != NULL) {
         return -1;
     }
-    return aead_seal(tag, cipher_text, aead->enc, plain_text, addata);
+    gquic_str_init(&iv);
+    if (aead->nonce_wrapper(&iv, &aead->nonce, nonce) != 0) {
+        ret = -2;
+        goto failure;
+    }
+    if ((ctx = EVP_CIPHER_CTX_new()) == NULL) {
+        ret = -3;
+        goto failure;
+    }
+    if (EVP_EncryptInit_ex(ctx, aead->cipher, NULL, NULL, NULL) <= 0) {
+        ret = -4;
+        goto failure;
+    }
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_IVLEN, GQUIC_STR_SIZE(&iv), NULL) <= 0) {
+        ret = -5;
+        goto failure;
+    }
+    if (EVP_EncryptInit_ex(ctx, NULL, NULL, GQUIC_STR_VAL(&aead->key), GQUIC_STR_VAL(&iv)) <= 0) {
+        ret = -6;
+        goto failure;
+    }
+
+    if (aead_seal(tag, cipher_text, ctx, plain_text, addata) != 0) {
+        ret = -7;
+        goto failure;
+    }
+
+    if (ctx != NULL) {
+        EVP_CIPHER_CTX_free(ctx);
+    }
+    gquic_str_reset(&iv);
+    return 0;
+failure:
+    if (ctx != NULL) {
+        EVP_CIPHER_CTX_free(ctx);
+    }
+    gquic_str_reset(&iv);
+    return ret;
 }
 
 static int gquic_tls_aead_open(gquic_str_t *const plain_text,
                                gquic_tls_aead_ctx_t *const aead,
+                               const gquic_str_t *const nonce,
                                const gquic_str_t *const tag,
                                const gquic_str_t *const cipher_text,
                                const gquic_str_t *const addata) {
+    gquic_str_t iv;
+    EVP_CIPHER_CTX *ctx = NULL;
+    int ret = 0;
     if (plain_text == NULL || tag == NULL || cipher_text == NULL || aead == NULL || cipher_text == NULL || addata == NULL) {
         return -1;
     }
-    if (aead_open(plain_text, aead->dec, tag, cipher_text, addata) <= 0) {
+    gquic_str_init(&iv);
+    if (aead->nonce_wrapper(&iv, &aead->nonce, nonce) != 0) {
+        ret = -2;
+        goto failure;
+    }
+    if ((ctx = EVP_CIPHER_CTX_new()) == NULL) {
+        ret = -3;
+        goto failure;
+    }
+    if (EVP_DecryptInit_ex(ctx, aead->cipher, NULL, NULL, NULL) <= 0) {
+        ret = -4;
+        goto failure;
+    }
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_IVLEN, GQUIC_STR_SIZE(&iv), NULL) <= 0) {
+        ret = -5;
+        goto failure;
+    }
+    if (EVP_DecryptInit_ex(ctx, NULL, NULL, GQUIC_STR_VAL(&aead->key), GQUIC_STR_VAL(&iv)) <= 0) {
+        ret = -6;
+        goto failure;
+    }
+
+    if (aead_open(plain_text, ctx, tag, cipher_text, addata) <= 0) {
         return -2;
     }
+    if (ctx != NULL) {
+        EVP_CIPHER_CTX_free(ctx);
+    }
+    gquic_str_reset(&iv);
     return 0;
+failure:
+    if (ctx != NULL) {
+        EVP_CIPHER_CTX_free(ctx);
+    }
+    gquic_str_reset(&iv);
+    return ret;
 }
 
 static int cipher_common(EVP_CIPHER_CTX **const ctx,
@@ -154,77 +299,27 @@ static int cipher_aes(EVP_CIPHER_CTX **const ret, const gquic_str_t *const key, 
     return cipher_common(ret, EVP_aes_256_cbc(), key, iv, is_read);
 }
 
-static int mac_sha1_init(gquic_tls_mac_func_t *const mac_func, const u_int16_t ver, const gquic_str_t *const key) {
+static int mac_sha1_init(HMAC_CTX **const ctx, const u_int16_t ver, const gquic_str_t *const key) {
     (void) ver;
-    if (mac_func == NULL || key == NULL) {
+    if (ctx == NULL || key == NULL) {
         return -1;
     }
-    mac_func->ctx = HMAC_CTX_new();
-    mac_func->size = mac_sha1_size;
-    mac_func->mac = mac_sha1;
-    HMAC_Init_ex(mac_func->ctx, GQUIC_STR_VAL(key), GQUIC_STR_SIZE(key), EVP_sha1(), NULL);
-    return 0;
-}
-
-static size_t mac_sha1_size() {
-    return EVP_MD_size(EVP_sha1());
-}
-
-static int mac_sha1(gquic_str_t *const ret,
-                    const gquic_tls_mac_func_t *const mac_func,
-                    const gquic_str_t *const seq,
-                    const gquic_str_t *const header,
-                    const gquic_str_t *const data,
-                    const gquic_str_t *const extra) {
-    unsigned int size;
-    (void) extra;
-    if (ret == NULL || mac_func == NULL || seq == NULL || header == NULL || data == NULL) {
-        return -1;
-    }
-    if (gquic_str_alloc(ret, mac_func->size()) != 0) {
+    *ctx = HMAC_CTX_new();
+    if (HMAC_Init_ex(*ctx, GQUIC_STR_VAL(key), GQUIC_STR_SIZE(key), EVP_sha1(), NULL) <= 0) {
         return -2;
     }
-    HMAC_Update(mac_func->ctx, GQUIC_STR_VAL(seq), GQUIC_STR_SIZE(seq));
-    HMAC_Update(mac_func->ctx, GQUIC_STR_VAL(header), GQUIC_STR_SIZE(header));
-    HMAC_Update(mac_func->ctx, GQUIC_STR_VAL(data), GQUIC_STR_SIZE(data));
-    HMAC_Final(mac_func->ctx, GQUIC_STR_VAL(ret), &size);
     return 0;
 }
 
-static int mac_sha256_init(gquic_tls_mac_func_t *const mac_func, const u_int16_t ver, const gquic_str_t *const key) {
+static int mac_sha256_init(HMAC_CTX **const ctx, const u_int16_t ver, const gquic_str_t *const key) {
     (void) ver;
-    if (mac_func == NULL || key == NULL) {
+    if (ctx == NULL || key == NULL) {
         return -1;
     }
-    mac_func->ctx = HMAC_CTX_new();
-    mac_func->size = mac_sha256_size;
-    mac_func->mac = mac_sha256;
-    HMAC_Init_ex(mac_func->ctx, GQUIC_STR_VAL(key), GQUIC_STR_SIZE(key), EVP_sha256(), NULL);
-    return 0;
-}
-
-static size_t mac_sha256_size() {
-    return EVP_MD_size(EVP_sha256());
-}
-
-static int mac_sha256(gquic_str_t *const ret,
-                      const gquic_tls_mac_func_t *const mac_func,
-                      const gquic_str_t *const seq,
-                      const gquic_str_t *const header,
-                      const gquic_str_t *const data,
-                      const gquic_str_t *const extra) {
-    unsigned int size;
-    (void) extra;
-    if (ret == NULL || mac_func == NULL || seq == NULL || header == NULL || data == NULL) {
-        return -1;
-    }
-    if (gquic_str_alloc(ret, mac_func->size()) != 0) {
+    *ctx = HMAC_CTX_new();
+    if (HMAC_Init_ex(*ctx, GQUIC_STR_VAL(key), GQUIC_STR_SIZE(key), EVP_sha256(), NULL) <= 0) {
         return -2;
     }
-    HMAC_Update(mac_func->ctx, GQUIC_STR_VAL(seq), GQUIC_STR_SIZE(seq));
-    HMAC_Update(mac_func->ctx, GQUIC_STR_VAL(header), GQUIC_STR_SIZE(header));
-    HMAC_Update(mac_func->ctx, GQUIC_STR_VAL(data), GQUIC_STR_SIZE(data));
-    HMAC_Final(mac_func->ctx, GQUIC_STR_VAL(ret), &size);
     return 0;
 }
 
@@ -269,56 +364,120 @@ static int aead_open(gquic_str_t *const ret,
     EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_TAG, GQUIC_STR_SIZE(tag), GQUIC_STR_VAL(tag));
     return EVP_DecryptFinal_ex(ctx, GQUIC_STR_VAL(ret), &outlen);
 }
-
-static int aead_aes_gcm_init(gquic_tls_aead_t *const ret, const gquic_str_t *const key, const gquic_str_t *const nonce) {
+static inline int aead_aes_gcm_init(gquic_tls_aead_t *const ret, const gquic_str_t *const key, const gquic_str_t *const nonce) {
     if (ret == NULL || key == NULL || nonce == NULL) {
         return -1;
     }
-    if (aead_alloc(ret) != 0) {
+    if (GQUIC_STR_SIZE(nonce) != 4) {
         return -2;
     }
-
-    EVP_EncryptInit_ex(ret->ctx.enc, EVP_aes_256_gcm(), NULL, NULL, NULL);
-    EVP_CIPHER_CTX_ctrl(ret->ctx.enc, EVP_CTRL_AEAD_SET_IVLEN, GQUIC_STR_SIZE(nonce), NULL);
-    EVP_EncryptInit_ex(ret->ctx.enc, NULL, NULL, GQUIC_STR_VAL(key), GQUIC_STR_VAL(nonce));
-
-    EVP_DecryptInit_ex(ret->ctx.dec, EVP_aes_256_gcm(), NULL, NULL, NULL);
-    EVP_CIPHER_CTX_ctrl(ret->ctx.dec, EVP_CTRL_AEAD_SET_IVLEN, GQUIC_STR_SIZE(nonce), NULL);
-    EVP_DecryptInit_ex(ret->ctx.dec, NULL, NULL, GQUIC_STR_VAL(key), GQUIC_STR_VAL(nonce));
-
-    return 0;
-}
-
-static int aead_chacha20_poly1305_init(gquic_tls_aead_t *const ret, const gquic_str_t *const key, const gquic_str_t *const nonce) {
-    if (ret == NULL || key == NULL || nonce == NULL) {
-        return -1;
-    }
-    if (aead_alloc(ret) != 0) {
-        return -2;
-    }
-
-    EVP_EncryptInit_ex(ret->ctx.enc, EVP_chacha20_poly1305(), NULL, NULL, NULL);
-    EVP_CIPHER_CTX_ctrl(ret->ctx.enc, EVP_CTRL_AEAD_SET_IVLEN, GQUIC_STR_SIZE(nonce), NULL);
-    EVP_EncryptInit_ex(ret->ctx.enc, NULL, NULL, GQUIC_STR_VAL(key), GQUIC_STR_VAL(nonce));
-
-    EVP_DecryptInit_ex(ret->ctx.dec, EVP_chacha20_poly1305(), NULL, NULL, NULL);
-    EVP_CIPHER_CTX_ctrl(ret->ctx.dec, EVP_CTRL_AEAD_SET_IVLEN, GQUIC_STR_SIZE(nonce), NULL);
-    EVP_DecryptInit_ex(ret->ctx.dec, NULL, NULL, GQUIC_STR_VAL(key), GQUIC_STR_VAL(nonce));
-
-    return 0;
-}
-
-static int aead_alloc(gquic_tls_aead_t *const ret) {
-    if (ret == NULL) {
-        return -1;
-    }
-    if ((ret->ctx.enc = EVP_CIPHER_CTX_new()) == NULL) {
-        return -2;
-    }
-    if ((ret->ctx.dec = EVP_CIPHER_CTX_new()) == NULL) {
+    if (gquic_tls_aead_ctx_init(&ret->ctx) != 0) {
         return -3;
+    }
+    if ((size_t) EVP_CIPHER_key_length(EVP_aes_128_gcm()) == GQUIC_STR_SIZE(key)) {
+        ret->ctx.cipher = EVP_aes_128_gcm();
+    }
+    else if ((size_t) EVP_CIPHER_key_length(EVP_aes_192_gcm()) == GQUIC_STR_SIZE(key)) {
+        ret->ctx.cipher = EVP_aes_192_gcm();
+    }
+    else if ((size_t) EVP_CIPHER_key_length(EVP_aes_256_gcm()) == GQUIC_STR_SIZE(key)) {
+        ret->ctx.cipher = EVP_aes_256_gcm();
+    }
+    else {
+        return -4;
+    }
+    if (gquic_str_copy(&ret->ctx.nonce, nonce) != 0) {
+        return -5;
+    }
+    if (gquic_str_copy(&ret->ctx.key, key) != 0) {
+        return -5;
     }
     ret->open = gquic_tls_aead_open;
     ret->seal = gquic_tls_aead_seal;
+    return 0;
+}
+
+static inline int aead_chacha20_poly1305_init(gquic_tls_aead_t *const ret, const gquic_str_t *const key, const gquic_str_t *const nonce) {
+    if (ret == NULL || key == NULL || nonce == NULL) {
+        return -1;
+    }
+    if (gquic_tls_aead_ctx_init(&ret->ctx) != 0) {
+        return -2;
+    }
+    ret->ctx.cipher = EVP_chacha20_poly1305();
+    if (gquic_str_copy(&ret->ctx.nonce, nonce) != 0) {
+        return -5;
+    }
+    if (gquic_str_copy(&ret->ctx.key, key) != 0) {
+        return -5;
+    }
+    ret->open = gquic_tls_aead_open;
+    ret->seal = gquic_tls_aead_seal;
+    return 0;
+}
+
+static int aead_aes_gcm_init_prefix(gquic_tls_aead_t *const ret, const gquic_str_t *const key, const gquic_str_t *const nonce) {
+    if (aead_aes_gcm_init(ret, key, nonce) != 0) {
+        return -1;
+    }
+    ret->ctx.nonce_wrapper = aead_prefix_nonce_wrapper;
+    return 0;
+}
+
+static int aead_chacha20_poly1305_init_prefix(gquic_tls_aead_t *const ret, const gquic_str_t *const key, const gquic_str_t *const nonce) {
+    if (aead_chacha20_poly1305_init(ret, key, nonce) != 0) {
+        return -1;
+    }
+    ret->ctx.nonce_wrapper = aead_prefix_nonce_wrapper;
+    return 0;
+}
+
+static int aead_aes_gcm_init_xor(gquic_tls_aead_t *const ret, const gquic_str_t *const key, const gquic_str_t *const nonce) {
+    if (aead_aes_gcm_init(ret, key, nonce) != 0) {
+        return -1;
+    }
+    ret->ctx.nonce_wrapper = aead_xor_nonce_wrapper;
+    return 0;
+}
+
+static int aead_chacha20_poly1305_init_xor(gquic_tls_aead_t *const ret, const gquic_str_t *const key, const gquic_str_t *const nonce) {
+    if (aead_chacha20_poly1305_init(ret, key, nonce) != 0) {
+        return -1;
+    }
+    ret->ctx.nonce_wrapper = aead_xor_nonce_wrapper;
+    return 0;
+}
+
+static int aead_prefix_nonce_wrapper(gquic_str_t *const ret, const gquic_str_t *const base, const gquic_str_t *const nonce) {
+    if (ret == NULL || base == NULL || nonce == NULL) {
+        return -1;
+    }
+    if (gquic_str_init(ret) != 0) {
+        return -2;
+    }
+    if (gquic_str_alloc(ret, 12) != 0) {
+        return -3;
+    }
+    memcpy(GQUIC_STR_VAL(ret), GQUIC_STR_VAL(base), 4);
+    memcpy(GQUIC_STR_VAL(ret) + 4, GQUIC_STR_VAL(nonce), 8);
+
+    return 0;
+}
+
+static int aead_xor_nonce_wrapper(gquic_str_t *const ret, const gquic_str_t *const base, const gquic_str_t *const nonce) {
+    size_t i;
+    if (ret == NULL || base == NULL || nonce == NULL) {
+        return -1;
+    }
+    if (gquic_str_init(ret) != 0) {
+        return -2;
+    }
+    if (gquic_str_copy(ret, base) != 0) {
+        return -2;
+    }
+    for (i = 0; i < GQUIC_STR_SIZE(nonce); i++) {
+        ((unsigned char *) GQUIC_STR_VAL(ret))[i + 4] ^= ((unsigned char *) GQUIC_STR_VAL(nonce))[i];
+    }
+
     return 0;
 }
