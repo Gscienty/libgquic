@@ -15,7 +15,7 @@ int gquic_tls_selected_sigalg(u_int16_t *const sigalg,
         return -1;
     }
     pkey_id = EVP_PKEY_id(pkey);
-    if (tls_ver < GQUIC_TLS_VERSION_12 || GQUIC_STR_SIZE(peer_sigalgs) == 0) {
+    if (tls_ver < GQUIC_TLS_VERSION_12 || gquic_list_head_empty(peer_sigalgs)) {
         switch (pkey_id) {
         case EVP_PKEY_RSA:
             if (tls_ver < GQUIC_TLS_VERSION_12) {
