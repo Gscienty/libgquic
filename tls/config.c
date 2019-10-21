@@ -144,6 +144,9 @@ int gquic_tls_sig_trans(u_int8_t *const sig, const u_int16_t sigsche) {
     case GQUIC_SIGALG_ECDSA_P512_SHA512:
         *sig = GQUIC_SIG_ECDSA;
         break;
+    case GQUIC_SIGALG_ED25519:
+        *sig = GQUIC_SIG_ED25519;
+        break;
     default:
         return -2;
     }
