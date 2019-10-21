@@ -8,6 +8,7 @@
 #include <openssl/x509.h>
 #include <openssl/pkcs12.h>
 #include <openssl/rand.h>
+#include <openssl/err.h>
 
 static int hash_for_ser_key_exchange(gquic_str_t *const,
                                      const u_int8_t,
@@ -117,6 +118,24 @@ int gquic_tls_key_agreement_ecdhe_init(gquic_tls_key_agreement_t *const key_agre
     return 0;
 }
 
+int gquic_tls_key_agreement_ecdhe_set_version(gquic_tls_key_agreement_t *const key_agreement, const u_int16_t ver) {
+    gquic_tls_ecdhe_key_agreement_t *ecdhe_self = key_agreement->self;
+    if (key_agreement == NULL || key_agreement->self == NULL || key_agreement->type != GQUIC_TLS_KEY_AGREEMENT_TYPE_ECDHE) {
+        return -1;
+    }
+    ecdhe_self->ver = ver;
+    return 0;
+}
+
+int gquic_tls_key_agreement_ecdhe_set_is_rsa(gquic_tls_key_agreement_t *const key_agreement, const int is_rsa) {
+    gquic_tls_ecdhe_key_agreement_t *ecdhe_self = key_agreement->self;
+    if (key_agreement == NULL || key_agreement->self == NULL || key_agreement->type != GQUIC_TLS_KEY_AGREEMENT_TYPE_ECDHE) {
+        return -1;
+    }
+    ecdhe_self->is_rsa = is_rsa;
+    return 0;
+}
+
 static int gquic_tls_ecdhe_key_agreement_init(gquic_tls_ecdhe_key_agreement_t *const ka) {
     if (ka == NULL) {
         return -1;
@@ -153,7 +172,6 @@ static int rsa_ka_process_cli_key_exchange(gquic_str_t *const pre_master_sec,
         return -2;
     }
     gquic_big_endian_transfer(&cipher_len, GQUIC_STR_VAL(cipher), 2);
-    printf("cipher size: %ld\n", GQUIC_STR_SIZE(cipher));
     if (cipher_len != GQUIC_STR_SIZE(cipher) - 2) {
         return -3;
     }
@@ -328,10 +346,11 @@ static int ecdhe_ka_generate_ser_key_exchange(gquic_tls_server_key_exchange_msg_
         GQUIC_LIST_FOREACH(c_hello_curve_id, &c_hello->supported_curves) {
             if (*cand_curve_id == *c_hello_curve_id) {
                 curve_id = *c_hello_curve_id;
-                break;
+                goto select_curve_id_end;
             }
         }
     }
+select_curve_id_end:
     if (curve_id == 0) {
         ret = -2;
         goto failure;
@@ -362,23 +381,23 @@ static int ecdhe_ka_generate_ser_key_exchange(gquic_tls_server_key_exchange_msg_
     }
     pkcs_ptr = GQUIC_STR_VAL(p12_d);
     if ((p12 = d2i_PKCS12(NULL, &pkcs_ptr, GQUIC_STR_SIZE(p12_d))) == NULL) {
-        return -4;
+        return -7;
     }
     if (PKCS12_parse(p12, NULL, &pkey, &cert, NULL) <= 0) {
-        ret = -5;
-        goto failure;
-    }
-    if ((pkey_ctx = EVP_PKEY_CTX_new(pkey, NULL)) == NULL) {
         ret = -8;
         goto failure;
     }
-    if (gquic_tls_selected_sigalg(&sigalg, &sig_type, &hash, pkey, &c_hello->supported_sign_algos, &supported_sign_algos_tls12, ecdhe_self->ver) != 0) {
+    if ((pkey_ctx = EVP_PKEY_CTX_new(pkey, NULL)) == NULL) {
         ret = -9;
+        goto failure;
+    }
+    if ((ret = gquic_tls_selected_sigalg(&sigalg, &sig_type, &hash, pkey, &c_hello->supported_sign_algos, &supported_sign_algos_tls12, ecdhe_self->ver)) != 0) {
+        ret += -10 * 100;
         goto failure;
     }
     hash_ctx = EVP_MD_CTX_new();
     if (ecdhe_self->is_rsa != (sig_type == GQUIC_SIG_PKCS1V15 || sig_type == GQUIC_SIG_RSAPSS)) {
-        ret = -10;
+        ret = -11;
         goto failure;
     }
     gquic_list_insert_before(&slices, gquic_list_alloc(sizeof(const gquic_str_t *)));
@@ -387,20 +406,28 @@ static int ecdhe_ka_generate_ser_key_exchange(gquic_tls_server_key_exchange_msg_
     *(const gquic_str_t **) gquic_list_prev(GQUIC_LIST_PAYLOAD(&slices)) = &s_hello->random;
     gquic_list_insert_before(&slices, gquic_list_alloc(sizeof(const gquic_str_t *)));
     *(const gquic_str_t **) gquic_list_prev(GQUIC_LIST_PAYLOAD(&slices)) = &ser_ecdh_params;
-    if (hash_for_ser_key_exchange(&sign, sig_type, hash, ecdhe_self->ver, &slices) != 0) {
-        ret = -11;
+    if ((ret = hash_for_ser_key_exchange(&sign, sig_type, hash, ecdhe_self->ver, &slices)) != 0) {
+        ret += -12 * 100;
         goto failure;
     }
-    if (EVP_DigestSignInit(hash_ctx, &pkey_ctx, hash, NULL, pkey) <= 0) {
-        ret = -12;
-        goto failure;
-    }
-    if (EVP_DigestSign(hash_ctx, NULL, &sig.size, GQUIC_STR_VAL(&sign), GQUIC_STR_SIZE(&sign)) <= 0) {
+    if (EVP_DigestSignInit(hash_ctx, NULL, hash, NULL, pkey) <= 0) {
         ret = -13;
         goto failure;
     }
-    if (gquic_str_init(&skex_msg->key) != 0) {
+    if (EVP_DigestSign(hash_ctx, NULL, &sig.size, GQUIC_STR_VAL(&sign), GQUIC_STR_SIZE(&sign)) <= 0) {
         ret = -14;
+        goto failure;
+    }
+    if (gquic_str_alloc(&sig, GQUIC_STR_SIZE(&sig)) != 0) {
+        ret = -15;
+        goto failure;
+    }
+    if (EVP_DigestSign(hash_ctx, GQUIC_STR_VAL(&sig), &sig.size, GQUIC_STR_VAL(&sign), GQUIC_STR_SIZE(&sign)) <= 0) {
+        ret = -16;
+        goto failure;
+    }
+    if (gquic_str_init(&skex_msg->key) != 0) {
+        ret = -17;
         goto failure;
     }
     if (gquic_str_alloc(&skex_msg->key,
@@ -408,28 +435,28 @@ static int ecdhe_ka_generate_ser_key_exchange(gquic_tls_server_key_exchange_msg_
                         + (ecdhe_self->ver >= GQUIC_TLS_VERSION_12 ? 2 : 0)
                         + 2
                         + GQUIC_STR_SIZE(&sig)) != 0) {
-        ret = -15;
+        ret = -18;
         goto failure;
     }
     memcpy(GQUIC_STR_VAL(&skex_msg->key), GQUIC_STR_VAL(&ser_ecdh_params), GQUIC_STR_SIZE(&ser_ecdh_params));
     off += GQUIC_STR_SIZE(&ser_ecdh_params);
     if (ecdhe_self->ver >= GQUIC_TLS_VERSION_12) {
         if (gquic_big_endian_transfer(GQUIC_STR_VAL(&skex_msg->key) + off, &sigalg, 2) != 0) {
-            ret = -16;
+            ret = -19;
             goto failure;
         }
         off += 2;
     }
     if (gquic_big_endian_transfer(GQUIC_STR_VAL(&skex_msg->key) + off, &sig.size, 2) != 0) {
-        ret = -17;
+        ret = -20;
         goto failure;
     }
+    off += 2;
     memcpy(GQUIC_STR_VAL(&skex_msg->key) + off, GQUIC_STR_VAL(&sig), GQUIC_STR_SIZE(&sig));
 
     while (!gquic_list_head_empty(&preferred_curs)) gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&preferred_curs)));
     while (!gquic_list_head_empty(&supported_sign_algos_tls12)) gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&supported_sign_algos_tls12)));
     while (!gquic_list_head_empty(&slices)) gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&slices)));
-    gquic_tls_ecdhe_params_release(&ecdhe_self->params);
     gquic_str_reset(&pubkey);
     gquic_str_reset(&sign);
     gquic_str_reset(&ser_ecdh_params);
@@ -440,14 +467,8 @@ static int ecdhe_ka_generate_ser_key_exchange(gquic_tls_server_key_exchange_msg_
     if (hash_ctx != NULL) {
         EVP_MD_CTX_free(hash_ctx);
     }
-    if (pkey != NULL) {
-        EVP_PKEY_free(pkey);
-    }
     if (p12 != NULL) {
         PKCS12_free(p12);
-    }
-    if (cert != NULL) {
-        X509_free(cert);
     }
     return 0;
 failure:
@@ -465,16 +486,9 @@ failure:
     if (hash_ctx != NULL) {
         EVP_MD_CTX_free(hash_ctx);
     }
-    if (pkey != NULL) {
-        EVP_PKEY_free(pkey);
-    }
     if (p12 != NULL) {
         PKCS12_free(p12);
     }
-    if (cert != NULL) {
-        X509_free(cert);
-    }
-
     return ret;
 }
 static int ecdhe_ka_process_cli_key_exchange(gquic_str_t *const pre_master_sec,
@@ -542,29 +556,27 @@ static int ecdhe_ka_process_ser_key_exchange(void *const self,
     gquic_str_init(&sign);
     gquic_list_head_init(&c_sup_sigalgs);
     gquic_list_head_init(&slices);
-    if ((cert = d2i_X509(NULL, (unsigned char const **) &cert_d->val, GQUIC_STR_SIZE(cert_d))) == NULL) {
-        return -1;
+    if ((cert = d2i_X509(NULL, (const unsigned char **) &cert_d->val, GQUIC_STR_SIZE(cert_d))) == NULL) {
+        return -2;
     }
     cert_pubkey = X509_get_pubkey(cert);
     if (GQUIC_STR_SIZE(&skex_msg->key) < 4) {
-        return -2;
-    }
-    if (*((u_int8_t *) GQUIC_STR_VAL(&skex_msg->key)) != 3) {
         return -3;
     }
-    if (gquic_big_endian_transfer(&curve_id, GQUIC_STR_VAL(&skex_msg->key) + 1, 2) != 0) {
+    if (*((u_int8_t *) GQUIC_STR_VAL(&skex_msg->key)) != 3) {
         return -4;
     }
-    if (gquic_big_endian_transfer(&pubkey.size, GQUIC_STR_VAL(&skex_msg->key) + 3, 1) != 0) {
+    if (gquic_big_endian_transfer(&curve_id, GQUIC_STR_VAL(&skex_msg->key) + 1, 2) != 0) {
         return -5;
     }
+    pubkey.size = *(unsigned char *) (GQUIC_STR_VAL(&skex_msg->key) + 3);
     if (GQUIC_STR_SIZE(&pubkey) + 4 > GQUIC_STR_SIZE(&skex_msg->key)) {
         return -6;
     }
-    if (gquic_str_alloc(&ser_ecdh_params, 4 + GQUIC_STR_SIZE(&pubkey)) != 0) {
+    if (gquic_str_alloc(&ser_ecdh_params, GQUIC_STR_SIZE(&pubkey) + 4) != 0) {
         return -7;
     }
-    memcpy(GQUIC_STR_VAL(&ser_ecdh_params), GQUIC_STR_VAL(&skex_msg->key), 4 + GQUIC_STR_SIZE(&pubkey));
+    memcpy(GQUIC_STR_VAL(&ser_ecdh_params), GQUIC_STR_VAL(&skex_msg->key), GQUIC_STR_SIZE(&pubkey) + 4);
     if (gquic_str_alloc(&pubkey, GQUIC_STR_SIZE(&pubkey)) != 0) {
         ret = -8;
         goto failure;
@@ -579,6 +591,7 @@ static int ecdhe_ka_process_ser_key_exchange(void *const self,
         ret = -10;
         goto failure;
     }
+    memcpy(GQUIC_STR_VAL(&sig), GQUIC_STR_VAL(&skex_msg->key) + GQUIC_STR_SIZE(&ser_ecdh_params), GQUIC_STR_SIZE(&sig));
     if (gquic_tls_ecdhe_params_generate(&ecdhe_self->params, curve_id) != 0) {
         ret = -11;
         goto failure;
@@ -615,8 +628,8 @@ static int ecdhe_ka_process_ser_key_exchange(void *const self,
     }
     gquic_list_insert_after(&c_sup_sigalgs, gquic_list_alloc(sizeof(u_int16_t)));
     *(u_int16_t *) gquic_list_next(GQUIC_LIST_PAYLOAD(&c_sup_sigalgs)) = sigalg;
-    if (gquic_tls_selected_sigalg(&sigalg, &sig_type, &hash, cert_pubkey, &c_sup_sigalgs, &c_hello->supported_sign_algos, ecdhe_self->ver) != 0) {
-        ret = -18;
+    if ((ret = gquic_tls_selected_sigalg(&sigalg, &sig_type, &hash, cert_pubkey, &c_sup_sigalgs, &c_hello->supported_sign_algos, ecdhe_self->ver)) != 0) {
+        ret += -18 * 10;
         goto failure;
     }
     if (ecdhe_self->is_rsa != (sig_type == GQUIC_SIG_PKCS1V15 || sig_type == GQUIC_SIG_RSAPSS)) {
@@ -703,18 +716,18 @@ static int hash_for_ser_key_exchange(gquic_str_t *const ret,
         return -2;
     }
     size_t slices_size = 0;
-    gquic_str_t *slice;
+    gquic_str_t **slice;
     gquic_str_t mid;
     gquic_str_init(&mid);
     gquic_str_init(ret);
-    GQUIC_LIST_FOREACH(slice, slices) slices_size += GQUIC_STR_SIZE(slice);
+    GQUIC_LIST_FOREACH(slice, slices){ slices_size += GQUIC_STR_SIZE(*slice); }
     if (gquic_str_alloc(&mid, slices_size) != 0) {
         return -3;
     }
     slices_size = 0;
     GQUIC_LIST_FOREACH(slice, slices) {
-        memcpy(GQUIC_STR_VAL(&mid) + slices_size, GQUIC_STR_VAL(slice), GQUIC_STR_SIZE(slice));
-        slices_size += GQUIC_STR_SIZE(slice);
+        memcpy(GQUIC_STR_VAL(&mid) + slices_size, GQUIC_STR_VAL(*slice), GQUIC_STR_SIZE(*slice));
+        slices_size += GQUIC_STR_SIZE(*slice);
     }
     if (sig_type == GQUIC_SIG_ED25519) {
         if (gquic_str_copy(ret, &mid) != 0) {
