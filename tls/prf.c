@@ -25,6 +25,9 @@ int gquic_tls_hash_from_sigalg(const EVP_MD **const hash, u_int16_t sigalg) {
     case GQUIC_SIGALG_ECDSA_P512_SHA512:
         *hash = EVP_sha512();
         break;
+    case GQUIC_SIGALG_ED25519:
+        *hash = NULL;
+        break;
     default:
         return -2;
     }
