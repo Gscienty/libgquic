@@ -656,8 +656,10 @@ static int ecdhe_ka_process_ser_key_exchange(void *const self,
         ret = -22;
         goto failure;
     }
-
-    // TODO need verify handshake sign
+    if (gquic_tls_verify_handshake_sign(sig_type, hash, cert_pubkey, &sign, &sig) != 0) {
+        ret = -23;
+        goto failure;
+    }
     
     gquic_str_reset(&ser_ecdh_params);
     gquic_str_reset(&pubkey);
