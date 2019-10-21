@@ -20,7 +20,7 @@ int main() {
     gquic_tls_client_key_exchange_msg_init(&ckmsg);
     gquic_tls_config_init(&cfg);
 
-    FILE *f = fopen("test_csr.pem", "r");
+    FILE *f = fopen("test_certs/rsa_x509.pem", "r");
     x509 = PEM_read_X509(f, NULL, NULL, NULL);
     fclose(f);
 
@@ -45,7 +45,7 @@ int main() {
 
     // ================================ ser =================
 
-    FILE *p12file = fopen("test_p12.p12", "r");
+    FILE *p12file = fopen("test_certs/rsa_p12.pem", "r");
     PKCS12 *p12 = d2i_PKCS12_fp(p12file, NULL);
     gquic_str_t s_pms;
     gquic_str_t p12_d;
