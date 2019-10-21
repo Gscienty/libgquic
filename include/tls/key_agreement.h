@@ -43,4 +43,7 @@ int gquic_tls_key_agreement_release(gquic_tls_key_agreement_t *const key_agreeme
 int gquic_tls_key_agreement_rsa_init(gquic_tls_key_agreement_t *const key_agreement);
 int gquic_tls_key_agreement_ecdhe_init(gquic_tls_key_agreement_t *const key_agreement);
 
+int gquic_tls_key_agreement_ecdhe_set_version(gquic_tls_key_agreement_t *const key_agreement, const u_int16_t ver);
+int gquic_tls_key_agreement_ecdhe_set_is_rsa(gquic_tls_key_agreement_t *const key_agreement, const int is_rsa);
+
 #endif
