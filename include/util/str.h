@@ -22,4 +22,6 @@ int gquic_str_copy(gquic_str_t *str, const gquic_str_t *ref);
 
 int gquic_str_set(gquic_str_t *const str, const char *const val);
 
+int gquic_str_test_echo(const gquic_str_t *const str);
+
 #endif

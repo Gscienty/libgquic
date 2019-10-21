@@ -64,3 +64,16 @@ int gquic_str_set(gquic_str_t *const str, const char *const val) {
     return 0;
 }
 
+int gquic_str_test_echo(const gquic_str_t *const str) {
+    if (str == NULL) {
+        return -1;
+    }
+    size_t i;
+    for (i = 0; i < GQUIC_STR_SIZE(str); i++) {
+        printf("%02X ", ((unsigned char *) GQUIC_STR_VAL(str))[i]);
+    }
+    printf("\n");
+
+    return 0;
+}
+
