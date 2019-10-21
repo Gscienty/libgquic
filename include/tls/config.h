@@ -124,6 +124,7 @@ struct gquic_tls_config_s {
     int renegotiation;
     gquic_list_t curve_perfers;
     gquic_tls_client_sess_cache_t *cli_sess_cache;
+    int (*extensions) (gquic_list_t *const, const u_int8_t);
 };
 
 typedef struct gquic_tls_ticket_key_s gquic_tls_ticket_key_t;

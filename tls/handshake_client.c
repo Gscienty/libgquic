@@ -34,7 +34,13 @@ static u_int16_t __supported_sign_algos[] = {
     GQUIC_SIGALG_ECDSA_SHA1
 };
 
-int gquic_tls_handshake_client_hello_init(gquic_tls_client_hello_msg_t *msg, const gquic_tls_conn_t *conn) {
+static int gquic_tls_handshake_client_hello_edch_params_init(gquic_tls_ecdhe_params_t *const,
+                                                             gquic_tls_client_hello_msg_t *const,
+                                                             const gquic_tls_config_t *const);
+
+int gquic_tls_handshake_client_hello_init(gquic_tls_client_hello_msg_t *const msg,
+                                          gquic_tls_ecdhe_params_t *const params,
+                                          const gquic_tls_conn_t *conn) {
     gquic_str_t *proto;
     size_t next_protos_len = 0;
     gquic_list_t supported_versions;
@@ -43,7 +49,7 @@ int gquic_tls_handshake_client_hello_init(gquic_tls_client_hello_msg_t *msg, con
     size_t count;
     size_t i;
 
-    if (msg == NULL || conn == NULL) {
+    if (msg == NULL || params == NULL || conn == NULL) {
         return -1;
     }
     if (gquic_list_head_init(&supported_versions) != 0) {
@@ -53,28 +59,32 @@ int gquic_tls_handshake_client_hello_init(gquic_tls_client_hello_msg_t *msg, con
         ret = -3;
         goto failure;
     }
+    if (gquic_tls_ecdhe_params_init(params) != 0) {
+        ret = -4;
+        goto failure;
+    }
 
     if (GQUIC_STR_SIZE(&conn->cfg->ser_name) == 0 && !conn->cfg->insecure_skiy_verify) {
-        ret = -4;
+        ret = -5;
         goto failure;
     }
     GQUIC_LIST_FOREACH(proto, &conn->cfg->next_protos) {
         if (proto->size == 0 || proto->size > 255) {
-            ret = -5;
+            ret = -6;
             goto failure;
         }
         next_protos_len += proto->size;
     }
     if (next_protos_len > 0xffff) {
-        ret = -6;
-        goto failure;
-    }
-    if (gquic_tls_config_supported_versions(&supported_versions, conn->cfg, 1) != 0) {
         ret = -7;
         goto failure;
     }
-    if (gquic_list_head_empty(&supported_versions)) {
+    if (gquic_tls_config_supported_versions(&supported_versions, conn->cfg, 1) != 0) {
         ret = -8;
+        goto failure;
+    }
+    if (gquic_list_head_empty(&supported_versions)) {
+        ret = -9;
         goto failure;
     }
     client_hello_version = *(u_int16_t *) gquic_list_next(GQUIC_LIST_PAYLOAD(&supported_versions));
@@ -84,53 +94,53 @@ int gquic_tls_handshake_client_hello_init(gquic_tls_client_hello_msg_t *msg, con
 
     msg->vers = client_hello_version;
     if (gquic_str_alloc(&msg->compression_methods, 1) != 0) {
-        ret = -9;
+        ret = -10;
         goto failure;
     }
     *(u_int8_t *) GQUIC_STR_VAL(&msg->compression_methods) = 0;
     if (gquic_str_alloc(&msg->random, 32) != 0) {
-        ret = -10;
+        ret = -11;
         goto failure;
     }
     if (gquic_str_alloc(&msg->sess_id, 32) != 0) {
-        ret = -11;
+        ret = -12;
         goto failure;
     }
     msg->ocsp_stapling = 1;
     msg->scts = 1;
     if (gquic_str_copy(&msg->ser_name, &conn->cfg->ser_name) != 0) {
-        ret = -12;
-        goto failure;
-    }
-    if (gquic_tls_config_curve_preferences(&msg->supported_curves) != 0) {
         ret = -13;
         goto failure;
     }
-    if (gquic_str_alloc(&msg->supported_points, 1) != 0) {
+    if (gquic_tls_config_curve_preferences(&msg->supported_curves) != 0) {
         ret = -14;
+        goto failure;
+    }
+    if (gquic_str_alloc(&msg->supported_points, 1) != 0) {
+        ret = -15;
         goto failure;
     }
     *(u_int8_t *) GQUIC_STR_VAL(&msg->supported_points) = 0;
     msg->next_proto_neg = !gquic_list_head_empty(&conn->cfg->next_protos);
     msg->secure_regegotiation_supported = 1;
     if (gquic_list_copy(&msg->alpn_protos, &conn->cfg->next_protos, gquic_proto_copy) != 0) {
-        ret = -15;
+        ret = -16;
         goto failure;
     }
     if (gquic_list_copy(&msg->supported_versions, &supported_versions, NULL) != 0) {
-        ret = -16;
+        ret = -17;
         goto failure;
     }
     count = sizeof(__cipher_suites) / sizeof(int);
     for (i = 0; i < count; i++) {
         u_int16_t *cipher_suite = gquic_list_alloc(sizeof(u_int16_t));
         if (cipher_suite == NULL) {
-            ret = -17;
+            ret = -18;
             goto failure;
         }
         *cipher_suite = 0xFFFF & __cipher_suites[i];
         if (gquic_list_insert_before(&msg->cipher_suites, cipher_suite) != 0) {
-            ret = -18;
+            ret = -19;
             goto failure;
         }
     }
@@ -141,18 +151,20 @@ int gquic_tls_handshake_client_hello_init(gquic_tls_client_hello_msg_t *msg, con
         for (i = 0; i < count; i++) {
             u_int16_t *sigalg = gquic_list_alloc(sizeof(u_int16_t));
             if (sigalg == NULL) {
-                ret = -19;
+                ret = -20;
                 goto failure;
             }
             *sigalg = __supported_sign_algos[i];
             if (gquic_list_insert_before(&msg->supported_sign_algos, sigalg) != 0) {
-                ret = -20;
+                ret = -21;
                 goto failure;
             }
         }
     }
-
-    // TODO
+    if (gquic_tls_handshake_client_hello_edch_params_init(params, msg, conn->cfg) != 0) {
+        ret = -22;
+        goto failure;
+    }
 
     while (!gquic_list_head_empty(&supported_versions)) {
         gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&supported_versions)));
@@ -173,27 +185,43 @@ static int gquic_proto_copy(void *proto, const void *ref_proto) {
     return gquic_str_copy(proto, ref_proto);
 }
 
-int gquic_tls_handshake_client_hello_edch_params_init(gquic_tls_ecdhe_params_t *ret, gquic_tls_client_hello_msg_t *msg) {
-    if (ret == NULL || msg == NULL) {
+static int gquic_tls_handshake_client_hello_edch_params_init(gquic_tls_ecdhe_params_t *const params, gquic_tls_client_hello_msg_t *const msg, const gquic_tls_config_t *const cfg) {
+    gquic_tls_key_share_t *ks = NULL;
+    int ret = 0;
+    if (params == NULL || msg == NULL) {
         return -1;
     }
     if (*((u_int16_t *) gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->supported_versions))) == GQUIC_TLS_VERSION_13) {
-        if (gquic_tls_ecdhe_params_generate(ret, GQUIC_TLS_CURVE_X25519) != 0) {
-            return -2;
+        if (gquic_tls_ecdhe_params_generate(params, GQUIC_TLS_CURVE_X25519) != 0) {
+            ret = -2;
+            goto failure;
         }
         gquic_tls_key_share_t *ks = gquic_list_alloc(sizeof(gquic_tls_key_share_t));
         if (ks == NULL) {
-            gquic_tls_ecdhe_params_release(ret);
-            return -3;
+            ret = -3;
+            goto failure;
         }
+        gquic_list_head_init(&GQUIC_LIST_META(ks));
         ks->group = GQUIC_TLS_CURVE_X25519;
         gquic_str_init(&ks->data);
-        if (GQUIC_TLS_ECDHE_PARAMS_PUBLIC_KEY(ret, &ks->data) != 0) {
-            gquic_tls_ecdhe_params_release(ret);
-            gquic_list_release(ks);
-            return -4;
+        if (GQUIC_TLS_ECDHE_PARAMS_PUBLIC_KEY(params, &ks->data) != 0) {
+            ret = -4;
+            goto failure;
+        }
+        if (gquic_list_insert_before(&msg->key_shares, ks) != 0) {
+            ret = -5;
+            goto failure;
+        }
+        if (cfg->extensions != NULL && cfg->extensions(&msg->extensions, GQUIC_TLS_HANDSHAKE_MSG_TYPE_CLIENT_HELLO) != 0) {
+            ret = -6;
+            goto failure;
         }
     }
-
     return 0;
+failure:
+    gquic_tls_ecdhe_params_release(params);
+    if (ks != NULL) {
+        gquic_list_release(ks);
+    }
+    return ret;
 }
