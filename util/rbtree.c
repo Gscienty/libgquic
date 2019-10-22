@@ -7,8 +7,16 @@ static int gquic_rbtree_right_rotate(gquic_rbtree_t **, gquic_rbtree_t *);
 static int gquic_rbtree_key_cmp(const void *a_key, const size_t a_len, const gquic_rbtree_t *b);
 static int gquic_rbtree_insert_fixup(gquic_rbtree_t **, gquic_rbtree_t *);
 static gquic_rbtree_t *gquic_rbtree_successor(gquic_rbtree_t *);
-static int gquic_rbtree_remove_fixup(gquic_rbtree_t **, gquic_rbtree_t *);
 static gquic_rbtree_t *gquic_rbtree_minimum(gquic_rbtree_t *node);
+static inline int gquic_rbtree_replace(gquic_rbtree_t **const, gquic_rbtree_t *const, gquic_rbtree_t *const);
+static inline int gquic_rbtree_sibling(gquic_rbtree_t **const, const gquic_rbtree_t *const);
+static inline int gquic_rbtree_delete_case1(gquic_rbtree_t **const, gquic_rbtree_t *const);
+static inline int gquic_rbtree_delete_case2(gquic_rbtree_t **const, gquic_rbtree_t *const);
+static inline int gquic_rbtree_delete_case3(gquic_rbtree_t **const, gquic_rbtree_t *const);
+static inline int gquic_rbtree_delete_case4(gquic_rbtree_t **const, gquic_rbtree_t *const);
+static inline int gquic_rbtree_delete_case5(gquic_rbtree_t **const, gquic_rbtree_t *const);
+static inline int gquic_rbtree_delete_case6(gquic_rbtree_t **const, gquic_rbtree_t *const);
+static inline int gquic_rbtree_assign(gquic_rbtree_t **const, gquic_rbtree_t *const, gquic_rbtree_t *const);
 
 static gquic_rbtree_t nil = {
     GQUIC_RBTREE_COLOR_BLACK,
@@ -26,17 +34,34 @@ int gquic_rbtree_root_init(gquic_rbtree_t **root) {
     return 0;
 }
 
-gquic_rbtree_t *gquic_rbtree_alloc(const size_t key_len, const size_t val_len) {
+int gquic_rbtree_alloc(gquic_rbtree_t **const rb, const size_t key_len, const size_t val_len) {
+    if (rb == NULL) {
+        return -1;
+    }
     gquic_rbtree_t *ret = malloc(sizeof(gquic_rbtree_t) + key_len + val_len);
     if (ret == NULL) {
-        return NULL;
+        return -2;
     }
     ret->color = GQUIC_RBTREE_COLOR_RED;
     ret->left = &nil;
     ret->parent = &nil;
     ret->right = &nil;
     ret->key_len = key_len;
-    return ret;
+    if (rb != NULL) {
+        *rb = ret;
+    }
+    return 0;
+}
+
+int gquic_rbtree_release(gquic_rbtree_t *const rb, int (*release_val)(void *const)) {
+    if (rb == NULL) {
+        return -1;
+    }
+    if (release_val != NULL && release_val(GQUIC_RBTREE_VALUE(rb)) != 0) {
+        return -2;
+    }
+    free(rb);
+    return 0;
 }
 
 int gquic_rbtree_insert(gquic_rbtree_t **root, gquic_rbtree_t *node) {
@@ -62,69 +87,29 @@ int gquic_rbtree_insert(gquic_rbtree_t **root, gquic_rbtree_t *node) {
     return gquic_rbtree_insert_fixup(root, node);
 }
 
-gquic_rbtree_t *gquic_rbtree_remove(gquic_rbtree_t **root, gquic_rbtree_t *node) {
-    gquic_rbtree_t *del;
-    if (node->left == &nil || node->right == &nil) {
-        del = node;
+int gquic_rbtree_remove(gquic_rbtree_t **const root, gquic_rbtree_t **const node_p) {
+    if (root == NULL || node_p == NULL) {
+        return -1;
     }
-    else {
-        del = gquic_rbtree_successor(node);
+    gquic_rbtree_t *node = *node_p;
+    if (node->left != &nil && node->right != &nil) {
+        gquic_rbtree_t *next = gquic_rbtree_minimum(node->right);
+        gquic_rbtree_t tmp;
+        gquic_rbtree_assign(root, &tmp, next);
+        gquic_rbtree_assign(root, next, node);
+        gquic_rbtree_assign(root, node, &tmp);
     }
-    gquic_rbtree_t *ref;
-    if (del->left != &nil) {
-        ref = del->left;
+    gquic_rbtree_t *child = node->left == &nil ? node->right : node->left;
+    if (node->color == GQUIC_RBTREE_COLOR_BLACK) {
+        node->color = child->color;
+        gquic_rbtree_delete_case1(root, node);
     }
-    else {
-        ref = del->right;
+    gquic_rbtree_replace(root, node, child);
+    if (node->parent == &nil && child != &nil) {
+        child->color = GQUIC_RBTREE_COLOR_BLACK;
     }
-    ref->parent = del->parent;
-    if (del->parent == &nil) {
-        *root = ref;
-    }
-    else if (del == del->parent->left) {
-        del->parent->left = ref;
-    }
-    else {
-        del->parent->right = ref;
-    }
-    if (node != del) {
-        gquic_rbtree_t cp = { del->color, del->left, del->right, del->parent, del->key_len };
-
-        del->color = node->color;
-        del->left = node->left;
-        del->right = node->left;
-        del->parent = node->parent;
-        del->key_len = node->key_len;
-
-        node->color = cp.color;
-        node->left = cp.left;
-        node->right = cp.right;
-        node->parent = cp.parent;
-        node->key_len = cp.key_len;
-
-        if (node->left != &nil) {
-            node->left->parent = node;
-        }
-        if (node->right != &nil) {
-            node->right->parent = node;
-        }
-        if (node->parent == &nil) {
-            *root = node;
-        }
-        else if (node->parent->left == del) {
-            node->parent->left = node;
-        }
-        else if (node->parent->right == del) {
-            node->parent->right = node;
-        }
-
-        del = node;
-    }
-    if (del->color == GQUIC_RBTREE_COLOR_BLACK) {
-        gquic_rbtree_remove_fixup(root, ref);
-    }
-
-    return del;
+    *node_p = node;
+    return 0;
 }
 
 int gquic_rbtree_is_nil(gquic_rbtree_t *node) {
@@ -276,66 +261,182 @@ static gquic_rbtree_t *gquic_rbtree_minimum(gquic_rbtree_t *node) {
     return node;
 }
 
-static int gquic_rbtree_remove_fixup(gquic_rbtree_t **root, gquic_rbtree_t *node) {
-    gquic_rbtree_t *ref;
+static inline int gquic_rbtree_replace(gquic_rbtree_t **const root, gquic_rbtree_t *const old_n, gquic_rbtree_t *const new_n) {
+    if (root == NULL || old_n == NULL || new_n == NULL) {
+        return -1;
+    }
+    if (old_n == *root) {
+        *root = new_n;
+    }
+    else {
+        if (old_n == old_n->parent->left) {
+            old_n->parent->left = new_n;
+        }
+        else {
+            old_n->parent->right = new_n;
+        }
+    }
+    if (new_n != &nil) {
+        new_n->parent = old_n->parent;
+    }
+    return 0;
+}
+
+static inline int gquic_rbtree_sibling(gquic_rbtree_t **const ret, const gquic_rbtree_t *const node) {
+    if (ret == NULL || node == NULL) {
+        return -1;
+    }
+    if (node->parent->left == node) {
+        *ret = node->parent->right;
+    }
+    else {
+        *ret = node->parent->left;
+    }
+    return 0;
+}
+
+static inline int gquic_rbtree_delete_case1(gquic_rbtree_t **const root, gquic_rbtree_t *const node) {
     if (root == NULL || node == NULL) {
         return -1;
     }
+    if (node->parent != &nil) {
+        gquic_rbtree_delete_case2(root, node);
+    }
+    return 0;
+}
 
-    while (node != *root && node->color == GQUIC_RBTREE_COLOR_BLACK) {
+static inline int gquic_rbtree_delete_case2(gquic_rbtree_t **const root, gquic_rbtree_t *const node) {
+    gquic_rbtree_t *sibling = &nil;
+    if (root == NULL || node == NULL) {
+        return -1;
+    }
+    gquic_rbtree_sibling(&sibling, node);
+    if (sibling->color == GQUIC_RBTREE_COLOR_RED) {
+        node->parent->color = GQUIC_RBTREE_COLOR_RED;
+        sibling->color = GQUIC_RBTREE_COLOR_BLACK;
         if (node == node->parent->left) {
-            ref = node->parent->right;
-            if (ref->color == GQUIC_RBTREE_COLOR_RED) {
-                ref->color = GQUIC_RBTREE_COLOR_BLACK;
-                node->parent->color = GQUIC_RBTREE_COLOR_RED;
-                gquic_rbtree_left_rotate(root, node->parent);
-                ref = node->parent->right;
-            }
-            if (ref->left->color == GQUIC_RBTREE_COLOR_BLACK && ref->right->color == GQUIC_RBTREE_COLOR_BLACK) {
-                ref->color = GQUIC_RBTREE_COLOR_RED;
-                node = node->parent;
-            }
-            else {
-                if (ref->right->color == GQUIC_RBTREE_COLOR_BLACK) {
-                    ref->color = GQUIC_RBTREE_COLOR_RED;
-                    ref->left->color = GQUIC_RBTREE_COLOR_BLACK;
-                    gquic_rbtree_right_rotate(root, ref);
-                    ref = node->parent->right;
-                }
-                ref->color = ref->parent->color;
-                ref->parent->color = GQUIC_RBTREE_COLOR_BLACK;
-                ref->right->color = GQUIC_RBTREE_COLOR_BLACK;
-                gquic_rbtree_left_rotate(root, node->parent);
-                break;
-            }
+            gquic_rbtree_left_rotate(root, node->parent);
         }
         else {
-            ref = node->parent->left;
-            if (ref->color == GQUIC_RBTREE_COLOR_RED) {
-                ref->color = GQUIC_RBTREE_COLOR_BLACK;
-                node->parent->color = GQUIC_RBTREE_COLOR_RED;
-                gquic_rbtree_right_rotate(root, node->parent);
-                ref = node->parent->left;
-            }
-            if (ref->left->color == GQUIC_RBTREE_COLOR_BLACK && ref->right->color == GQUIC_RBTREE_COLOR_BLACK) {
-                ref->color = GQUIC_RBTREE_COLOR_RED;
-                node = node->parent;
-            }
-            else {
-                if (ref->left->color == GQUIC_RBTREE_COLOR_BLACK) {
-                    ref->color = GQUIC_RBTREE_COLOR_RED;
-                    ref->right->color = GQUIC_RBTREE_COLOR_BLACK;
-                    gquic_rbtree_left_rotate(root, ref);
-                    ref = node->parent->left;
-                }
-                ref->color = ref->parent->color;
-                ref->parent->color = GQUIC_RBTREE_COLOR_BLACK;
-                ref->left->color = GQUIC_RBTREE_COLOR_BLACK;
-                gquic_rbtree_right_rotate(root, node->parent);
-                break;
-            }
+            gquic_rbtree_right_rotate(root, node->parent);
         }
     }
-    node->color = GQUIC_RBTREE_COLOR_BLACK;
+    gquic_rbtree_delete_case3(root, node);
+    return 0;
+}
+static inline int gquic_rbtree_delete_case3(gquic_rbtree_t **const root, gquic_rbtree_t *const node) {
+    gquic_rbtree_t *sibling = &nil;
+    if (root == NULL || node == NULL) {
+        return -1;
+    }
+    gquic_rbtree_sibling(&sibling, node);
+    if (node->parent->color == GQUIC_RBTREE_COLOR_BLACK &&
+        sibling->color == GQUIC_RBTREE_COLOR_BLACK &&
+        sibling->left->color == GQUIC_RBTREE_COLOR_BLACK &&
+        sibling->right->color == GQUIC_RBTREE_COLOR_BLACK) {
+        sibling->color = GQUIC_RBTREE_COLOR_RED;
+        gquic_rbtree_delete_case1(root, node->parent);
+    }
+    else {
+        gquic_rbtree_delete_case4(root, node);
+    }
+
+    return 0;
+}
+
+static inline int gquic_rbtree_delete_case4(gquic_rbtree_t **const root, gquic_rbtree_t *const node) {
+    gquic_rbtree_t *sibling = &nil;
+    if (root == NULL || node == NULL) {
+        return -1;
+    }
+    gquic_rbtree_sibling(&sibling, node);
+    if (node->parent->color == GQUIC_RBTREE_COLOR_RED &&
+        sibling->color == GQUIC_RBTREE_COLOR_BLACK &&
+        sibling->left->color == GQUIC_RBTREE_COLOR_BLACK &&
+        sibling->right->color == GQUIC_RBTREE_COLOR_BLACK) {
+        sibling->color = GQUIC_RBTREE_COLOR_RED;
+        node->parent->color = GQUIC_RBTREE_COLOR_BLACK;
+    }
+    else {
+        gquic_rbtree_delete_case5(root, node);
+    }
+    return 0;
+}
+
+static inline int gquic_rbtree_delete_case5(gquic_rbtree_t **const root, gquic_rbtree_t *const node) {
+    gquic_rbtree_t *sibling = &nil;
+    if (root == NULL || node == NULL) {
+        return -1;
+    }
+    gquic_rbtree_sibling(&sibling, node);
+    if (node->parent->left == node &&
+        sibling->color == GQUIC_RBTREE_COLOR_BLACK &&
+        sibling->left->color == GQUIC_RBTREE_COLOR_RED &&
+        sibling->right->color == GQUIC_RBTREE_COLOR_BLACK) {
+        sibling->color = GQUIC_RBTREE_COLOR_RED;
+        sibling->left->color = GQUIC_RBTREE_COLOR_BLACK;
+        gquic_rbtree_right_rotate(root, sibling);
+    }
+    else if (node->parent->right == node &&
+        sibling->color == GQUIC_RBTREE_COLOR_BLACK &&
+        sibling->right->color == GQUIC_RBTREE_COLOR_RED &&
+        sibling->left->color == GQUIC_RBTREE_COLOR_BLACK) {
+        sibling->color = GQUIC_RBTREE_COLOR_RED;
+        sibling->right->color = GQUIC_RBTREE_COLOR_BLACK;
+        gquic_rbtree_left_rotate(root, sibling);
+    }
+    gquic_rbtree_delete_case6(root, node);
+
+    return 0;
+}
+
+static inline int gquic_rbtree_delete_case6(gquic_rbtree_t **const root, gquic_rbtree_t *const node) {
+    gquic_rbtree_t *sibling = &nil;
+    if (root == NULL || node == NULL) {
+        return -1;
+    }
+    gquic_rbtree_sibling(&sibling, node);
+    sibling->color = node->parent->color;
+    node->parent->color = GQUIC_RBTREE_COLOR_BLACK;
+    if (node == node->parent->left) {
+        sibling->right->color = GQUIC_RBTREE_COLOR_BLACK;
+        gquic_rbtree_left_rotate(root, node->parent);
+    }
+    else {
+        sibling->left->color = GQUIC_RBTREE_COLOR_BLACK;
+        gquic_rbtree_right_rotate(root, node->parent);
+    }
+    return 0;
+}
+
+static inline int gquic_rbtree_assign(gquic_rbtree_t **const root, gquic_rbtree_t *const target, gquic_rbtree_t *const ref) {
+    if (root == NULL || target == NULL || ref == NULL) {
+        return -1;
+    }
+    if (target == &nil || ref == &nil) {
+        return -2;
+    }
+    target->color = ref->color;
+    target->left = ref->left;
+    target->right = ref->right;
+    target->parent = ref->parent;
+
+    if (ref->parent == &nil) {
+        *root = target;
+    }
+    else {
+        if (ref->parent->left == ref) {
+            ref->parent->left = target;
+        }
+        else {
+            ref->parent->right = target;
+        }
+    }
+    if (ref->left != &nil) {
+        ref->left->parent = target;
+    }
+    if (ref->right != &nil) {
+        ref->right->parent = target;
+    }
     return 0;
 }
