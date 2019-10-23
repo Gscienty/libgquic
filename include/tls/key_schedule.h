@@ -1,15 +1,15 @@
 #ifndef _LIBGQUIC_TLS_KEY_SCHEDULE_H
 #define _LIBGQUIC_TLS_KEY_SCHEDULE_H
 
-#include "tls/config.h"
 #include "util/str.h"
 
 typedef struct gquic_tls_ecdhe_params_s gquic_tls_ecdhe_params_t;
 struct gquic_tls_ecdhe_params_s {
     void *self;
-    gquic_curve_id_t (*curve_id)(const void *const);
-    int (*public_key)(const void *const, gquic_str_t *const);
-    int (*shared_key)(const void *const, gquic_str_t *const, const gquic_str_t *const);
+    u_int16_t (*curve_id) (const void *const);
+    int (*public_key) (const void *const, gquic_str_t *const);
+    int (*shared_key) (const void *const, gquic_str_t *const, const gquic_str_t *const);
+    int (*release) (void *const);
 };
 
 #define GQUIC_TLS_ECDHE_PARAMS_CURVE_ID(p) \
@@ -24,7 +24,7 @@ struct gquic_tls_ecdhe_params_s {
                                                     (r),\
                                                     (s)))
 
-int gquic_tls_ecdhe_params_generate(gquic_tls_ecdhe_params_t *param, const gquic_curve_id_t curve_id);
+int gquic_tls_ecdhe_params_generate(gquic_tls_ecdhe_params_t *param, const u_int16_t curve_id);
 
 int gquic_tls_ecdhe_params_init(gquic_tls_ecdhe_params_t *param);
 

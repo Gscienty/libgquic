@@ -2,6 +2,7 @@
 #include "tls/key_schedule.h"
 #include "tls/client_key_exchange_msg.h"
 #include "tls/auth.h"
+#include "tls/config.h"
 #include "util/big_endian.h"
 #include <string.h>
 #include <openssl/md5.h>
@@ -30,6 +31,7 @@ struct gquic_tls_ecdhe_key_agreement_s {
 };
 
 static int gquic_tls_ecdhe_key_agreement_init(gquic_tls_ecdhe_key_agreement_t *const);
+static int gquic_tls_ecdhe_key_agreement_release(void *const);
 
 static int rsa_ka_process_cli_key_exchange(gquic_str_t *const,
                                            void *const,
@@ -70,19 +72,12 @@ static int ecdhe_ka_generate_cli_key_exchange(gquic_str_t *const,
                                               const gquic_str_t *const);
 
 int gquic_tls_key_agreement_release(gquic_tls_key_agreement_t *const key_agreement) {
-    gquic_tls_ecdhe_key_agreement_t *ecdhe_self = NULL;
     if (key_agreement == NULL) {
         return -1;
     }
-    switch (key_agreement->type) {
-    case GQUIC_TLS_KEY_AGREEMENT_TYPE_ECDHE:
-        ecdhe_self = key_agreement->self;
-        gquic_tls_ecdhe_params_release(&ecdhe_self->params);
-        gquic_tls_client_key_exchange_msg_reset(&ecdhe_self->ckex_msg);
-        gquic_str_reset(&ecdhe_self->pre_master_sec);
-        break;
+    if (key_agreement->release != NULL) {
+        key_agreement->release(key_agreement->self);
     }
-
     return 0;
 }
 
@@ -96,6 +91,7 @@ int gquic_tls_key_agreement_rsa_init(gquic_tls_key_agreement_t *const key_agreem
     key_agreement->generate_ser_key_exchange = NULL;
     key_agreement->process_cli_key_exchange = rsa_ka_process_cli_key_exchange;
     key_agreement->process_ser_key_exchange = NULL;
+    key_agreement->release = NULL;
 
     return 0;
 }
@@ -114,6 +110,7 @@ int gquic_tls_key_agreement_ecdhe_init(gquic_tls_key_agreement_t *const key_agre
     key_agreement->generate_ser_key_exchange = ecdhe_ka_generate_ser_key_exchange;
     key_agreement->process_cli_key_exchange = ecdhe_ka_process_cli_key_exchange;
     key_agreement->process_ser_key_exchange = ecdhe_ka_process_ser_key_exchange;
+    key_agreement->release = gquic_tls_ecdhe_key_agreement_release;
 
     return 0;
 }
@@ -133,6 +130,18 @@ int gquic_tls_key_agreement_ecdhe_set_is_rsa(gquic_tls_key_agreement_t *const ke
         return -1;
     }
     ecdhe_self->is_rsa = is_rsa;
+    return 0;
+}
+
+static int gquic_tls_ecdhe_key_agreement_release(void *const self) {
+    if (self == NULL) {
+        return -1;
+    }
+    gquic_tls_ecdhe_key_agreement_t *ecdhe_self = self;
+    gquic_tls_ecdhe_params_release(&ecdhe_self->params);
+    gquic_tls_client_key_exchange_msg_reset(&ecdhe_self->ckex_msg);
+    gquic_str_reset(&ecdhe_self->pre_master_sec);
+    free(self);
     return 0;
 }
 
@@ -306,9 +315,9 @@ static int ecdhe_ka_generate_ser_key_exchange(gquic_tls_server_key_exchange_msg_
                                               const gquic_tls_client_hello_msg_t *const c_hello,
                                               const gquic_tls_server_hello_msg_t *const s_hello) {
     gquic_tls_ecdhe_key_agreement_t *ecdhe_self = self;
-    gquic_curve_id_t *cand_curve_id;
-    gquic_curve_id_t *c_hello_curve_id;
-    gquic_curve_id_t curve_id = 0;
+    u_int16_t *cand_curve_id;
+    u_int16_t *c_hello_curve_id;
+    u_int16_t curve_id = 0;
     int openssl_curve_id = 0;
     gquic_list_t preferred_curs;
     gquic_list_t supported_sign_algos_tls12;
@@ -530,7 +539,7 @@ static int ecdhe_ka_process_ser_key_exchange(void *const self,
                                              const gquic_str_t *const cert_d,
                                              const gquic_tls_server_key_exchange_msg_t *const skex_msg) {
     gquic_tls_ecdhe_key_agreement_t *ecdhe_self = self;
-    gquic_curve_id_t curve_id = 0;
+    u_int16_t curve_id = 0;
     gquic_str_t ser_ecdh_params;
     gquic_str_t pubkey;
     gquic_str_t sig;

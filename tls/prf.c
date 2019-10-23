@@ -1,5 +1,5 @@
 #include "tls/prf.h"
-#include "tls/config.h"
+#include "tls/common.h"
 
 int gquic_tls_hash_from_sigalg(const EVP_MD **const hash, u_int16_t sigalg) {
     if (hash == NULL) {

@@ -5,7 +5,7 @@
 #include "tls/server_hello_msg.h"
 #include "tls/server_key_exchange_msg.h"
 #include "tls/client_key_exchange_msg.h"
-#include "tls/config.h"
+#include "tls/common.h"
 #include "util/str.h"
 
 typedef struct gquic_tls_key_agreement_s gquic_tls_key_agreement_t;
@@ -37,6 +37,7 @@ struct gquic_tls_key_agreement_s {
                                     const gquic_tls_server_hello_msg_t *const,
                                     const gquic_str_t *const,
                                     const gquic_tls_server_key_exchange_msg_t *const);
+    int (*release) (void *const);
 };
 
 int gquic_tls_key_agreement_release(gquic_tls_key_agreement_t *const key_agreement);

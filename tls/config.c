@@ -1,6 +1,7 @@
 #include <openssl/sha.h>
 #include <string.h>
 #include "tls/config.h"
+#include "tls/common.h"
 
 static u_int16_t __supported_versions[] = {
     GQUIC_TLS_VERSION_10,
@@ -33,6 +34,23 @@ int gquic_tls_config_init(gquic_tls_config_t *const cfg) {
     cfg->renegotiation = 0;
     gquic_list_head_init(&cfg->curve_perfers);
     cfg->cli_sess_cache = NULL;
+    cfg->extensions = NULL;
+
+    return 0;
+}
+
+static int empty_config_inited = 0;
+static gquic_tls_config_t empty_config;
+
+int gquic_tls_config_default(gquic_tls_config_t **const cfg) {
+    if (cfg == NULL) {
+        return -1;
+    }
+    if (!empty_config_inited) {
+        gquic_tls_config_init(&empty_config);
+        empty_config_inited = 1;
+    }
+    *cfg = &empty_config;
 
     return 0;
 }
@@ -80,7 +98,7 @@ int gquic_tls_config_supported_versions(gquic_list_t *ret, const gquic_tls_confi
     return 0;
 }
 
-static gquic_curve_id_t __default_curve_preferences[] = {
+static u_int16_t __default_curve_preferences[] = {
     GQUIC_TLS_CURVE_X25519,
     GQUIC_TLS_CURVE_P256,
     GQUIC_TLS_CURVE_P384,
@@ -95,9 +113,9 @@ int gquic_tls_config_curve_preferences(gquic_list_t *ret) {
         return -2;
     }
     size_t i;
-    gquic_curve_id_t *payload;
-    for (i = 0; i < sizeof(__default_curve_preferences) / sizeof(gquic_curve_id_t); i++) {
-        if ((payload = gquic_list_alloc(sizeof(gquic_curve_id_t))) == NULL) {
+    u_int16_t *payload;
+    for (i = 0; i < sizeof(__default_curve_preferences) / sizeof(u_int16_t); i++) {
+        if ((payload = gquic_list_alloc(sizeof(u_int16_t))) == NULL) {
             return -3;
         }
         *payload = __default_curve_preferences[i];

@@ -21,13 +21,11 @@ struct gquic_tls_client_sess_state_s {
     u_int32_t age_add;
 };
 
-typedef int (*gquic_tls_client_sess_cache_get_fptr) (gquic_tls_client_sess_state_t **const state, const gquic_str_t *const sess_key);
-typedef int (*gquic_tls_client_sess_cache_put_fptr) (const gquic_str_t *const sess_key, const gquic_tls_client_sess_state_t *const state);
-
 typedef struct gquic_tls_client_sess_cache_s gquic_tls_client_sess_cache_t;
 struct gquic_tls_client_sess_cache_s {
-    gquic_tls_client_sess_cache_get_fptr get_fptr;
-    gquic_tls_client_sess_cache_put_fptr put_fptr;
+    void *self;
+    int (*get) (gquic_tls_client_sess_state_t **const, void *const self, const gquic_str_t *const);
+    int (*put) (void *const self, const gquic_str_t *const, const gquic_tls_client_sess_state_t *const);
 };
 
 #endif

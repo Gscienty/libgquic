@@ -1,4 +1,5 @@
 #include "tls/auth.h"
+#include "tls/common.h"
 #include "tls/config.h"
 #include "tls/prf.h"
 #include "util/str.h"

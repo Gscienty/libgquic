@@ -1,6 +1,7 @@
 #ifndef _LIBGQUIC_TLS_CONN_H
 #define _LIBGQUIC_TLS_CONN_H
 
+#include "tls/common.h"
 #include "tls/config.h"
 #include "tls/client_sess_state.h"
 #include "tls/client_hello_msg.h"
@@ -12,7 +13,7 @@
 typedef struct gquic_tls_conn_s gquic_tls_conn_t;
 struct gquic_tls_conn_s {
     const gquic_net_addr_t *addr;
-    const gquic_tls_config_t *cfg;
+    gquic_tls_config_t *cfg;
     int is_client;
     u_int32_t handshake_status;
     u_int16_t ver;
@@ -24,7 +25,7 @@ struct gquic_tls_conn_s {
 
 int gquic_tls_conn_init(gquic_tls_conn_t *const conn,
                         const gquic_net_addr_t *const addr,
-                        const gquic_tls_config_t *const cfg);
+                        gquic_tls_config_t *const cfg);
 
 int gquic_tls_conn_load_session(const gquic_tls_conn_t *const conn,
                                 gquic_str_t *const cache_key,

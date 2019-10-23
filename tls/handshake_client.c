@@ -1,5 +1,5 @@
 #include "tls/handshake_client.h"
-#include "tls/config.h"
+#include "tls/common.h"
 #include "tls/key_schedule.h"
 #include <openssl/tls1.h>
 #include <openssl/rand.h>
@@ -224,4 +224,15 @@ failure:
         gquic_list_release(ks);
     }
     return ret;
+}
+
+int gquic_tls_client_handshake(gquic_tls_conn_t *const conn) {
+    if (conn == NULL) {
+        return -1;
+    }
+    if (conn->cfg == NULL) {
+        gquic_tls_config_default(&conn->cfg);
+    }
+
+    return 0;
 }

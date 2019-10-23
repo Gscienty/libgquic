@@ -1,7 +1,7 @@
 #include "tls/cert_status_msg.h"
 #include "tls/_msg_serialize_util.h"
 #include "tls/_msg_deserialize_util.h"
-#include "tls/config.h"
+#include "tls/common.h"
 #include <unistd.h>
 
 int gquic_tls_cert_status_msg_init(gquic_tls_cert_status_msg_t *msg) {

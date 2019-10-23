@@ -3,7 +3,6 @@
 
 #include "tls/key_schedule.h"
 #include "tls/key_agreement.h"
-#include "tls/config.h"
 #include <sys/types.h>
 #include <openssl/evp.h>
 #include <openssl/hmac.h>

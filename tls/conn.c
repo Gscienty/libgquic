@@ -10,7 +10,7 @@ static int __equal_common_name(const gquic_str_t *const, X509_NAME *const);
 
 int gquic_tls_conn_init(gquic_tls_conn_t *const conn,
                         const gquic_net_addr_t *const addr,
-                        const gquic_tls_config_t *const cfg) {
+                        gquic_tls_config_t *const cfg) {
     if (conn == NULL) {
         return -1;
     }
@@ -54,7 +54,7 @@ int gquic_tls_conn_load_session(const gquic_tls_conn_t *const conn,
     if (gquic_tls_conn_cli_sess_cache_key(cache_key, conn->addr, conn->cfg) != 0) {
         return -3;
     }
-    if (conn->cfg->cli_sess_cache->get_fptr(sess, cache_key) != 0 && *sess == NULL) {
+    if (conn->cfg->cli_sess_cache->get(sess, conn->cfg->cli_sess_cache->self, cache_key) != 0 && *sess == NULL) {
         return 0;
     }
     int ver_avail = 0;
@@ -81,7 +81,7 @@ int gquic_tls_conn_load_session(const gquic_tls_conn_t *const conn,
         int cmp = __compare_now_asn1_time(X509_get_notAfter(x509_ser_cert));
         if (cmp == 1) {
             X509_free(x509_ser_cert);
-            conn->cfg->cli_sess_cache->put_fptr(cache_key, NULL);
+            conn->cfg->cli_sess_cache->put(conn->cfg->cli_sess_cache->self, cache_key, NULL);
             return 0;
         }
         else if (cmp == -2) {
@@ -114,7 +114,7 @@ int gquic_tls_conn_load_session(const gquic_tls_conn_t *const conn,
     }
 
     if (time(NULL) > (*sess)->use_by) {
-        conn->cfg->cli_sess_cache->put_fptr(cache_key, NULL);
+        conn->cfg->cli_sess_cache->put(conn->cfg->cli_sess_cache->self, cache_key, NULL);
         return 0;
     }
     time_t ticket_age = time(NULL) - (*sess)->recv_at;

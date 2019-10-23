@@ -1,5 +1,5 @@
 #include "tls/encrypt_ext_msg.h"
-#include "tls/config.h"
+#include "tls/common.h"
 #include "tls/_msg_deserialize_util.h"
 #include "tls/_msg_serialize_util.h"
 

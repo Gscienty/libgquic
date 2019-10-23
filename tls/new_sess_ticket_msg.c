@@ -1,7 +1,7 @@
 #include "tls/new_sess_ticket_msg.h"
 #include "tls/_msg_serialize_util.h"
 #include "tls/_msg_deserialize_util.h"
-#include "tls/config.h"
+#include "tls/common.h"
 #include <unistd.h>
 
 int gquic_tls_new_sess_ticket_msg_init(gquic_tls_new_sess_ticket_msg_t *msg) {

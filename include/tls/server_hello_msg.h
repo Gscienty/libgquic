@@ -4,7 +4,7 @@
 #include <sys/types.h>
 #include "util/list.h"
 #include "util/str.h"
-#include "tls/config.h"
+#include "tls/common.h"
 
 typedef struct gquic_tls_server_hello_msg_s gquic_tls_server_hello_msg_t;
 struct gquic_tls_server_hello_msg_s {
@@ -27,7 +27,7 @@ struct gquic_tls_server_hello_msg_s {
     u_int16_t selected_identity;
 
     gquic_str_t cookie;
-    gquic_curve_id_t selected_group;
+    u_int16_t selected_group;
 };
 
 int gquic_tls_server_hello_msg_init(gquic_tls_server_hello_msg_t *msg);
