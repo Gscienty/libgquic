@@ -21,9 +21,10 @@ struct gquic_rbtree_s {
 #define GQUIC_RBTREE_VALUE(r) (((void *) (r)) + sizeof(gquic_rbtree_t) + (r)->key_len) 
 
 int gquic_rbtree_root_init(gquic_rbtree_t **root);
-gquic_rbtree_t *gquic_rbtree_alloc(const size_t key_len, const size_t val_len);
+int gquic_rbtree_alloc(gquic_rbtree_t **const rb, const size_t key_len, const size_t val_len);
+int gquic_rbtree_release(gquic_rbtree_t *const rb, int (*release_val)(void *const));
 int gquic_rbtree_insert(gquic_rbtree_t **root, gquic_rbtree_t *node);
-gquic_rbtree_t *gquic_rbtree_remove(gquic_rbtree_t **root, gquic_rbtree_t *node);
+int gquic_rbtree_remove(gquic_rbtree_t **const root, gquic_rbtree_t **const node);
 int gquic_rbtree_is_nil(gquic_rbtree_t *node);
 
 
