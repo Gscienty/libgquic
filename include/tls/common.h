@@ -21,7 +21,6 @@
 #define GQUIC_TLS_HANDSHAKE_MSG_TYPE_NEXT_PROTO 0x43
 #define GQUIC_TLS_HANDSHAKE_MSG_TYPE_MSG_HASH 0xfe
 
-
 #define GQUIC_TLS_EXTENSION_SERVER_NAME 0x00
 #define GQUIC_TLS_EXTENSION_STATUS_REQUEST 0x05
 #define GQUIC_TLS_EXTENSION_SUPPORTED_CURVES 0x0a   
@@ -75,6 +74,8 @@
 #define GQUIC_SIG_RSAPSS 0x01
 #define GQUIC_SIG_ECDSA 0x02
 #define GQUIC_SIG_ED25519 0x03
+
+#define GQUIC_MAX_PLAINTEXT 16384
 
 typedef struct gquic_tls_key_share_s gquic_tls_key_share_t;
 struct gquic_tls_key_share_s {
