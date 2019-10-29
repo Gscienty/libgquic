@@ -42,12 +42,6 @@
 #define GQUIC_TLS_HASH_SHA256 0x0001
 #define GQUIC_TLS_HASH_SHA384 0x0002
 
-int gquic_tls_mac_func(gquic_str_t *const ret,
-                       HMAC_CTX *const ctx,
-                       const gquic_str_t *const seq,
-                       const gquic_str_t *const header,
-                       const gquic_str_t *const data,
-                       const gquic_str_t *const extra);
 
 typedef struct gquic_tls_aead_ctx_s gquic_tls_aead_ctx_t;
 struct gquic_tls_aead_ctx_s {
@@ -77,13 +71,43 @@ struct gquic_tls_aead_s {
                 const gquic_str_t *const);
 };
 
-#define GQUIC_TLS_AEAD_SEAL(tag, cipher_text, aead, plain_text, addata) \
-    ((aead)->seal((tag), (cipher_text), &(aead)->ctx, (plain_text), (addata)))
+#define GQUIC_TLS_AEAD_SEAL(tag, cipher_text, aead, nonce, plain_text, addata) \
+    (((aead)->seal) == NULL \
+    ? -1 \
+    : ((aead)->seal((tag), (cipher_text), &(aead)->ctx, (nonce), (plain_text), (addata))))
 
-#define GQUIC_TLS_AEAD_OPEN(plain_text, aead, tag, cipher_text, addata) \
-    ((aead)->open((plain_text), &(aead)->ctx, (tag), (cipher_text), (addata)))
+#define GQUIC_TLS_AEAD_OPEN(plain_text, aead, nonce, tag, cipher_text, addata) \
+    (((aead)->open) == NULL \
+     ? -1 \
+     : ((aead)->open((plain_text), &(aead)->ctx, (nonce), (tag), (cipher_text), (addata))))
 
-int gquic_tls_aead_release(gquic_tls_aead_t *const);
+int gquic_tls_aead_init(gquic_tls_aead_t *const aead);
+int gquic_tls_aead_release(gquic_tls_aead_t *const aead);
+
+typedef struct gquic_tls_cipher_s gquic_tls_cipher_t;
+struct gquic_tls_cipher_s {
+    EVP_CIPHER_CTX *cipher;
+    gquic_str_t key;
+    gquic_str_t iv;
+};
+int gquic_tls_cipher_init(gquic_tls_cipher_t *const cipher);
+int gquic_tls_cipher_release(gquic_tls_cipher_t *const cipher);
+int gquic_tls_cipher_encrypt(gquic_str_t *const ret, gquic_tls_cipher_t *const cipher, const gquic_str_t *const plain_text);
+int gquic_tls_cipher_decrypt(gquic_str_t *const ret, gquic_tls_cipher_t *const cipher, const gquic_str_t *const cipher_text);
+
+typedef struct gquic_tls_mac_s gquic_tls_mac_t;
+struct gquic_tls_mac_s {
+    HMAC_CTX *mac;
+    gquic_str_t key;
+};
+int gquic_tls_mac_init(gquic_tls_mac_t *const mac);
+int gquic_tls_mac_release(gquic_tls_mac_t *const mac);
+int gquic_tls_mac_hash(gquic_str_t *const ret,
+                       gquic_tls_mac_t *const mac,
+                       const gquic_str_t *const seq,
+                       const gquic_str_t *const header,
+                       const gquic_str_t *const data,
+                       const gquic_str_t *const extra);
 
 typedef struct gquic_tls_cipher_suite_s gquic_tls_cipher_suite_t;
 struct gquic_tls_cipher_suite_s {
@@ -95,9 +119,53 @@ struct gquic_tls_cipher_suite_s {
     int flags;
     u_int16_t hash;
 
-    int (*cipher_encrypt) (EVP_CIPHER_CTX **const, const gquic_str_t *const, const gquic_str_t *const, const int);
-    int (*mac) (HMAC_CTX **const, const u_int16_t, const gquic_str_t *const);
+    int (*cipher_encrypt) (gquic_tls_cipher_t *const, const gquic_str_t *const, const gquic_str_t *const, const int);
+    int (*mac) (gquic_tls_mac_t *const, const u_int16_t, const gquic_str_t *const);
     int (*aead) (gquic_tls_aead_t *const, const gquic_str_t *const, const gquic_str_t *const);
 };
+
+int gquic_tls_get_cipher_suite(const gquic_tls_cipher_suite_t **const cipher, const u_int16_t cipher_suite_id);
+
+#define GQUIC_TLS_CIPHER_TYPE_UNKNOW 0
+#define GQUIC_TLS_CIPHER_TYPE_STREAM 1
+#define GQUIC_TLS_CIPHER_TYPE_AEAD 2
+#define GQUIC_TLS_CIPHER_TYPE_CBC 3
+
+typedef struct gquic_tls_suite_s gquic_tls_suite_t;
+struct gquic_tls_suite_s {
+    u_int8_t type;
+    gquic_tls_cipher_t cipher;
+    gquic_tls_aead_t aead;
+    gquic_tls_mac_t mac;
+};
+
+int gquic_tls_suite_init(gquic_tls_suite_t *const suite);
+int gquic_tls_suite_assign(gquic_tls_suite_t *const suite,
+                           const gquic_tls_cipher_suite_t *const cipher_suite,
+                           const gquic_str_t *const iv,
+                           const gquic_str_t *const cipher_key,
+                           const gquic_str_t *const mac_key,
+                           const int is_read);
+int gquic_tls_suite_encrypt(gquic_str_t *const result, gquic_tls_suite_t *const suite, const gquic_str_t *const plain_text);
+int gquic_tls_suite_aead_encrypt(gquic_str_t *const tag,
+                                 gquic_str_t *const cipher_text,
+                                 gquic_tls_suite_t *const suite,
+                                 const gquic_str_t *const nonce,
+                                 const gquic_str_t *const plain_text,
+                                 const gquic_str_t *const addata);
+int gquic_tls_suite_decrypt(gquic_str_t *const result, gquic_tls_suite_t *const suite, const gquic_str_t *const cipher_text);
+int gquic_tls_suite_aead_decrypt(gquic_str_t *const plain_text,
+                                 gquic_tls_suite_t *const suite,
+                                 const gquic_str_t *const nonce,
+                                 const gquic_str_t *const tag,
+                                 const gquic_str_t *const cipher_text,
+                                 const gquic_str_t *const addata);
+int gquic_tls_suite_hash(gquic_str_t *const hash,
+                         gquic_tls_suite_t *const suite,
+                         const gquic_str_t *const seq,
+                         const gquic_str_t *const header,
+                         const gquic_str_t *const data,
+                         const gquic_str_t *const extra);
+
 
 #endif
