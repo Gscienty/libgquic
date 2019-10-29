@@ -8,6 +8,7 @@
 #include <stdio.h>
 
 static int _get(gquic_tls_client_sess_state_t **const state, const gquic_str_t *const sess_key) {
+    (void) sess_key;
 
     // NOTE: openssl need middle variable (i2d_X509())
 
@@ -81,8 +82,8 @@ int main() {
     cache.get_fptr = _get;
     gquic_net_str_to_addr_v4(&addr, "127.0.0.1");
     gquic_tls_config_init(&cfg);
-    GQUIC_STR_VAL(&cfg.ser_name) = "hello";
-    GQUIC_STR_SIZE(&cfg.ser_name) = strlen(GQUIC_STR_VAL(&cfg.ser_name));
+    cfg.ser_name.val = "hello";
+    cfg.ser_name.size = strlen(GQUIC_STR_VAL(&cfg.ser_name));
     cfg.sess_ticket_disabled = 0;
     cfg.cli_sess_cache = &cache;
     cfg.insecure_skiy_verify = 0;

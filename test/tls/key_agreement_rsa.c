@@ -1,4 +1,5 @@
 #include "tls/key_agreement.h"
+#include "tls/config.h"
 #include <openssl/pkcs12.h>
 #include <openssl/x509.h>
 #include <openssl/pem.h>

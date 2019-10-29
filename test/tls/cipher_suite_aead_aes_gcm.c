@@ -2,7 +2,7 @@
 #include "../tls/cipher_suite.c"
 
 int main() {
-    gquic_tls_prefix_nonce_aead_t aead;
+    gquic_tls_aead_t aead;
 
     gquic_str_t plain;
     gquic_str_t addata;
@@ -24,7 +24,7 @@ int main() {
     };
     for (i = 0; i < 12; i++) ((unsigned char *) GQUIC_STR_VAL(&iv))[i] = gcm_iv[i];
 
-    aead_aes_gcm(&aead, &key, &iv);
+    aead_aes_gcm_init(&aead, &key, &iv);
 
 
     uint8_t gcm_pt[] = {
@@ -40,17 +40,16 @@ int main() {
     for (i = 0; i < (int) sizeof(gcm_pt); i++) ((unsigned char *) GQUIC_STR_VAL(&plain))[i] = gcm_pt[i];
     for (i = 0; i < (int) sizeof(gcm_aad); i++) ((unsigned char *) GQUIC_STR_VAL(&addata))[i] = gcm_aad[i];
 
-    aead.aead.seal(&tag, &cipher, aead.aead.enc_ctx, &plain, &addata);
+    GQUIC_TLS_AEAD_SEAL(&tag, &cipher, &aead, &plain, &addata);
 
-    /*BIO_dump_fp(stdout, GQUIC_STR_VAL(&tag), GQUIC_STR_SIZE(&tag));*/
+    BIO_dump_fp(stdout, GQUIC_STR_VAL(&tag), GQUIC_STR_SIZE(&tag));
 
     /*BIO_dump_fp(stdout, GQUIC_STR_VAL(&cipher), GQUIC_STR_SIZE(&cipher));*/
 
     gquic_str_t decrypt_plain;
-    int ret = aead.aead.open(&decrypt_plain, aead.aead.dec_ctx, &tag, &cipher, &addata);
+    int ret = GQUIC_TLS_AEAD_OPEN(&decrypt_plain, &aead, &tag, &cipher, &addata);
     printf("%d\n", ret);
 
-    /*BIO_dump_fp(stdout, GQUIC_STR_VAL(&decrypt_plain), GQUIC_STR_SIZE(&decrypt_plain));*/
-    /*BIO_dump_fp(stdout, GQUIC_STR_VAL(&tag), GQUIC_STR_SIZE(&tag));*/
+    BIO_dump_fp(stdout, GQUIC_STR_VAL(&decrypt_plain), GQUIC_STR_SIZE(&decrypt_plain));
     return 0;
 }
