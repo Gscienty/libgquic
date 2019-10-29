@@ -24,4 +24,6 @@ int gquic_str_set(gquic_str_t *const str, const char *const val);
 
 int gquic_str_test_echo(const gquic_str_t *const str);
 
+int gquic_str_cmp(const gquic_str_t *const str_a, const gquic_str_t *const str_b);
+
 #endif

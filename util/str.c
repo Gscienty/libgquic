@@ -77,3 +77,20 @@ int gquic_str_test_echo(const gquic_str_t *const str) {
     return 0;
 }
 
+int gquic_str_cmp(const gquic_str_t *const str_a, const gquic_str_t *const str_b) {
+    if (str_a == NULL || str_b == NULL) {
+        return -1;
+    }
+    if (GQUIC_STR_SIZE(str_a) != GQUIC_STR_SIZE(str_b)) {
+        return GQUIC_STR_SIZE(str_a) - GQUIC_STR_SIZE(str_b);
+    }
+    size_t i;
+    for (i = 0; i < GQUIC_STR_SIZE(str_a); i++) {
+        int cmpret = (int16_t) ((u_int8_t *) GQUIC_STR_VAL(str_a))[i] - (int16_t) ((u_int8_t *) GQUIC_STR_VAL(str_b))[i];
+        if (cmpret != 0) {
+            return cmpret;
+        }
+    }
+
+    return 0;
+}
