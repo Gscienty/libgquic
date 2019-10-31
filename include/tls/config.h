@@ -17,8 +17,9 @@ struct gquic_tls_record_layer_s {
     int (*set_rkey) (void *const, const u_int16_t, const gquic_tls_cipher_suite_t *const, const gquic_str_t *const);
     int (*set_wkey) (void *const, const u_int16_t, const gquic_tls_cipher_suite_t *const, const gquic_str_t *const);
     int (*read_handshake_msg) (gquic_str_t *const, void *const);
-    int (*write_record) (int *const, void *const, const gquic_str_t *const);
+    int (*write_record) (size_t *const, void *const, const gquic_str_t *const);
     int (*send_alert) (void *const, const u_int8_t);
+    int (*release) (void *const);
 };
 
 struct gquic_tls_config_s {
@@ -42,6 +43,7 @@ struct gquic_tls_config_s {
     gquic_list_t curve_perfers;
     gquic_tls_client_sess_cache_t *cli_sess_cache;
     int (*extensions) (gquic_list_t *const, const u_int8_t);
+    gquic_tls_record_layer_t alt_record;
 };
 
 typedef struct gquic_tls_ticket_key_s gquic_tls_ticket_key_t;
