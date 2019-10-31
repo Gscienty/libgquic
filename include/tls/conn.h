@@ -55,7 +55,9 @@ struct gquic_tls_conn_s {
     int cli_finished_is_first;
     gquic_tls_half_conn_t in;
     gquic_tls_half_conn_t out;
-    gquic_list_t outbuf;
+    u_int64_t sent_size;
+    u_int64_t sent_pkg_count;
+    int buffering;
 };
 
 int gquic_tls_conn_init(gquic_tls_conn_t *const conn,
@@ -69,10 +71,10 @@ int gquic_tls_conn_load_session(gquic_str_t *const cache_key,
                                 const gquic_tls_conn_t *const conn,
                                 gquic_tls_client_hello_msg_t *const hello);
 
+int gquic_tls_conn_write_max_write_size(size_t *const ret, const gquic_tls_conn_t *const conn, const u_int8_t record_type);
 int gquic_tls_conn_set_alt_record(gquic_tls_conn_t *const conn);
-
 int gquic_tls_conn_write_record(size_t *const len, gquic_tls_conn_t *const conn, u_int8_t record_type, const gquic_str_t *const data);
-
-int gquic_tls_conn_write_max_write_size(const gquic_tls_conn_t *const conn, u_int8_t record_type);
+int gquic_tls_conn_read_handshake(u_int8_t *const handshake_type, void **const msg, gquic_tls_conn_t *const conn);
+int gquic_tls_conn_send_alert(gquic_tls_conn_t *const conn, u_int8_t alert);
 
 #endif
