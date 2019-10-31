@@ -1,8 +1,8 @@
 #ifndef _LIBGQUIC_TLS_CIPHER_SUITE_H
 #define _LIBGQUIC_TLS_CIPHER_SUITE_H
 
-#include "tls/key_schedule.h"
 #include "tls/key_agreement.h"
+#include "util/str.h"
 #include <sys/types.h>
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
@@ -124,7 +124,8 @@ struct gquic_tls_cipher_suite_s {
     int (*aead) (gquic_tls_aead_t *const, const gquic_str_t *const, const gquic_str_t *const);
 };
 
-int gquic_tls_get_cipher_suite(const gquic_tls_cipher_suite_t **const cipher, const u_int16_t cipher_suite_id);
+int gquic_tls_get_cipher_suite(const gquic_tls_cipher_suite_t **const cipher_suite, const u_int16_t cipher_suite_id);
+int gquic_tls_choose_cipher_suite(const gquic_tls_cipher_suite_t **const cipher_suite, const gquic_list_t *const have, const u_int16_t want);
 
 #define GQUIC_TLS_CIPHER_TYPE_UNKNOW 0
 #define GQUIC_TLS_CIPHER_TYPE_STREAM 1
@@ -166,6 +167,8 @@ int gquic_tls_suite_hash(gquic_str_t *const hash,
                          const gquic_str_t *const header,
                          const gquic_str_t *const data,
                          const gquic_str_t *const extra);
+size_t gquic_tls_suite_nonce_size(const gquic_tls_suite_t *const suite);
+size_t gquic_tls_suite_mac_size(const gquic_tls_suite_t *const suite);
 
 
 #endif

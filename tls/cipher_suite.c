@@ -100,6 +100,19 @@ int gquic_tls_get_cipher_suite(const gquic_tls_cipher_suite_t **const cipher, co
     return -2;
 }
 
+int gquic_tls_choose_cipher_suite(const gquic_tls_cipher_suite_t **const cipher_suite, const gquic_list_t *const have, const u_int16_t want) {
+    u_int16_t *have_cipher_suite_id;
+    if (cipher_suite == NULL || have == NULL) {
+        return -1;
+    }
+    GQUIC_LIST_FOREACH(have_cipher_suite_id, have) {
+        if (*have_cipher_suite_id == want) {
+            return gquic_tls_get_cipher_suite(cipher_suite, want);
+        }
+    }
+    return -2;
+}
+
 int gquic_tls_mac_hash(gquic_str_t *const ret,
                        gquic_tls_mac_t *const mac,
                        const gquic_str_t *const seq,
@@ -337,6 +350,24 @@ int gquic_tls_suite_hash(gquic_str_t *const hash,
         return -1;
     }
     return gquic_tls_mac_hash(hash, &suite->mac, seq, header, data, extra);
+}
+
+size_t gquic_tls_suite_nonce_size(const gquic_tls_suite_t *const suite) {
+    if (suite == NULL) {
+        return 0;
+    }
+    switch (suite->type) {
+    case GQUIC_TLS_CIPHER_TYPE_AEAD:
+        return 1 + 8;
+    }
+    return 0;
+}
+
+size_t gquic_tls_suite_mac_size(const gquic_tls_suite_t *const suite) {
+    if (suite == NULL || suite->mac.mac == NULL) {
+        return 0;
+    }
+    return HMAC_size(suite->mac.mac);
 }
 
 static int ecdhe_rsa_ka(gquic_tls_key_agreement_t *const ka, const u_int16_t ver) {
