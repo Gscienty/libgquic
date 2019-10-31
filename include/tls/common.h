@@ -76,6 +76,8 @@
 #define GQUIC_SIG_ED25519 0x03
 
 #define GQUIC_MAX_PLAINTEXT 16384
+#define GQUIC_RECORD_SIZE_BOOST_THRESHOLD 131072
+#define GQUIC_MSS_EST 1208
 
 typedef struct gquic_tls_key_share_s gquic_tls_key_share_t;
 struct gquic_tls_key_share_s {
@@ -96,5 +98,7 @@ struct gquic_tls_psk_identity_s {
 };
 
 typedef struct gquic_tls_config_s gquic_tls_config_t;
+
+const gquic_str_t *gquic_tls_hello_retry_request_random();
 
 #endif
