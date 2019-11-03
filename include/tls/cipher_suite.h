@@ -97,6 +97,7 @@ int gquic_tls_cipher_decrypt(gquic_str_t *const ret, gquic_tls_cipher_t *const c
 
 typedef struct gquic_tls_mac_s gquic_tls_mac_t;
 struct gquic_tls_mac_s {
+    const EVP_MD *md;
     HMAC_CTX *mac;
     gquic_str_t key;
 };
@@ -126,6 +127,23 @@ struct gquic_tls_cipher_suite_s {
 
 int gquic_tls_get_cipher_suite(const gquic_tls_cipher_suite_t **const cipher_suite, const u_int16_t cipher_suite_id);
 int gquic_tls_choose_cipher_suite(const gquic_tls_cipher_suite_t **const cipher_suite, const gquic_list_t *const have, const u_int16_t want);
+
+int gquic_tls_cipher_suite_expand_label(gquic_str_t *const ret,
+                                        const gquic_tls_cipher_suite_t *const cipher_suite,
+                                        const gquic_str_t *const secret,
+                                        const gquic_str_t *const label,
+                                        const gquic_str_t *const content,
+                                        const size_t length);
+int gquic_tls_cipher_suite_derive_secret(gquic_str_t *const ret,
+                                         const gquic_tls_cipher_suite_t *const cipher_suite,
+                                         gquic_tls_mac_t *const mac,
+                                         const gquic_str_t *const secret,
+                                         const gquic_str_t *const label,
+                                         const size_t length);
+int gquic_tls_cipher_suite_extract(gquic_str_t *const ret,
+                                   const gquic_tls_cipher_suite_t *const cipher_suite,
+                                   const gquic_str_t *const secret,
+                                   const gquic_str_t *const salt);
 
 #define GQUIC_TLS_CIPHER_TYPE_UNKNOW 0
 #define GQUIC_TLS_CIPHER_TYPE_STREAM 1
@@ -169,6 +187,7 @@ int gquic_tls_suite_hash(gquic_str_t *const hash,
                          const gquic_str_t *const extra);
 size_t gquic_tls_suite_nonce_size(const gquic_tls_suite_t *const suite);
 size_t gquic_tls_suite_mac_size(const gquic_tls_suite_t *const suite);
+
 
 
 #endif

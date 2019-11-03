@@ -1,5 +1,6 @@
 #include "tls/cipher_suite.h"
 #include "tls/key_agreement.h"
+#include "tls/key_schedule.h"
 #include <malloc.h>
 #include <string.h>
 #include <openssl/sha.h>
@@ -327,6 +328,7 @@ int gquic_tls_mac_init(gquic_tls_mac_t *const mac) {
         return -1;
     }
     mac->mac = NULL;
+    mac->md = NULL;
     gquic_str_init(&mac->key);
     return 0;
 }
@@ -552,14 +554,19 @@ static int cipher_aes(gquic_tls_cipher_t *const ret, const gquic_str_t *const ke
 
 static int mac_sha1_init(gquic_tls_mac_t *const mac, const u_int16_t ver, const gquic_str_t *const key) {
     (void) ver;
-    if (mac == NULL || key == NULL) {
+    if (mac == NULL) {
         return -1;
+    }
+    gquic_tls_mac_init(mac);
+    mac->md = EVP_sha1();
+    if (GQUIC_STR_SIZE(key) == 0) {
+        return 0;
     }
     if (gquic_str_copy(&mac->key, key) != 0) {
         return -2;
     }
     mac->mac = HMAC_CTX_new();
-    if (HMAC_Init_ex(mac->mac, GQUIC_STR_VAL(key), GQUIC_STR_SIZE(key), EVP_sha1(), NULL) <= 0) {
+    if (HMAC_Init_ex(mac->mac, GQUIC_STR_VAL(key), GQUIC_STR_SIZE(key), mac->md, NULL) <= 0) {
         return -3;
     }
     return 0;
@@ -570,11 +577,16 @@ static int mac_sha256_init(gquic_tls_mac_t *const mac, const u_int16_t ver, cons
     if (mac == NULL || key == NULL) {
         return -1;
     }
+    gquic_tls_mac_init(mac);
+    mac->md = EVP_sha256();
+    if (GQUIC_STR_SIZE(key) == 0) {
+        return 0;
+    }
     if (gquic_str_copy(&mac->key, key) != 0) {
         return -2;
     }
     mac->mac = HMAC_CTX_new();
-    if (HMAC_Init_ex(mac->mac, GQUIC_STR_VAL(key), GQUIC_STR_SIZE(key), EVP_sha256(), NULL) <= 0) {
+    if (HMAC_Init_ex(mac->mac, GQUIC_STR_VAL(key), GQUIC_STR_SIZE(key), mac->md, NULL) <= 0) {
         return -3;
     }
     return 0;
@@ -735,3 +747,71 @@ static int aead_xor_nonce_wrapper(gquic_str_t *const ret, const gquic_str_t *con
 
     return 0;
 }
+
+int gquic_tls_cipher_suite_expand_label(gquic_str_t *const ret,
+                                        const gquic_tls_cipher_suite_t *const cipher_suite,
+                                        const gquic_str_t *const secret,
+                                        const gquic_str_t *const label,
+                                        const gquic_str_t *const content,
+                                        const size_t length) {
+    gquic_tls_mac_t hash;
+    if (ret == NULL || cipher_suite == NULL || secret == NULL || label == NULL || content == NULL) {
+        return -1;
+    }
+    gquic_tls_mac_init(&hash);
+    if (cipher_suite->mac(&hash, 0, NULL) != 0) {
+        return -2;
+    }
+    if (gquic_tls_hkdf_expand_label(ret, &hash, secret, content, label, length) != 0) {
+        gquic_tls_mac_release(&hash);
+        return -3;
+    }
+
+    gquic_tls_mac_release(&hash);
+    return 0;
+}
+
+int gquic_tls_cipher_suite_derive_secret(gquic_str_t *const ret,
+                                         const gquic_tls_cipher_suite_t *const cipher_suite,
+                                         gquic_tls_mac_t *const mac,
+                                         const gquic_str_t *const secret,
+                                         const gquic_str_t *const label,
+                                         const size_t length) {
+    
+    gquic_str_t content = { 0, NULL };
+    unsigned int content_length = 0;
+    if (ret == NULL || cipher_suite == NULL || secret == NULL || label == NULL) {
+        return -1;
+    }
+    if (mac != NULL) {
+        if (HMAC_Final(mac->mac, NULL, &content_length) != 0) {
+            return -2;
+        }
+        if (gquic_str_alloc(&content, content_length) != 0) {
+            return -3;
+        }
+    }
+    return gquic_tls_cipher_suite_expand_label(ret, cipher_suite, secret, &content, label, length);
+}
+
+int gquic_tls_cipher_suite_extract(gquic_str_t *const ret,
+                                   const gquic_tls_cipher_suite_t *const cipher_suite,
+                                   const gquic_str_t *const secret,
+                                   const gquic_str_t *const salt) {
+    gquic_tls_mac_t hash;
+    if (ret == NULL || cipher_suite == NULL || secret == NULL || salt == NULL) {
+        return -1;
+    }
+    gquic_tls_mac_init(&hash);
+    if (cipher_suite->mac(&hash, 0, NULL) != 0) {
+        return -2;
+    }
+    if (gquic_tls_hkdf_extract(ret, &hash, secret, salt) != 0) {
+        gquic_tls_mac_release(&hash);
+        return -3;
+    }
+
+    gquic_tls_mac_release(&hash);
+    return 0;
+}
+
