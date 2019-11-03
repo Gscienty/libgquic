@@ -3,6 +3,8 @@
 #include "util/str.h"
 #include "util/big_endian.h"
 #include <openssl/evp.h>
+#include <openssl/kdf.h>
+#include <string.h>
 
 typedef struct gquic_tls_x25519_params_s gquic_tls_x25519_params_t;
 struct gquic_tls_x25519_params_s {
@@ -156,6 +158,101 @@ static int gquic_tls_ecdhe_params_release_x25519(void *const self) {
     gquic_tls_x25519_params_t *x25519_self = self;
     gquic_str_reset(&x25519_self->pri_key);
     gquic_str_reset(&x25519_self->pub_key);
+    return 0;
+}
+
+int gquic_tls_hkdf_extract(gquic_str_t *const ret, gquic_tls_mac_t *const hash, const gquic_str_t *const secret, const gquic_str_t *const salt) {
+    EVP_PKEY_CTX *ctx = NULL;
+    if (ret == NULL || hash == NULL || hash->md == NULL || secret == NULL || salt == NULL) {
+        return -1;
+    }
+    if (gquic_str_init(ret) != 0) {
+        return -2;
+    }
+    if ((ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_HKDF, NULL)) == NULL) {
+        return -3;
+    }
+    if (EVP_PKEY_derive_init(ctx) <= 0) {
+        return -4;
+    }
+    if (EVP_PKEY_CTX_set_hkdf_md(ctx, hash->md) <= 0) {
+        return -5;
+    }
+    if (EVP_PKEY_CTX_set1_hkdf_key(ctx, GQUIC_STR_VAL(secret), GQUIC_STR_SIZE(secret)) <= 0) {
+        return -6;
+    }
+    if (EVP_PKEY_CTX_set1_hkdf_salt(ctx, GQUIC_STR_VAL(salt), GQUIC_STR_SIZE(salt)) <= 0) {
+        return -7;
+    }
+    if (EVP_PKEY_derive(ctx, NULL, &ret->size) <= 0) {
+        return -8;
+    }
+    if (gquic_str_alloc(ret, GQUIC_STR_SIZE(ret)) != 0) {
+        return -9;
+    }
+    if (EVP_PKEY_derive(ctx, GQUIC_STR_VAL(ret), &ret->size) <= 0) {
+        return -10;
+    }
+    EVP_PKEY_CTX_free(ctx);
+    return 0;
+}
+
+int gquic_tls_hkdf_expand_label(gquic_str_t *const ret,
+                                gquic_tls_mac_t *const hash,
+                                const gquic_str_t *const secret,
+                                const gquic_str_t *const content,
+                                const gquic_str_t *const label,
+                                const size_t length) {
+    static const gquic_str_t default_label = { 6, (void *) "tls13 " };
+    EVP_PKEY_CTX *ctx = NULL;
+    gquic_str_t info = { 0, NULL };
+    size_t tmp = 0;
+    if (ret == NULL || hash == NULL || hash->md == NULL || secret == NULL || label == NULL) {
+        return -1;
+    }
+    if (gquic_str_init(ret) != 0) {
+        return -2;
+    }
+    if ((ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_HKDF, NULL)) == NULL) {
+        return -3;
+    }
+    if (EVP_PKEY_derive_init(ctx) <= 0) {
+        return -4;
+    }
+    if (EVP_PKEY_CTX_set_hkdf_md(ctx, hash->md) <= 0) {
+        return -5;
+    }
+    if (EVP_PKEY_CTX_set1_hkdf_key(ctx, GQUIC_STR_VAL(secret), GQUIC_STR_SIZE(secret)) <= 0) {
+        return -6;
+    }
+    info.size = 2 + 1 + GQUIC_STR_SIZE(&default_label) + GQUIC_STR_SIZE(label) + 1 + GQUIC_STR_SIZE(content);
+    if (gquic_str_alloc(&info, GQUIC_STR_SIZE(&info)) != 0) {
+        return -7;
+    }
+
+    gquic_big_endian_transfer(GQUIC_STR_VAL(&info), &length, 2);
+    tmp = GQUIC_STR_SIZE(&default_label) + GQUIC_STR_SIZE(label);
+    gquic_big_endian_transfer(GQUIC_STR_VAL(&info) + 2, &tmp, 1);
+    memcpy(GQUIC_STR_VAL(&info) + 3, GQUIC_STR_VAL(&default_label), GQUIC_STR_SIZE(&default_label));
+    memcpy(GQUIC_STR_VAL(&info) + 3 + GQUIC_STR_SIZE(&default_label), GQUIC_STR_VAL(label), GQUIC_STR_SIZE(label));
+    tmp = GQUIC_STR_SIZE(content);
+    gquic_big_endian_transfer(GQUIC_STR_VAL(&info) + 3 + GQUIC_STR_SIZE(&default_label) + GQUIC_STR_SIZE(label), &tmp, 1);
+    memcpy(GQUIC_STR_VAL(&info) + 3 + GQUIC_STR_SIZE(&default_label) + GQUIC_STR_SIZE(label) + 1, GQUIC_STR_VAL(content), GQUIC_STR_SIZE(content));
+
+    if (EVP_PKEY_CTX_add1_hkdf_info(ctx, GQUIC_STR_VAL(&info), GQUIC_STR_SIZE(&info)) <= 0) {
+        return -8;
+    }
+    if (EVP_PKEY_derive(ctx, NULL, &ret->size) <= 0) {
+        return -9;
+    }
+    if (gquic_str_alloc(ret, GQUIC_STR_SIZE(ret)) != 0) {
+        return -10;
+    }
+    if (EVP_PKEY_derive(ctx, GQUIC_STR_VAL(ret), &ret->size) <= 0) {
+        return -11;
+    }
+    EVP_PKEY_CTX_free(ctx);
+    gquic_str_reset(&info);
     return 0;
 }
 
