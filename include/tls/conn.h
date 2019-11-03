@@ -10,6 +10,7 @@
 #include "util/list.h"
 #include "net/addr.h"
 #include <sys/types.h>
+#include <stdatomic.h>
 
 typedef struct gquic_tls_half_conn_s gquic_tls_half_conn_t;
 struct gquic_tls_half_conn_s {
@@ -38,7 +39,7 @@ struct gquic_tls_conn_s {
     const gquic_net_addr_t *addr;
     gquic_tls_config_t *cfg;
     int is_client;
-    u_int32_t handshake_status;
+    _Atomic(u_int32_t) handshake_status;
     u_int16_t ver;
     int have_vers;
     int handshakes;
