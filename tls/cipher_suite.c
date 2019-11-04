@@ -18,8 +18,10 @@ static int cipher_rc4(gquic_tls_cipher_t *const, const gquic_str_t *const, const
 static int cipher_3des(gquic_tls_cipher_t *const, const gquic_str_t *const, const gquic_str_t *const, const int);
 static int cipher_aes(gquic_tls_cipher_t *const, const gquic_str_t *const, const gquic_str_t *const, const int);
 
+static int mac_common_init(gquic_tls_mac_t *const, const u_int16_t, const EVP_MD *const, const gquic_str_t *const);
 static int mac_sha1_init(gquic_tls_mac_t *const, const u_int16_t, const gquic_str_t *const);
 static int mac_sha256_init(gquic_tls_mac_t *const, const u_int16_t, const gquic_str_t *const);
+static int mac_sha384_init(gquic_tls_mac_t *const, const u_int16_t, const gquic_str_t *const);
 
 static int aead_seal(gquic_str_t *const,
                      gquic_str_t *const,
@@ -81,9 +83,9 @@ static gquic_tls_cipher_suite_t cipher_suites[] = {
     { GQUIC_TLS_CIPHER_SUITE_ECDHE_RSA_WITH_RC4_128_SHA, 16, 20, 0, ecdhe_rsa_ka, GQUIC_TLS_SUITE_ECDHE | GQUIC_TLS_SUITE_DEF, 0, cipher_rc4, mac_sha1_init, NULL },
     { GQUIC_TLS_CIPHER_SUITE_ECDHE_ECDSA_WITH_RC4_128_SHA, 16, 20, 0, ecdhe_ecdsa_ka, GQUIC_TLS_SUITE_ECDHE | GQUIC_TLS_SUITE_EC_SIGN | GQUIC_TLS_SUITE_DEF, 0, cipher_rc4, mac_sha1_init, NULL },
 
-    { GQUIC_TLS_CIPHER_SUITE_AES_128_GCM_SHA256, 16, 0, 12, NULL, 0, GQUIC_TLS_HASH_SHA256, NULL, NULL, aead_aes_gcm_init_xor },
-    { GQUIC_TLS_CIPHER_SUITE_CHACHA20_POLY1305_SHA256, 32, 0, 12, NULL, 0, GQUIC_TLS_HASH_SHA256, NULL, NULL, aead_chacha20_poly1305_init_xor },
-    { GQUIC_TLS_CIPHER_SUITE_AES_256_GCM_SHA384, 32, 0, 12, NULL, 0, GQUIC_TLS_HASH_SHA384, NULL, NULL, aead_aes_gcm_init_xor },
+    { GQUIC_TLS_CIPHER_SUITE_AES_128_GCM_SHA256, 16, 0, 12, NULL, 0, GQUIC_TLS_HASH_SHA256, NULL, mac_sha256_init, aead_aes_gcm_init_xor },
+    { GQUIC_TLS_CIPHER_SUITE_CHACHA20_POLY1305_SHA256, 32, 0, 12, NULL, 0, GQUIC_TLS_HASH_SHA256, NULL, mac_sha256_init, aead_chacha20_poly1305_init_xor },
+    { GQUIC_TLS_CIPHER_SUITE_AES_256_GCM_SHA384, 32, 0, 12, NULL, 0, GQUIC_TLS_HASH_SHA384, NULL, mac_sha384_init, aead_aes_gcm_init_xor },
 };
 static const int cipher_suites_count = sizeof(cipher_suites) / sizeof(gquic_tls_cipher_suite_t);
 
@@ -114,15 +116,15 @@ int gquic_tls_choose_cipher_suite(const gquic_tls_cipher_suite_t **const cipher_
     return -2;
 }
 
-int gquic_tls_mac_hash(gquic_str_t *const ret,
-                       gquic_tls_mac_t *const mac,
-                       const gquic_str_t *const seq,
-                       const gquic_str_t *const header,
-                       const gquic_str_t *const data,
-                       const gquic_str_t *const extra) {
+int gquic_tls_mac_hmac_hash(gquic_str_t *const ret,
+                            gquic_tls_mac_t *const mac,
+                            const gquic_str_t *const seq,
+                            const gquic_str_t *const header,
+                            const gquic_str_t *const data,
+                            const gquic_str_t *const extra) {
     unsigned int size;
     (void) extra;
-    if (ret == NULL || mac == NULL || seq == NULL || header == NULL || data == NULL) {
+    if (ret == NULL || mac == NULL || mac->mac == NULL || seq == NULL || header == NULL || data == NULL) {
         return -1;
     }
     if (gquic_str_alloc(ret, HMAC_size(mac->mac)) != 0) {
@@ -132,6 +134,47 @@ int gquic_tls_mac_hash(gquic_str_t *const ret,
     HMAC_Update(mac->mac, GQUIC_STR_VAL(header), GQUIC_STR_SIZE(header));
     HMAC_Update(mac->mac, GQUIC_STR_VAL(data), GQUIC_STR_SIZE(data));
     HMAC_Final(mac->mac, GQUIC_STR_VAL(ret), &size);
+    return 0;
+}
+
+int gquic_tls_mac_md_hash(gquic_str_t *const ret,
+                          gquic_tls_mac_t *const mac,
+                          const gquic_str_t *const data) {
+    unsigned int size;
+    if (ret == NULL || mac == NULL || mac->md_ctx == NULL || data == NULL) {
+        return -1;
+    }
+    if (gquic_str_alloc(ret, EVP_MD_CTX_size(mac->md_ctx)) != 0) {
+        return -2;
+    }
+    EVP_DigestUpdate(mac->md_ctx, GQUIC_STR_VAL(data), GQUIC_STR_SIZE(data));
+    EVP_DigestFinal_ex(mac->md_ctx, GQUIC_STR_VAL(ret), &size);
+    return 0;
+}
+
+int gquic_tls_mac_md_update(gquic_tls_mac_t *const mac,
+                            const gquic_str_t *const data) {
+    if (mac == NULL || mac->md_ctx == NULL || data == NULL) {
+        return -1;
+    }
+    if (EVP_DigestUpdate(mac->md_ctx, GQUIC_STR_VAL(data), GQUIC_STR_SIZE(data)) <= 0) {
+        return -2;
+    }
+    return 0;
+}
+
+int gquic_tls_mac_md_final(gquic_str_t *const ret,
+                           gquic_tls_mac_t *const mac) {
+    unsigned int size;
+    if (ret == NULL || mac == NULL || mac->md_ctx == NULL) {
+        return -1;
+    }
+    if (gquic_str_alloc(ret, EVP_MD_CTX_size(mac->md_ctx)) != 0) {
+        return -2;
+    }
+    if (EVP_DigestFinal_ex(mac->md_ctx, GQUIC_STR_VAL(ret), &size) <= 0) {
+        return -3;
+    }
     return 0;
 }
 
@@ -256,7 +299,7 @@ int gquic_tls_suite_assign(gquic_tls_suite_t *const suite,
     if (suite == NULL || cipher_suite == NULL) {
         return -1;
     }
-    if (cipher_suite->aead != NULL) {
+    if (cipher_suite->aead != NULL && cipher_key != NULL && iv != NULL) {
         if (cipher_suite->key_len != GQUIC_STR_SIZE(cipher_key)) {
             return -2;
         }
@@ -265,7 +308,7 @@ int gquic_tls_suite_assign(gquic_tls_suite_t *const suite,
         }
         suite->type = GQUIC_TLS_CIPHER_TYPE_AEAD;
     }
-    if (cipher_suite->cipher_encrypt != NULL) {
+    if (cipher_suite->cipher_encrypt != NULL && cipher_key != NULL && iv != NULL) {
         if (cipher_suite->key_len != GQUIC_STR_SIZE(cipher_key) || cipher_suite->iv_len != GQUIC_STR_SIZE(iv)) {
             return -4;
         }
@@ -274,7 +317,7 @@ int gquic_tls_suite_assign(gquic_tls_suite_t *const suite,
         }
         suite->type = GQUIC_TLS_CIPHER_TYPE_STREAM;
     }
-    if (cipher_suite->mac != NULL) {
+    if (cipher_suite->mac != NULL && mac_key != NULL) {
         if (cipher_suite->mac_len != GQUIC_STR_SIZE(mac_key)) {
             return -6;
         }
@@ -329,6 +372,7 @@ int gquic_tls_mac_init(gquic_tls_mac_t *const mac) {
     }
     mac->mac = NULL;
     mac->md = NULL;
+    mac->md_ctx = NULL;
     gquic_str_init(&mac->key);
     return 0;
 }
@@ -337,21 +381,26 @@ int gquic_tls_mac_release(gquic_tls_mac_t *const mac) {
     if (mac == NULL) {
         return -1;
     }
-    HMAC_CTX_free(mac->mac);
+    if (mac->mac != NULL) {
+        HMAC_CTX_free(mac->mac);
+    }
+    if (mac->md_ctx != NULL) {
+        EVP_MD_CTX_free(mac->md_ctx);
+    }
     gquic_str_reset(&mac->key);
     return 0;
 }
 
-int gquic_tls_suite_hash(gquic_str_t *const hash,
-                         gquic_tls_suite_t *const suite,
-                         const gquic_str_t *const seq,
-                         const gquic_str_t *const header,
-                         const gquic_str_t *const data,
-                         const gquic_str_t *const extra) {
+int gquic_tls_suite_hmac_hash(gquic_str_t *const hash,
+                              gquic_tls_suite_t *const suite,
+                              const gquic_str_t *const seq,
+                              const gquic_str_t *const header,
+                              const gquic_str_t *const data,
+                              const gquic_str_t *const extra) {
     if (hash == NULL || suite == NULL || seq == NULL || header == NULL || data == NULL || suite->mac.mac == NULL) {
         return -1;
     }
-    return gquic_tls_mac_hash(hash, &suite->mac, seq, header, data, extra);
+    return gquic_tls_mac_hmac_hash(hash, &suite->mac, seq, header, data, extra);
 }
 
 size_t gquic_tls_suite_nonce_size(const gquic_tls_suite_t *const suite) {
@@ -552,14 +601,16 @@ static int cipher_aes(gquic_tls_cipher_t *const ret, const gquic_str_t *const ke
     return cipher_common(ret, EVP_aes_256_cbc(), key, iv, is_read);
 }
 
-static int mac_sha1_init(gquic_tls_mac_t *const mac, const u_int16_t ver, const gquic_str_t *const key) {
+static int mac_common_init(gquic_tls_mac_t *const mac, const u_int16_t ver, const EVP_MD *const md, const gquic_str_t *const key) {
     (void) ver;
     if (mac == NULL) {
         return -1;
     }
     gquic_tls_mac_init(mac);
-    mac->md = EVP_sha1();
+    mac->md = md;
     if (GQUIC_STR_SIZE(key) == 0) {
+        mac->md_ctx = EVP_MD_CTX_new();
+        EVP_DigestInit_ex(mac->md_ctx, mac->md, NULL);
         return 0;
     }
     if (gquic_str_copy(&mac->key, key) != 0) {
@@ -572,24 +623,16 @@ static int mac_sha1_init(gquic_tls_mac_t *const mac, const u_int16_t ver, const 
     return 0;
 }
 
+static int mac_sha1_init(gquic_tls_mac_t *const mac, const u_int16_t ver, const gquic_str_t *const key) {
+    return mac_common_init(mac, ver, EVP_sha1(), key);
+}
+
 static int mac_sha256_init(gquic_tls_mac_t *const mac, const u_int16_t ver, const gquic_str_t *const key) {
-    (void) ver;
-    if (mac == NULL || key == NULL) {
-        return -1;
-    }
-    gquic_tls_mac_init(mac);
-    mac->md = EVP_sha256();
-    if (GQUIC_STR_SIZE(key) == 0) {
-        return 0;
-    }
-    if (gquic_str_copy(&mac->key, key) != 0) {
-        return -2;
-    }
-    mac->mac = HMAC_CTX_new();
-    if (HMAC_Init_ex(mac->mac, GQUIC_STR_VAL(key), GQUIC_STR_SIZE(key), mac->md, NULL) <= 0) {
-        return -3;
-    }
-    return 0;
+    return mac_common_init(mac, ver, EVP_sha256(), key);
+}
+
+static int mac_sha384_init(gquic_tls_mac_t *const mac, const u_int16_t ver, const gquic_str_t *const key) {
+    return mac_common_init(mac, ver, EVP_sha3_384(), key);
 }
 
 static int aead_seal(gquic_str_t *const tag,
@@ -775,23 +818,24 @@ int gquic_tls_cipher_suite_derive_secret(gquic_str_t *const ret,
                                          const gquic_tls_cipher_suite_t *const cipher_suite,
                                          gquic_tls_mac_t *const mac,
                                          const gquic_str_t *const secret,
-                                         const gquic_str_t *const label,
-                                         const size_t length) {
-    
+                                         const gquic_str_t *const label) {
+    gquic_tls_mac_t default_mac;
     gquic_str_t content = { 0, NULL };
-    unsigned int content_length = 0;
     if (ret == NULL || cipher_suite == NULL || secret == NULL || label == NULL) {
         return -1;
     }
-    if (mac != NULL) {
-        if (HMAC_Final(mac->mac, NULL, &content_length) != 0) {
-            return -2;
-        }
-        if (gquic_str_alloc(&content, content_length) != 0) {
-            return -3;
-        }
+    gquic_tls_mac_init(&default_mac);
+    if (mac != NULL && mac->md_ctx != NULL && gquic_tls_mac_md_final(&content, mac) != 0) {
+        return -2;
     }
-    return gquic_tls_cipher_suite_expand_label(ret, cipher_suite, secret, &content, label, length);
+    else {
+        cipher_suite->mac(&default_mac, 0, NULL);
+    }
+    if (gquic_tls_cipher_suite_expand_label(ret, cipher_suite, secret, &content, label, EVP_MD_size(mac == NULL ? default_mac.md : mac->md)) != 0) {
+        return -3;
+    }
+    gquic_str_reset(&content);
+    return 0;
 }
 
 int gquic_tls_cipher_suite_extract(gquic_str_t *const ret,
@@ -799,11 +843,11 @@ int gquic_tls_cipher_suite_extract(gquic_str_t *const ret,
                                    const gquic_str_t *const secret,
                                    const gquic_str_t *const salt) {
     gquic_tls_mac_t hash;
-    if (ret == NULL || cipher_suite == NULL || secret == NULL || salt == NULL) {
+    if (ret == NULL || cipher_suite == NULL) {
         return -1;
     }
     gquic_tls_mac_init(&hash);
-    if (cipher_suite->mac(&hash, 0, NULL) != 0) {
+    if (cipher_suite->mac == NULL || cipher_suite->mac(&hash, 0, NULL) != 0) {
         return -2;
     }
     if (gquic_tls_hkdf_extract(ret, &hash, secret, salt) != 0) {
@@ -812,6 +856,24 @@ int gquic_tls_cipher_suite_extract(gquic_str_t *const ret,
     }
 
     gquic_tls_mac_release(&hash);
+    return 0;
+}
+
+int gquic_tls_cipher_suite_traffic_key(gquic_str_t *const key,
+                                       gquic_str_t *const iv,
+                                       const gquic_tls_cipher_suite_t *const cipher_suite,
+                                       const gquic_str_t *const traffic_sec) {
+    static const gquic_str_t key_label = { 3, "key" };
+    static const gquic_str_t iv_label = { 2, "iv" };
+    if (key == NULL || iv == NULL || cipher_suite == NULL || traffic_sec == NULL) {
+        return -1;
+    }
+    if (gquic_tls_cipher_suite_expand_label(key, cipher_suite, traffic_sec, &key_label, NULL, cipher_suite->key_len) != 0) {
+        return -2;
+    }
+    if (gquic_tls_cipher_suite_expand_label(iv, cipher_suite, traffic_sec, &iv_label, NULL, 12) != 0) {
+        return -3;
+    }
     return 0;
 }
 

@@ -99,16 +99,24 @@ typedef struct gquic_tls_mac_s gquic_tls_mac_t;
 struct gquic_tls_mac_s {
     const EVP_MD *md;
     HMAC_CTX *mac;
+    EVP_MD_CTX *md_ctx;
     gquic_str_t key;
 };
 int gquic_tls_mac_init(gquic_tls_mac_t *const mac);
 int gquic_tls_mac_release(gquic_tls_mac_t *const mac);
-int gquic_tls_mac_hash(gquic_str_t *const ret,
-                       gquic_tls_mac_t *const mac,
-                       const gquic_str_t *const seq,
-                       const gquic_str_t *const header,
-                       const gquic_str_t *const data,
-                       const gquic_str_t *const extra);
+int gquic_tls_mac_hmac_hash(gquic_str_t *const ret,
+                            gquic_tls_mac_t *const mac,
+                            const gquic_str_t *const seq,
+                            const gquic_str_t *const header,
+                            const gquic_str_t *const data,
+                            const gquic_str_t *const extra);
+int gquic_tls_mac_md_hash(gquic_str_t *const ret,
+                          gquic_tls_mac_t *const mac,
+                          const gquic_str_t *const data);
+int gquic_tls_mac_md_update(gquic_tls_mac_t *const mac,
+                            const gquic_str_t *const data);
+int gquic_tls_mac_md_final(gquic_str_t *const ret,
+                           gquic_tls_mac_t *const mac);
 
 typedef struct gquic_tls_cipher_suite_s gquic_tls_cipher_suite_t;
 struct gquic_tls_cipher_suite_s {
@@ -138,12 +146,15 @@ int gquic_tls_cipher_suite_derive_secret(gquic_str_t *const ret,
                                          const gquic_tls_cipher_suite_t *const cipher_suite,
                                          gquic_tls_mac_t *const mac,
                                          const gquic_str_t *const secret,
-                                         const gquic_str_t *const label,
-                                         const size_t length);
+                                         const gquic_str_t *const label);
 int gquic_tls_cipher_suite_extract(gquic_str_t *const ret,
                                    const gquic_tls_cipher_suite_t *const cipher_suite,
                                    const gquic_str_t *const secret,
                                    const gquic_str_t *const salt);
+int gquic_tls_cipher_suite_traffic_key(gquic_str_t *const key,
+                                       gquic_str_t *const iv,
+                                       const gquic_tls_cipher_suite_t *const cipher_suite,
+                                       const gquic_str_t *const traffic_sec);
 
 #define GQUIC_TLS_CIPHER_TYPE_UNKNOW 0
 #define GQUIC_TLS_CIPHER_TYPE_STREAM 1
@@ -179,12 +190,12 @@ int gquic_tls_suite_aead_decrypt(gquic_str_t *const plain_text,
                                  const gquic_str_t *const tag,
                                  const gquic_str_t *const cipher_text,
                                  const gquic_str_t *const addata);
-int gquic_tls_suite_hash(gquic_str_t *const hash,
-                         gquic_tls_suite_t *const suite,
-                         const gquic_str_t *const seq,
-                         const gquic_str_t *const header,
-                         const gquic_str_t *const data,
-                         const gquic_str_t *const extra);
+int gquic_tls_suite_hmac_hash(gquic_str_t *const hash,
+                              gquic_tls_suite_t *const suite,
+                              const gquic_str_t *const seq,
+                              const gquic_str_t *const header,
+                              const gquic_str_t *const data,
+                              const gquic_str_t *const extra);
 size_t gquic_tls_suite_nonce_size(const gquic_tls_suite_t *const suite);
 size_t gquic_tls_suite_mac_size(const gquic_tls_suite_t *const suite);
 
