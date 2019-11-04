@@ -79,6 +79,9 @@
 #define GQUIC_RECORD_SIZE_BOOST_THRESHOLD 131072
 #define GQUIC_MSS_EST 1208
 
+#define GQUIC_ENC_LV_HANDSHAKE 1
+#define GQUIC_ENC_LV_APP 2
+
 typedef struct gquic_tls_key_share_s gquic_tls_key_share_t;
 struct gquic_tls_key_share_s {
     u_int16_t group;
