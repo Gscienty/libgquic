@@ -44,6 +44,7 @@ int gquic_tls_half_conn_init(gquic_tls_half_conn_t *const half_conn) {
     gquic_str_init(&half_conn->traffic_sec);
     half_conn->set_key_self = NULL;
     half_conn->set_key = NULL;
+    // TODO
     return 0;
 }
 
@@ -72,7 +73,7 @@ int gquic_tls_half_conn_encrypt(gquic_str_t *const ret_record,
     switch (half_conn->suite.type) {
     case GQUIC_TLS_CIPHER_TYPE_STREAM:
         if (half_conn->suite.mac.mac != NULL) {
-            if (gquic_tls_suite_hash(&mac, &half_conn->suite, &half_conn->seq, record, payload, NULL) != 0) {
+            if (gquic_tls_suite_hmac_hash(&mac, &half_conn->suite, &half_conn->seq, record, payload, NULL) != 0) {
                 ret = -4;
                 goto failure;
             }
@@ -155,6 +156,47 @@ failure:
     return ret;
 }
 
+int gquic_tls_half_conn_set_key(gquic_tls_half_conn_t *const half_conn,
+                                const u_int16_t enc_lv,
+                                const gquic_tls_cipher_suite_t *const cipher_suite,
+                                const gquic_str_t *const secret) {
+    if (half_conn == NULL || cipher_suite == NULL || secret == NULL) {
+        return -1;
+    }
+
+    return half_conn->set_key(half_conn->set_key_self, enc_lv, cipher_suite, secret);
+}
+
+int gquic_tls_half_conn_set_traffic_sec(gquic_tls_half_conn_t *const half_conn,
+                                        const gquic_tls_cipher_suite_t *const cipher_suite,
+                                        const gquic_str_t *const secret,
+                                        int is_read) {
+    gquic_str_t key = { 0, NULL };
+    gquic_str_t iv = { 0, NULL };
+    if (half_conn == NULL || cipher_suite == NULL || secret == NULL) {
+        return -1;
+    }
+    gquic_str_reset(&half_conn->traffic_sec);
+    if (gquic_str_copy(&half_conn->traffic_sec, secret) != 0) {
+        return -2;
+    }
+    if (gquic_tls_cipher_suite_traffic_key(&key, &iv, cipher_suite, secret) != 0) {
+        return -3;
+    }
+    if (gquic_tls_suite_assign(&half_conn->suite, cipher_suite, &iv, &key, NULL, is_read) != 0) {
+        return -4;
+    }
+    gquic_str_reset(&half_conn->seq);
+    if (gquic_str_alloc(&half_conn->seq, 8) != 0) {
+        return -5;
+    }
+    size_t i;
+    for (i = 0; i < GQUIC_STR_SIZE(&half_conn->seq); i++) {
+        ((u_int8_t *) GQUIC_STR_VAL(&half_conn->seq))[i] = 0;
+    }
+    return 0;
+}
+
 int gquic_tls_conn_init(gquic_tls_conn_t *const conn,
                         const gquic_net_addr_t *const addr,
                         gquic_tls_config_t *const cfg) {
@@ -200,7 +242,7 @@ int gquic_tls_half_conn_decrypt(gquic_str_t *const ret,
                     gquic_str_t record_header = { 5, GQUIC_STR_VAL(record) };
                     gquic_str_t local_mac = { 0, NULL };
                     plain_text.size -= mac_size;
-                    if (gquic_tls_suite_hash(&local_mac, &half_conn->suite, &half_conn->seq, &record_header, &payload, NULL) != 0) {
+                    if (gquic_tls_suite_hmac_hash(&local_mac, &half_conn->suite, &half_conn->seq, &record_header, &payload, NULL) != 0) {
                         return -4;
                     }
                     if (gquic_str_cmp(&local_mac, &remote_mac) != 0) {
