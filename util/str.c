@@ -39,7 +39,7 @@ int gquic_str_reset(gquic_str_t *str) {
 }
 
 int gquic_str_copy(gquic_str_t *str, const gquic_str_t *ref) {
-    if (str == NULL || ref == NULL) {
+    if (str == NULL) {
         return -1;
     }
     gquic_str_init(str);
