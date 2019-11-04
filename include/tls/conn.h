@@ -33,6 +33,14 @@ int gquic_tls_half_conn_decrypt(gquic_str_t *const ret,
                                 u_int8_t *const record_type,
                                 gquic_tls_half_conn_t *const half_conn,
                                 const gquic_str_t *const record);
+int gquic_tls_half_conn_set_key(gquic_tls_half_conn_t *const half_conn,
+                                const u_int16_t enc_lv,
+                                const gquic_tls_cipher_suite_t *const cipher_suite,
+                                const gquic_str_t *const secret);
+int gquic_tls_half_conn_set_traffic_sec(gquic_tls_half_conn_t *const half_conn,
+                                        const gquic_tls_cipher_suite_t *const cipher_suite,
+                                        const gquic_str_t *const secret,
+                                        int is_read);
 
 typedef struct gquic_tls_conn_s gquic_tls_conn_t;
 struct gquic_tls_conn_s {
