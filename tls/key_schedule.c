@@ -4,6 +4,7 @@
 #include "util/big_endian.h"
 #include <openssl/evp.h>
 #include <openssl/kdf.h>
+#include <openssl/rand.h>
 #include <string.h>
 
 typedef struct gquic_tls_x25519_params_s gquic_tls_x25519_params_t;
@@ -162,8 +163,9 @@ static int gquic_tls_ecdhe_params_release_x25519(void *const self) {
 }
 
 int gquic_tls_hkdf_extract(gquic_str_t *const ret, gquic_tls_mac_t *const hash, const gquic_str_t *const secret, const gquic_str_t *const salt) {
+    gquic_str_t default_secret = { 0, NULL };
     EVP_PKEY_CTX *ctx = NULL;
-    if (ret == NULL || hash == NULL || hash->md == NULL || secret == NULL || salt == NULL) {
+    if (ret == NULL || hash == NULL || hash->md == NULL) {
         return -1;
     }
     if (gquic_str_init(ret) != 0) {
@@ -178,24 +180,40 @@ int gquic_tls_hkdf_extract(gquic_str_t *const ret, gquic_tls_mac_t *const hash, 
     if (EVP_PKEY_CTX_set_hkdf_md(ctx, hash->md) <= 0) {
         return -5;
     }
-    if (EVP_PKEY_CTX_set1_hkdf_key(ctx, GQUIC_STR_VAL(secret), GQUIC_STR_SIZE(secret)) <= 0) {
-        return -6;
+    if (secret == NULL) {
+        if (gquic_str_alloc(&default_secret, EVP_MD_size(hash->md)) != 0) {
+            return -6;
+        }
+        RAND_bytes(GQUIC_STR_VAL(&default_secret), GQUIC_STR_SIZE(&default_secret));
+        if (EVP_PKEY_CTX_set1_hkdf_key(ctx, GQUIC_STR_VAL(&default_secret), GQUIC_STR_SIZE(&default_secret)) <= 0) {
+            return -7;
+        }
     }
-    if (EVP_PKEY_CTX_set1_hkdf_salt(ctx, GQUIC_STR_VAL(salt), GQUIC_STR_SIZE(salt)) <= 0) {
-        return -7;
+    else {
+        if (EVP_PKEY_CTX_set1_hkdf_key(ctx, GQUIC_STR_VAL(secret), GQUIC_STR_SIZE(secret)) <= 0) {
+            return -8;
+        }
     }
-    if (EVP_PKEY_derive(ctx, NULL, &ret->size) <= 0) {
-        return -8;
+    if (salt != NULL) {
+        if (EVP_PKEY_CTX_set1_hkdf_salt(ctx, GQUIC_STR_VAL(salt), GQUIC_STR_SIZE(salt)) <= 0) {
+            gquic_str_reset(&default_secret);
+            return -9;
+        }
     }
-    if (gquic_str_alloc(ret, GQUIC_STR_SIZE(ret)) != 0) {
-        return -9;
-    }
-    if (EVP_PKEY_derive(ctx, GQUIC_STR_VAL(ret), &ret->size) <= 0) {
+    if (gquic_str_alloc(ret, EVP_MD_size(hash->md)) != 0) {
+        gquic_str_reset(&default_secret);
         return -10;
     }
+    if (EVP_PKEY_derive(ctx, GQUIC_STR_VAL(ret), &ret->size) <= 0) {
+        gquic_str_reset(&default_secret);
+        return -11;
+    }
     EVP_PKEY_CTX_free(ctx);
+    gquic_str_reset(&default_secret);
     return 0;
 }
+
+#include <openssl/err.h>
 
 int gquic_tls_hkdf_expand_label(gquic_str_t *const ret,
                                 gquic_tls_mac_t *const hash,
@@ -242,10 +260,7 @@ int gquic_tls_hkdf_expand_label(gquic_str_t *const ret,
     if (EVP_PKEY_CTX_add1_hkdf_info(ctx, GQUIC_STR_VAL(&info), GQUIC_STR_SIZE(&info)) <= 0) {
         return -8;
     }
-    if (EVP_PKEY_derive(ctx, NULL, &ret->size) <= 0) {
-        return -9;
-    }
-    if (gquic_str_alloc(ret, GQUIC_STR_SIZE(ret)) != 0) {
+    if (gquic_str_alloc(ret, EVP_MD_size(hash->md)) != 0) {
         return -10;
     }
     if (EVP_PKEY_derive(ctx, GQUIC_STR_VAL(ret), &ret->size) <= 0) {
