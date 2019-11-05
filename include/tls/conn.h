@@ -55,7 +55,7 @@ struct gquic_tls_conn_s {
     u_int16_t cipher_suite;
     gquic_str_t ocsp_resp;
     gquic_list_t scts;
-    gquic_str_t peer_cert;
+    gquic_list_t peer_certs;
     gquic_list_t verified_chains;
     gquic_str_t ser_name;
     int sec_renegortiation;
@@ -67,6 +67,8 @@ struct gquic_tls_conn_s {
     u_int64_t sent_size;
     u_int64_t sent_pkg_count;
     int buffering;
+    gquic_str_t cli_proto;
+    int cli_proto_fallback;
 };
 
 int gquic_tls_conn_init(gquic_tls_conn_t *const conn,
