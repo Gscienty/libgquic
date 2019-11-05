@@ -27,21 +27,21 @@ int gquic_tls_encrypt_ext_msg_reset(gquic_tls_encrypt_ext_msg_t *msg) {
 }
 
 ssize_t gquic_tls_encrypt_ext_msg_size(const gquic_tls_encrypt_ext_msg_t *msg) {
-    size_t off = 0;
+    size_t ret = 0;
     if (msg == NULL) {
         return -1;
     }
     // encrypted extensions
-    off += 1;
+    ret += 1;
     // payload len
-    off += 3;
+    ret += 3;
     // payload len (x2)
-    off += 2;
+    ret += 2;
     // alpn
-    if (msg->alpn_proto.size > 0) off += 2 + 2 + 2 + 1 + msg->alpn_proto.size;
+    if (GQUIC_STR_SIZE(&msg->alpn_proto) != 0) ret += 2 + 2 + 2 + 1 + GQUIC_STR_SIZE(&msg->alpn_proto);
     gquic_tls_extension_t *ext;
-    GQUIC_LIST_FOREACH(ext, &msg->addition_exts) off += 2 + 2 + ext->data.size;
-    return off;
+    GQUIC_LIST_FOREACH(ext, &msg->addition_exts) ret += 2 + 2 + ext->data.size;
+    return ret;
 }
 
 ssize_t gquic_tls_encrypt_ext_msg_serialize(const gquic_tls_encrypt_ext_msg_t *msg, void *buf, const size_t size) {
@@ -58,7 +58,7 @@ ssize_t gquic_tls_encrypt_ext_msg_serialize(const gquic_tls_encrypt_ext_msg_t *m
 
     __gquic_store_prefix_len(&prefix_len_stack, &off, 3);
     __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
-    if (msg->alpn_proto.size > 0) {
+    if (GQUIC_STR_SIZE(&msg->alpn_proto) != 0) {
         __gquic_fill_2byte(buf, &off, GQUIC_TLS_EXTENSION_ALPN);
         __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
         __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
@@ -104,6 +104,8 @@ ssize_t gquic_tls_encrypt_ext_msg_deserialize(gquic_tls_encrypt_ext_msg_t *msg, 
 static ssize_t gquic_tls_encrypt_ext_msg_optional_deserialize(gquic_tls_encrypt_ext_msg_t*msg, const void *buf, const size_t size) {
     u_int16_t opt_type = 0;
     size_t off = 0;
+    size_t prefix_len = 0;
+    size_t _;
     gquic_tls_extension_t *field;
     if (msg == NULL || buf == NULL) {
         return -1;
@@ -118,8 +120,21 @@ static ssize_t gquic_tls_encrypt_ext_msg_optional_deserialize(gquic_tls_encrypt_
 
         case GQUIC_TLS_EXTENSION_ALPN:
             off += 2 + 2;
-            if (__gquic_recovery_str_full(&msg->alpn_proto, 1, buf, size, &off) != 0) {
+            prefix_len = 0;
+            if (__gquic_recovery_bytes(&prefix_len, 1, buf, size, &off) != 0) {
                 return -2;
+            }
+            for (_ = off; off - _ < prefix_len;) {
+                u_int8_t *alpn = gquic_list_alloc(sizeof(u_int8_t));
+                if (alpn == NULL) {
+                    return -2;
+                }
+                if (__gquic_recovery_bytes(alpn, 1, buf, size, &off) != 0) {
+                    return -2;
+                }
+                if (gquic_list_insert_before(GQUIC_LIST_PAYLOAD(&msg->alpn_proto), alpn) != 0) {
+                    return -2;
+                }
             }
             break;
 
