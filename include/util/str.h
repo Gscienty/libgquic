@@ -9,16 +9,20 @@ struct gquic_str_s {
     void *val;
 };
 
-#define GQUIC_STR_VAL(p) ({\
-                          gquic_str_t *_ = NULL; \
-                          ((p) == _); \
-                          (p) == NULL ? NULL : (((gquic_str_t *) (p))->val);\
-                          })
-#define GQUIC_STR_SIZE(p) ({\
-                          gquic_str_t *_ = NULL; \
-                          ((p) == _); \
-                          (p) == NULL ? 0 : (((gquic_str_t *) (p))->size);\
-                           })
+#define GQUIC_STR_VAL(p) (\
+                          ({\
+                           gquic_str_t *_ = NULL;\
+                           (void) (_ == (p));\
+                           }),\
+                           (p) == NULL ? NULL : (((gquic_str_t *) (p))->val)\
+                          )
+#define GQUIC_STR_SIZE(p) (\
+                          ({\
+                           gquic_str_t *_ = NULL;\
+                           (void) (_ == (p));\
+                           }),\
+                          (p) == NULL ? 0 : (((gquic_str_t *) (p))->size)\
+                           )
 
 int gquic_str_init(gquic_str_t *str);
 
