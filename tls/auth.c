@@ -3,6 +3,7 @@
 #include "tls/config.h"
 #include "tls/prf.h"
 #include "util/str.h"
+#include <string.h>
 
 int gquic_tls_selected_sigalg(u_int16_t *const sigalg,
                               u_int8_t *const sig_type,
@@ -88,7 +89,7 @@ int gquic_tls_selected_sigalg(u_int16_t *const sigalg,
 
 int gquic_tls_verify_handshake_sign(const u_int8_t sig_type,
                                     const EVP_MD *const hash,
-                                    const EVP_PKEY *const pubkey,
+                                    EVP_PKEY *const pubkey,
                                     const gquic_str_t *sign,
                                     const gquic_str_t *sig) {
     (void) sig_type;
@@ -113,7 +114,7 @@ int gquic_tls_verify_handshake_sign(const u_int8_t sig_type,
         return -2;
     }
     ctx = EVP_MD_CTX_new();
-    if (EVP_DigestVerifyInit(ctx, NULL, hash, NULL, (EVP_PKEY *const) pubkey) <= 0) {
+    if (EVP_DigestVerifyInit(ctx, NULL, hash, NULL, pubkey) <= 0) {
         goto failure;
     }
     if ((ret = EVP_DigestVerify(ctx, GQUIC_STR_VAL(sig), GQUIC_STR_SIZE(sig), GQUIC_STR_VAL(sign), GQUIC_STR_SIZE(sign))) != 1) {
@@ -125,4 +126,62 @@ int gquic_tls_verify_handshake_sign(const u_int8_t sig_type,
 failure:
     EVP_MD_CTX_free(ctx);
     return -3;
+}
+
+int gquic_tls_signed_msg(gquic_str_t *const sign, const EVP_MD *const sig_hash, const gquic_str_t *const cnt, gquic_tls_mac_t *const mac) {
+    int ret = 0;
+    unsigned int len = 0;
+    gquic_str_t buf = { 0, NULL };
+    EVP_MD_CTX *ctx = NULL;
+    if (sign == NULL || cnt == NULL || mac == NULL) {
+        return -1;
+    }
+    if (gquic_tls_mac_md_final(&buf, mac) != 0) {
+        return -2;
+    }
+    if (sig_hash == NULL) {
+        if (gquic_str_alloc(sign, GQUIC_STR_SIZE(cnt) + GQUIC_STR_SIZE(&buf))) {
+            ret = -3;
+            goto failure;
+        }
+        memcpy(GQUIC_STR_VAL(sign), GQUIC_STR_VAL(cnt), GQUIC_STR_SIZE(cnt));
+        memcpy(GQUIC_STR_VAL(sign) + GQUIC_STR_SIZE(cnt), GQUIC_STR_VAL(&buf), GQUIC_STR_SIZE(&buf));
+        return 0;
+    }
+    if ((ctx = EVP_MD_CTX_new()) == NULL) {
+        ret = -4;
+        goto failure;
+    }
+    if (EVP_DigestInit_ex(ctx, sig_hash, NULL) <= 0) {
+        ret = -5;
+        goto failure;
+    }
+    if (EVP_DigestUpdate(ctx, GQUIC_STR_VAL(cnt), GQUIC_STR_SIZE(cnt)) <= 0) {
+        ret = -6;
+        goto failure;
+    }
+    if (EVP_DigestUpdate(ctx, GQUIC_STR_VAL(&buf), GQUIC_STR_SIZE(&buf)) <= 0) {
+        ret = -7;
+        goto failure;
+    }
+    if (gquic_str_alloc(sign, EVP_MD_size(sig_hash)) != 0) {
+        ret = -8;
+        goto failure;
+    }
+    if (EVP_DigestFinal_ex(ctx, GQUIC_STR_VAL(sign), &len) <= 0) {
+        ret = -9;
+        goto failure;
+    }
+
+    gquic_str_reset(&buf);
+    if (ctx == NULL) {
+        EVP_MD_CTX_free(ctx);
+    }
+    return 0;
+failure:
+    gquic_str_reset(&buf);
+    if (ctx == NULL) {
+        EVP_MD_CTX_free(ctx);
+    }
+    return ret;
 }
