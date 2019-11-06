@@ -13,7 +13,7 @@ struct gquic_tls_client_sess_state_s {
     u_int16_t cipher_suite;
     gquic_str_t master_sec;
     gquic_list_t ser_certs;
-    gquic_list_t verified_chain;
+    gquic_list_t verified_chains;
     time_t recv_at;
 
     gquic_str_t nonce;
