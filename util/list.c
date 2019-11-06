@@ -86,7 +86,7 @@ int gquic_list_remove(gquic_abstract_list_ptr_t node) {
     return 0;
 }
 
-int gquic_list_copy(gquic_list_t *list, const gquic_list_t *ref, gquic_list_copy_payload_fptr_t fptr) {
+int gquic_list_copy(gquic_list_t *list, const gquic_list_t *ref, int (*fptr) (void *const, const void *const)) {
     void *field;
     void *ref_field;
     if (list == NULL || ref == NULL) {
