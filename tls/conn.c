@@ -19,6 +19,7 @@
 #include "tls/encrypt_ext_msg.h"
 #include "tls/end_of_early_data_msg.h"
 #include "tls/key_update_msg.h"
+#include "util/time.h"
 #include "util/big_endian.h"
 #include <openssl/x509.h>
 #include <openssl/pem.h>
@@ -333,7 +334,7 @@ int gquic_tls_conn_load_session(gquic_str_t *const cache_key,
     }
 
     if (conn->cfg->insecure_skiy_verify == 0) {
-        if (gquic_list_head_empty(&(*sess)->verified_chain)) {
+        if (gquic_list_head_empty(&(*sess)->verified_chains)) {
             return 0;
         }
         if (gquic_list_head_empty(&(*sess)->ser_certs)) {
@@ -380,7 +381,8 @@ int gquic_tls_conn_load_session(gquic_str_t *const cache_key,
         conn->cfg->cli_sess_cache->put(conn->cfg->cli_sess_cache->self, cache_key, NULL);
         return 0;
     }
-    time_t ticket_age = time(NULL) - (*sess)->recv_at;
+    int64_t ticket_age;
+    gquic_time_since_milli(&ticket_age, &(*sess)->received_at);
     gquic_tls_psk_identity_t *identity = gquic_list_alloc(sizeof(gquic_tls_psk_identity_t));
     if (identity == NULL) {
         return -6;
