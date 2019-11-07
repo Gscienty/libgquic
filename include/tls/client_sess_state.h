@@ -14,7 +14,7 @@ struct gquic_tls_client_sess_state_s {
     gquic_str_t master_sec;
     gquic_list_t ser_certs;
     gquic_list_t verified_chains;
-    time_t recv_at;
+    struct timeval received_at;
 
     gquic_str_t nonce;
     time_t use_by;
