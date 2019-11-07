@@ -87,31 +87,14 @@ int gquic_tls_selected_sigalg(u_int16_t *const sigalg,
     return -7;
 }
 
-int gquic_tls_verify_handshake_sign(const u_int8_t sig_type,
-                                    const EVP_MD *const hash,
+int gquic_tls_verify_handshake_sign(const EVP_MD *const hash,
                                     EVP_PKEY *const pubkey,
                                     const gquic_str_t *sign,
                                     const gquic_str_t *sig) {
-    (void) sig_type;
     EVP_MD_CTX *ctx;
-    int pubkey_type = 0;
     int ret = 0;
     if (pubkey == NULL || sign == NULL || sig == NULL) {
         return -1;
-    }
-    switch (sig_type) {
-    case GQUIC_SIG_ECDSA:
-        pubkey_type = EVP_PKEY_EC;
-        break;
-    case GQUIC_SIG_ED25519:
-        pubkey_type = EVP_PKEY_ED25519;
-        break;
-    case GQUIC_SIG_PKCS1V15:
-    case GQUIC_SIG_RSAPSS:
-        pubkey_type = EVP_PKEY_RSA;
-        break;
-    default:
-        return -2;
     }
     ctx = EVP_MD_CTX_new();
     if (EVP_DigestVerifyInit(ctx, NULL, hash, NULL, pubkey) <= 0) {
@@ -136,7 +119,7 @@ int gquic_tls_signed_msg(gquic_str_t *const sign, const EVP_MD *const sig_hash, 
     if (sign == NULL || cnt == NULL || mac == NULL) {
         return -1;
     }
-    if (gquic_tls_mac_md_final(&buf, mac) != 0) {
+    if (gquic_tls_mac_md_sum(&buf, mac) != 0) {
         return -2;
     }
     if (sig_hash == NULL) {
@@ -184,4 +167,31 @@ failure:
         EVP_MD_CTX_free(ctx);
     }
     return ret;
+}
+
+int gquic_tls_sig_pubkey(EVP_PKEY **const pubkey, const u_int8_t sig_type, const gquic_str_t *const pubkey_s) {
+    if (pubkey == NULL || pubkey_s == NULL) {
+        return -1;
+    }
+    switch (sig_type) {
+    case GQUIC_SIG_ECDSA:
+        if ((*pubkey = EVP_PKEY_new_raw_public_key(EVP_PKEY_EC, NULL, GQUIC_STR_VAL(pubkey_s), GQUIC_STR_SIZE(pubkey_s))) == NULL) {
+            return -2;
+        }
+        break;
+    case GQUIC_SIG_PKCS1V15:
+    case GQUIC_SIG_RSAPSS:
+        if ((*pubkey = EVP_PKEY_new_raw_public_key(EVP_PKEY_RSA_PSS, NULL, GQUIC_STR_VAL(pubkey_s), GQUIC_STR_SIZE(pubkey_s))) == NULL) {
+            return -3;
+        }
+        break;
+    case GQUIC_SIG_ED25519:
+        if ((*pubkey = EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519, NULL, GQUIC_STR_VAL(pubkey_s), GQUIC_STR_SIZE(pubkey_s))) == NULL) {
+            return -3;
+        }
+        break;
+    default:
+        return -2;
+    }
+    return 0;
 }
