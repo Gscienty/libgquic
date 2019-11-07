@@ -551,7 +551,7 @@ static int ecdhe_ka_process_ser_key_exchange(void *const self,
     gquic_list_t c_sup_sigalgs;
     gquic_list_t slices;
     const EVP_MD *hash = NULL;
-    const EVP_PKEY *cert_pubkey = NULL;
+    EVP_PKEY *cert_pubkey = NULL;
     X509 *cert = NULL;
     int ret = 0;
     if (self == NULL || cfg == NULL || c_hello == NULL || s_hello == NULL || cert_d == NULL || skex_msg == NULL) {
@@ -665,7 +665,7 @@ static int ecdhe_ka_process_ser_key_exchange(void *const self,
         ret = -22;
         goto failure;
     }
-    if (gquic_tls_verify_handshake_sign(sig_type, hash, cert_pubkey, &sign, &sig) != 0) {
+    if (gquic_tls_verify_handshake_sign(hash, cert_pubkey, &sign, &sig) != 0) {
         ret = -23;
         goto failure;
     }
