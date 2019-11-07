@@ -124,16 +124,24 @@ int gquic_tls_mac_hmac_hash(gquic_str_t *const ret,
                             const gquic_str_t *const extra) {
     unsigned int size;
     (void) extra;
-    if (ret == NULL || mac == NULL || mac->mac == NULL || seq == NULL || header == NULL || data == NULL) {
+    if (ret == NULL || mac == NULL || mac->mac == NULL || data == NULL) {
         return -1;
     }
     if (gquic_str_alloc(ret, HMAC_size(mac->mac)) != 0) {
         return -2;
     }
-    HMAC_Update(mac->mac, GQUIC_STR_VAL(seq), GQUIC_STR_SIZE(seq));
-    HMAC_Update(mac->mac, GQUIC_STR_VAL(header), GQUIC_STR_SIZE(header));
-    HMAC_Update(mac->mac, GQUIC_STR_VAL(data), GQUIC_STR_SIZE(data));
-    HMAC_Final(mac->mac, GQUIC_STR_VAL(ret), &size);
+    if (seq != NULL && HMAC_Update(mac->mac, GQUIC_STR_VAL(seq), GQUIC_STR_SIZE(seq)) <= 0) {
+        return -3;
+    }
+    if (header != NULL && HMAC_Update(mac->mac, GQUIC_STR_VAL(header), GQUIC_STR_SIZE(header)) <= 0) {
+        return -4;
+    }
+    if (HMAC_Update(mac->mac, GQUIC_STR_VAL(data), GQUIC_STR_SIZE(data)) <= 0) {
+        return -5;
+    }
+    if (HMAC_Final(mac->mac, GQUIC_STR_VAL(ret), &size) <= 0) {
+        return -6;
+    }
     return 0;
 }
 
@@ -163,18 +171,40 @@ int gquic_tls_mac_md_update(gquic_tls_mac_t *const mac,
     return 0;
 }
 
-int gquic_tls_mac_md_final(gquic_str_t *const ret,
-                           gquic_tls_mac_t *const mac) {
-    unsigned int size;
+int gquic_tls_mac_md_reset(gquic_tls_mac_t *const mac) {
+    if (mac == NULL || mac->md_ctx == NULL) {
+        return -1;
+    }
+    const EVP_MD *md = EVP_MD_CTX_md(mac->md_ctx);
+    if (EVP_MD_CTX_reset(mac->md_ctx) <= 0) {
+        return -2;
+    }
+    if (EVP_DigestInit_ex(mac->md_ctx, md, NULL) <= 0) {
+        return -3;
+    }
+    return 0;
+}
+
+int gquic_tls_mac_md_sum(gquic_str_t *const ret,
+                         gquic_tls_mac_t *const mac) {
+    unsigned int size = 0;
+    EVP_MD_CTX *output_ctx = NULL;
     if (ret == NULL || mac == NULL || mac->md_ctx == NULL) {
         return -1;
     }
-    if (gquic_str_alloc(ret, EVP_MD_CTX_size(mac->md_ctx)) != 0) {
+    if ((output_ctx = EVP_MD_CTX_new()) == NULL) {
         return -2;
     }
-    if (EVP_DigestFinal_ex(mac->md_ctx, GQUIC_STR_VAL(ret), &size) <= 0) {
+    if (EVP_MD_CTX_copy_ex(output_ctx, mac->md_ctx) <= 0) {
         return -3;
     }
+    if (gquic_str_alloc(ret, EVP_MD_CTX_size(output_ctx)) != 0) {
+        return -4;
+    }
+    if (EVP_DigestFinal_ex(output_ctx, GQUIC_STR_VAL(ret), &size) <= 0) {
+        return -5;
+    }
+    EVP_MD_CTX_free(output_ctx);
     return 0;
 }
 
@@ -397,7 +427,7 @@ int gquic_tls_suite_hmac_hash(gquic_str_t *const hash,
                               const gquic_str_t *const header,
                               const gquic_str_t *const data,
                               const gquic_str_t *const extra) {
-    if (hash == NULL || suite == NULL || seq == NULL || header == NULL || data == NULL || suite->mac.mac == NULL) {
+    if (hash == NULL || suite == NULL || data == NULL || suite->mac.mac == NULL) {
         return -1;
     }
     return gquic_tls_mac_hmac_hash(hash, &suite->mac, seq, header, data, extra);
@@ -798,7 +828,7 @@ int gquic_tls_cipher_suite_expand_label(gquic_str_t *const ret,
                                         const gquic_str_t *const content,
                                         const size_t length) {
     gquic_tls_mac_t hash;
-    if (ret == NULL || cipher_suite == NULL || secret == NULL || label == NULL || content == NULL) {
+    if (ret == NULL || cipher_suite == NULL || secret == NULL || label == NULL) {
         return -1;
     }
     gquic_tls_mac_init(&hash);
@@ -825,7 +855,7 @@ int gquic_tls_cipher_suite_derive_secret(gquic_str_t *const ret,
         return -1;
     }
     gquic_tls_mac_init(&default_mac);
-    if (mac != NULL && mac->md_ctx != NULL && gquic_tls_mac_md_final(&content, mac) != 0) {
+    if (mac != NULL && mac->md_ctx != NULL && gquic_tls_mac_md_sum(&content, mac) != 0) {
         return -2;
     }
     else {
@@ -875,5 +905,46 @@ int gquic_tls_cipher_suite_traffic_key(gquic_str_t *const key,
         return -3;
     }
     return 0;
+}
+
+int gquic_tls_cipher_suite_finished_hash(gquic_str_t *const hash,
+                                         const gquic_tls_cipher_suite_t *const cipher_suite,
+                                         const gquic_str_t *const base_key,
+                                         gquic_tls_mac_t *const transport) {
+    int ret = 0;
+    gquic_str_t finished_key = { 0, NULL };
+    gquic_str_t verify_data = { 0, NULL };
+    gquic_tls_mac_t mac;
+    gquic_tls_mac_init(&mac);
+    static const gquic_str_t label = { 8, "finished" };
+    if (hash == NULL || cipher_suite == NULL || base_key == NULL || transport == NULL) {
+        return -1;
+    }
+    if (gquic_tls_cipher_suite_expand_label(&finished_key, cipher_suite, base_key, &label, NULL, cipher_suite->mac_len) != 0) {
+        ret = -2;
+        goto failure;
+    }
+    if (cipher_suite->mac(&mac, 0, &finished_key) != 0) {
+        ret = -3;
+        goto failure;
+    }
+    if (gquic_tls_mac_md_sum(&verify_data, transport) != 0) {
+        ret = -4;
+        goto failure;
+    }
+    if (gquic_tls_mac_hmac_hash(hash, &mac, NULL, NULL, &verify_data, NULL) != 0) {
+        ret = -5;
+        goto failure;
+    }
+
+    gquic_str_reset(&finished_key);
+    gquic_str_reset(&verify_data);
+    gquic_tls_mac_release(&mac);
+    return 0;
+failure:
+    gquic_str_reset(&finished_key);
+    gquic_str_reset(&verify_data);
+    gquic_tls_mac_release(&mac);
+    return ret;
 }
 

@@ -115,8 +115,9 @@ int gquic_tls_mac_md_hash(gquic_str_t *const ret,
                           const gquic_str_t *const data);
 int gquic_tls_mac_md_update(gquic_tls_mac_t *const mac,
                             const gquic_str_t *const data);
-int gquic_tls_mac_md_final(gquic_str_t *const ret,
-                           gquic_tls_mac_t *const mac);
+int gquic_tls_mac_md_reset(gquic_tls_mac_t *const mac);
+int gquic_tls_mac_md_sum(gquic_str_t *const ret,
+                         gquic_tls_mac_t *const mac);
 
 typedef struct gquic_tls_cipher_suite_s gquic_tls_cipher_suite_t;
 struct gquic_tls_cipher_suite_s {
@@ -155,6 +156,10 @@ int gquic_tls_cipher_suite_traffic_key(gquic_str_t *const key,
                                        gquic_str_t *const iv,
                                        const gquic_tls_cipher_suite_t *const cipher_suite,
                                        const gquic_str_t *const traffic_sec);
+int gquic_tls_cipher_suite_finished_hash(gquic_str_t *const ret,
+                                         const gquic_tls_cipher_suite_t *const cipher_suite,
+                                         const gquic_str_t *const base_key,
+                                         gquic_tls_mac_t *const transport);
 
 #define GQUIC_TLS_CIPHER_TYPE_UNKNOW 0
 #define GQUIC_TLS_CIPHER_TYPE_STREAM 1
