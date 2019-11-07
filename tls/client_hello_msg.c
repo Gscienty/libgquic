@@ -113,6 +113,19 @@ ssize_t gquic_tls_client_hello_msg_size(const gquic_tls_client_hello_msg_t *msg)
     return ret;
 }
 
+ssize_t gquic_tls_client_hello_msg_size_without_binders(gquic_tls_client_hello_msg_t *msg) {
+    ssize_t ret = gquic_tls_client_hello_msg_size(msg);
+    if (ret < 0) {
+        return -1;
+    }
+    ret -= 2;
+    gquic_str_t *binder;
+    GQUIC_LIST_FOREACH(binder, &msg->psk_binders) {
+        ret -= 1 + GQUIC_STR_SIZE(binder);
+    }
+    return ret;
+}
+
 ssize_t gquic_tls_client_hello_payload_size(const gquic_tls_client_hello_msg_t *msg) {
     if (msg == NULL) {
         return -1;
