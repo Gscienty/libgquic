@@ -62,8 +62,6 @@ int gquic_tls_config_curve_preferences(gquic_list_t *ret);
 
 int gquic_tls_ticket_key_deserialize(gquic_tls_ticket_key_t *ticket_key, const void *buf, const size_t size);
 
-int gquic_tls_is_supported_sigalg(const u_int16_t sigalg, const gquic_list_t *const sigalgs);
-
 int gquic_tls_sig_trans(u_int8_t *const sig, const u_int16_t sigsche);
 
 int gquic_tls_supported_sigalgs_tls12(gquic_list_t *const sigsches);

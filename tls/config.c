@@ -126,20 +126,6 @@ int gquic_tls_config_curve_preferences(gquic_list_t *ret) {
     return 0;
 }
 
-int gquic_tls_is_supported_sigalg(const u_int16_t sigalg, const gquic_list_t *const sigalgs) {
-    if (sigalgs == NULL) {
-        return -1;
-    }
-    u_int16_t *i_sigalg;
-    GQUIC_LIST_FOREACH(i_sigalg, sigalgs) {
-        if (sigalg == *i_sigalg) {
-            return 1;
-        }
-    }
-
-    return 0;
-}
-
 int gquic_tls_sig_trans(u_int8_t *const sig, const u_int16_t sigsche) {
     if (sig == NULL) {
         return -1;
