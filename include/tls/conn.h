@@ -59,7 +59,7 @@ struct gquic_tls_conn_s {
     gquic_list_t verified_chains;
     gquic_str_t ser_name;
     int sec_renegortiation;
-    int (*ekm) (gquic_str_t *const, const gquic_str_t *const, const gquic_str_t *const, const size_t);
+    gquic_tls_ekm_t ekm;
     gquic_str_t resumption_sec;
     int cli_finished_is_first;
     gquic_tls_half_conn_t in;
