@@ -204,6 +204,23 @@ int gquic_tls_suite_hmac_hash(gquic_str_t *const hash,
 size_t gquic_tls_suite_nonce_size(const gquic_tls_suite_t *const suite);
 size_t gquic_tls_suite_mac_size(const gquic_tls_suite_t *const suite);
 
+typedef struct gquic_tls_ekm_s gquic_tls_ekm_t;
+struct gquic_tls_ekm_s {
+    void *self;
+    int (*ekm) (gquic_str_t *const, void *const, const gquic_str_t *const, const gquic_str_t *const, const size_t);
+    int (*release) (void *self);
+};
 
+int gquic_tls_ekm_init(gquic_tls_ekm_t *const ekm);
+int gquic_tls_ekm_release(gquic_tls_ekm_t *const ekm);
+int gquic_tls_ekm_invoke(gquic_str_t *const ret,
+                         gquic_tls_ekm_t *const ekm,
+                         const gquic_str_t *const cnt,
+                         const gquic_str_t *const label,
+                         const size_t length);
+int gquic_tls_cipher_suite_export_keying_material(gquic_tls_ekm_t *const ekm,
+                                                  const gquic_tls_cipher_suite_t *const cipher_suite,
+                                                  const gquic_str_t *const master_sec,
+                                                  gquic_tls_mac_t *const transport);
 
 #endif

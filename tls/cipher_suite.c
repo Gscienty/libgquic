@@ -948,3 +948,117 @@ failure:
     return ret;
 }
 
+int gquic_tls_ekm_init(gquic_tls_ekm_t *const ekm) {
+    if (ekm == NULL) {
+        return -1;
+    }
+    ekm->ekm = NULL;
+    ekm->release = NULL;
+    ekm->self = NULL;
+    return 0;
+}
+
+int gquic_tls_ekm_release(gquic_tls_ekm_t *const ekm) {
+    if (ekm == NULL) {
+        return -1;
+    }
+    if (ekm->self == NULL) {
+        return 0;
+    }
+    if (ekm->release != NULL) {
+        ekm->release(ekm->self);
+    }
+    free(ekm->self);
+    return 0;
+}
+
+int gquic_tls_ekm_invoke(gquic_str_t *const ret,
+                         gquic_tls_ekm_t *const ekm,
+                         const gquic_str_t *const cnt,
+                         const gquic_str_t *const label,
+                         const size_t length) {
+    if (ekm == NULL || ekm->ekm == NULL) {
+        return -1;
+    }
+    return ekm->ekm(ret, ekm->self, cnt, label, length);
+}
+
+typedef struct gquic_tls_ekm_keying_material_s gquic_tls_ekm_keying_material_t;
+struct gquic_tls_ekm_keying_material_s {
+    const gquic_tls_cipher_suite_t *cipher_suite;
+    gquic_str_t exp_master_sec;
+};
+
+static int gquic_tls_ekm_keying_material_invoke(gquic_str_t *const ret,
+                                                void *self,
+                                                const gquic_str_t *const cnt,
+                                                const gquic_str_t *const label,
+                                                const size_t length) {
+    gquic_tls_mac_t hash;
+    gquic_str_t sec = { 0, NULL };
+    gquic_str_t cnt_hash = { 0, NULL };
+    static const gquic_str_t exporter_label = { 8, "exporter" };
+    gquic_tls_ekm_keying_material_t *ekm_self = self;
+    if (ret == NULL || self == NULL || cnt == NULL || label == NULL) {
+        return -1;
+    }
+    if (gquic_tls_cipher_suite_derive_secret(&sec, ekm_self->cipher_suite, NULL, &ekm_self->exp_master_sec, label) != 0) {
+        return -2;
+    }
+    gquic_tls_mac_init(&hash);
+    if (ekm_self->cipher_suite->mac(&hash, 0, NULL) != 0) {
+        gquic_str_reset(&sec);
+        return -3;
+    }
+    if (gquic_tls_mac_md_update(&hash, cnt) != 0) {
+        gquic_str_reset(&sec);
+        gquic_tls_mac_release(&hash);
+        return -4;
+    }
+    if (gquic_tls_mac_md_sum(&cnt_hash, &hash) != 0) {
+        gquic_str_reset(&sec);
+        gquic_tls_mac_release(&hash);
+        return -5;
+    }
+    if (gquic_tls_cipher_suite_expand_label(ret, ekm_self->cipher_suite, &sec, &exporter_label, &cnt_hash, length) != 0) {
+        gquic_str_reset(&sec);
+        gquic_str_reset(&cnt_hash);
+        gquic_tls_mac_release(&hash);
+        return -6;
+    }
+    gquic_str_reset(&sec);
+    gquic_str_reset(&cnt_hash);
+    gquic_tls_mac_release(&hash);
+    return 0;
+}
+
+static int gquic_tls_ekm_keying_material_release(void *self) {
+    gquic_tls_ekm_keying_material_t *ekm_self = self;
+    if (self == NULL) {
+        return -1;
+    }
+    gquic_str_reset(&ekm_self->exp_master_sec);
+    return 0;
+}
+
+int gquic_tls_cipher_suite_export_keying_material(gquic_tls_ekm_t *const ekm,
+                                                  const gquic_tls_cipher_suite_t *const cipher_suite,
+                                                  const gquic_str_t *const master_sec,
+                                                  gquic_tls_mac_t *const transport) {
+    static const gquic_str_t exporter_label = { 10, "exp master" };
+    if (ekm == NULL || cipher_suite == NULL || master_sec == NULL || transport == NULL) {
+        return -1;
+    }
+    gquic_tls_ekm_keying_material_t *self = malloc(sizeof(gquic_tls_ekm_keying_material_t));
+    self->cipher_suite = cipher_suite;
+    gquic_str_init(&self->exp_master_sec);
+    if (gquic_tls_cipher_suite_derive_secret(&self->exp_master_sec, cipher_suite, transport, master_sec, &exporter_label) != 0) {
+        free(self);
+        return -1;
+    }
+
+    ekm->self = self;
+    ekm->ekm = gquic_tls_ekm_keying_material_invoke;
+    ekm->release = gquic_tls_ekm_keying_material_release;
+    return 0;
+}
