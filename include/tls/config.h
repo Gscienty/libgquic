@@ -22,6 +22,8 @@ struct gquic_tls_record_layer_s {
     int (*release) (void *const);
 };
 
+int gquic_tls_record_layer_init(gquic_tls_record_layer_t *const record_layer);
+
 struct gquic_tls_config_s {
     time_t epoch;
     gquic_list_t certs;

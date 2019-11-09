@@ -10,6 +10,20 @@ static u_int16_t __supported_versions[] = {
     GQUIC_TLS_VERSION_13
 };
 
+int gquic_tls_record_layer_init(gquic_tls_record_layer_t *const record_layer) {
+    if (record_layer == NULL) {
+        return -1;
+    }
+    record_layer->self = NULL;
+    record_layer->set_rkey = NULL;
+    record_layer->set_wkey = NULL;
+    record_layer->read_handshake_msg = NULL;
+    record_layer->write_record = NULL;
+    record_layer->send_alert = NULL;
+    record_layer->release = NULL;
+    return 0;
+}
+
 int gquic_tls_config_init(gquic_tls_config_t *const cfg) {
     if (cfg == NULL) {
         return -1;
@@ -35,6 +49,8 @@ int gquic_tls_config_init(gquic_tls_config_t *const cfg) {
     gquic_list_head_init(&cfg->curve_perfers);
     cfg->cli_sess_cache = NULL;
     cfg->extensions = NULL;
+    cfg->received_extensions = NULL;
+    cfg->enforce_next_proto_selection = 0;
 
     return 0;
 }
