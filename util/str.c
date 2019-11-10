@@ -68,8 +68,17 @@ int gquic_str_test_echo(const gquic_str_t *const str) {
     if (str == NULL) {
         return -1;
     }
+    u_int32_t off = 0;
     size_t i;
+    printf("     ");
+    for (i = 0; i < 16; i++) {
+        printf("%02X ", (u_int8_t) i);
+    }
     for (i = 0; i < GQUIC_STR_SIZE(str); i++) {
+        if (i % 16 == 0) {
+            printf("\n%04X ", off);
+            off += 16;
+        }
         printf("%02X ", ((unsigned char *) GQUIC_STR_VAL(str))[i]);
     }
     printf("\n");
