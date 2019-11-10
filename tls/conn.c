@@ -430,21 +430,23 @@ int gquic_tls_conn_read_handshake(u_int8_t *const handshake_type, void **const m
     if (handshake_type == NULL || msg == NULL || conn == NULL) {
         return -1;
     }
-    if (conn->cfg->alt_record.read_handshake_msg == NULL) {
+    if (conn->cfg->alt_record.read_handshake_msg == NULL
+        || conn->cfg->alt_record.read_handshake_msg(&data, conn->cfg->alt_record.self) != 0) {
         return -2;
-    }
-    if (conn->cfg->alt_record.read_handshake_msg(&data, conn->cfg->alt_record.self) != 0) {
-        return -3;
     }
     
     *handshake_type = ((u_int8_t *) GQUIC_STR_VAL(&data))[0];
     switch (*handshake_type) {
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_HELLO_REQ:
         if ((*msg = malloc(sizeof(gquic_tls_hello_req_msg_t))) == NULL) {
+            ret = -3;
+            goto failure;
+        }
+        if (gquic_tls_hello_req_msg_init(*msg) != 0) {
             ret = -4;
             goto failure;
         }
-        if (gquic_tls_hello_req_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) != 0) {
+        if (gquic_tls_hello_req_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) < 0) {
             ret = -5;
             goto failure;
         }
@@ -454,39 +456,55 @@ int gquic_tls_conn_read_handshake(u_int8_t *const handshake_type, void **const m
             ret = -6;
             goto failure;
         }
-        if (gquic_tls_client_hello_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) != 0) {
+        if (gquic_tls_client_hello_msg_init(*msg) != 0) {
             ret = -7;
+            goto failure;
+        }
+        if (gquic_tls_client_hello_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) < 0) {
+            ret = -8;
             goto failure;
         }
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_SERVER_HELLO:
         if ((*msg = malloc(sizeof(gquic_tls_server_hello_msg_t))) == NULL) {
-            ret = -8;
+            ret = -9;
             goto failure;
         }
-        if (gquic_tls_server_hello_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) != 0) {
-            ret = -9;
+        if (gquic_tls_server_hello_msg_init(*msg) != 0) {
+            ret = -10;
+            goto failure;
+        }
+        if ((ret = gquic_tls_server_hello_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data))) < 0) {
+            ret = -11;
             goto failure;
         }
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_NEW_SESS_TICKET:
         if (conn->ver == GQUIC_TLS_VERSION_13) {
             if ((*msg = malloc(sizeof(gquic_tls_new_sess_ticket_13_msg_t))) == NULL) {
-                ret = -10;
+                ret = -12;
                 goto failure;
             }
-            if (gquic_tls_new_sess_ticket_13_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) != 0) {
-                ret = -11;
+            if (gquic_tls_new_sess_ticket_13_msg_init(*msg) != 0) {
+                ret = -13;
+                goto failure;
+            }
+            if (gquic_tls_new_sess_ticket_13_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) < 0) {
+                ret = -14;
                 goto failure;
             }
         }
         else {
             if ((*msg = malloc(sizeof(gquic_tls_new_sess_ticket_msg_t))) == NULL) {
-                ret = -12;
+                ret = -15;
                 goto failure;
             }
-            if (gquic_tls_new_sess_ticket_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) != 0) {
-                ret = -13;
+            if (gquic_tls_new_sess_ticket_msg_init(*msg) != 0) {
+                ret = -16;
+                goto failure;
+            }
+            if (gquic_tls_new_sess_ticket_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) < 0) {
+                ret = -17;
                 goto failure;
             }
         }
@@ -494,21 +512,29 @@ int gquic_tls_conn_read_handshake(u_int8_t *const handshake_type, void **const m
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT:
         if (conn->ver == GQUIC_TLS_VERSION_13) {
             if ((*msg = malloc(sizeof(gquic_tls_cert_13_msg_t))) == NULL) {
-                ret = -14;
+                ret = -18;
                 goto failure;
             }
-            if (gquic_tls_cert_13_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) != 0) {
-                ret = -15;
+            if (gquic_tls_cert_13_msg_init(*msg) != 0) {
+                ret = -19;
+                goto failure;
+            }
+            if (gquic_tls_cert_13_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) < 0) {
+                ret = -20;
                 goto failure;
             }
         }
         else {
             if ((*msg = malloc(sizeof(gquic_tls_cert_msg_t))) == NULL) {
-                ret = -16;
+                ret = -21;
                 goto failure;
             }
-            if (gquic_tls_cert_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) != 0) {
-                ret = -17;
+            if (gquic_tls_cert_msg_init(*msg) != 0) {
+                ret = -22;
+                goto failure;
+            }
+            if (gquic_tls_cert_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) < 0) {
+                ret = -23;
                 goto failure;
             }
         }
@@ -516,127 +542,174 @@ int gquic_tls_conn_read_handshake(u_int8_t *const handshake_type, void **const m
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT_REQ:
         if (conn->ver == GQUIC_TLS_VERSION_13) {
             if ((*msg = malloc(sizeof(gquic_tls_cert_req_13_msg_t))) == NULL) {
-                ret = -14;
+                ret = -24;
                 goto failure;
             }
-            if (gquic_tls_cert_req_13_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) != 0) {
-                ret = -15;
+            if (gquic_tls_cert_req_13_msg_init(*msg) != 0) {
+                ret = -25;
+                goto failure;
+            }
+            if (gquic_tls_cert_req_13_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) < 0) {
+                ret = -26;
                 goto failure;
             }
         }
         else {
             if ((*msg = malloc(sizeof(gquic_tls_cert_req_msg_t))) == NULL) {
-                ret = -16;
+                ret = -27;
                 goto failure;
             }
-            if (gquic_tls_cert_req_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) != 0) {
-                ret = -17;
+            if (gquic_tls_cert_req_msg_init(*msg) != 0) {
+                ret = -28;
+                goto failure;
+            }
+            if (gquic_tls_cert_req_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) < 0) {
+                ret = -29;
                 goto failure;
             }
         }
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT_STATUS:
         if ((*msg = malloc(sizeof(gquic_tls_cert_status_msg_t))) == NULL) {
-            ret = -18;
+            ret = -30;
             goto failure;
         }
-        if (gquic_tls_cert_status_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) != 0) {
-            ret = -19;
+        if (gquic_tls_cert_status_msg_init(*msg) != 0) {
+            ret = -31;
+            goto failure;
+        }
+        if (gquic_tls_cert_status_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) < 0) {
+            ret = -32;
             goto failure;
         }
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_SER_KEY_EXCHANGE:
         if ((*msg = malloc(sizeof(gquic_tls_server_key_exchange_msg_t))) == NULL) {
-            ret = -20;
+            ret = -33;
             goto failure;
         }
-        if (gquic_tls_server_key_exchange_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) != 0) {
-            ret = -21;
+        if (gquic_tls_server_key_exchange_msg_init(*msg) != 0) {
+            ret = -34;
+            goto failure;
+        }
+        if (gquic_tls_server_key_exchange_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) < 0) {
+            ret = -35;
             goto failure;
         }
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_SER_HELLO_DONE:
         if ((*msg = malloc(sizeof(gquic_tls_server_hello_done_msg_t))) == NULL) {
-            ret = -22;
+            ret = -36;
             goto failure;
         }
-        if (gquic_tls_server_hello_done_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) != 0) {
-            ret = -23;
+        if (gquic_tls_server_hello_done_msg_init(*msg) != 0) {
+            ret = -37;
+        }
+        if (gquic_tls_server_hello_done_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) < 0) {
+            ret = -38;
             goto failure;
         }
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_CLI_KEY_EXCHANGE:
         if ((*msg = malloc(sizeof(gquic_tls_client_key_exchange_msg_t))) == NULL) {
-            ret = -24;
+            ret = -39;
             goto failure;
         }
-        if (gquic_tls_client_key_exchange_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) != 0) {
-            ret = -25;
+        if (gquic_tls_client_key_exchange_msg_init(*msg) != 0) {
+            ret = -40;
+            goto failure;
+        }
+        if (gquic_tls_client_key_exchange_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) < 0) {
+            ret = -41;
             goto failure;
         }
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT_VERIFY:
         if ((*msg = malloc(sizeof(gquic_tls_cert_verify_msg_t))) == NULL) {
-            ret = -26;
+            ret = -42;
             goto failure;
         }
-        if (gquic_tls_cert_verify_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) != 0) {
-            ret = -27;
+        if (gquic_tls_cert_verify_msg_init(*msg) != 0) {
+            ret = -43;
+            goto failure;
+        }
+        if (gquic_tls_cert_verify_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) < 0) {
+            ret = -44;
             goto failure;
         }
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_NEXT_PROTO:
         if ((*msg = malloc(sizeof(gquic_tls_next_proto_msg_t))) == NULL) {
-            ret = -28;
+            ret = -45;
             goto failure;
         }
-        if (gquic_tls_next_proto_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) != 0) {
-            ret = -29;
+        if (gquic_tls_next_proto_msg_init(*msg) != 0) {
+            ret = -46;
+            goto failure;
+        }
+        if (gquic_tls_next_proto_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) < 0) {
+            ret = -47;
             goto failure;
         }
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_FINISHED:
         if ((*msg = malloc(sizeof(gquic_tls_finished_msg_t))) == NULL) {
-            ret = -29;
+            ret = -48;
             goto failure;
         }
-        if (gquic_tls_finished_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) != 0) {
-            ret = -30;
+        if (gquic_tls_finished_msg_init(*msg) != 0) {
+            ret = -49;
+            goto failure;
+        }
+        if (gquic_tls_finished_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) < 0) {
+            ret = -50;
             goto failure;
         }
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_ENCRYPTED_EXTS:
         if ((*msg = malloc(sizeof(gquic_tls_encrypt_ext_msg_t))) == NULL) {
-            ret = -31;
+            ret = -51;
             goto failure;
         }
-        if (gquic_tls_encrypt_ext_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) != 0) {
-            ret = -32;
+        if (gquic_tls_encrypt_ext_msg_init(*msg) != 0) {
+            ret = -52;
+            goto failure;
+        }
+        if (gquic_tls_encrypt_ext_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) < 0) {
+            ret = -53;
             goto failure;
         }
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_END_OF_EARLY_DATA:
         if ((*msg = malloc(sizeof(gquic_tls_end_of_early_data_msg_t))) == NULL) {
-            ret = -33;
+            ret = -54;
             goto failure;
         }
-        if (gquic_tls_end_of_early_data_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) != 0) {
-            ret = -34;
+        if (gquic_tls_end_of_early_data_msg_init(*msg) != 0) {
+            ret = -55;
+            goto failure;
+        }
+        if (gquic_tls_end_of_early_data_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) < 0) {
+            ret = -56;
             goto failure;
         }
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_KEY_UPDATE:
         if ((*msg = malloc(sizeof(gquic_tls_key_update_msg_t))) == NULL) {
-            ret = -35;
+            ret = -57;
             goto failure;
         }
-        if (gquic_tls_key_update_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) != 0) {
-            ret = -36;
+        if (gquic_tls_key_update_msg_init(*msg) != 0) {
+            ret = -58;
+            goto failure;
+        }
+        if (gquic_tls_key_update_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) < 0) {
+            ret = -59;
             goto failure;
         }
         break;
     default:
-        ret = -37;
+        ret = -60;
         goto failure;
     }
 
