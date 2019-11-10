@@ -4,9 +4,9 @@
 #include "tls/common.h"
 
 static u_int16_t __supported_versions[] = {
-    GQUIC_TLS_VERSION_10,
-    GQUIC_TLS_VERSION_11,
-    GQUIC_TLS_VERSION_12,
+    /*GQUIC_TLS_VERSION_10,*/
+    /*GQUIC_TLS_VERSION_11,*/
+    /*GQUIC_TLS_VERSION_12,*/
     GQUIC_TLS_VERSION_13
 };
 
@@ -116,9 +116,9 @@ int gquic_tls_config_supported_versions(gquic_list_t *ret, const gquic_tls_confi
 
 static u_int16_t __default_curve_preferences[] = {
     GQUIC_TLS_CURVE_X25519,
-    GQUIC_TLS_CURVE_P256,
-    GQUIC_TLS_CURVE_P384,
-    GQUIC_TLS_CURVE_P521
+    /*GQUIC_TLS_CURVE_P256,*/
+    /*GQUIC_TLS_CURVE_P384,*/
+    /*GQUIC_TLS_CURVE_P521*/
 };
 
 int gquic_tls_config_curve_preferences(gquic_list_t *ret) {
