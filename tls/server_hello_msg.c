@@ -11,6 +11,8 @@ static ssize_t gquic_tls_server_hello_msg_optional_serialize(const gquic_tls_ser
 static ssize_t gquic_tls_server_hello_payload_deserialize(gquic_tls_server_hello_msg_t *, const void *, const size_t);
 static ssize_t gquic_tls_server_hello_optional_deserialize(gquic_tls_server_hello_msg_t *, const void *, const size_t);
 
+#include <stdio.h>
+
 int gquic_tls_server_hello_msg_init(gquic_tls_server_hello_msg_t *msg) {
     if (msg == NULL) {
         return -1;
@@ -148,7 +150,7 @@ ssize_t gquic_tls_server_hello_msg_serialize(const gquic_tls_server_hello_msg_t 
 
     __gquic_store_prefix_len(&prefix_len_stack, &off, 3);
     if ((ret = gquic_tls_server_hello_msg_payload_serialize(msg, buf + off, size - off)) <= 0) {
-        return -3;
+        return -3 + ret * 100;
     }
     off += ret;
     __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 3);
@@ -189,7 +191,7 @@ static ssize_t gquic_tls_server_hello_msg_payload_serialize(const gquic_tls_serv
     // optional prefix len
     __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
     if ((ret = gquic_tls_server_hello_msg_optional_serialize(msg, buf + off, size - off)) < 0) {
-        return -3;
+        return -4;
     }
     off += ret;
     __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
