@@ -106,7 +106,6 @@ int gquic_tls_handshake_client_hello_init(gquic_tls_client_hello_msg_t *const ms
     gquic_str_t *proto;
     size_t next_protos_len = 0;
     gquic_list_t supported_versions;
-    u_int16_t client_hello_version;
     int ret = 0;
     size_t count;
     size_t i;
@@ -149,12 +148,8 @@ int gquic_tls_handshake_client_hello_init(gquic_tls_client_hello_msg_t *const ms
         ret = -9;
         goto failure;
     }
-    client_hello_version = *(u_int16_t *) gquic_list_next(GQUIC_LIST_PAYLOAD(&supported_versions));
-    if (client_hello_version > GQUIC_TLS_VERSION_12) {
-        client_hello_version = GQUIC_TLS_VERSION_12;
-    }
+    msg->vers = *(u_int16_t *) gquic_list_next(GQUIC_LIST_PAYLOAD(&supported_versions));
 
-    msg->vers = client_hello_version;
     if (gquic_str_alloc(&msg->compression_methods, 1) != 0) {
         ret = -10;
         goto failure;
@@ -335,9 +330,9 @@ int gquic_tls_client_handshake(gquic_tls_conn_t *const conn) {
         ret = -11;
         goto failure;
     }
-    if ((gquic_tls_conn_read_handshake(&received_record_type, (void **) &client_handshake_state.s_hello, conn) != 0)
-        && received_record_type == GQUIC_TLS_HANDSHAKE_MSG_TYPE_SERVER_HELLO) {
-       ret = -12;
+    if (((ret = (gquic_tls_conn_read_handshake(&received_record_type, (void **) &client_handshake_state.s_hello, conn))) != 0)
+        || received_record_type != GQUIC_TLS_HANDSHAKE_MSG_TYPE_SERVER_HELLO) {
+       ret = -12 + ret * 100;
        goto failure;
     }
 
@@ -350,8 +345,8 @@ int gquic_tls_client_handshake(gquic_tls_conn_t *const conn) {
     client_handshake_state.sess = sess;
     client_handshake_state.early_sec = &early_sec;
     client_handshake_state.binder_key = &binder_key;
-    if (gquic_tls_client_handshake_state_handshake(&client_handshake_state) != 0) {
-        ret = -14;
+    if ((ret = gquic_tls_client_handshake_state_handshake(&client_handshake_state)) != 0) {
+        ret = -14 + ret * 100;
         goto failure;
     }
 
@@ -458,12 +453,12 @@ int gquic_tls_client_handshake_state_handshake(gquic_tls_handshake_client_state_
     // note: unsupported RSA KA
     if (cli_state->ecdhe_params.self == NULL
         || (!gquic_list_head_empty(&cli_state->c_hello->key_shares)
-            && gquic_list_next(GQUIC_LIST_PAYLOAD(&cli_state->c_hello->key_shares)) == gquic_list_prev(GQUIC_LIST_PAYLOAD(&cli_state->c_hello->key_shares)))) {
+            && gquic_list_next(GQUIC_LIST_PAYLOAD(&cli_state->c_hello->key_shares)) != gquic_list_prev(GQUIC_LIST_PAYLOAD(&cli_state->c_hello->key_shares)))) {
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
         return -3;
     }
-    if (gquic_tls_client_handshake_state_check_ser_hello_or_hello_retry_req(cli_state) != 0) {
-        return -4;
+    if ((ret = gquic_tls_client_handshake_state_check_ser_hello_or_hello_retry_req(cli_state)) != 0) {
+        return -4 + ret * 100;
     }
     if (cli_state->suite->mac(&cli_state->transport, 0, NULL) != 0) {
         return -5;
