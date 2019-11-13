@@ -46,6 +46,7 @@ struct gquic_tls_config_s {
     gquic_tls_client_sess_cache_t *cli_sess_cache;
     int (*extensions) (gquic_list_t *const, const u_int8_t);
     int (*received_extensions) (const u_int8_t, gquic_list_t *const);
+    int (*verify_peer_certs) (const gquic_list_t *const, const gquic_list_t *const);
     gquic_tls_record_layer_t alt_record;
     int enforce_next_proto_selection;
 };

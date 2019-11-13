@@ -50,6 +50,8 @@ int gquic_tls_config_init(gquic_tls_config_t *const cfg) {
     cfg->cli_sess_cache = NULL;
     cfg->extensions = NULL;
     cfg->received_extensions = NULL;
+    cfg->verify_peer_certs = NULL;
+    gquic_tls_record_layer_init(&cfg->alt_record);
     cfg->enforce_next_proto_selection = 0;
 
     return 0;
