@@ -330,7 +330,7 @@ int gquic_tls_suite_assign(gquic_tls_suite_t *const suite,
         return -1;
     }
     if (cipher_suite->aead != NULL && cipher_key != NULL && iv != NULL) {
-        if (cipher_suite->key_len != GQUIC_STR_SIZE(cipher_key)) {
+        if (cipher_suite->key_len > GQUIC_STR_SIZE(cipher_key)) {
             return -2;
         }
         if (cipher_suite->aead(&suite->aead, cipher_key, iv) != 0) {
@@ -640,15 +640,17 @@ static int mac_common_init(gquic_tls_mac_t *const mac, const u_int16_t ver, cons
     mac->md = md;
     if (GQUIC_STR_SIZE(key) == 0) {
         mac->md_ctx = EVP_MD_CTX_new();
-        EVP_DigestInit_ex(mac->md_ctx, mac->md, NULL);
+        if (EVP_DigestInit_ex(mac->md_ctx, mac->md, NULL) <= 0) {
+            return -2;
+        }
         return 0;
     }
     if (gquic_str_copy(&mac->key, key) != 0) {
-        return -2;
+        return -3;
     }
     mac->mac = HMAC_CTX_new();
     if (HMAC_Init_ex(mac->mac, GQUIC_STR_VAL(key), GQUIC_STR_SIZE(key), mac->md, NULL) <= 0) {
-        return -3;
+        return -4;
     }
     return 0;
 }
@@ -846,24 +848,32 @@ int gquic_tls_cipher_suite_expand_label(gquic_str_t *const ret,
 
 int gquic_tls_cipher_suite_derive_secret(gquic_str_t *const ret,
                                          const gquic_tls_cipher_suite_t *const cipher_suite,
-                                         gquic_tls_mac_t *const mac,
+                                         gquic_tls_mac_t *const transport,
                                          const gquic_str_t *const secret,
                                          const gquic_str_t *const label) {
-    gquic_tls_mac_t default_mac;
+    gquic_tls_mac_t default_transport;
     gquic_str_t content = { 0, NULL };
     if (ret == NULL || cipher_suite == NULL || secret == NULL || label == NULL) {
         return -1;
     }
-    gquic_tls_mac_init(&default_mac);
-    if (mac != NULL && mac->md_ctx != NULL && gquic_tls_mac_md_sum(&content, mac) != 0) {
+    gquic_tls_mac_init(&default_transport);
+    if (transport != NULL
+        && transport->md_ctx != NULL
+        && gquic_tls_mac_md_sum(&content, transport) != 0) {
         return -2;
     }
     else {
-        cipher_suite->mac(&default_mac, 0, NULL);
+        cipher_suite->mac(&default_transport, 0, NULL);
     }
-    if (gquic_tls_cipher_suite_expand_label(ret, cipher_suite, secret, &content, label, EVP_MD_size(mac == NULL ? default_mac.md : mac->md)) != 0) {
+    if (gquic_tls_cipher_suite_expand_label(ret,
+                                            cipher_suite,
+                                            secret,
+                                            &content,
+                                            label,
+                                            EVP_MD_size(transport == NULL ? default_transport.md : transport->md)) != 0) {
         return -3;
     }
+    gquic_tls_mac_release(&default_transport);
     gquic_str_reset(&content);
     return 0;
 }
