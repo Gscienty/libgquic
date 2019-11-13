@@ -29,17 +29,17 @@
 
 static int gquic_proto_copy(void *, const void *);
 
-static int __cipher_suites[] = {
-    TLS1_3_CK_AES_128_GCM_SHA256,
-    TLS1_3_CK_CHACHA20_POLY1305_SHA256,
-    TLS1_3_CK_AES_256_GCM_SHA384,
+static u_int16_t __cipher_suites[] = {
+    GQUIC_TLS_CIPHER_SUITE_AES_128_GCM_SHA256,
+    GQUIC_TLS_CIPHER_SUITE_CHACHA20_POLY1305_SHA256,
+    GQUIC_TLS_CIPHER_SUITE_AES_256_GCM_SHA384
 
-    TLS1_CK_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-    TLS1_CK_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-    TLS1_CK_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-    TLS1_CK_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-    TLS1_CK_ECDHE_RSA_WITH_CHACHA20_POLY1305,
-    TLS1_CK_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+    /*TLS1_CK_ECDHE_RSA_WITH_AES_128_GCM_SHA256,*/
+    /*TLS1_CK_ECDHE_RSA_WITH_AES_256_GCM_SHA384,*/
+    /*TLS1_CK_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,*/
+    /*TLS1_CK_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,*/
+    /*TLS1_CK_ECDHE_RSA_WITH_CHACHA20_POLY1305,*/
+    /*TLS1_CK_ECDHE_ECDSA_WITH_CHACHA20_POLY1305*/
 };
 
 static u_int16_t __supported_sign_algos[] = {
@@ -188,14 +188,14 @@ int gquic_tls_handshake_client_hello_init(gquic_tls_client_hello_msg_t *const ms
         ret = -17;
         goto failure;
     }
-    count = sizeof(__cipher_suites) / sizeof(int);
+    count = sizeof(__cipher_suites) / sizeof(u_int16_t);
     for (i = 0; i < count; i++) {
         u_int16_t *cipher_suite = gquic_list_alloc(sizeof(u_int16_t));
         if (cipher_suite == NULL) {
             ret = -18;
             goto failure;
         }
-        *cipher_suite = 0xFFFF & __cipher_suites[i];
+        *cipher_suite = __cipher_suites[i];
         if (gquic_list_insert_before(&msg->cipher_suites, cipher_suite) != 0) {
             ret = -19;
             goto failure;
@@ -466,7 +466,7 @@ int gquic_tls_client_handshake_state_handshake(gquic_tls_handshake_client_state_
     if (gquic_str_alloc(&buf, gquic_tls_client_hello_msg_size(cli_state->c_hello)) != 0) {
         return -6;
     }
-    if (gquic_tls_client_hello_msg_serialize(cli_state->c_hello, &buf, GQUIC_STR_SIZE(&buf)) < 0) {
+    if (gquic_tls_client_hello_msg_serialize(cli_state->c_hello, GQUIC_STR_VAL(&buf), GQUIC_STR_SIZE(&buf)) < 0) {
         ret = -7;
         goto failure;
     }
@@ -494,7 +494,7 @@ int gquic_tls_client_handshake_state_handshake(gquic_tls_handshake_client_state_
     if (gquic_str_alloc(&buf, gquic_tls_server_hello_msg_size(cli_state->s_hello)) != 0) {
         return -14;
     }
-    if (gquic_tls_server_hello_msg_serialize(cli_state->s_hello, &buf, GQUIC_STR_SIZE(&buf)) < 0) {
+    if (gquic_tls_server_hello_msg_serialize(cli_state->s_hello, GQUIC_STR_VAL(&buf), GQUIC_STR_SIZE(&buf)) < 0) {
         ret = -15;
         goto failure;
     }
@@ -504,24 +504,24 @@ int gquic_tls_client_handshake_state_handshake(gquic_tls_handshake_client_state_
     }
 
     cli_state->conn->buffering = 1;
-    if (gquic_tls_client_handshake_state_process_server_hello(cli_state) != 0) {
-        ret = -17;
+    if ((ret = gquic_tls_client_handshake_state_process_server_hello(cli_state)) != 0) {
+        ret = -17 + ret * 100;
         goto failure;
     }
     if (gquic_tls_client_handshake_state_send_dummy_change_cipher_spec(cli_state) != 0) {
         ret = -18;
         goto failure;
     }
-    if (gquic_tls_client_handshake_state_establish_handshake_keys(cli_state) != 0) {
-        ret = -19;
+    if ((ret = gquic_tls_client_handshake_state_establish_handshake_keys(cli_state)) != 0) {
+        ret = -19 + ret * 100;
         goto failure;
     }
-    if (gquic_tls_client_handshake_state_read_ser_params(cli_state) != 0) {
-        ret = -20;
+    if ((ret = gquic_tls_client_handshake_state_read_ser_params(cli_state)) != 0) {
+        ret = -20 + ret * 100;
         goto failure;
     }
-    if (gquic_tls_client_handshake_state_read_ser_cert(cli_state) != 0) {
-        ret = -21;
+    if ((ret = gquic_tls_client_handshake_state_read_ser_cert(cli_state)) != 0) {
+        ret = -21 + ret * 100;
         goto failure;
     }
     if (gquic_tls_client_handshake_state_read_ser_finished(cli_state) != 0) {
@@ -643,7 +643,7 @@ static int gquic_tls_client_handshake_state_process_hello_retry_request(gquic_tl
     if (gquic_str_alloc(&sh_buf, gquic_tls_server_hello_msg_size(cli_state->s_hello)) != 0) {
         return -3;
     }
-    if (gquic_tls_server_hello_msg_serialize(cli_state->s_hello, &sh_buf, GQUIC_STR_SIZE(&sh_buf)) < 0) {
+    if (gquic_tls_server_hello_msg_serialize(cli_state->s_hello, GQUIC_STR_VAL(&sh_buf), GQUIC_STR_SIZE(&sh_buf)) < 0) {
         return -4;
     }
     gquic_tls_mac_md_update(&cli_state->transport, &sh_buf);
@@ -841,7 +841,6 @@ static int gquic_tls_client_handshake_state_process_server_hello(gquic_tls_hands
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_ILLEGAL_PARAMS);
         return -6;
     }
-
     if (!cli_state->s_hello->selected_identity_persent) {
         return 0;
     }
@@ -909,7 +908,11 @@ static int gquic_tls_client_handshake_state_establish_handshake_keys(gquic_tls_h
         gquic_str_reset(&early_sec);
         gquic_tls_cipher_suite_extract(&early_sec, cli_state->suite, NULL, NULL);
     }
-    if (gquic_tls_cipher_suite_derive_secret(&early_sec_derived_sec, cli_state->suite, NULL, &early_sec, &derived_label) != 0) {
+    if (gquic_tls_cipher_suite_derive_secret(&early_sec_derived_sec,
+                                             cli_state->suite,
+                                             NULL,
+                                             &early_sec,
+                                             &derived_label) != 0) {
         ret = -5;
         goto failure;
     }
@@ -917,36 +920,40 @@ static int gquic_tls_client_handshake_state_establish_handshake_keys(gquic_tls_h
         ret = -6;
         goto failure;
     }
-    if (gquic_tls_cipher_suite_derive_secret(&cli_sec, cli_state->suite, &cli_state->transport, &handshake_sec, &cli_handshake_traffic_label) != 0) {
+    if (gquic_tls_cipher_suite_derive_secret(&cli_sec,
+                                             cli_state->suite,
+                                             &cli_state->transport,
+                                             &handshake_sec,
+                                             &cli_handshake_traffic_label) != 0) {
         ret = -7;
         goto failure;
     }
-    if (cli_state->conn->out.set_key(cli_state->conn->out.set_key_self, GQUIC_ENC_LV_HANDSHAKE, cli_state->suite, &cli_sec) != 0) {
+    if (gquic_tls_half_conn_set_key(&cli_state->conn->out, GQUIC_ENC_LV_HANDSHAKE, cli_state->suite, &cli_sec) != 0) {
         ret = -8;
         goto failure;
     }
-    if (gquic_tls_half_conn_set_traffic_sec(&cli_state->conn->out, cli_state->suite, &cli_sec, 0) != 0) {
-        ret = -9;
+    if ((ret = gquic_tls_half_conn_set_traffic_sec(&cli_state->conn->out, cli_state->suite, &cli_sec, 0)) != 0) {
+        ret = -9 + ret * 100;
         goto failure;
     }
     if (gquic_tls_cipher_suite_derive_secret(&ser_sec, cli_state->suite, &cli_state->transport, &handshake_sec, &ser_handshake_traffic_label) != 0) {
         ret = -10;
         goto failure;
     }
-    if (cli_state->conn->in.set_key(cli_state->conn->in.set_key_self, GQUIC_ENC_LV_HANDSHAKE, cli_state->suite, &ser_sec) != 0) {
-        ret = -11;
-        goto failure;
-    }
-    if (gquic_tls_half_conn_set_traffic_sec(&cli_state->conn->in, cli_state->suite, &ser_sec, 1) != 0) {
+    if (gquic_tls_half_conn_set_key(&cli_state->conn->in, GQUIC_ENC_LV_HANDSHAKE, cli_state->suite, &ser_sec) != 0) {
         ret = -12;
         goto failure;
     }
-    if (gquic_tls_cipher_suite_derive_secret(&handshake_sec_derived_sec, cli_state->suite, NULL, &handshake_sec, &derived_label) != 0) {
+    if (gquic_tls_half_conn_set_traffic_sec(&cli_state->conn->in, cli_state->suite, &ser_sec, 1) != 0) {
         ret = -13;
         goto failure;
     }
-    if (gquic_tls_cipher_suite_extract(&cli_state->master_sec, cli_state->suite, NULL, &handshake_sec_derived_sec) != 0) {
+    if (gquic_tls_cipher_suite_derive_secret(&handshake_sec_derived_sec, cli_state->suite, NULL, &handshake_sec, &derived_label) != 0) {
         ret = -14;
+        goto failure;
+    }
+    if (gquic_tls_cipher_suite_extract(&cli_state->master_sec, cli_state->suite, NULL, &handshake_sec_derived_sec) != 0) {
+        ret = -15;
         goto failure;
     }
 
@@ -996,7 +1003,7 @@ static int gquic_tls_client_handshake_state_read_ser_params(gquic_tls_handshake_
         ret = -5;
         goto failure;
     }
-    if (gquic_tls_encrypt_ext_msg_serialize(msg, &buf, GQUIC_STR_SIZE(&buf)) < 0) {
+    if (gquic_tls_encrypt_ext_msg_serialize(msg, GQUIC_STR_VAL(&buf), GQUIC_STR_SIZE(&buf)) < 0) {
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
         ret = -6;
         goto failure;
@@ -1081,7 +1088,7 @@ static int gquic_tls_client_handshake_state_read_ser_cert(gquic_tls_handshake_cl
         if (gquic_str_alloc(&buf, gquic_tls_cert_req_13_msg_size(msg)) != 0) {
             return -5;
         }
-        if (gquic_tls_cert_req_13_msg_serialize(msg, &buf, GQUIC_STR_SIZE(&buf)) < 0) {
+        if (gquic_tls_cert_req_13_msg_serialize(msg, GQUIC_STR_VAL(&buf), GQUIC_STR_SIZE(&buf)) < 0) {
             ret = -6;
             goto failure;
         }
@@ -1114,7 +1121,7 @@ static int gquic_tls_client_handshake_state_read_ser_cert(gquic_tls_handshake_cl
         ret = -11;
         goto failure;
     }
-    if (gquic_tls_cert_13_msg_serialize(cert_msg, &buf, GQUIC_STR_SIZE(&buf)) < 0) {
+    if (gquic_tls_cert_13_msg_serialize(cert_msg, GQUIC_STR_VAL(&buf), GQUIC_STR_SIZE(&buf)) < 0) {
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
         ret = -12;
         goto failure;
@@ -1125,67 +1132,74 @@ static int gquic_tls_client_handshake_state_read_ser_cert(gquic_tls_handshake_cl
         goto failure;
     }
     gquic_str_reset(&buf);
+
+    if ((ret = gquic_tls_conn_verify_ser_cert(cli_state->conn, &cert_msg->cert.certs)) != 0) {
+        ret = -14 + ret * 100;
+        goto failure;
+    }
+
     gquic_str_init(&buf);
     if (gquic_tls_conn_read_handshake(&msg_type, (void **) &verify_msg, cli_state->conn) != 0) {
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
-        ret = -14;
+        ret = -15;
         goto failure;
     }
     if (msg_type != GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT_VERIFY) {
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_UNEXPECTED_MESSAGE);
-        ret = -15;
+        ret = -16;
         goto failure;
     }
     if (gquic_tls_is_supported_sigalg(verify_msg->sign_algo, &supported_sigalgs) == 0) {
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_ILLEGAL_PARAMS);
-        ret = -16;
+        ret = -17;
         goto failure;
     }
     if (gquic_tls_hash_from_sigalg(&sig_hash, verify_msg->sign_algo) != 0) {
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
-        ret = -17;
+        ret = -18;
         goto failure;
     }
     const u_int8_t sig_type = gquic_tls_sig_from_sigalg(verify_msg->sign_algo);
     if (sig_type == 0xff) {
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
-        ret = -18;
+        ret = -19;
         goto failure;
     }
     if (sig_type == GQUIC_SIG_PKCS1V15 || sig_hash == EVP_sha1()) {
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_ILLEGAL_PARAMS);
-        ret = -19;
+        ret = -20;
         goto failure;
     }
     if (gquic_tls_signed_msg(&sign, sig_hash, &ser_sign_cnt, &cli_state->transport) != 0) {
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_ILLEGAL_PARAMS);
-        ret = -20;
-        goto failure;
-    }
-    if (gquic_tls_sig_pubkey(&pubkey, sig_type, gquic_list_next(GQUIC_LIST_PAYLOAD(&cli_state->conn->peer_certs))) != 0) {
-        gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_DECRYPT_ERROR);
         ret = -21;
         goto failure;
     }
-    if (gquic_tls_verify_handshake_sign(sig_hash, pubkey, &sign, &verify_msg->sign) != 0) {
+    if (gquic_tls_sig_pubkey_from_x509(&pubkey, sig_type, gquic_list_next(GQUIC_LIST_PAYLOAD(&cli_state->conn->peer_certs))) != 0) {
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_DECRYPT_ERROR);
         ret = -22;
+        goto failure;
+    }
+    if (gquic_tls_verify_handshake_sign(sig_hash, pubkey, &sign, &verify_msg->sign) != 0) {
+        gquic_str_test_echo(&sign);
+        gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_DECRYPT_ERROR);
+        ret = -23;
         goto failure;
     }
 
     if (gquic_str_alloc(&buf, gquic_tls_cert_verify_msg_size(verify_msg)) != 0) {
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
-        ret = -23;
+        ret = -24;
         goto failure;
     }
-    if (gquic_tls_cert_verify_msg_serialize(verify_msg, &buf, GQUIC_STR_SIZE(&buf)) < 0) {
+    if (gquic_tls_cert_verify_msg_serialize(verify_msg, GQUIC_STR_VAL(&buf), GQUIC_STR_SIZE(&buf)) < 0) {
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
-        ret = -24;
+        ret = -25;
         goto failure;
     }
     if (gquic_tls_mac_md_update(&cli_state->transport, &buf) != 0) {
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
-        ret = -25;
+        ret = -26;
         goto failure;
     }
 
