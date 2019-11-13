@@ -23,4 +23,6 @@ int gquic_tls_signed_msg(gquic_str_t *const ret, const EVP_MD *const sig_algo, c
 
 int gquic_tls_sig_pubkey(EVP_PKEY **const pubkey, const u_int8_t sig_type, const gquic_str_t *const pubkey_s);
 
+int gquic_tls_sig_pubkey_from_x509(EVP_PKEY **const pubkey, const u_int8_t sig_type, const gquic_str_t *const x509_s);
+
 #endif

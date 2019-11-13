@@ -187,11 +187,50 @@ int gquic_tls_sig_pubkey(EVP_PKEY **const pubkey, const u_int8_t sig_type, const
         break;
     case GQUIC_SIG_ED25519:
         if ((*pubkey = EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519, NULL, GQUIC_STR_VAL(pubkey_s), GQUIC_STR_SIZE(pubkey_s))) == NULL) {
-            return -3;
+            return -4;
         }
         break;
     default:
-        return -2;
+        return -5;
     }
     return 0;
+}
+
+int gquic_tls_sig_pubkey_from_x509(EVP_PKEY **const pubkey, const u_int8_t sig_type, const gquic_str_t *const x509_s) {
+    if (pubkey == NULL || x509_s == NULL) {
+        return -1;
+    }
+    const u_int8_t *x509_payload = GQUIC_STR_VAL(x509_s);
+    X509 *x509 = d2i_X509(NULL, &x509_payload, GQUIC_STR_SIZE(x509_s));
+    if (x509 == NULL) {
+        return -2;
+    }
+    if ((*pubkey = X509_get_pubkey(x509)) == NULL) {
+        X509_free(x509);
+        return -3;
+    }
+    int x509_sig_type = X509_get_signature_type(x509);
+    X509_free(x509);
+
+    switch (sig_type) {
+    case GQUIC_SIG_ECDSA:
+        if (x509_sig_type == EVP_PKEY_EC) {
+            return 0;
+        }
+    case GQUIC_SIG_PKCS1V15:
+    case GQUIC_SIG_RSAPSS:
+        if (x509_sig_type == EVP_PKEY_RSA) {
+            return 0;
+        }
+        break;
+    case GQUIC_SIG_ED25519:
+        if (x509_sig_type == EVP_PKEY_ED25519) {
+            return 0;
+        }
+        break;
+    default:
+        return -5;
+    }
+
+    return -6;
 }
