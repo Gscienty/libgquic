@@ -87,5 +87,6 @@ int gquic_tls_conn_set_alt_record(gquic_tls_conn_t *const conn);
 int gquic_tls_conn_write_record(size_t *const len, gquic_tls_conn_t *const conn, u_int8_t record_type, const gquic_str_t *const data);
 int gquic_tls_conn_read_handshake(u_int8_t *const handshake_type, void **const msg, gquic_tls_conn_t *const conn);
 int gquic_tls_conn_send_alert(gquic_tls_conn_t *const conn, u_int8_t alert);
+int gquic_tls_conn_verify_ser_cert(gquic_tls_conn_t *const conn, const gquic_list_t *const certs);
 
 #endif

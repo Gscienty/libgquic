@@ -1,5 +1,6 @@
 #include "tls/conn.h"
 #include "tls/common.h"
+#include "tls/alert.h"
 #include "tls/hello_req_msg.h"
 #include "tls/client_hello_msg.h"
 #include "tls/server_hello_msg.h"
@@ -22,6 +23,7 @@
 #include "util/time.h"
 #include "util/big_endian.h"
 #include <openssl/x509.h>
+#include <openssl/evp.h>
 #include <openssl/pem.h>
 #include <openssl/sha.h>
 #include <openssl/rand.h>
@@ -45,7 +47,6 @@ int gquic_tls_half_conn_init(gquic_tls_half_conn_t *const half_conn) {
     gquic_str_init(&half_conn->traffic_sec);
     half_conn->set_key_self = NULL;
     half_conn->set_key = NULL;
-    // TODO
     return 0;
 }
 
@@ -163,6 +164,9 @@ int gquic_tls_half_conn_set_key(gquic_tls_half_conn_t *const half_conn,
                                 const gquic_str_t *const secret) {
     if (half_conn == NULL || cipher_suite == NULL || secret == NULL) {
         return -1;
+    }
+    if (half_conn->set_key == NULL) {
+        return 0;
     }
 
     return half_conn->set_key(half_conn->set_key_self, enc_lv, cipher_suite, secret);
@@ -434,6 +438,9 @@ int gquic_tls_conn_read_handshake(u_int8_t *const handshake_type, void **const m
         || conn->cfg->alt_record.read_handshake_msg(&data, conn->cfg->alt_record.self) != 0) {
         return -2;
     }
+    if (GQUIC_STR_SIZE(&data) == 0) {
+        return -3;
+    }
     
     *handshake_type = ((u_int8_t *) GQUIC_STR_VAL(&data))[0];
     switch (*handshake_type) {
@@ -633,6 +640,7 @@ int gquic_tls_conn_read_handshake(u_int8_t *const handshake_type, void **const m
             ret = -43;
             goto failure;
         }
+        ((gquic_tls_cert_verify_msg_t *) *msg)->has_sign_algo = conn->ver == GQUIC_TLS_VERSION_13;
         if (gquic_tls_cert_verify_msg_deserialize(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) < 0) {
             ret = -44;
             goto failure;
@@ -823,5 +831,57 @@ static int gquic_tls_half_conn_inc_seq(gquic_tls_half_conn_t *const half_conn) {
     }
 
     return -2;
+}
+
+int gquic_tls_conn_verify_ser_cert(gquic_tls_conn_t *const conn, const gquic_list_t *const certs) {
+    gquic_str_t *cert;
+    int first = 1;
+    if (conn == NULL || certs == NULL) {
+        return -1;
+    }
+    if (gquic_list_head_init(&conn->peer_certs) != 0) {
+        return -2;
+    }
+
+    GQUIC_LIST_FOREACH(cert, certs) {
+        const u_int8_t *cert_cnt = GQUIC_STR_VAL(cert);
+        X509 *x509 = d2i_X509(NULL, &cert_cnt, GQUIC_STR_SIZE(cert));
+        if (x509 == NULL) {
+            gquic_tls_conn_send_alert(conn, GQUIC_TLS_ALERT_BAD_CERT);
+            return -3;
+        }
+        if (first) {
+            int pubkey_id = EVP_PKEY_id(X509_get_pubkey(x509));
+            if (pubkey_id != EVP_PKEY_RSA
+                && pubkey_id != EVP_PKEY_EC
+                && pubkey_id != EVP_PKEY_ED25519) {
+                gquic_tls_conn_send_alert(conn, GQUIC_TLS_ALERT_BAD_CERT);
+                return -4;
+            }
+            first = 0;
+        }
+        X509_free(x509);
+        gquic_str_t *peer_cert = gquic_list_alloc(sizeof(gquic_str_t));
+        if (peer_cert == NULL) {
+            gquic_tls_conn_send_alert(conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
+            return -5;
+        }
+        if (gquic_str_copy(peer_cert, cert) != 0) {
+            gquic_tls_conn_send_alert(conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
+            return -6;
+        }
+        if (gquic_list_insert_before(&conn->peer_certs, peer_cert) != 0) {
+            gquic_tls_conn_send_alert(conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
+            return -7;
+        }
+    }
+    if (conn->cfg->verify_peer_certs != NULL) {
+        if (conn->cfg->verify_peer_certs(&conn->peer_certs, &conn->verified_chains) != 0) {
+            gquic_tls_conn_send_alert(conn, GQUIC_TLS_ALERT_BAD_CERT);
+            return -8;
+        }
+    }
+
+    return 0;
 }
 
