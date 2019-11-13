@@ -4,7 +4,7 @@
 #include "tls/common.h"
 #include <unistd.h>
 
-int gquic_tls_cert_init(gquic_tls_cert_t *msg) {
+int gquic_tls_cert_init(gquic_tls_cert_t *const msg) {
     if (msg == NULL) {
         return -1;
     }
@@ -14,7 +14,7 @@ int gquic_tls_cert_init(gquic_tls_cert_t *msg) {
     return 0;
 }
 
-int gquic_tls_cert_reset(gquic_tls_cert_t *msg) {
+int gquic_tls_cert_reset(gquic_tls_cert_t *const msg) {
     if (msg == NULL) {
         return -1;
     }
@@ -31,7 +31,7 @@ int gquic_tls_cert_reset(gquic_tls_cert_t *msg) {
     return 0;
 }
 
-ssize_t gquic_tls_cert_size(const gquic_tls_cert_t *msg) {
+ssize_t gquic_tls_cert_size(const gquic_tls_cert_t *const msg) {
     size_t off = 0;
     gquic_str_t *cert;
     gquic_str_t *sct;
@@ -59,7 +59,7 @@ ssize_t gquic_tls_cert_size(const gquic_tls_cert_t *msg) {
     return off;
 }
 
-ssize_t gquic_tls_cert_serialize(const gquic_tls_cert_t *msg, void *buf, const size_t size) {
+ssize_t gquic_tls_cert_serialize(const gquic_tls_cert_t *const msg, void *const buf, const size_t size) {
     size_t off = 0;
     gquic_list_t prefix_len_stack;
     gquic_str_t *cert;
@@ -103,7 +103,7 @@ ssize_t gquic_tls_cert_serialize(const gquic_tls_cert_t *msg, void *buf, const s
     return off;
 }
 
-ssize_t gquic_tls_cert_deserialize(gquic_tls_cert_t *msg, const void *buf, const size_t size) {
+ssize_t gquic_tls_cert_deserialize(gquic_tls_cert_t *const msg, const void *const buf, const size_t size) {
     size_t off = 0;
     size_t prefix_len = 0;
     size_t ext_prefix_len = 0;
