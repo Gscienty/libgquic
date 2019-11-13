@@ -71,3 +71,4 @@ ssize_t gquic_tls_cert_verify_msg_deserialize(gquic_tls_cert_verify_msg_t *msg, 
 
     return off;
 }
+
