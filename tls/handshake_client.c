@@ -524,8 +524,8 @@ int gquic_tls_client_handshake_state_handshake(gquic_tls_handshake_client_state_
         ret = -21 + ret * 100;
         goto failure;
     }
-    if (gquic_tls_client_handshake_state_read_ser_finished(cli_state) != 0) {
-        ret = -22;
+    if ((ret = gquic_tls_client_handshake_state_read_ser_finished(cli_state)) != 0) {
+        ret = -22 + ret * 100;
         goto failure;
     }
     if (gquic_tls_client_handshake_state_send_cli_cert(cli_state) != 0) {
@@ -1181,7 +1181,6 @@ static int gquic_tls_client_handshake_state_read_ser_cert(gquic_tls_handshake_cl
         goto failure;
     }
     if (gquic_tls_verify_handshake_sign(sig_hash, pubkey, &sign, &verify_msg->sign) != 0) {
-        gquic_str_test_echo(&sign);
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_DECRYPT_ERROR);
         ret = -23;
         goto failure;
