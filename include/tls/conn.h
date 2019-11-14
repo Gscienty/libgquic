@@ -89,4 +89,6 @@ int gquic_tls_conn_read_handshake(u_int8_t *const handshake_type, void **const m
 int gquic_tls_conn_send_alert(gquic_tls_conn_t *const conn, u_int8_t alert);
 int gquic_tls_conn_verify_ser_cert(gquic_tls_conn_t *const conn, const gquic_list_t *const certs);
 
+int gquic_tls_common_handshake_record_release(const u_int16_t ver, const u_int8_t handshake_type, void *const record);
+
 #endif

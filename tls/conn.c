@@ -885,3 +885,75 @@ int gquic_tls_conn_verify_ser_cert(gquic_tls_conn_t *const conn, const gquic_lis
     return 0;
 }
 
+int gquic_tls_common_handshake_record_release(const u_int16_t ver, const u_int8_t handshake_type, void *const record) {
+    if (record == NULL) {
+        return -1;
+    }
+    switch (handshake_type) {
+    case GQUIC_TLS_HANDSHAKE_MSG_TYPE_HELLO_REQ:
+        gquic_tls_hello_req_msg_reset(record);
+        break;
+    case GQUIC_TLS_HANDSHAKE_MSG_TYPE_CLIENT_HELLO:
+        gquic_tls_client_hello_msg_reset(record);
+        break;
+    case GQUIC_TLS_HANDSHAKE_MSG_TYPE_SERVER_HELLO:
+        gquic_tls_server_hello_msg_reset(record);
+        break;
+    case GQUIC_TLS_HANDSHAKE_MSG_TYPE_NEW_SESS_TICKET:
+        if (ver == GQUIC_TLS_VERSION_13) {
+            gquic_tls_new_sess_ticket_13_msg_reset(record);
+        }
+        else {
+            gquic_tls_new_sess_ticket_msg_reset(record);
+        }
+        break;
+    case GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT:
+        if (ver == GQUIC_TLS_VERSION_13) {
+            gquic_tls_cert_13_msg_reset(record);
+        }
+        else {
+            gquic_tls_cert_msg_reset(record);
+        }
+        break;
+    case GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT_REQ:
+        if (ver == GQUIC_TLS_VERSION_13) {
+            gquic_tls_cert_req_13_msg_reset(record);
+        }
+        else {
+            gquic_tls_cert_req_msg_reset(record);
+        }
+        break;
+    case GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT_STATUS:
+        gquic_tls_cert_status_msg_reset(record);
+        break;
+    case GQUIC_TLS_HANDSHAKE_MSG_TYPE_SER_KEY_EXCHANGE:
+        gquic_tls_server_key_exchange_msg_reset(record);
+        break;
+    case GQUIC_TLS_HANDSHAKE_MSG_TYPE_SER_HELLO_DONE:
+        gquic_tls_server_hello_done_msg_reset(record);
+        break;
+    case GQUIC_TLS_HANDSHAKE_MSG_TYPE_CLI_KEY_EXCHANGE:
+        gquic_tls_client_key_exchange_msg_reset(record);
+        break;
+    case GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT_VERIFY:
+        gquic_tls_cert_verify_msg_reset(record);
+        break;
+    case GQUIC_TLS_HANDSHAKE_MSG_TYPE_NEXT_PROTO:
+        gquic_tls_next_proto_msg_reset(record);
+        break;
+    case GQUIC_TLS_HANDSHAKE_MSG_TYPE_FINISHED:
+        gquic_tls_finished_msg_reset(record);
+        break;
+    case GQUIC_TLS_HANDSHAKE_MSG_TYPE_ENCRYPTED_EXTS:
+        gquic_tls_encrypt_ext_msg_reset(record);
+        break;
+    case GQUIC_TLS_HANDSHAKE_MSG_TYPE_END_OF_EARLY_DATA:
+        gquic_tls_end_of_early_data_msg_reset(record);
+        break;
+    case GQUIC_TLS_HANDSHAKE_MSG_TYPE_KEY_UPDATE:
+        gquic_tls_key_update_msg_reset(record);
+        break;
+    }
+    free(record);
+    return 0;
+}
