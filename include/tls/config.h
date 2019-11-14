@@ -8,6 +8,7 @@
 #include "util/rbtree.h"
 #include "util/str.h"
 #include "tls/client_sess_state.h"
+#include "tls/cert_req_13_msg.h"
 #include "tls/common.h"
 #include "tls/cipher_suite.h"
 
@@ -47,6 +48,8 @@ struct gquic_tls_config_s {
     int (*extensions) (gquic_list_t *const, const u_int8_t);
     int (*received_extensions) (const u_int8_t, gquic_list_t *const);
     int (*verify_peer_certs) (const gquic_list_t *const, const gquic_list_t *const);
+    int (*get_ser_cert) (gquic_str_t *const, const gquic_tls_client_hello_msg_t *const);
+    int (*get_cli_cert) (gquic_str_t *const, const gquic_tls_cert_req_13_msg_t *const);
     gquic_tls_record_layer_t alt_record;
     int enforce_next_proto_selection;
 };

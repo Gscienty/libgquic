@@ -51,6 +51,8 @@ int gquic_tls_config_init(gquic_tls_config_t *const cfg) {
     cfg->extensions = NULL;
     cfg->received_extensions = NULL;
     cfg->verify_peer_certs = NULL;
+    cfg->get_cli_cert = NULL;
+    cfg->get_ser_cert = NULL;
     gquic_tls_record_layer_init(&cfg->alt_record);
     cfg->enforce_next_proto_selection = 0;
 
