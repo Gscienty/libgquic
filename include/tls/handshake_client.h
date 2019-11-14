@@ -17,8 +17,8 @@ struct gquic_tls_handshake_client_state_s {
     gquic_tls_ecdhe_params_t ecdhe_params;
 
     gquic_tls_client_sess_state_t *sess;
-    gquic_str_t *early_sec;
-    gquic_str_t *binder_key;
+    gquic_str_t early_sec;
+    gquic_str_t binder_key;
 
     gquic_tls_cert_req_13_msg_t *cert_req;
     int using_psk;
