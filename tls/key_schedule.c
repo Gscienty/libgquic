@@ -184,7 +184,7 @@ int gquic_tls_hkdf_extract(gquic_str_t *const ret, gquic_tls_mac_t *const hash, 
         if (gquic_str_alloc(&default_secret, EVP_MD_size(hash->md)) != 0) {
             return -6;
         }
-        RAND_bytes(GQUIC_STR_VAL(&default_secret), GQUIC_STR_SIZE(&default_secret));
+        memset(GQUIC_STR_VAL(&default_secret), 0, GQUIC_STR_SIZE(&default_secret));
         if (EVP_PKEY_CTX_set1_hkdf_key(ctx, GQUIC_STR_VAL(&default_secret), GQUIC_STR_SIZE(&default_secret)) <= 0) {
             return -7;
         }
