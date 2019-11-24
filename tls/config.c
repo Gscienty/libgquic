@@ -55,6 +55,7 @@ int gquic_tls_config_init(gquic_tls_config_t *const cfg) {
     cfg->get_ser_cert = NULL;
     gquic_tls_record_layer_init(&cfg->alt_record);
     cfg->enforce_next_proto_selection = 0;
+    cfg->cli_auth = 0;
 
     return 0;
 }

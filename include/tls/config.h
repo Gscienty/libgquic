@@ -52,6 +52,7 @@ struct gquic_tls_config_s {
     int (*get_cli_cert) (gquic_str_t *const, const gquic_tls_cert_req_13_msg_t *const);
     gquic_tls_record_layer_t alt_record;
     int enforce_next_proto_selection;
+    u_int8_t cli_auth;
 };
 
 typedef struct gquic_tls_ticket_key_s gquic_tls_ticket_key_t;
