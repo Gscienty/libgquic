@@ -234,3 +234,48 @@ int gquic_tls_sig_pubkey_from_x509(EVP_PKEY **const pubkey, const u_int8_t sig_t
 
     return -6;
 }
+
+int gquic_tls_sig_schemes_from_cert(gquic_list_t *const sig_schemes, const gquic_str_t *const cert_s) {
+    X509 *x509 = NULL;
+    const u_int8_t *cert_cnt = NULL;
+    u_int16_t *sig_scheme = NULL;
+    if (sig_schemes == NULL || cert_s == NULL) {
+        return -1;
+    }
+    int i;
+    gquic_list_head_init(sig_schemes);
+    cert_cnt = GQUIC_STR_VAL(cert_s);
+    if ((x509 = d2i_X509(NULL, &cert_cnt, GQUIC_STR_SIZE(cert_s))) == NULL) {
+        return -2;
+    }
+    static const u_int16_t pkcs1_sig_schemes[] = {
+        GQUIC_SIGALG_PKCS1_SHA1,
+        GQUIC_SIGALG_PKCS1_SHA256,
+        GQUIC_SIGALG_PKCS1_SHA384,
+        GQUIC_SIGALG_PKCS1_SHA512
+    };
+
+    switch (X509_get_signature_type(x509)) {
+    case EVP_PKEY_RSA:
+        for (i = 0; i < 4; i++) {
+            if ((sig_scheme = gquic_list_alloc(sizeof(u_int16_t))) == NULL) {
+                X509_free(x509);
+                return -3;
+            }
+            *sig_scheme = pkcs1_sig_schemes[i];
+            gquic_list_insert_before(sig_schemes, sig_scheme);
+        }
+        break;
+    case EVP_PKEY_ED25519:
+        if ((sig_scheme = gquic_list_alloc(sizeof(u_int16_t))) == NULL) {
+            X509_free(x509);
+            return -3;
+        }
+        *sig_scheme = GQUIC_SIGALG_ED25519;
+        gquic_list_insert_before(sig_schemes, sig_scheme);
+        break;
+    }
+
+    X509_free(x509);
+    return 0;
+}
