@@ -83,6 +83,11 @@
 #define GQUIC_ENC_LV_HANDSHAKE 1
 #define GQUIC_ENC_LV_APP 2
 
+#define GQUIC_CLI_AUTH_REQ 0x01
+#define GQUIC_CLI_AUTH_REQ_ANY 0x02
+#define GQUIC_CLI_AUTH_VERIFY_IF_GIVEN 0x04
+#define GQUIC_CLI_AUTH_REQ_VERIFY 0x08
+
 typedef struct gquic_tls_key_share_s gquic_tls_key_share_t;
 struct gquic_tls_key_share_s {
     u_int16_t group;
