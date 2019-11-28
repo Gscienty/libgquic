@@ -1059,6 +1059,8 @@ static int gquic_tls_client_handshake_state_read_ser_cert(gquic_tls_handshake_cl
     }
     gquic_str_reset(&buf);
 
+    // TODO ocsp && scts
+
     if ((ret = gquic_tls_conn_verify_ser_cert(cli_state->conn, &cert_msg->cert.certs)) != 0) {
         ret = -14 + ret * 100;
         goto failure;
