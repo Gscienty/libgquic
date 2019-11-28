@@ -47,6 +47,8 @@ int gquic_tls_client_hello_msg_init(gquic_tls_client_hello_msg_t *msg) {
     return 0;
 }
 
+#include <stdio.h>
+
 int gquic_tls_client_hello_msg_reset(gquic_tls_client_hello_msg_t *msg) {
     if (msg == NULL) {
         return -1;
@@ -79,7 +81,7 @@ int gquic_tls_client_hello_msg_reset(gquic_tls_client_hello_msg_t *msg) {
         gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->supported_versions)));
     }
     while (!gquic_list_head_empty(&msg->key_shares)) {
-        gquic_str_reset(&((gquic_tls_key_share_t *) gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->alpn_protos)))->data);
+        gquic_str_reset(&((gquic_tls_key_share_t *) gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->key_shares)))->data);
         gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->key_shares)));
     }
     gquic_str_reset(&msg->psk_modes);
