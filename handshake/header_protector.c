@@ -21,12 +21,23 @@ static int gquic_aes_header_protector_apply(gquic_str_t *const,
                                                       u_int8_t *const,
                                                       gquic_aes_header_protector_t *const,
                                                       gquic_str_t *const);
-static int gquic_aes_header_protector_release(gquic_aes_header_protector_t *const);
+static int gquic_aes_header_protector_release(void *const);
 
-int gquic_header_protector_init(gquic_header_protector_t *const protector,
-                                          const gquic_tls_cipher_suite_t *const suite,
-                                          const gquic_str_t *const traffic_sec,
-                                          int is_long_header) {
+int gquic_header_protector_init(gquic_header_protector_t *const protector) {
+    if (protector == NULL) {
+        return -1;
+    }
+    protector->self = NULL;
+    protector->encrypt = NULL;
+    protector->decrypt = NULL;
+    protector->release = NULL;
+    return 0;
+}
+
+int gquic_header_protector_assign(gquic_header_protector_t *const protector,
+                                  const gquic_tls_cipher_suite_t *const suite,
+                                  const gquic_str_t *const traffic_sec,
+                                  int is_long_header) {
     if (protector == NULL || suite == NULL || traffic_sec == NULL) {
         return -1;
     }
@@ -42,6 +53,7 @@ int gquic_header_protector_init(gquic_header_protector_t *const protector,
         }
         protector->encrypt = gquic_aes_header_protector_encrypt;
         protector->decrypt = gquic_aes_header_protector_decrypt;
+        protector->release = gquic_aes_header_protector_release;
         break;
     case GQUIC_TLS_CIPHER_SUITE_CHACHA20_POLY1305_SHA256:
         // TODO
@@ -58,7 +70,7 @@ static int gquic_aes_header_protector_init(gquic_aes_header_protector_t *const p
                                                      int is_long_header) {
     gquic_tls_mac_t hash;
     gquic_str_t header_protector_key = { 0, NULL };
-    static const gquic_str_t label = { 12, "gquic header protector" };
+    static const gquic_str_t label = { 7, "quic hp" };
     if (protector == NULL || suite == NULL || traffic_sec == NULL) {
         return -1;
     }
@@ -117,10 +129,10 @@ static int gquic_aes_header_protector_apply(gquic_str_t *const header,
     return 0;
 }
 
-static int gquic_aes_header_protector_release(gquic_aes_header_protector_t *const protector) {
+static int gquic_aes_header_protector_release(void *const protector) {
     if (protector == NULL) {
         return -1;
     }
-    gquic_str_reset(&protector->mask);
+    gquic_str_reset(&((gquic_aes_header_protector_t *) protector)->mask);
     return 0;
 }
