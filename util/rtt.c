@@ -41,3 +41,20 @@ suseconds_t gquic_time_since(const struct timeval *time) {
     }
     return (now.tv_sec - time->tv_sec) * 1000000 + now.tv_usec - time->tv_usec;
 }
+
+#define __MAX(a, b) ((a) > (b) ? (a) : (b))
+
+suseconds_t gquic_time_pto(const gquic_rtt_t *const rtt, int inc_max_ack_delay) {
+    suseconds_t pto = 0;
+    if (rtt == NULL) {
+        return -1;
+    }
+    if (rtt->smooth == 0) {
+        return 2 * 100 * 1000;
+    }
+    pto = rtt->smooth + __MAX(4 * rtt->mean_dev, 1000);
+    if (inc_max_ack_delay) {
+        pto += rtt->max_delay;
+    }
+    return pto;
+}

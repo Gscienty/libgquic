@@ -15,9 +15,8 @@ struct gquic_rtt_s {
 };
 
 int gquic_rtt_init(gquic_rtt_t *rtt);
-
-int gquic_rtt_update(gquic_rtt_t *rtt, const suseconds_t send, const suseconds_t ack);
-
+int gquic_rtt_update(gquic_rtt_t *const rtt, const suseconds_t send, const suseconds_t ack);
 suseconds_t gquic_time_since(const struct timeval *time);
+suseconds_t gquic_time_pto(const gquic_rtt_t *const rtt, int inc_max_ack_delay);
 
 #endif
