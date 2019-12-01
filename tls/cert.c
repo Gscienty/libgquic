@@ -20,12 +20,12 @@ int gquic_tls_cert_reset(gquic_tls_cert_t *const msg) {
     }
     gquic_str_reset(&msg->ocsp_staple);
     while (!gquic_list_head_empty(&msg->scts)) {
-        gquic_str_reset(gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->scts)));
-        gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->scts)));
+        gquic_str_reset(GQUIC_LIST_FIRST(&msg->scts));
+        gquic_list_release(GQUIC_LIST_FIRST(&msg->scts));
     }
     while (!gquic_list_head_empty(&msg->certs)) {
-        gquic_str_reset(gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->certs)));
-        gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->certs)));
+        gquic_str_reset(GQUIC_LIST_FIRST(&msg->certs));
+        gquic_list_release(GQUIC_LIST_FIRST(&msg->certs));
     }
     gquic_tls_cert_init(msg);
     return 0;

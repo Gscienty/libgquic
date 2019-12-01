@@ -51,12 +51,12 @@ int gquic_tls_server_hello_msg_reset(gquic_tls_server_hello_msg_t *msg) {
     gquic_str_reset(&msg->ser_share.data);
     gquic_str_reset(&msg->cookie);
     while (!gquic_list_head_empty(&msg->next_protos)) {
-        gquic_str_reset(gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->next_protos)));
-        gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->next_protos)));
+        gquic_str_reset(GQUIC_LIST_FIRST(&msg->next_protos));
+        gquic_list_release(GQUIC_LIST_FIRST(&msg->next_protos));
     }
     while (!gquic_list_head_empty(&msg->scts)) {
-        gquic_str_reset(gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->scts)));
-        gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->scts)));
+        gquic_str_reset(GQUIC_LIST_FIRST(&msg->scts));
+        gquic_list_release(GQUIC_LIST_FIRST(&msg->scts));
     }
     return 0;
 }

@@ -213,8 +213,6 @@ int gquic_tls_hkdf_extract(gquic_str_t *const ret, gquic_tls_mac_t *const hash, 
     return 0;
 }
 
-#include <openssl/err.h>
-
 int gquic_tls_hkdf_expand_label(gquic_str_t *const ret,
                                 gquic_tls_mac_t *const hash,
                                 const gquic_str_t *const secret,

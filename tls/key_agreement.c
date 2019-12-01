@@ -463,9 +463,9 @@ select_curve_id_end:
     off += 2;
     memcpy(GQUIC_STR_VAL(&skex_msg->key) + off, GQUIC_STR_VAL(&sig), GQUIC_STR_SIZE(&sig));
 
-    while (!gquic_list_head_empty(&preferred_curs)) gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&preferred_curs)));
-    while (!gquic_list_head_empty(&supported_sign_algos_tls12)) gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&supported_sign_algos_tls12)));
-    while (!gquic_list_head_empty(&slices)) gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&slices)));
+    while (!gquic_list_head_empty(&preferred_curs)) gquic_list_release(GQUIC_LIST_FIRST(&preferred_curs));
+    while (!gquic_list_head_empty(&supported_sign_algos_tls12)) gquic_list_release(GQUIC_LIST_FIRST(&supported_sign_algos_tls12));
+    while (!gquic_list_head_empty(&slices)) gquic_list_release(GQUIC_LIST_FIRST(&slices));
     gquic_str_reset(&pubkey);
     gquic_str_reset(&sign);
     gquic_str_reset(&ser_ecdh_params);
@@ -481,9 +481,9 @@ select_curve_id_end:
     }
     return 0;
 failure:
-    while (!gquic_list_head_empty(&preferred_curs)) gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&preferred_curs)));
-    while (!gquic_list_head_empty(&supported_sign_algos_tls12)) gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&supported_sign_algos_tls12)));
-    while (!gquic_list_head_empty(&slices)) gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&slices)));
+    while (!gquic_list_head_empty(&preferred_curs)) gquic_list_release(GQUIC_LIST_FIRST(&preferred_curs));
+    while (!gquic_list_head_empty(&supported_sign_algos_tls12)) gquic_list_release(GQUIC_LIST_FIRST(&supported_sign_algos_tls12));
+    while (!gquic_list_head_empty(&slices)) gquic_list_release(GQUIC_LIST_FIRST(&slices));
     gquic_tls_ecdhe_params_release(&ecdhe_self->params);
     gquic_str_reset(&pubkey);
     gquic_str_reset(&sign);
@@ -636,7 +636,7 @@ static int ecdhe_ka_process_ser_key_exchange(void *const self,
         }
     }
     gquic_list_insert_after(&c_sup_sigalgs, gquic_list_alloc(sizeof(u_int16_t)));
-    *(u_int16_t *) gquic_list_next(GQUIC_LIST_PAYLOAD(&c_sup_sigalgs)) = sigalg;
+    *(u_int16_t *) GQUIC_LIST_FIRST(&c_sup_sigalgs) = sigalg;
     if ((ret = gquic_tls_selected_sigalg(&sigalg, &sig_type, &hash, cert_pubkey, &c_sup_sigalgs, &c_hello->supported_sign_algos, ecdhe_self->ver)) != 0) {
         ret += -18 * 10;
         goto failure;
@@ -674,8 +674,8 @@ static int ecdhe_ka_process_ser_key_exchange(void *const self,
     gquic_str_reset(&pubkey);
     gquic_str_reset(&sig);
     gquic_str_reset(&self_pubkey);
-    while (!gquic_list_head_empty(&c_sup_sigalgs)) gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&c_sup_sigalgs)));
-    while (!gquic_list_head_empty(&slices)) gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&slices)));
+    while (!gquic_list_head_empty(&c_sup_sigalgs)) gquic_list_release(GQUIC_LIST_FIRST(&c_sup_sigalgs));
+    while (!gquic_list_head_empty(&slices)) gquic_list_release(GQUIC_LIST_FIRST(&slices));
     if (cert != NULL) {
         X509_free(cert);
     }
@@ -686,8 +686,8 @@ failure:
     gquic_str_reset(&sig);
     gquic_str_reset(&self_pubkey);
     gquic_str_reset(&ecdhe_self->pre_master_sec);
-    while (!gquic_list_head_empty(&c_sup_sigalgs)) gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&c_sup_sigalgs)));
-    while (!gquic_list_head_empty(&slices)) gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&slices)));
+    while (!gquic_list_head_empty(&c_sup_sigalgs)) gquic_list_release(GQUIC_LIST_FIRST(&c_sup_sigalgs));
+    while (!gquic_list_head_empty(&slices)) gquic_list_release(GQUIC_LIST_FIRST(&slices));
     gquic_tls_ecdhe_params_release(&ecdhe_self->params);
     if (cert != NULL) {
         X509_free(cert);

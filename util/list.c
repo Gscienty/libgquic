@@ -2,7 +2,7 @@
 #include <malloc.h>
 #include <string.h>
 
-gquic_abstract_list_ptr_t gquic_list_alloc(size_t size) {
+void *gquic_list_alloc(size_t size) {
     gquic_list_t *meta = (gquic_list_t *) malloc(sizeof(gquic_list_t) + size);
     if (meta == NULL) {
         return NULL;
@@ -28,7 +28,7 @@ int gquic_list_head_empty(const gquic_list_t *head) {
     return head->next == head;
 }
 
-int gquic_list_release(gquic_abstract_list_ptr_t list) {
+int gquic_list_release(void *const list) {
     if (list == NULL) {
         return -1;
     }
@@ -37,7 +37,7 @@ int gquic_list_release(gquic_abstract_list_ptr_t list) {
     return 0;
 }
 
-int gquic_list_insert_after(gquic_list_t *ref, gquic_abstract_list_ptr_t node) {
+int gquic_list_insert_after(gquic_list_t *ref, void *const node) {
     if (ref == NULL || node == NULL) {
         return -1;
     }
@@ -48,7 +48,7 @@ int gquic_list_insert_after(gquic_list_t *ref, gquic_abstract_list_ptr_t node) {
     return 0;
 }
 
-int gquic_list_insert_before(gquic_list_t *ref, gquic_abstract_list_ptr_t node) {
+int gquic_list_insert_before(gquic_list_t *ref, void *const node) {
     if (ref == NULL || node == NULL) {
         return -1;
     }
@@ -59,7 +59,7 @@ int gquic_list_insert_before(gquic_list_t *ref, gquic_abstract_list_ptr_t node) 
     return 0;
 }
 
-gquic_abstract_list_ptr_t gquic_list_next(gquic_abstract_list_ptr_t node) {
+void *gquic_list_next(void *const node) {
     if (node == NULL) {
         return NULL;
     }
@@ -67,7 +67,7 @@ gquic_abstract_list_ptr_t gquic_list_next(gquic_abstract_list_ptr_t node) {
     return GQUIC_LIST_PAYLOAD(GQUIC_LIST_META(node).next);
 }
 
-gquic_abstract_list_ptr_t gquic_list_prev(gquic_abstract_list_ptr_t node) {
+void *gquic_list_prev(void *const node) {
     if (node == NULL) {
         return NULL;
     }
@@ -75,7 +75,7 @@ gquic_abstract_list_ptr_t gquic_list_prev(gquic_abstract_list_ptr_t node) {
     return GQUIC_LIST_PAYLOAD(GQUIC_LIST_META(node).prev);
 }
 
-int gquic_list_remove(gquic_abstract_list_ptr_t node) {
+int gquic_list_remove(void *const node) {
     if (node == NULL) {
         return -1;
     }

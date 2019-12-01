@@ -21,14 +21,14 @@ int gquic_tls_cert_req_13_msg_reset(gquic_tls_cert_req_13_msg_t *msg) {
         return -1;
     }
     while (!gquic_list_head_empty(&msg->supported_sign_algo)) {
-        gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->supported_sign_algo)));
+        gquic_list_release(GQUIC_LIST_FIRST(&msg->supported_sign_algo));
     }
     while (!gquic_list_head_empty(&msg->supported_sign_algo_cert)) {
-        gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->supported_sign_algo_cert)));
+        gquic_list_release(GQUIC_LIST_FIRST(&msg->supported_sign_algo_cert));
     }
     while (!gquic_list_head_empty(&msg->cert_auths)) {
-        gquic_str_reset(gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->cert_auths)));
-        gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->cert_auths)));
+        gquic_str_reset(GQUIC_LIST_FIRST(&msg->cert_auths));
+        gquic_list_release(GQUIC_LIST_FIRST(&msg->cert_auths));
     }
     gquic_tls_cert_req_13_msg_init(msg);
     return 0;

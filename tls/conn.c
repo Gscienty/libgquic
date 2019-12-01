@@ -327,7 +327,7 @@ int gquic_tls_conn_load_session(gquic_str_t *const cache_key,
         return 0;
     }
     hello->ticket_supported = 1;
-    if ((*(u_int16_t *) gquic_list_next(GQUIC_LIST_PAYLOAD(&hello->supported_versions))) == GQUIC_TLS_VERSION_13) {
+    if ((*(u_int16_t *) GQUIC_LIST_FIRST(&hello->supported_versions)) == GQUIC_TLS_VERSION_13) {
         if (gquic_str_alloc(&hello->psk_modes, 1) != 0) {
             return -2;
         }
@@ -361,7 +361,7 @@ int gquic_tls_conn_load_session(gquic_str_t *const cache_key,
         if (gquic_list_head_empty(&(*sess)->ser_certs)) {
             return -4;
         }
-        gquic_str_t *ser_cert = gquic_list_next(GQUIC_LIST_PAYLOAD(&(*sess)->ser_certs));
+        gquic_str_t *ser_cert = GQUIC_LIST_FIRST(&(*sess)->ser_certs);
         X509 *x509_ser_cert = d2i_X509(NULL, (unsigned char const **) &ser_cert->val, GQUIC_STR_SIZE(ser_cert));
         int cmp = gquic_compare_now_asn1_time(X509_get_notAfter(x509_ser_cert));
         if (cmp == 1) {

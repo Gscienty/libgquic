@@ -57,45 +57,45 @@ int gquic_tls_client_hello_msg_reset(gquic_tls_client_hello_msg_t *msg) {
     gquic_str_reset(&msg->random);
     gquic_str_reset(&msg->sess_id);
     while (!gquic_list_head_empty(&msg->cipher_suites)) {
-        gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->cipher_suites)));
+        gquic_list_release(GQUIC_LIST_FIRST(&msg->cipher_suites));
     }
     gquic_str_reset(&msg->compression_methods);
     gquic_str_reset(&msg->ser_name);
     while (!gquic_list_head_empty(&msg->supported_curves)) {
-        gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->supported_curves)));
+        gquic_list_release(GQUIC_LIST_FIRST(&msg->supported_curves));
     }
     gquic_str_reset(&msg->supported_points);
     gquic_str_reset(&msg->sess_ticket);
     while (!gquic_list_head_empty(&msg->supported_sign_algos)) {
-        gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->supported_sign_algos)));
+        gquic_list_release(GQUIC_LIST_FIRST(&msg->supported_sign_algos));
     }
     while (!gquic_list_head_empty(&msg->supported_sign_algos_cert)) {
-        gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->supported_sign_algos_cert)));
+        gquic_list_release(GQUIC_LIST_FIRST(&msg->supported_sign_algos_cert));
     }
     gquic_str_reset(&msg->secure_regegotation);
     while (!gquic_list_head_empty(&msg->alpn_protos)) {
-        gquic_str_reset(gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->alpn_protos)));
-        gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->alpn_protos)));
+        gquic_str_reset(GQUIC_LIST_FIRST(&msg->alpn_protos));
+        gquic_list_release(GQUIC_LIST_FIRST(&msg->alpn_protos));
     }
     while (!gquic_list_head_empty(&msg->supported_versions)) {
-        gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->supported_versions)));
+        gquic_list_release(GQUIC_LIST_FIRST(&msg->supported_versions));
     }
     while (!gquic_list_head_empty(&msg->key_shares)) {
-        gquic_str_reset(&((gquic_tls_key_share_t *) gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->key_shares)))->data);
-        gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->key_shares)));
+        gquic_str_reset(&((gquic_tls_key_share_t *) GQUIC_LIST_FIRST(&msg->key_shares))->data);
+        gquic_list_release(GQUIC_LIST_FIRST(&msg->key_shares));
     }
     gquic_str_reset(&msg->psk_modes);
     while (!gquic_list_head_empty(&msg->extensions)) {
-        gquic_str_reset(&((gquic_tls_extension_t *) gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->extensions)))->data);
-        gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->extensions)));
+        gquic_str_reset(&((gquic_tls_extension_t *) GQUIC_LIST_FIRST(&msg->extensions))->data);
+        gquic_list_release(GQUIC_LIST_FIRST(&msg->extensions));
     }
     while (!gquic_list_head_empty(&msg->psk_identities)) {
-        gquic_str_reset(&((gquic_tls_psk_identity_t *) gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->psk_identities)))->label);
-        gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->psk_identities)));
+        gquic_str_reset(&((gquic_tls_psk_identity_t *) GQUIC_LIST_FIRST(&msg->psk_identities))->label);
+        gquic_list_release(GQUIC_LIST_FIRST(&msg->psk_identities));
     }
     while (!gquic_list_head_empty(&msg->psk_binders)) {
-        gquic_str_reset(gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->psk_binders)));
-        gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->psk_binders)));
+        gquic_str_reset(GQUIC_LIST_FIRST(&msg->psk_binders));
+        gquic_list_release(GQUIC_LIST_FIRST(&msg->psk_binders));
     }
     gquic_tls_client_hello_msg_init(msg);
     return 0;

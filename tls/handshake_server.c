@@ -291,7 +291,7 @@ select_curve_perfers:
             ret = -16;
             goto failure;
         }
-        cli_key_share = gquic_list_next(GQUIC_LIST_PAYLOAD(&ser_state->c_hello->key_shares));
+        cli_key_share = GQUIC_LIST_FIRST(&ser_state->c_hello->key_shares);
     }
     if (gquic_tls_ecdhe_params_generate(&ecdhe_param, selected_group) != 0) {
         gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
@@ -325,19 +325,19 @@ select_curve_perfers:
     }
 
     while (!gquic_list_head_empty(&default_cipher_suites)) {
-        gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&default_cipher_suites)));
+        gquic_list_release(GQUIC_LIST_FIRST(&default_cipher_suites));
     }
     while (!gquic_list_head_empty(&curve_perfers)) {
-        gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&curve_perfers)));
+        gquic_list_release(GQUIC_LIST_FIRST(&curve_perfers));
     }
     gquic_tls_ecdhe_params_release(&ecdhe_param);
     return 0;
 failure:
     while (!gquic_list_head_empty(&default_cipher_suites)) {
-        gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&default_cipher_suites)));
+        gquic_list_release(GQUIC_LIST_FIRST(&default_cipher_suites));
     }
     while (!gquic_list_head_empty(&curve_perfers)) {
-        gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&curve_perfers)));
+        gquic_list_release(GQUIC_LIST_FIRST(&curve_perfers));
     }
     gquic_tls_ecdhe_params_release(&ecdhe_param);
     return ret;
@@ -448,8 +448,8 @@ static int gquic_tls_handshake_server_state_do_hello_retry_req(gquic_tls_handsha
         goto failure;
     }
     if ((!gquic_list_head_empty(&c_hello->key_shares)
-         && gquic_list_next(GQUIC_LIST_PAYLOAD(&c_hello->key_shares)) == gquic_list_prev(GQUIC_LIST_PAYLOAD(&c_hello->key_shares)))
-        || ((gquic_tls_key_share_t *) gquic_list_next(GQUIC_LIST_PAYLOAD(&c_hello->key_shares)))->group != selected_group) {
+         && GQUIC_LIST_FIRST(&c_hello->key_shares) == gquic_list_prev(GQUIC_LIST_PAYLOAD(&c_hello->key_shares)))
+        || ((gquic_tls_key_share_t *) GQUIC_LIST_FIRST(&c_hello->key_shares))->group != selected_group) {
         gquic_tls_common_handshake_record_release(GQUIC_TLS_VERSION_13, c_hello_msg_type, c_hello);
         gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_ILLEGAL_PARAMS);
         ret = -18;
@@ -558,12 +558,12 @@ static int gquic_tls_handshake_server_state_pick_cert(gquic_tls_handshake_server
     }
     
     while (!gquic_list_head_empty(&supported_algs)) {
-        gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&supported_algs)));
+        gquic_list_release(GQUIC_LIST_FIRST(&supported_algs));
     }
     return 0;
 failure:
     while (!gquic_list_head_empty(&supported_algs)) {
-        gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&supported_algs)));
+        gquic_list_release(GQUIC_LIST_FIRST(&supported_algs));
     }
     return ret;
 }

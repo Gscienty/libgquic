@@ -20,8 +20,8 @@ int gquic_tls_encrypt_ext_msg_reset(gquic_tls_encrypt_ext_msg_t *msg) {
     }
     gquic_str_reset(&msg->alpn_proto);
     while (!gquic_list_head_empty(&msg->addition_exts)) {
-        gquic_str_reset(gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->addition_exts)));
-        gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&msg->addition_exts)));
+        gquic_str_reset(GQUIC_LIST_FIRST(&msg->addition_exts));
+        gquic_list_release(GQUIC_LIST_FIRST(&msg->addition_exts));
     }
     return 0;
 }
