@@ -43,46 +43,38 @@
 #define GQUIC_TLS_HASH_SHA384 0x0002
 
 
-typedef struct gquic_tls_aead_ctx_s gquic_tls_aead_ctx_t;
-struct gquic_tls_aead_ctx_s {
-    const EVP_CIPHER *cipher;
-    gquic_str_t nonce;
-    gquic_str_t key;
-
-    int (*nonce_wrapper) (gquic_str_t *const, const gquic_str_t *const, const gquic_str_t *const);
-};
-
-int gquic_tls_aead_ctx_init(gquic_tls_aead_ctx_t *const ctx);
 
 typedef struct gquic_tls_aead_s gquic_tls_aead_t;
 struct gquic_tls_aead_s {
-    gquic_tls_aead_ctx_t ctx;
+    void *self;
     int (*seal)(gquic_str_t *const,
                 gquic_str_t *const,
-                gquic_tls_aead_ctx_t *const,
+                void *const,
                 const gquic_str_t *const,
                 const gquic_str_t *const,
                 const gquic_str_t *const);
     int (*open)(gquic_str_t *const,
-                gquic_tls_aead_ctx_t *const,
+                void *const,
                 const gquic_str_t *const,
                 const gquic_str_t *const,
                 const gquic_str_t *const,
                 const gquic_str_t *const);
+    int (*release) (void *const);
 };
 
 #define GQUIC_TLS_AEAD_SEAL(tag, cipher_text, aead, nonce, plain_text, addata) \
     (((aead)->seal) == NULL \
     ? -1 \
-    : ((aead)->seal((tag), (cipher_text), &(aead)->ctx, (nonce), (plain_text), (addata))))
+    : ((aead)->seal((tag), (cipher_text), &(aead)->self, (nonce), (plain_text), (addata))))
 
 #define GQUIC_TLS_AEAD_OPEN(plain_text, aead, nonce, tag, cipher_text, addata) \
     (((aead)->open) == NULL \
      ? -1 \
-     : ((aead)->open((plain_text), &(aead)->ctx, (nonce), (tag), (cipher_text), (addata))))
+     : ((aead)->open((plain_text), &(aead)->self, (nonce), (tag), (cipher_text), (addata))))
 
 int gquic_tls_aead_init(gquic_tls_aead_t *const aead);
 int gquic_tls_aead_release(gquic_tls_aead_t *const aead);
+int gquic_tls_aead_copy(gquic_tls_aead_t *const aead, const gquic_tls_aead_t *const ref);
 
 typedef struct gquic_tls_cipher_s gquic_tls_cipher_t;
 struct gquic_tls_cipher_s {
@@ -136,6 +128,8 @@ struct gquic_tls_cipher_suite_s {
 
 int gquic_tls_get_cipher_suite(const gquic_tls_cipher_suite_t **const cipher_suite, const u_int16_t cipher_suite_id);
 int gquic_tls_choose_cipher_suite(const gquic_tls_cipher_suite_t **const cipher_suite, const gquic_list_t *const have, const u_int16_t want);
+
+int gquic_tls_create_aead(gquic_tls_aead_t *const aead, const gquic_tls_cipher_suite_t *const suite, const gquic_str_t *const traffic_sec);
 
 int gquic_tls_cipher_suite_expand_label(gquic_str_t *const ret,
                                         const gquic_tls_cipher_suite_t *const cipher_suite,

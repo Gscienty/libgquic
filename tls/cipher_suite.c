@@ -5,6 +5,18 @@
 #include <string.h>
 #include <openssl/sha.h>
 
+typedef struct gquic_tls_aead_ctx_s gquic_tls_aead_ctx_t;
+struct gquic_tls_aead_ctx_s {
+    const EVP_CIPHER *cipher;
+    gquic_str_t nonce;
+    gquic_str_t key;
+
+    int (*nonce_wrapper) (gquic_str_t *const, const gquic_str_t *const, const gquic_str_t *const);
+};
+
+int gquic_tls_aead_ctx_init(gquic_tls_aead_ctx_t *const ctx);
+int gquic_tls_aead_ctx_release(gquic_tls_aead_ctx_t *const ctx);
+
 static int ecdhe_rsa_ka(gquic_tls_key_agreement_t *const, const u_int16_t);
 static int ecdhe_ecdsa_ka(gquic_tls_key_agreement_t *const, const u_int16_t);
 static int rsa_ka(gquic_tls_key_agreement_t *const, const u_int16_t);
@@ -36,13 +48,13 @@ static int aead_open(gquic_str_t *const,
 
 static int gquic_tls_aead_seal(gquic_str_t *const,
                                gquic_str_t *const,
-                               gquic_tls_aead_ctx_t *const,
+                               void *const,
                                const gquic_str_t *const,
                                const gquic_str_t *const,
                                const gquic_str_t *const);
 
 static int gquic_tls_aead_open(gquic_str_t *const,
-                               gquic_tls_aead_ctx_t *const,
+                               void *const,
                                const gquic_str_t *const,
                                const gquic_str_t *const,
                                const gquic_str_t *const,
@@ -51,6 +63,7 @@ static int gquic_tls_aead_open(gquic_str_t *const,
 static int aead_prefix_nonce_wrapper(gquic_str_t *const, const gquic_str_t *const, const gquic_str_t *const);
 static int aead_xor_nonce_wrapper(gquic_str_t *const, const gquic_str_t *const, const gquic_str_t *const);
 
+static int aead_ctx_release(void *self);
 static inline int aead_aes_gcm_init(gquic_tls_aead_t *const, const gquic_str_t *const, const gquic_str_t *const);
 static inline int aead_chacha20_poly1305_init(gquic_tls_aead_t *const, const gquic_str_t *const, const gquic_str_t *const);
 static int aead_aes_gcm_init_prefix(gquic_tls_aead_t *const, const gquic_str_t *const, const gquic_str_t *const);
@@ -114,6 +127,45 @@ int gquic_tls_choose_cipher_suite(const gquic_tls_cipher_suite_t **const cipher_
         }
     }
     return -2;
+}
+
+int gquic_tls_create_aead(gquic_tls_aead_t *const aead, const gquic_tls_cipher_suite_t *const suite, const gquic_str_t *const traffic_sec) {
+    int ret = 0;
+    gquic_str_t key = { 0, NULL };
+    gquic_str_t iv = { 0, NULL };
+    gquic_tls_mac_t hash;
+    static const gquic_str_t key_label = { 8, "quic key" };
+    static const gquic_str_t iv_label = { 7, "quic iv" };
+    if (aead == NULL || suite == NULL || traffic_sec == NULL) {
+        return -1;
+    }
+    gquic_tls_mac_init(&hash);
+    if (suite->mac(&hash, GQUIC_TLS_VERSION_13, NULL) != 0) {
+        return -2;
+    }
+    if (gquic_tls_hkdf_expand_label(&key, &hash, traffic_sec, NULL, &key_label, suite->key_len) != 0) {
+        ret = -3;
+        goto failure;
+    }
+    if (gquic_tls_hkdf_expand_label(&iv, &hash, traffic_sec, NULL, &iv_label, suite->key_len) != 0) {
+        ret = -4;
+        goto failure;
+    }
+    if (suite->aead(aead, &key, &iv) != 0) {
+        ret = -5;
+        goto failure;
+    }
+
+    gquic_str_reset(&key);
+    gquic_str_reset(&iv);
+    gquic_tls_mac_release(&hash);
+    return 0;
+failure:
+
+    gquic_str_reset(&key);
+    gquic_str_reset(&iv);
+    gquic_tls_mac_release(&hash);
+    return ret;
 }
 
 int gquic_tls_mac_hmac_hash(gquic_str_t *const ret,
@@ -212,9 +264,10 @@ int gquic_tls_aead_init(gquic_tls_aead_t *const aead) {
     if (aead == NULL) {
         return -1;
     }
-    gquic_tls_aead_ctx_init(&aead->ctx);
+    aead->self = NULL;
     aead->open = NULL;
     aead->seal = NULL;
+    aead->release = NULL;
     return 0;
 }
 
@@ -222,8 +275,22 @@ int gquic_tls_aead_release(gquic_tls_aead_t *const aead) {
     if (aead == NULL) {
         return -1;
     }
-    gquic_str_reset(&aead->ctx.nonce);
-    gquic_str_reset(&aead->ctx.key);
+    if (aead->release != NULL) {
+        if (aead->self != NULL) {
+            aead->release(aead->self);
+            free(aead->self);
+        }
+    }
+    return 0;
+}
+
+int gquic_tls_aead_copy(gquic_tls_aead_t *const aead, const gquic_tls_aead_t *const ref) {
+    if (aead == NULL || ref == NULL) {
+        return -1;
+    }
+    aead->self = ref->self;
+    aead->open = ref->open;
+    aead->seal = ref->seal;
 
     return 0;
 }
@@ -306,6 +373,15 @@ int gquic_tls_aead_ctx_init(gquic_tls_aead_ctx_t *const ctx) {
     gquic_str_init(&ctx->nonce);
     gquic_str_init(&ctx->key);
     ctx->nonce_wrapper = NULL;
+    return 0;
+}
+
+int gquic_tls_aead_ctx_release(gquic_tls_aead_ctx_t *const ctx) {
+    if (ctx == NULL) {
+        return -1;
+    }
+    gquic_str_reset(&ctx->nonce);
+    gquic_str_reset(&ctx->key);
     return 0;
 }
 
@@ -481,19 +557,20 @@ static int rsa_ka(gquic_tls_key_agreement_t *const ka, const u_int16_t ver) {
 
 static int gquic_tls_aead_seal(gquic_str_t *const tag,
                                gquic_str_t *const cipher_text,
-                               gquic_tls_aead_ctx_t *const aead,
+                               void *const aead,
                                const gquic_str_t *const nonce,
                                const gquic_str_t *const plain_text,
                                const gquic_str_t *const addata) {
 
     gquic_str_t iv;
     EVP_CIPHER_CTX *ctx = NULL;
+    gquic_tls_aead_ctx_t *aead_ctx = aead;
     int ret = 0;
-    if (tag == NULL || cipher_text == NULL || aead == NULL || plain_text == NULL || addata == NULL || aead->nonce_wrapper == NULL) {
+    if (tag == NULL || cipher_text == NULL || aead == NULL || plain_text == NULL || addata == NULL || aead_ctx->nonce_wrapper == NULL) {
         return -1;
     }
     gquic_str_init(&iv);
-    if (aead->nonce_wrapper(&iv, &aead->nonce, nonce) != 0) {
+    if (aead_ctx->nonce_wrapper(&iv, &aead_ctx->nonce, nonce) != 0) {
         ret = -2;
         goto failure;
     }
@@ -501,7 +578,7 @@ static int gquic_tls_aead_seal(gquic_str_t *const tag,
         ret = -3;
         goto failure;
     }
-    if (EVP_EncryptInit_ex(ctx, aead->cipher, NULL, NULL, NULL) <= 0) {
+    if (EVP_EncryptInit_ex(ctx, aead_ctx->cipher, NULL, NULL, NULL) <= 0) {
         ret = -4;
         goto failure;
     }
@@ -509,7 +586,7 @@ static int gquic_tls_aead_seal(gquic_str_t *const tag,
         ret = -5;
         goto failure;
     }
-    if (EVP_EncryptInit_ex(ctx, NULL, NULL, GQUIC_STR_VAL(&aead->key), GQUIC_STR_VAL(&iv)) <= 0) {
+    if (EVP_EncryptInit_ex(ctx, NULL, NULL, GQUIC_STR_VAL(&aead_ctx->key), GQUIC_STR_VAL(&iv)) <= 0) {
         ret = -6;
         goto failure;
     }
@@ -533,19 +610,26 @@ failure:
 }
 
 static int gquic_tls_aead_open(gquic_str_t *const plain_text,
-                               gquic_tls_aead_ctx_t *const aead,
+                               void *const aead,
                                const gquic_str_t *const nonce,
                                const gquic_str_t *const tag,
                                const gquic_str_t *const cipher_text,
                                const gquic_str_t *const addata) {
     gquic_str_t iv;
     EVP_CIPHER_CTX *ctx = NULL;
+    gquic_tls_aead_ctx_t *aead_ctx = aead;
     int ret = 0;
-    if (plain_text == NULL || tag == NULL || cipher_text == NULL || aead == NULL || cipher_text == NULL || addata == NULL || aead->nonce_wrapper == NULL) {
+    if (plain_text == NULL
+        || tag == NULL
+        || cipher_text == NULL
+        || aead == NULL
+        || cipher_text == NULL
+        || addata == NULL
+        || aead_ctx->nonce_wrapper == NULL) {
         return -1;
     }
     gquic_str_init(&iv);
-    if (aead->nonce_wrapper(&iv, &aead->nonce, nonce) != 0) {
+    if (aead_ctx->nonce_wrapper(&iv, &aead_ctx->nonce, nonce) != 0) {
         ret = -2;
         goto failure;
     }
@@ -553,7 +637,7 @@ static int gquic_tls_aead_open(gquic_str_t *const plain_text,
         ret = -3;
         goto failure;
     }
-    if (EVP_DecryptInit_ex(ctx, aead->cipher, NULL, NULL, NULL) <= 0) {
+    if (EVP_DecryptInit_ex(ctx, aead_ctx->cipher, NULL, NULL, NULL) <= 0) {
         ret = -4;
         goto failure;
     }
@@ -561,7 +645,7 @@ static int gquic_tls_aead_open(gquic_str_t *const plain_text,
         ret = -5;
         goto failure;
     }
-    if (EVP_DecryptInit_ex(ctx, NULL, NULL, GQUIC_STR_VAL(&aead->key), GQUIC_STR_VAL(&iv)) <= 0) {
+    if (EVP_DecryptInit_ex(ctx, NULL, NULL, GQUIC_STR_VAL(&aead_ctx->key), GQUIC_STR_VAL(&iv)) <= 0) {
         ret = -6;
         goto failure;
     }
@@ -708,84 +792,107 @@ static int aead_open(gquic_str_t *const ret,
     EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_TAG, GQUIC_STR_SIZE(tag), GQUIC_STR_VAL(tag));
     return EVP_DecryptFinal_ex(ctx, GQUIC_STR_VAL(ret), &outlen);
 }
+
+static int aead_ctx_release(void *self) {
+    return gquic_tls_aead_ctx_release(self);
+}
+
 static inline int aead_aes_gcm_init(gquic_tls_aead_t *const ret, const gquic_str_t *const key, const gquic_str_t *const nonce) {
+    gquic_tls_aead_ctx_t *ctx = NULL;
     if (ret == NULL || key == NULL || nonce == NULL) {
         return -1;
     }
-    if (gquic_tls_aead_ctx_init(&ret->ctx) != 0) {
+    if ((ret->self = malloc(sizeof(gquic_tls_aead_ctx_t))) == NULL) {
+        return -2;
+    }
+    ctx = ret->self;
+    if (gquic_tls_aead_ctx_init(ctx) != 0) {
         return -3;
     }
     if ((size_t) EVP_CIPHER_key_length(EVP_aes_128_gcm()) == GQUIC_STR_SIZE(key)) {
-        ret->ctx.cipher = EVP_aes_128_gcm();
+        ctx->cipher = EVP_aes_128_gcm();
     }
     else if ((size_t) EVP_CIPHER_key_length(EVP_aes_192_gcm()) == GQUIC_STR_SIZE(key)) {
-        ret->ctx.cipher = EVP_aes_192_gcm();
+        ctx->cipher = EVP_aes_192_gcm();
     }
     else if ((size_t) EVP_CIPHER_key_length(EVP_aes_256_gcm()) == GQUIC_STR_SIZE(key)) {
-        ret->ctx.cipher = EVP_aes_256_gcm();
+        ctx->cipher = EVP_aes_256_gcm();
     }
     else {
         return -4;
     }
-    if (gquic_str_copy(&ret->ctx.nonce, nonce) != 0) {
+    if (gquic_str_copy(&ctx->nonce, nonce) != 0) {
         return -5;
     }
-    if (gquic_str_copy(&ret->ctx.key, key) != 0) {
+    if (gquic_str_copy(&ctx->key, key) != 0) {
         return -5;
     }
     ret->open = gquic_tls_aead_open;
     ret->seal = gquic_tls_aead_seal;
+    ret->release = aead_ctx_release;
     return 0;
 }
 
 static inline int aead_chacha20_poly1305_init(gquic_tls_aead_t *const ret, const gquic_str_t *const key, const gquic_str_t *const nonce) {
+    gquic_tls_aead_ctx_t *ctx = NULL;
     if (ret == NULL || key == NULL || nonce == NULL) {
         return -1;
     }
-    if (gquic_tls_aead_ctx_init(&ret->ctx) != 0) {
+    if ((ret->self = malloc(sizeof(gquic_tls_aead_ctx_t))) == NULL) {
         return -2;
     }
-    ret->ctx.cipher = EVP_chacha20_poly1305();
-    if (gquic_str_copy(&ret->ctx.nonce, nonce) != 0) {
+    ctx = ret->self;
+    if (gquic_tls_aead_ctx_init(ctx) != 0) {
+        return -2;
+    }
+    ctx->cipher = EVP_chacha20_poly1305();
+    if (gquic_str_copy(&ctx->nonce, nonce) != 0) {
         return -5;
     }
-    if (gquic_str_copy(&ret->ctx.key, key) != 0) {
+    if (gquic_str_copy(&ctx->key, key) != 0) {
         return -5;
     }
     ret->open = gquic_tls_aead_open;
     ret->seal = gquic_tls_aead_seal;
+    ret->release = aead_ctx_release;
     return 0;
 }
 
 static int aead_aes_gcm_init_prefix(gquic_tls_aead_t *const ret, const gquic_str_t *const key, const gquic_str_t *const nonce) {
+    gquic_tls_aead_ctx_t *ctx = NULL;
     if (aead_aes_gcm_init(ret, key, nonce) != 0) {
         return -1;
     }
-    ret->ctx.nonce_wrapper = aead_prefix_nonce_wrapper;
+    ctx = ret->self;
+    ctx->nonce_wrapper = aead_prefix_nonce_wrapper;
     return 0;
 }
 
 static int aead_chacha20_poly1305_init_prefix(gquic_tls_aead_t *const ret, const gquic_str_t *const key, const gquic_str_t *const nonce) {
+    gquic_tls_aead_ctx_t *ctx = NULL;
     if (aead_chacha20_poly1305_init(ret, key, nonce) != 0) {
         return -1;
     }
-    ret->ctx.nonce_wrapper = aead_prefix_nonce_wrapper;
+    ctx->nonce_wrapper = aead_prefix_nonce_wrapper;
     return 0;
 }
 
 static int aead_aes_gcm_init_xor(gquic_tls_aead_t *const ret, const gquic_str_t *const key, const gquic_str_t *const nonce) {
+    gquic_tls_aead_ctx_t *ctx = NULL;
     if (aead_aes_gcm_init(ret, key, nonce) != 0) {
         return -1;
     }
-    ret->ctx.nonce_wrapper = aead_xor_nonce_wrapper;
+    ctx->nonce_wrapper = aead_xor_nonce_wrapper;
     return 0;
 }
 
 static int aead_chacha20_poly1305_init_xor(gquic_tls_aead_t *const ret, const gquic_str_t *const key, const gquic_str_t *const nonce) {
+    gquic_tls_aead_ctx_t *ctx = NULL;
     if (aead_chacha20_poly1305_init(ret, key, nonce) != 0) {
         return -1;
     }
-    ret->ctx.nonce_wrapper = aead_xor_nonce_wrapper;
+    ctx = ret->self;
+    ctx->nonce_wrapper = aead_xor_nonce_wrapper;
     return 0;
 }
 
