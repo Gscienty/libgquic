@@ -136,3 +136,17 @@ static int gquic_aes_header_protector_release(void *const protector) {
     gquic_str_reset(&((gquic_aes_header_protector_t *) protector)->mask);
     return 0;
 }
+
+int gquic_header_protector_release(gquic_header_protector_t *const protector) {
+    if (protector == NULL) {
+        return -1;
+    }
+
+    if (protector->release != NULL && protector->self != NULL) {
+        if (protector->release(protector->self) != 0) {
+            return -2;
+        }
+        free(protector->self);
+    }
+    return 0;
+}
