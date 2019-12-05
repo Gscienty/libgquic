@@ -2,6 +2,14 @@
 #include <unistd.h>
 #include <string.h>
 
+int gquic_net_addr_init(gquic_net_addr_t *const addr) {
+    if (addr == NULL) {
+        return -1;
+    }
+    addr->type = 0;
+    return 0;
+}
+
 int gquic_net_addr_to_str(const gquic_net_addr_t *const addr, gquic_str_t *const ret) {
     if (addr == NULL || ret == NULL) {
         return -1;
