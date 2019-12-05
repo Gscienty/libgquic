@@ -38,7 +38,7 @@ struct gquic_auto_update_aead_s {
     gquic_str_t nonce_buf;
 };
 
-int gquic_auto_update_aead_init(gquic_auto_update_aead_t *const aead, const gquic_rtt_t *const rtt);
+int gquic_auto_update_aead_init(gquic_auto_update_aead_t *const aead);
 int gquic_auto_update_aead_roll(gquic_auto_update_aead_t *const aead, const struct timeval *const now);
 int gquic_auto_update_aead_set_rkey(gquic_auto_update_aead_t *const aead,
                                     const gquic_tls_cipher_suite_t *const suite,

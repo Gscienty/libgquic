@@ -6,8 +6,8 @@ static int gquic_auto_update_aead_next_traffic_sec(gquic_str_t *const,
                                                    const gquic_tls_cipher_suite_t *const,
                                                    const gquic_str_t *const);
 
-int gquic_auto_update_aead_init(gquic_auto_update_aead_t *const aead, const gquic_rtt_t *const rtt) {
-    if (aead == NULL || rtt == NULL) {
+int gquic_auto_update_aead_init(gquic_auto_update_aead_t *const aead) {
+    if (aead == NULL) {
         return -1;
     }
     aead->suite = NULL;
