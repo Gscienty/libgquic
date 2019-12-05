@@ -202,9 +202,42 @@ int gquic_tls_half_conn_set_traffic_sec(gquic_tls_half_conn_t *const half_conn,
     return 0;
 }
 
-int gquic_tls_conn_init(gquic_tls_conn_t *const conn,
-                        const gquic_net_addr_t *const addr,
-                        gquic_tls_config_t *const cfg) {
+int gquic_tls_conn_init(gquic_tls_conn_t *const conn) {
+    if (conn == NULL) {
+        return -1;
+    }
+    conn->addr = NULL;
+    conn->cfg = NULL;
+    conn->is_client = 0;
+    conn->handshake_status = 0;
+    conn->ver = 0;
+    conn->have_vers = 0;
+    conn->handshakes = 0;
+    conn->did_resume = 0;
+    conn->cipher_suite = 0;
+    gquic_str_init(&conn->ocsp_resp);
+    gquic_list_head_init(&conn->scts);
+    gquic_list_head_init(&conn->peer_certs);
+    gquic_list_head_init(&conn->verified_chains);
+    gquic_str_init(&conn->ser_name);
+    conn->sec_renegortiation = 0;
+    gquic_tls_ekm_init(&conn->ekm);
+    gquic_str_init(&conn->resumption_sec);
+    conn->cli_finished_is_first = 0;
+    gquic_tls_half_conn_init(&conn->in);
+    gquic_tls_half_conn_init(&conn->out);
+    conn->sent_size = 0;
+    conn->sent_pkg_count = 0;
+    conn->buffering = 0;
+    gquic_str_init(&conn->cli_proto);
+    conn->cli_proto_fallback = 0;
+    return 0;
+
+}
+
+int gquic_tls_conn_assign(gquic_tls_conn_t *const conn,
+                          const gquic_net_addr_t *const addr,
+                          gquic_tls_config_t *const cfg) {
     if (conn == NULL) {
         return -1;
     }
