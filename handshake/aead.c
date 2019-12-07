@@ -94,6 +94,7 @@ int gquic_handshake_sealer_init(gquic_handshake_sealer_t *const sealer) {
     if (gquic_long_header_sealer_init(&sealer->sealer) != 0) {
         return -2;
     }
+    sealer->drop_keys_self = NULL;
     sealer->drop_keys = NULL;
     sealer->dropped = 0;
     sealer->is_client = 0;
@@ -126,7 +127,7 @@ int gquic_handshake_sealer_seal(gquic_str_t *const tag,
         return 0;
     }
     if (!sealer->dropped) {
-        sealer->drop_keys();
+        sealer->drop_keys(sealer->drop_keys_self);
         sealer->dropped = 1;
     }
     return 0;
@@ -139,6 +140,7 @@ int gquic_handshake_opener_init(gquic_handshake_opener_t *const opener) {
     if (gquic_long_header_opener_init(&opener->opener) != 0) {
         return -2;
     }
+    opener->drop_keys_self = NULL;
     opener->drop_keys = NULL;
     opener->dropped = 0;
     opener->is_client = 0;
@@ -171,7 +173,7 @@ int gquic_handshake_opener_open(gquic_str_t *const plain_text,
         return 0;
     }
     if (!opener->dropped) {
-        opener->drop_keys();
+        opener->drop_keys(opener->drop_keys_self);
         opener->dropped = 1;
     }
     return 0;

@@ -39,7 +39,8 @@ int gquic_long_header_opener_open(gquic_str_t *const plain_text,
 typedef struct gquic_handshake_sealer_s gquic_handshake_sealer_t;
 struct gquic_handshake_sealer_s {
     gquic_long_header_sealer_t sealer;
-    void (*drop_keys) ();
+    void *drop_keys_self;
+    int (*drop_keys) (void *const);
     int dropped;
     int is_client;
 };
@@ -56,7 +57,8 @@ int gquic_handshake_sealer_seal(gquic_str_t *const tag,
 typedef struct gquic_handshake_opener_s gquic_handshake_opener_t;
 struct gquic_handshake_opener_s {
     gquic_long_header_opener_t opener;
-    void (*drop_keys) ();
+    void *drop_keys_self;
+    int (*drop_keys) (void *const);
     int dropped;
     int is_client;
 };
