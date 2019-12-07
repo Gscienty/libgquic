@@ -20,6 +20,8 @@
 #include "tls/encrypt_ext_msg.h"
 #include "tls/end_of_early_data_msg.h"
 #include "tls/key_update_msg.h"
+#include "tls/handshake_server.h"
+#include "tls/handshake_client.h"
 #include "util/time.h"
 #include "util/big_endian.h"
 #include <openssl/x509.h>
@@ -231,6 +233,7 @@ int gquic_tls_conn_init(gquic_tls_conn_t *const conn) {
     conn->buffering = 0;
     gquic_str_init(&conn->cli_proto);
     conn->cli_proto_fallback = 0;
+    sem_init(&conn->handshake_mtx, 0, 1);
     return 0;
 
 }
@@ -266,6 +269,7 @@ int gquic_tls_conn_assign(gquic_tls_conn_t *const conn,
     conn->buffering = 0;
     gquic_str_init(&conn->cli_proto);
     conn->cli_proto_fallback = 0;
+    sem_destroy(&conn->handshake_mtx);
     return 0;
 }
 
@@ -277,7 +281,7 @@ int gquic_tls_half_conn_decrypt(gquic_str_t *const ret,
     if (ret == NULL || record_type == NULL || half_conn == NULL || record == NULL) {
         return -1;
     }
-    *record_type = ((u_int8_t *) GQUIC_STR_VAL(record))[0];
+    *record_type = GQUIC_STR_FIRST_BYTE(record);
 
     if (half_conn->suite.type != GQUIC_TLS_CIPHER_TYPE_UNKNOW) {
         switch (half_conn->suite.type) {
@@ -315,7 +319,7 @@ int gquic_tls_half_conn_decrypt(gquic_str_t *const ret,
                 gquic_str_t tag = { 0, NULL };
                 addata.size = 5;
                 addata.val = GQUIC_STR_VAL(record);
-                nonce.size = ((u_int8_t *) GQUIC_STR_VAL(&payload))[0];
+                nonce.size = GQUIC_STR_FIRST_BYTE(&payload);
                 nonce.val = GQUIC_STR_VAL(&payload) + 1;
                 payload.size -= GQUIC_STR_SIZE(&nonce) + 1;
                 payload.val += GQUIC_STR_SIZE(&nonce) + 1;
@@ -475,7 +479,7 @@ int gquic_tls_conn_read_handshake(u_int8_t *const handshake_type, void **const m
         return -3;
     }
     
-    *handshake_type = ((u_int8_t *) GQUIC_STR_VAL(&data))[0];
+    *handshake_type = GQUIC_STR_FIRST_BYTE(&data);
     switch (*handshake_type) {
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_HELLO_REQ:
         if ((*msg = malloc(sizeof(gquic_tls_hello_req_msg_t))) == NULL) {
@@ -988,5 +992,25 @@ int gquic_tls_common_handshake_record_release(const u_int16_t ver, const u_int8_
         break;
     }
     free(record);
+    return 0;
+}
+
+int gquic_tls_conn_handshake(gquic_tls_conn_t *const conn) {
+    if (conn == NULL) {
+        return -1;
+    }
+    sem_wait(&conn->handshake_mtx);
+    if (conn->is_client) {
+        if (gquic_tls_server_handshake(conn) != 0) {
+            return -2;
+        }
+    }
+    else {
+        if (gquic_tls_client_handshake(conn) != 0) {
+            return -3;
+        }
+    }
+    conn->handshakes++;
+    sem_post(&conn->handshake_mtx);
     return 0;
 }

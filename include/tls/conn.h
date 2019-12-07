@@ -11,6 +11,7 @@
 #include "net/addr.h"
 #include <sys/types.h>
 #include <stdatomic.h>
+#include <semaphore.h>
 
 typedef struct gquic_tls_half_conn_s gquic_tls_half_conn_t;
 struct gquic_tls_half_conn_s {
@@ -69,6 +70,7 @@ struct gquic_tls_conn_s {
     int buffering;
     gquic_str_t cli_proto;
     int cli_proto_fallback;
+    sem_t handshake_mtx;
 };
 
 int gquic_tls_conn_init(gquic_tls_conn_t *const conn);
@@ -92,5 +94,7 @@ int gquic_tls_conn_send_alert(gquic_tls_conn_t *const conn, u_int8_t alert);
 int gquic_tls_conn_verify_ser_cert(gquic_tls_conn_t *const conn, const gquic_list_t *const certs);
 
 int gquic_tls_common_handshake_record_release(const u_int16_t ver, const u_int8_t handshake_type, void *const record);
+
+int gquic_tls_conn_handshake(gquic_tls_conn_t *const conn);
 
 #endif
