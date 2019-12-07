@@ -38,6 +38,7 @@ struct gquic_handshake_establish_s {
     int cli_hello_written;
     int is_client;
     sem_t mtx;
+    sem_t client_written_sem;
     u_int8_t read_enc_level;
     u_int8_t write_enc_level;
     gquic_io_t init_output;
@@ -59,7 +60,19 @@ int gquic_handshake_establish_1rtt_set_last_acked(gquic_handshake_establish_t *c
                                                   const u_int64_t pn);
 int gquic_handshake_establish_run(gquic_handshake_establish_t *const est);
 int gquic_handshake_establish_close(gquic_handshake_establish_t *const est);
-int gquic_handshake_establish_handle_msg(gquic_handshake_establish_t *const est, const gquic_str_t *const data, u_int8_t env_level);
+int gquic_handshake_establish_handle_msg(gquic_handshake_establish_t *const est, const gquic_str_t *const data, const u_int8_t enc_level);
 int gquic_handshake_establish_read_handshake_msg(gquic_str_t *const msg, gquic_handshake_establish_t *const est);
+int gquic_handshake_establish_set_rkey(gquic_handshake_establish_t *const est,
+                                       const u_int8_t enc_level,
+                                       const gquic_tls_cipher_suite_t *const suite,
+                                       const gquic_str_t *const traffic_sec);
+int gquic_handshake_establish_set_wkey(gquic_handshake_establish_t *const est,
+                                       const u_int8_t enc_level,
+                                       const gquic_tls_cipher_suite_t *const suite,
+                                       const gquic_str_t *const traffic_sec);
+int gquic_handshake_establish_drop_initial_keys(gquic_handshake_establish_t *const est);
+int gquic_handshake_establish_write_record(size_t *const size, gquic_handshake_establish_t *const est, const gquic_str_t *const data);
+int gquic_handshake_establish_send_alert(gquic_handshake_establish_t *const est, const u_int8_t alert);
+int gquic_handshake_establish_set_record_layer(gquic_tls_record_layer_t *const record_layer, gquic_handshake_establish_t *const est);
 
 #endif
