@@ -208,7 +208,7 @@ static int gquic_tls_handshake_server_state_process_cli_hello(gquic_tls_handshak
         goto failure;
     }
     if (GQUIC_STR_SIZE(&ser_state->c_hello->compression_methods) != 1
-        || ((u_int8_t *) GQUIC_STR_VAL(&ser_state->c_hello->compression_methods))[0] != 0) {
+        || GQUIC_STR_FIRST_BYTE(&ser_state->c_hello->compression_methods) != 0) {
         gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_ILLEGAL_PARAMS);
         ret = -6;
         goto failure;
