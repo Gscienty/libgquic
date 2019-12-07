@@ -520,7 +520,7 @@ static int ecdhe_ka_process_cli_key_exchange(gquic_str_t *const pre_master_sec,
     if (gquic_str_init(pre_master_sec) != 0) {
         return -3;
     }
-    if (GQUIC_STR_SIZE(&ckex_msg->cipher) == 0 || *((u_int8_t *) GQUIC_STR_VAL(&ckex_msg->cipher)) != GQUIC_STR_SIZE(&ckex_msg->cipher) - 1) {
+    if (GQUIC_STR_SIZE(&ckex_msg->cipher) == 0 || GQUIC_STR_FIRST_BYTE(&ckex_msg->cipher) != GQUIC_STR_SIZE(&ckex_msg->cipher) - 1) {
         return -4;
     }
     ciphertext.val = GQUIC_STR_VAL(&ckex_msg->cipher) + 1;
@@ -572,7 +572,7 @@ static int ecdhe_ka_process_ser_key_exchange(void *const self,
     if (GQUIC_STR_SIZE(&skex_msg->key) < 4) {
         return -3;
     }
-    if (*((u_int8_t *) GQUIC_STR_VAL(&skex_msg->key)) != 3) {
+    if (GQUIC_STR_FIRST_BYTE(&skex_msg->key) != 3) {
         return -4;
     }
     if (gquic_big_endian_transfer(&curve_id, GQUIC_STR_VAL(&skex_msg->key) + 1, 2) != 0) {
