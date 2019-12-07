@@ -161,7 +161,7 @@ failure:
 }
 
 int gquic_tls_half_conn_set_key(gquic_tls_half_conn_t *const half_conn,
-                                const u_int16_t enc_lv,
+                                const u_int8_t enc_lv,
                                 const gquic_tls_cipher_suite_t *const cipher_suite,
                                 const gquic_str_t *const secret) {
     if (half_conn == NULL || cipher_suite == NULL || secret == NULL) {

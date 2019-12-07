@@ -15,8 +15,8 @@
 typedef struct gquic_tls_record_layer_s gquic_tls_record_layer_t;
 struct gquic_tls_record_layer_s {
     void *self;
-    int (*set_rkey) (void *const, const u_int16_t, const gquic_tls_cipher_suite_t *const, const gquic_str_t *const);
-    int (*set_wkey) (void *const, const u_int16_t, const gquic_tls_cipher_suite_t *const, const gquic_str_t *const);
+    int (*set_rkey) (void *const, const u_int8_t, const gquic_tls_cipher_suite_t *const, const gquic_str_t *const);
+    int (*set_wkey) (void *const, const u_int8_t, const gquic_tls_cipher_suite_t *const, const gquic_str_t *const);
     int (*read_handshake_msg) (gquic_str_t *const, void *const);
     int (*write_record) (size_t *const, void *const, const gquic_str_t *const);
     int (*send_alert) (void *const, const u_int8_t);

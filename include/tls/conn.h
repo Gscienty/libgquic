@@ -22,7 +22,7 @@ struct gquic_tls_half_conn_s {
     gquic_tls_suite_t next_suite;
     gquic_str_t traffic_sec;
     void *set_key_self;
-    int (*set_key) (void *const, const u_int16_t, const gquic_tls_cipher_suite_t *const, const gquic_str_t *const);
+    int (*set_key) (void *const, const u_int8_t, const gquic_tls_cipher_suite_t *const, const gquic_str_t *const);
 };
 
 int gquic_tls_half_conn_init(gquic_tls_half_conn_t *const half_conn);
@@ -35,7 +35,7 @@ int gquic_tls_half_conn_decrypt(gquic_str_t *const ret,
                                 gquic_tls_half_conn_t *const half_conn,
                                 const gquic_str_t *const record);
 int gquic_tls_half_conn_set_key(gquic_tls_half_conn_t *const half_conn,
-                                const u_int16_t enc_lv,
+                                const u_int8_t enc_lv,
                                 const gquic_tls_cipher_suite_t *const cipher_suite,
                                 const gquic_str_t *const secret);
 int gquic_tls_half_conn_set_traffic_sec(gquic_tls_half_conn_t *const half_conn,
