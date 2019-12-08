@@ -280,7 +280,7 @@ int gquic_handshake_establish_handle_msg(gquic_handshake_establish_t *const est,
     type = GQUIC_STR_FIRST_BYTE(data);
     if ((ret = gquic_establish_check_enc_level(type, enc_level)) != 0) {
         if (GQUIC_HANDSHAKE_EVENT_ON_ERR(&est->events, GQUIC_TLS_ALERT_UNEXPECTED_MESSAGE, ret) != 0) {
-            ret = -2;
+            return -2;
         }
         return -3;
     }
