@@ -14,13 +14,15 @@ int gquic_tls_encrypt_ext_msg_init(gquic_tls_encrypt_ext_msg_t *msg) {
     return 0;
 }
 
+#include <stdio.h>
+
 int gquic_tls_encrypt_ext_msg_reset(gquic_tls_encrypt_ext_msg_t *msg) {
     if (msg == NULL) {
         return -1;
     }
     gquic_str_reset(&msg->alpn_proto);
     while (!gquic_list_head_empty(&msg->addition_exts)) {
-        gquic_str_reset(GQUIC_LIST_FIRST(&msg->addition_exts));
+        gquic_str_reset(&((gquic_tls_extension_t *) GQUIC_LIST_FIRST(&msg->addition_exts))->data);
         gquic_list_release(GQUIC_LIST_FIRST(&msg->addition_exts));
     }
     return 0;
