@@ -503,14 +503,18 @@ static int gquic_establish_ser_handle_msg(gquic_handshake_establish_t *const est
             return -2;
         }
 
+ignore_shello:
         gquic_sem_list_waiting_pop((void **) &process_event,
                                    &est->handshake_process_events_queue,
                                    gquic_establish_waiting_ser_handle_cmp,
                                    &msg_type);
         type = process_event->type;
         gquic_list_release(process_event);
+        if (type == GQUIC_ESTABLISH_PROCESS_EVENT_WRITE_RECORD) {
+            goto ignore_shello;
+        }
         switch (type) {
-        case GQUIC_ESTABLISH_PROCESS_EVENT_RECV_WKEY:
+        case GQUIC_ESTABLISH_PROCESS_EVENT_RECV_RKEY:
             break;
         case GQUIC_ESTABLISH_PROCESS_EVENT_DONE:
             return 0;
@@ -518,14 +522,18 @@ static int gquic_establish_ser_handle_msg(gquic_handshake_establish_t *const est
             return -1;
         }
 
+ignore_ext:
         gquic_sem_list_waiting_pop((void **) &process_event,
                                    &est->handshake_process_events_queue,
                                    gquic_establish_waiting_ser_handle_cmp,
                                    &msg_type);
         type = process_event->type;
         gquic_list_release(process_event);
+        if (type == GQUIC_ESTABLISH_PROCESS_EVENT_WRITE_RECORD) {
+            goto ignore_ext;
+        }
         switch (type) {
-        case GQUIC_ESTABLISH_PROCESS_EVENT_RECV_RKEY:
+        case GQUIC_ESTABLISH_PROCESS_EVENT_RECV_WKEY:
             break;
         case GQUIC_ESTABLISH_PROCESS_EVENT_DONE:
             return 0;
