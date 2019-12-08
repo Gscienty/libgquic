@@ -176,10 +176,7 @@ int gquic_handshake_establish_run(gquic_handshake_establish_t *const est) {
         break;
 
     case GQUIC_ESTABLISH_ENDING_EVENT_HANDSHAKE_COMPLETE:
-        if (GQUIC_HANDSHAKE_EVENT_ON_HANDSHAKE_COMPLETE(&est->events) != 0) {
-            ret = -6;
-            goto failure;
-        }
+        GQUIC_HANDSHAKE_EVENT_ON_HANDSHAKE_COMPLETE(&est->events);
         if (!est->is_client) {
             // TODO send sess_ticket
         }
@@ -242,6 +239,7 @@ static void *__establish_run(void *arg) {
     }
     ending_event->type = GQUIC_ESTABLISH_ENDING_EVENT_HANDSHAKE_COMPLETE;
     gquic_sem_list_push(&est->handshake_ending_events_queue, ending_event);
+    return NULL;
 finish:
     if ((process_event = gquic_list_alloc(sizeof(gquic_establish_process_event_t))) == NULL) {
         return NULL;
