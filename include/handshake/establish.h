@@ -8,7 +8,39 @@
 #include "util/io.h"
 #include "handshake/auto_update_aead.h"
 #include "handshake/aead.h"
+#include "handshake/transport_parameters.h"
+#include "handshake/extension_handler.h"
 #include <semaphore.h>
+
+typedef struct gquic_establish_ending_event_s gquic_establish_ending_event_t;
+struct gquic_establish_ending_event_s {
+    u_int8_t type;
+    union {
+        void *event;
+        u_int16_t alert_code;
+    } payload;
+};
+
+#define GQUIC_ESTABLISH_ENDING_EVENT_HANDSHAKE_COMPLETE 1
+#define GQUIC_ESTABLISH_ENDING_EVENT_ALERT 2
+#define GQUIC_ESTABLISH_ENDING_EVENT_CLOSE 3
+
+typedef struct gquic_establish_err_event_s gquic_establish_err_event_t;
+struct gquic_establish_err_event_s {
+    int ret;
+};
+
+typedef struct gquic_establish_process_event_s gquic_establish_process_event_t;
+struct gquic_establish_process_event_s {
+    u_int8_t type;
+    gquic_str_t param;
+};
+
+#define GQUIC_ESTABLISH_PROCESS_EVENT_DONE 1
+#define GQUIC_ESTABLISH_PROCESS_EVENT_WRITE_RECORD 2
+#define GQUIC_ESTABLISH_PROCESS_EVENT_PARAM 3
+#define GQUIC_ESTABLISH_PROCESS_EVENT_RECV_WKEY 4
+#define GQUIC_ESTABLISH_PROCESS_EVENT_RECV_RKEY 5
 
 typedef struct gquic_handshake_event_s gquic_handshake_event_t;
 struct gquic_handshake_event_s {
@@ -28,7 +60,7 @@ int gquic_handshake_event_init(gquic_handshake_event_t *const event);
 
 typedef struct gquic_handshake_establish_s gquic_handshake_establish_t;
 struct gquic_handshake_establish_s {
-    gquic_tls_config_t cfg;
+    gquic_tls_config_t *cfg;
     gquic_tls_conn_t conn;
     gquic_handshake_event_t events;
     gquic_sem_list_t handshake_ending_events_queue;
@@ -51,9 +83,19 @@ struct gquic_handshake_establish_s {
     gquic_auto_update_aead_t aead;
     int has_1rtt_sealer;
     int has_1rtt_opener;
+
+    gquic_handshake_extension_handler_t extension_handler;
 };
 
 int gquic_handshake_establish_init(gquic_handshake_establish_t *const est);
+int gquic_handshake_establish_release(gquic_handshake_establish_t *const est);
+int gquic_handshake_establish_assign(gquic_handshake_establish_t *const est,
+                                     gquic_tls_config_t *const cfg,
+                                     const gquic_str_t *const conn_id,
+                                     const gquic_transport_parameters_t *const params,
+                                     gquic_rtt_t *const rtt,
+                                     const gquic_net_addr_t *const addr,
+                                     const int is_client);
 int gquic_handshake_establish_change_conn_id(gquic_handshake_establish_t *const est,
                                              const gquic_str_t *const conn_id);
 int gquic_handshake_establish_1rtt_set_last_acked(gquic_handshake_establish_t *const est,

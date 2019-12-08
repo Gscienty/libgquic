@@ -3,35 +3,6 @@
 #include "tls/alert.h"
 #include <pthread.h>
 
-typedef struct gquic_establish_ending_event_s gquic_establish_ending_event_t;
-struct gquic_establish_ending_event_s {
-    u_int8_t type;
-    union {
-        void *event;
-        u_int16_t alert_code;
-    } payload;
-};
-
-#define GQUIC_ESTABLISH_ENDING_EVENT_HANDSHAKE_COMPLETE 1
-#define GQUIC_ESTABLISH_ENDING_EVENT_ALERT 2
-#define GQUIC_ESTABLISH_ENDING_EVENT_CLOSE 3
-
-typedef struct gquic_establish_err_event_s gquic_establish_err_event_t;
-struct gquic_establish_err_event_s {
-    int ret;
-};
-
-typedef struct gquic_establish_process_event_s gquic_establish_process_event_t;
-struct gquic_establish_process_event_s {
-    u_int8_t type;
-    gquic_str_t param;
-};
-
-#define GQUIC_ESTABLISH_PROCESS_EVENT_DONE 1
-#define GQUIC_ESTABLISH_PROCESS_EVENT_WRITE_RECORD 2
-#define GQUIC_ESTABLISH_PROCESS_EVENT_PARAM 3
-#define GQUIC_ESTABLISH_PROCESS_EVENT_RECV_WKEY 4
-#define GQUIC_ESTABLISH_PROCESS_EVENT_RECV_RKEY 5
 
 static void *__establish_run(void *);
 static int gquic_establish_check_enc_level(const u_int8_t, const u_int8_t);
@@ -66,7 +37,7 @@ int gquic_handshake_establish_init(gquic_handshake_establish_t *const est) {
         return -1;
     }
 
-    gquic_tls_config_init(&est->cfg);
+    est->cfg = NULL;
     gquic_tls_conn_init(&est->conn);
     gquic_handshake_event_init(&est->events);
     gquic_sem_list_init(&est->handshake_ending_events_queue);
@@ -77,8 +48,8 @@ int gquic_handshake_establish_init(gquic_handshake_establish_t *const est) {
     est->is_client = 0;
     sem_init(&est->client_written_sem, 0, 0);
     sem_init(&est->mtx, 0, 1);
-    est->read_enc_level = 0;
-    est->write_enc_level = 0;
+    est->read_enc_level = GQUIC_ENC_LV_INITIAL;
+    est->write_enc_level = GQUIC_ENC_LV_INITIAL;
     gquic_io_init(&est->init_output);
     gquic_handshake_opener_init(&est->init_opener);
     gquic_handshake_sealer_init(&est->init_sealer);
@@ -90,6 +61,45 @@ int gquic_handshake_establish_init(gquic_handshake_establish_t *const est) {
     est->has_1rtt_sealer = 0;
     est->has_1rtt_opener = 0;
 
+    gquic_handshake_extension_handler_init(&est->extension_handler);
+
+    return 0;
+}
+
+int gquic_handshake_establish_release(gquic_handshake_establish_t *const est) {
+    if (est == NULL) {
+        return -1;
+    }
+    
+    // TODO
+
+    return 0;
+}
+
+int gquic_handshake_establish_assign(gquic_handshake_establish_t *const est,
+                                     gquic_tls_config_t *const cfg,
+                                     const gquic_str_t *const conn_id,
+                                     const gquic_transport_parameters_t *const params,
+                                     gquic_rtt_t *const rtt,
+                                     const gquic_net_addr_t *const addr,
+                                     const int is_client) {
+    if (est == NULL || conn_id == NULL || params == NULL || cfg == NULL || rtt == NULL || addr == NULL) {
+        return -1;
+    }
+    gquic_handshake_extension_handler_assign(&est->extension_handler, &est->handshake_process_events_queue, params, is_client);
+
+    gquic_handshake_extension_handler_set_config_extension(cfg, &est->extension_handler);
+    gquic_handshake_establish_set_record_layer(&cfg->alt_record, est);
+
+    gquic_handshake_opener_release(&est->init_opener);
+    gquic_handshake_sealer_release(&est->init_sealer);
+    gquic_handshake_initial_aead_init(&est->init_sealer, &est->init_opener, conn_id, is_client);
+
+    est->aead.rtt = rtt;
+    est->cfg = cfg;
+    est->is_client = is_client;
+
+    gquic_tls_conn_assign(&est->conn, addr, cfg);
     return 0;
 }
 
@@ -155,7 +165,7 @@ int gquic_handshake_establish_run(gquic_handshake_establish_t *const est) {
         break;
 
     case GQUIC_ESTABLISH_ENDING_EVENT_CLOSE:
-        // TODO close msg
+        gquic_sem_list_close(&est->msg_events_queue);
         gquic_sem_list_waiting_pop((void **) &process_event,
                                    &est->handshake_process_events_queue,
                                    gquic_establish_waiting_handshake_done_cmp,
