@@ -10,8 +10,8 @@ struct gquic_io_s {
     int (*read) (size_t *const, gquic_str_t *const, void *const);
 };
 
-#define GQUIC_IO_WRITE(r, p, s) ((p)->write((r), (p)->self, (s)))
-#define GQUIC_IO_READ(r, s, p) ((p)->read((r), (s), (p)->self))
+#define GQUIC_IO_WRITE(r, p, s) (((p) == NULL || (p)->write == NULL || (p)->self == NULL) ? -1 : ((p)->write((r), (p)->self, (s))))
+#define GQUIC_IO_READ(r, s, p) (((p) == NULL || (p)->read == NULL || (p)->self == NULL) ? -1 : ((p)->read((r), (s), (p)->self)))
 
 int gquic_io_init(gquic_io_t *const output);
 
