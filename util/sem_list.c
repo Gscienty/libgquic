@@ -41,6 +41,8 @@ int gquic_sem_list_pop(void **const event, gquic_sem_list_t *const list) {
     return 0;
 }
 
+#include <stdio.h>
+
 int gquic_sem_list_waiting_pop(void **const event, gquic_sem_list_t *const list, int (*cmp)(const void *const, const void *const), const void *const arg) {
     if (event == NULL || list == NULL || cmp == NULL) {
         return -1;
@@ -57,7 +59,7 @@ init:
         return -3;
     }
     *event = GQUIC_SEM_LIST_FIRST(list);
-    if (cmp(event, arg) != 0) {
+    if (cmp(*event, arg) != 0) {
         *event = NULL;
         GQUIC_SEM_LIST_UNLOCK(list);
         GQUIC_SEM_LIST_NOTIFY(list);
