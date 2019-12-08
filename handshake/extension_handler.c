@@ -94,7 +94,11 @@ int gquic_handshake_extension_handler_recv_extensions(gquic_handshake_extension_
         }
     }
     if (process_event == NULL) {
-        return 0;
+        if ((process_event = gquic_list_alloc(sizeof(gquic_establish_process_event_t))) == NULL) {
+            return -4;
+        }
+        process_event->type = GQUIC_ESTABLISH_PROCESS_EVENT_PARAM;
+        gquic_str_init(&process_event->param);
     }
     gquic_sem_list_push(handler->process_event_sem, process_event);
     return 0;
