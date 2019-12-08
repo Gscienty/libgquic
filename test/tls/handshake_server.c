@@ -158,7 +158,9 @@ int main() {
     gquic_net_str_to_addr_v4(&addr, "127.0.0.1");
     gquic_tls_config_init(&cfg);
     gquic_tls_conn_t conn;
-    gquic_tls_conn_init(&conn, &addr, &cfg);
+    gquic_tls_conn_init(&conn);
+    conn.addr = &addr;
+    conn.cfg = &cfg;
     
     cfg.alt_record.write_record = write_record;
     cfg.alt_record.read_handshake_msg = read_handshake_msg;
