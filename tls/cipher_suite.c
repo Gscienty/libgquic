@@ -802,10 +802,10 @@ static inline int aead_aes_gcm_init(gquic_tls_aead_t *const ret, const gquic_str
     if (ret == NULL || key == NULL || nonce == NULL) {
         return -1;
     }
-    if ((ret->self = malloc(sizeof(gquic_tls_aead_ctx_t))) == NULL) {
+    if ((ctx = malloc(sizeof(gquic_tls_aead_ctx_t))) == NULL) {
         return -2;
     }
-    ctx = ret->self;
+    gquic_tls_aead_ctx_init(ctx);
     if (gquic_tls_aead_ctx_init(ctx) != 0) {
         return -3;
     }
@@ -827,6 +827,7 @@ static inline int aead_aes_gcm_init(gquic_tls_aead_t *const ret, const gquic_str
     if (gquic_str_copy(&ctx->key, key) != 0) {
         return -5;
     }
+    ret->self = ctx;
     ret->open = gquic_tls_aead_open;
     ret->seal = gquic_tls_aead_seal;
     ret->release = aead_ctx_release;
@@ -838,10 +839,10 @@ static inline int aead_chacha20_poly1305_init(gquic_tls_aead_t *const ret, const
     if (ret == NULL || key == NULL || nonce == NULL) {
         return -1;
     }
-    if ((ret->self = malloc(sizeof(gquic_tls_aead_ctx_t))) == NULL) {
+    if ((ctx = malloc(sizeof(gquic_tls_aead_ctx_t))) == NULL) {
         return -2;
     }
-    ctx = ret->self;
+    gquic_tls_aead_ctx_init(ctx);
     if (gquic_tls_aead_ctx_init(ctx) != 0) {
         return -2;
     }
@@ -852,6 +853,7 @@ static inline int aead_chacha20_poly1305_init(gquic_tls_aead_t *const ret, const
     if (gquic_str_copy(&ctx->key, key) != 0) {
         return -5;
     }
+    ret->self = ctx;
     ret->open = gquic_tls_aead_open;
     ret->seal = gquic_tls_aead_seal;
     ret->release = aead_ctx_release;
@@ -860,8 +862,11 @@ static inline int aead_chacha20_poly1305_init(gquic_tls_aead_t *const ret, const
 
 static int aead_aes_gcm_init_prefix(gquic_tls_aead_t *const ret, const gquic_str_t *const key, const gquic_str_t *const nonce) {
     gquic_tls_aead_ctx_t *ctx = NULL;
-    if (aead_aes_gcm_init(ret, key, nonce) != 0) {
+    if (ret == NULL || key == NULL || nonce == NULL) {
         return -1;
+    }
+    if (aead_aes_gcm_init(ret, key, nonce) != 0) {
+        return -2;
     }
     ctx = ret->self;
     ctx->nonce_wrapper = aead_prefix_nonce_wrapper;
@@ -870,26 +875,37 @@ static int aead_aes_gcm_init_prefix(gquic_tls_aead_t *const ret, const gquic_str
 
 static int aead_chacha20_poly1305_init_prefix(gquic_tls_aead_t *const ret, const gquic_str_t *const key, const gquic_str_t *const nonce) {
     gquic_tls_aead_ctx_t *ctx = NULL;
-    if (aead_chacha20_poly1305_init(ret, key, nonce) != 0) {
+    if (ret == NULL || key == NULL || nonce == NULL) {
         return -1;
     }
+    if (aead_chacha20_poly1305_init(ret, key, nonce) != 0) {
+        return -2;
+    }
+    ctx = ret->self;
     ctx->nonce_wrapper = aead_prefix_nonce_wrapper;
     return 0;
 }
 
 static int aead_aes_gcm_init_xor(gquic_tls_aead_t *const ret, const gquic_str_t *const key, const gquic_str_t *const nonce) {
     gquic_tls_aead_ctx_t *ctx = NULL;
-    if (aead_aes_gcm_init(ret, key, nonce) != 0) {
+    if (ret == NULL || key == NULL || nonce == NULL) {
         return -1;
     }
+    if (aead_aes_gcm_init(ret, key, nonce) != 0) {
+        return -2;
+    }
+    ctx = ret->self;
     ctx->nonce_wrapper = aead_xor_nonce_wrapper;
     return 0;
 }
 
 static int aead_chacha20_poly1305_init_xor(gquic_tls_aead_t *const ret, const gquic_str_t *const key, const gquic_str_t *const nonce) {
     gquic_tls_aead_ctx_t *ctx = NULL;
-    if (aead_chacha20_poly1305_init(ret, key, nonce) != 0) {
+    if (ret == NULL || key == NULL || nonce == NULL) {
         return -1;
+    }
+    if (aead_chacha20_poly1305_init(ret, key, nonce) != 0) {
+        return -2;
     }
     ctx = ret->self;
     ctx->nonce_wrapper = aead_xor_nonce_wrapper;
