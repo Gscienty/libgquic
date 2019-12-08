@@ -52,10 +52,10 @@ struct gquic_handshake_event_s {
     int (*on_handshake_complete) (void *const);
 };
 
-#define GQUIC_HANDSHAKE_EVENT_ON_RECV_PARAMS(p, e) ((p)->on_recv_params((p)->self, (e)))
-#define GQUIC_HANDSHAKE_EVENT_ON_ERR(p, a, e) ((p)->on_err((p)->self, (a), (e)))
-#define GQUIC_HANDSHAKE_EVENT_DROP_KEYS(p, e) ((p)->drop_keys((p)->self, (e)))
-#define GQUIC_HANDSHAKE_EVENT_ON_HANDSHAKE_COMPLETE(p) ((p)->on_handshake_complete((p)->self))
+#define GQUIC_HANDSHAKE_EVENT_ON_RECV_PARAMS(p, e) (((p) == NULL || (p)->on_recv_params == NULL || (p)->self == NULL) ? -1 : ((p)->on_recv_params((p)->self, (e))))
+#define GQUIC_HANDSHAKE_EVENT_ON_ERR(p, a, e) (((p) == NULL || (p)->on_err == NULL || (p)->self == NULL) ? -1 : ((p)->on_err((p)->self, (a), (e))))
+#define GQUIC_HANDSHAKE_EVENT_DROP_KEYS(p, e) (((p) == NULL || (p)->drop_keys == NULL || (p)->self == NULL) ? -1 : ((p)->drop_keys((p)->self, (e))))
+#define GQUIC_HANDSHAKE_EVENT_ON_HANDSHAKE_COMPLETE(p) (((p) == NULL || (p)->on_handshake_complete == NULL || (p)->self == NULL) ? -1 : ((p)->on_handshake_complete((p)->self)))
 
 int gquic_handshake_event_init(gquic_handshake_event_t *const event);
 
