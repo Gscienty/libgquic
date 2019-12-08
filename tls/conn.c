@@ -238,41 +238,6 @@ int gquic_tls_conn_init(gquic_tls_conn_t *const conn) {
 
 }
 
-int gquic_tls_conn_assign(gquic_tls_conn_t *const conn,
-                          const gquic_net_addr_t *const addr,
-                          gquic_tls_config_t *const cfg) {
-    if (conn == NULL) {
-        return -1;
-    }
-    conn->addr = addr;
-    conn->cfg = cfg;
-    conn->is_client = 0;
-    conn->handshake_status = 0;
-    conn->ver = 0;
-    conn->have_vers = 0;
-    conn->handshakes = 0;
-    conn->did_resume = 0;
-    conn->cipher_suite = 0;
-    gquic_str_init(&conn->ocsp_resp);
-    gquic_list_head_init(&conn->scts);
-    gquic_list_head_init(&conn->peer_certs);
-    gquic_list_head_init(&conn->verified_chains);
-    gquic_str_init(&conn->ser_name);
-    conn->sec_renegortiation = 0;
-    gquic_tls_ekm_init(&conn->ekm);
-    gquic_str_init(&conn->resumption_sec);
-    conn->cli_finished_is_first = 0;
-    gquic_tls_half_conn_init(&conn->in);
-    gquic_tls_half_conn_init(&conn->out);
-    conn->sent_size = 0;
-    conn->sent_pkg_count = 0;
-    conn->buffering = 0;
-    gquic_str_init(&conn->cli_proto);
-    conn->cli_proto_fallback = 0;
-    sem_destroy(&conn->handshake_mtx);
-    return 0;
-}
-
 int gquic_tls_half_conn_decrypt(gquic_str_t *const ret,
                                 u_int8_t *const record_type,
                                 gquic_tls_half_conn_t *const half_conn,
@@ -996,17 +961,18 @@ int gquic_tls_common_handshake_record_release(const u_int16_t ver, const u_int8_
 }
 
 int gquic_tls_conn_handshake(gquic_tls_conn_t *const conn) {
+    int ret;
     if (conn == NULL) {
         return -1;
     }
     sem_wait(&conn->handshake_mtx);
     if (conn->is_client) {
-        if (gquic_tls_server_handshake(conn) != 0) {
+        if ((ret = gquic_tls_client_handshake(conn)) != 0) {
             return -2;
         }
     }
     else {
-        if (gquic_tls_client_handshake(conn) != 0) {
+        if ((ret = gquic_tls_server_handshake(conn)) != 0) {
             return -3;
         }
     }
