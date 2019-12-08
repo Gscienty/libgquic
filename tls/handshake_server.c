@@ -656,7 +656,7 @@ static int gquic_tls_handshake_server_state_send_ser_params(gquic_tls_handshake_
         ret = -13;
         goto failure;
     }
-    if (gquic_tls_half_conn_set_key(&ser_state->conn->in, GQUIC_ENC_LV_APP, ser_state->suite, &cli_sec) != 0) {
+    if (gquic_tls_half_conn_set_key(&ser_state->conn->in, GQUIC_ENC_LV_HANDSHAKE, ser_state->suite, &cli_sec) != 0) {
         gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
         ret = -14;
         goto failure;
@@ -671,7 +671,7 @@ static int gquic_tls_handshake_server_state_send_ser_params(gquic_tls_handshake_
         ret = -16;
         goto failure;
     }
-    if (gquic_tls_half_conn_set_key(&ser_state->conn->out, GQUIC_ENC_LV_APP, ser_state->suite, &ser_sec) != 0) {
+    if (gquic_tls_half_conn_set_key(&ser_state->conn->out, GQUIC_ENC_LV_HANDSHAKE, ser_state->suite, &ser_sec) != 0) {
         gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
         ret = -14;
         goto failure;
