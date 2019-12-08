@@ -320,8 +320,13 @@ select_curve_perfers:
         goto failure;
     }
 
-    if (ser_state->conn->cfg->received_extensions != 0) {
-        ser_state->conn->cfg->received_extensions(GQUIC_TLS_HANDSHAKE_MSG_TYPE_CLIENT_HELLO, &ser_state->c_hello->extensions);
+    if (ser_state->conn->cfg->received_extensions != NULL
+        && ser_state->conn->cfg->received_extensions(ser_state->conn->cfg->ext_self,
+                                                  GQUIC_TLS_HANDSHAKE_MSG_TYPE_CLIENT_HELLO,
+                                                  &ser_state->c_hello->extensions) != 0) {
+        gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
+        ret = -22;
+        goto failure;
     }
 
     while (!gquic_list_head_empty(&default_cipher_suites)) {
@@ -695,12 +700,13 @@ static int gquic_tls_handshake_server_state_send_ser_params(gquic_tls_handshake_
         ret = -18;
         goto failure;
     }
-    if (ser_state->conn->cfg->extensions != NULL) {
-        if (ser_state->conn->cfg->extensions(&enc_ext.addition_exts, GQUIC_TLS_HANDSHAKE_MSG_TYPE_ENCRYPTED_EXTS) != 0) {
-            gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
-            ret = -19;
-            goto failure;
-        }
+    if (ser_state->conn->cfg->extensions != NULL
+        && ser_state->conn->cfg->extensions(&enc_ext.addition_exts,
+                                            ser_state->conn->cfg->ext_self,
+                                            GQUIC_TLS_HANDSHAKE_MSG_TYPE_ENCRYPTED_EXTS) != 0) {
+        gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
+        ret = -19;
+        goto failure;
     }
     gquic_str_reset(&buf);
     gquic_str_init(&buf);

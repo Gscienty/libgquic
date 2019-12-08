@@ -261,7 +261,10 @@ static int gquic_tls_handshake_client_hello_edch_params_init(gquic_tls_ecdhe_par
             ret = -5;
             goto failure;
         }
-        if (cfg->extensions != NULL && cfg->extensions(&msg->extensions, GQUIC_TLS_HANDSHAKE_MSG_TYPE_CLIENT_HELLO) != 0) {
+        if (cfg->extensions != NULL
+            && cfg->extensions(&msg->extensions,
+                               cfg->ext_self,
+                               GQUIC_TLS_HANDSHAKE_MSG_TYPE_CLIENT_HELLO) != 0) {
             ret = -6;
             goto failure;
         }
@@ -919,7 +922,9 @@ static int gquic_tls_client_handshake_state_read_ser_params(gquic_tls_handshake_
         goto failure;
     }
     if (cli_state->conn->cfg->received_extensions != NULL
-        && cli_state->conn->cfg->received_extensions(GQUIC_TLS_HANDSHAKE_MSG_TYPE_ENCRYPTED_EXTS, &msg->addition_exts) != 0) {
+        && cli_state->conn->cfg->received_extensions(cli_state->conn->cfg->ext_self,
+                                                     GQUIC_TLS_HANDSHAKE_MSG_TYPE_ENCRYPTED_EXTS,
+                                                     &msg->addition_exts) != 0) {
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
         ret = -4;
         goto failure;
