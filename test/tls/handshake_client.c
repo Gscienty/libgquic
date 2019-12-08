@@ -201,7 +201,8 @@ int main() {
     gquic_tls_config_t cfg;
     gquic_tls_config_init(&cfg);
     gquic_tls_conn_t conn;
-    gquic_tls_conn_init(&conn, &addr, &cfg);
+    gquic_tls_conn_init(&conn);
+    gquic_tls_conn_assign(&conn, &addr, &cfg);
     int step = 0;
 
     cfg.insecure_skiy_verify = 1;
