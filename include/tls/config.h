@@ -20,7 +20,6 @@ struct gquic_tls_record_layer_s {
     int (*read_handshake_msg) (gquic_str_t *const, void *const);
     int (*write_record) (size_t *const, void *const, const gquic_str_t *const);
     int (*send_alert) (void *const, const u_int8_t);
-    int (*release) (void *const);
 };
 
 int gquic_tls_record_layer_init(gquic_tls_record_layer_t *const record_layer);
@@ -45,8 +44,9 @@ struct gquic_tls_config_s {
     int renegotiation;
     gquic_list_t curve_perfers;
     gquic_tls_client_sess_cache_t *cli_sess_cache;
-    int (*extensions) (gquic_list_t *const, const u_int8_t);
-    int (*received_extensions) (const u_int8_t, gquic_list_t *const);
+    void *ext_self;
+    int (*extensions) (gquic_list_t *const, void *const, const u_int8_t);
+    int (*received_extensions) (void *const, const u_int8_t, gquic_list_t *const);
     int (*verify_peer_certs) (const gquic_list_t *const, const gquic_list_t *const);
     int (*get_ser_cert) (gquic_str_t *const, const gquic_tls_client_hello_msg_t *const);
     int (*get_cli_cert) (gquic_str_t *const, const gquic_tls_cert_req_13_msg_t *const);
@@ -63,14 +63,13 @@ struct gquic_tls_ticket_key_s {
 };
 
 int gquic_tls_config_init(gquic_tls_config_t *const cfg);
+// TODO config release
 int gquic_tls_config_default(gquic_tls_config_t **const cfg);
 int gquic_tls_config_supported_versions(gquic_list_t *ret, const gquic_tls_config_t *cfg, int is_client);
 int gquic_tls_config_curve_preferences(gquic_list_t *ret);
 
 int gquic_tls_ticket_key_deserialize(gquic_tls_ticket_key_t *ticket_key, const void *buf, const size_t size);
-
 int gquic_tls_sig_trans(u_int8_t *const sig, const u_int16_t sigsche);
-
 int gquic_tls_supported_sigalgs_tls12(gquic_list_t *const sigsches);
 
 #endif

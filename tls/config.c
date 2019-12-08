@@ -20,7 +20,6 @@ int gquic_tls_record_layer_init(gquic_tls_record_layer_t *const record_layer) {
     record_layer->read_handshake_msg = NULL;
     record_layer->write_record = NULL;
     record_layer->send_alert = NULL;
-    record_layer->release = NULL;
     return 0;
 }
 
@@ -48,8 +47,10 @@ int gquic_tls_config_init(gquic_tls_config_t *const cfg) {
     cfg->renegotiation = 0;
     gquic_list_head_init(&cfg->curve_perfers);
     cfg->cli_sess_cache = NULL;
+    cfg->ext_self = NULL;
     cfg->extensions = NULL;
     cfg->received_extensions = NULL;
+    cfg->extensions_release = NULL;
     cfg->verify_peer_certs = NULL;
     cfg->get_cli_cert = NULL;
     cfg->get_ser_cert = NULL;
