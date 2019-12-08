@@ -50,7 +50,6 @@ int gquic_tls_config_init(gquic_tls_config_t *const cfg) {
     cfg->ext_self = NULL;
     cfg->extensions = NULL;
     cfg->received_extensions = NULL;
-    cfg->extensions_release = NULL;
     cfg->verify_peer_certs = NULL;
     cfg->get_cli_cert = NULL;
     cfg->get_ser_cert = NULL;
