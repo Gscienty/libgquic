@@ -146,7 +146,7 @@ int gquic_auto_update_aead_set_rkey(gquic_auto_update_aead_t *const aead,
         }
         aead->suite = suite;
     }
-    if (gquic_auto_update_aead_next_traffic_sec(&next_recv_traffic_sec, suite, &aead->next_recv_traffic_sec) != 0) {
+    if (gquic_auto_update_aead_next_traffic_sec(&next_recv_traffic_sec, suite, traffic_sec) != 0) {
         return -5;
     }
     gquic_str_reset(&aead->next_recv_traffic_sec);
@@ -186,7 +186,7 @@ int gquic_auto_update_aead_set_wkey(gquic_auto_update_aead_t *const aead,
         }
         aead->suite = suite;
     }
-    if (gquic_auto_update_aead_next_traffic_sec(&next_send_traffic_sec, suite, &aead->next_send_traffic_sec) != 0) {
+    if (gquic_auto_update_aead_next_traffic_sec(&next_send_traffic_sec, suite, traffic_sec) != 0) {
         return -5;
     }
     gquic_str_reset(&aead->next_send_traffic_sec);
