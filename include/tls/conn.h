@@ -75,10 +75,6 @@ struct gquic_tls_conn_s {
 
 int gquic_tls_conn_init(gquic_tls_conn_t *const conn);
 
-int gquic_tls_conn_assign(gquic_tls_conn_t *const conn,
-                          const gquic_net_addr_t *const addr,
-                          gquic_tls_config_t *const cfg);
-
 int gquic_tls_conn_load_session(gquic_str_t *const cache_key,
                                 gquic_tls_client_sess_state_t **const sess,
                                 gquic_str_t *const early_sec,
