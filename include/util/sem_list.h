@@ -16,6 +16,7 @@ struct gquic_sem_list_s {
     sem_t sem;
     sem_t mtx;
     gquic_list_t list;
+    int closed;
 };
 
 int gquic_sem_list_init(gquic_sem_list_t *const list);
@@ -25,5 +26,8 @@ int gquic_sem_list_pop(void **const event, gquic_sem_list_t *const list);
 int gquic_sem_list_waiting_pop(void **const event, gquic_sem_list_t *const list, int (*cmp)(const void *const, const void *const), const void *const arg);
 int gquic_sem_list_push(gquic_sem_list_t *const list, void *const event);
 int gquic_sem_list_rpush(gquic_sem_list_t *const list, void *const event);
+
+int gquic_sem_list_close(gquic_sem_list_t *const list);
+int gquic_sem_lise_closed(gquic_sem_list_t *const list);
 
 #endif

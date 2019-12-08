@@ -4,6 +4,7 @@ int gquic_sem_list_init(gquic_sem_list_t *const list) {
     if (list == NULL) {
         return -1;
     }
+    list->closed = 0;
     gquic_list_head_init(&list->list);
     sem_init(&list->mtx, 0, 1);
     sem_init(&list->sem, 0, 0);
@@ -26,9 +27,13 @@ int gquic_sem_list_pop(void **const event, gquic_sem_list_t *const list) {
     }
     GQUIC_SEM_LIST_WAIT(list);
     GQUIC_SEM_LIST_LOCK(list);
-    if (gquic_list_head_empty(GQUIC_SEM_LIST(list))) {
+    if (list->closed) {
         GQUIC_SEM_LIST_UNLOCK(list);
         return -2;
+    }
+    if (gquic_list_head_empty(GQUIC_SEM_LIST(list))) {
+        GQUIC_SEM_LIST_UNLOCK(list);
+        return -3;
     }
     *event = GQUIC_SEM_LIST_FIRST(list);
     gquic_list_remove(*event);
@@ -43,9 +48,13 @@ int gquic_sem_list_waiting_pop(void **const event, gquic_sem_list_t *const list,
 init:
     GQUIC_SEM_LIST_WAIT(list);
     GQUIC_SEM_LIST_LOCK(list);
-    if (gquic_list_head_empty(GQUIC_SEM_LIST(list))) {
+    if (list->closed) {
         GQUIC_SEM_LIST_UNLOCK(list);
         return -2;
+    }
+    if (gquic_list_head_empty(GQUIC_SEM_LIST(list))) {
+        GQUIC_SEM_LIST_UNLOCK(list);
+        return -3;
     }
     *event = GQUIC_SEM_LIST_FIRST(list);
     if (cmp(event, arg) != 0) {
@@ -64,6 +73,10 @@ int gquic_sem_list_push(gquic_sem_list_t *const list, void *const event) {
         return -1;
     }
     GQUIC_SEM_LIST_LOCK(list);
+    if (list->closed) {
+        GQUIC_SEM_LIST_UNLOCK(list);
+        return -2;
+    }
     gquic_list_insert_before(GQUIC_SEM_LIST(list), event);
     GQUIC_SEM_LIST_UNLOCK(list);
     GQUIC_SEM_LIST_NOTIFY(list);
@@ -75,8 +88,34 @@ int gquic_sem_list_rpush(gquic_sem_list_t *const list, void *const event) {
         return -1;
     }
     GQUIC_SEM_LIST_LOCK(list);
+    if (list->closed) {
+        GQUIC_SEM_LIST_UNLOCK(list);
+        return -2;
+    }
     gquic_list_insert_after(GQUIC_SEM_LIST(list), event);
     GQUIC_SEM_LIST_UNLOCK(list);
     GQUIC_SEM_LIST_NOTIFY(list);
     return 0;
+}
+
+int gquic_sem_list_close(gquic_sem_list_t *const list) {
+    if (list == NULL) {
+        return -1;
+    }
+    GQUIC_SEM_LIST_LOCK(list);
+    list->closed = 1;
+    GQUIC_SEM_LIST_UNLOCK(list);
+    GQUIC_SEM_LIST_NOTIFY(list);
+    return 0;
+}
+
+int gquic_sem_lise_closed(gquic_sem_list_t *const list) {
+    int ret;
+    if (list == NULL) {
+        return 1;
+    }
+    GQUIC_SEM_LIST_LOCK(list);
+    ret = list->closed;
+    GQUIC_SEM_LIST_UNLOCK(list);
+    return ret;
 }
