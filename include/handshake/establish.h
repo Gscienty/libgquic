@@ -24,6 +24,7 @@ struct gquic_establish_ending_event_s {
 #define GQUIC_ESTABLISH_ENDING_EVENT_HANDSHAKE_COMPLETE 1
 #define GQUIC_ESTABLISH_ENDING_EVENT_ALERT 2
 #define GQUIC_ESTABLISH_ENDING_EVENT_CLOSE 3
+#define GQUIC_ESTABLISH_ENDING_EVENT_INTERNAL_ERR 4
 
 typedef struct gquic_establish_err_event_s gquic_establish_err_event_t;
 struct gquic_establish_err_event_s {

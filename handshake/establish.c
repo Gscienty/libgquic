@@ -98,8 +98,9 @@ int gquic_handshake_establish_assign(gquic_handshake_establish_t *const est,
     est->aead.rtt = rtt;
     est->cfg = cfg;
     est->is_client = is_client;
-
-    gquic_tls_conn_assign(&est->conn, addr, cfg);
+    est->conn.addr = addr;
+    est->conn.cfg = cfg;
+    est->conn.is_client = is_client;
     return 0;
 }
 
@@ -146,6 +147,7 @@ int gquic_handshake_establish_run(gquic_handshake_establish_t *const est) {
     if (est == NULL) {
         return -1;
     }
+    pthread_attr_init(&run_thread_attr);
     if (pthread_create(&run_thread, &run_thread_attr, __establish_run, est) != 0) {
         return -2;
     }
@@ -180,6 +182,11 @@ int gquic_handshake_establish_run(gquic_handshake_establish_t *const est) {
         if (!est->is_client) {
             // TODO send sess_ticket
         }
+        break;
+
+    case GQUIC_ESTABLISH_ENDING_EVENT_INTERNAL_ERR:
+        ret = -7;
+        goto failure;
         break;
     }
 
@@ -221,6 +228,12 @@ static void *__establish_run(void *arg) {
         }
         err_event->ret = err_ret;
         gquic_sem_list_push(&est->err_events_queue, err_event);
+
+        if ((ending_event = gquic_list_alloc(sizeof(gquic_establish_ending_event_t))) == NULL) {
+            goto finish;
+        }
+        ending_event->type = GQUIC_ESTABLISH_ENDING_EVENT_INTERNAL_ERR;
+        gquic_sem_list_push(&est->handshake_ending_events_queue, ending_event);
         goto finish;
     }
     if ((ending_event = gquic_list_alloc(sizeof(gquic_establish_ending_event_t))) == NULL) {
