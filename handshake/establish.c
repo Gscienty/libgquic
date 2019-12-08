@@ -101,6 +101,7 @@ int gquic_handshake_establish_assign(gquic_handshake_establish_t *const est,
     est->conn.addr = addr;
     est->conn.cfg = cfg;
     est->conn.is_client = is_client;
+    est->conn.ver = GQUIC_TLS_VERSION_13;
     return 0;
 }
 
