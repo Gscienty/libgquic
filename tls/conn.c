@@ -22,12 +22,14 @@
 #include "tls/key_update_msg.h"
 #include "tls/handshake_server.h"
 #include "tls/handshake_client.h"
+#include "tls/ticket.h"
 #include "util/time.h"
 #include "util/big_endian.h"
 #include <openssl/x509.h>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
 #include <openssl/sha.h>
+#include <openssl/hmac.h>
 #include <openssl/rand.h>
 
 static int gquic_tls_conn_cli_sess_cache_key(gquic_str_t *const, const gquic_net_addr_t *const, const gquic_tls_config_t *const);
@@ -36,6 +38,9 @@ static int gquic_compare_now_asn1_time(const ASN1_TIME *const);
 static int gquic_equal_common_name(const gquic_str_t *const, X509_NAME *const);
 
 static int gquic_tls_half_conn_inc_seq(gquic_tls_half_conn_t *const);
+
+static int gquic_tls_conn_encrypt_ticket(gquic_str_t *const, gquic_tls_conn_t *const, const gquic_str_t *const);
+static int gquic_tls_conn_decrypt_ticket(gquic_str_t *const, int *const, gquic_tls_conn_t *const, const gquic_str_t *const);
 
 int gquic_tls_half_conn_init(gquic_tls_half_conn_t *const half_conn) {
     if (half_conn == NULL) {
@@ -979,4 +984,231 @@ int gquic_tls_conn_handshake(gquic_tls_conn_t *const conn) {
     conn->handshakes++;
     sem_post(&conn->handshake_mtx);
     return 0;
+}
+
+int gquic_tls_conn_get_sess_ticket(gquic_str_t *const msg, gquic_tls_conn_t *const conn) {
+    int ret = 0;
+    gquic_tls_sess_state_t state;
+    gquic_str_t *peer_cert = NULL;
+    gquic_str_t *cert = NULL;
+    gquic_tls_new_sess_ticket_13_msg_t ticket;
+    if (msg == NULL || conn == NULL) {
+        return -1;
+    }
+    if (conn->is_client || conn->handshake_status == 1 || conn->cfg->alt_record.self == NULL) {
+        return -2;
+    }
+    if (conn->cfg->sess_ticket_disabled) {
+        return 0;
+    }
+    gquic_tls_sess_state_init(&state);
+    gquic_tls_new_sess_ticket_13_msg_init(&ticket);
+    GQUIC_LIST_FOREACH(peer_cert, &conn->peer_certs) {
+        if ((cert = gquic_list_alloc(sizeof(gquic_str_t *))) == NULL) {
+            return -3;
+        }
+        gquic_str_init(cert);
+        if (gquic_str_copy(cert, peer_cert) != 0) {
+            return -4;
+        }
+        if (gquic_list_insert_before(&state.cert.certs, cert) != 0) {
+            return -5;
+        }
+    }
+    // TODO copy ocsp and scts
+    state.cipher_suite = conn->cipher_suite;
+    if (gquic_str_copy(&state.resumption_sec, &conn->resumption_sec) != 0) {
+        return -6;
+    }
+    state.create_at = time(NULL);
+
+    if (gquic_str_alloc(&ticket.label, gquic_tls_sess_state_size(&state)) != 0) {
+        ret = -7;
+        goto failure;
+    }
+    if (gquic_tls_sess_state_serialize(&state, GQUIC_STR_VAL(&ticket.label), GQUIC_STR_SIZE(&ticket.label)) <= 0) {
+        ret = -8;
+        goto failure;
+    }
+    ticket.lifetime = 7 * 24 * 60;
+
+    if (gquic_str_alloc(msg, gquic_tls_new_sess_ticket_13_msg_size(&ticket)) != 0) {
+        ret = -9;
+        goto failure;
+    }
+    if (gquic_tls_new_sess_ticket_13_msg_serialize(&ticket, GQUIC_STR_VAL(msg), GQUIC_STR_SIZE(msg)) != 0) {
+        ret = -10;
+        goto failure;
+    }
+    gquic_tls_new_sess_ticket_13_msg_reset(&ticket);
+    return 0;
+failure:
+    gquic_tls_new_sess_ticket_13_msg_reset(&ticket);
+    return ret;
+}
+
+static int gquic_tls_conn_encrypt_ticket(gquic_str_t *const encrypted, gquic_tls_conn_t *const conn, const gquic_str_t *const state) {
+    int ret = 0;
+    EVP_CIPHER_CTX *ctx = NULL;
+    HMAC_CTX *hmac = NULL;
+    int size = 0;
+    gquic_tls_ticket_key_t *key = NULL;
+    if (encrypted == NULL || conn == NULL || state == NULL) {
+        return -1;
+    }
+    if ((ctx = EVP_CIPHER_CTX_new()) == NULL) {
+        return -2;
+    }
+    if (EVP_CIPHER_CTX_init(ctx) <= 0) {
+        ret = -3;
+        goto failure;
+    }
+    if ((hmac = HMAC_CTX_new()) == NULL) {
+        ret = -4;
+        goto failure;
+    }
+    if (gquic_str_alloc(encrypted, 16 + 16 + GQUIC_STR_SIZE(state) + 32) != 0) {
+        ret = -5;
+        goto failure;
+    }
+    if (RAND_bytes(GQUIC_STR_VAL(encrypted) + 16, 16) <= 0) {
+        ret = -6;
+        goto failure;
+    }
+    key = GQUIC_LIST_FIRST(&conn->cfg->sess_ticket_keys);
+    memcpy(GQUIC_STR_VAL(encrypted), key->name, 16);
+    if (EVP_EncryptInit_ex(ctx, EVP_aes_128_ctr(), NULL, key->aes_key, GQUIC_STR_VAL(encrypted) + 16) <= 0) {
+        ret = -7;
+        goto failure;
+    }
+    if (EVP_EncryptUpdate(ctx, GQUIC_STR_VAL(encrypted) + 16 + 16, &size, GQUIC_STR_VAL(state), GQUIC_STR_SIZE(state)) <= 0) {
+        ret = -8;
+        goto failure;
+    }
+    if (EVP_EncryptFinal_ex(ctx, GQUIC_STR_VAL(encrypted) + 16 + 16 + size, &size) <= 0) {
+        ret = -9;
+        goto failure;
+    }
+    if (HMAC_Init_ex(hmac, key->hmac_key, 16, EVP_sha256(), NULL) <= 0) {
+        ret = -10;
+        goto failure;
+    }
+    if (HMAC_Update(hmac, GQUIC_STR_VAL(encrypted), GQUIC_STR_SIZE(encrypted) - 32) <= 0) {
+        ret = -11;
+        goto failure;
+    }
+    if (HMAC_Final(hmac, GQUIC_STR_VAL(encrypted) + GQUIC_STR_SIZE(encrypted) - 32, (u_int32_t *) &size) <= 0) {
+        ret = -12;
+        goto failure;
+    }
+
+    if (ctx != NULL) {
+        EVP_CIPHER_CTX_free(ctx);
+    }
+    if (hmac != NULL) {
+        HMAC_CTX_free(hmac);
+    }
+    return 0;
+failure:
+    if (ctx != NULL) {
+        EVP_CIPHER_CTX_free(ctx);
+    }
+    if (hmac != NULL) {
+        HMAC_CTX_free(hmac);
+    }
+    return ret;
+}
+
+static int gquic_tls_conn_decrypt_ticket(gquic_str_t *const plain,
+                                         int *const is_oldkey,
+                                         gquic_tls_conn_t *const conn,
+                                         const gquic_str_t *const encrypted) {
+    int ret = 0;
+    const gquic_str_t key_name = { 16, GQUIC_STR_VAL(encrypted) };
+    const gquic_str_t iv = { 16, GQUIC_STR_VAL(encrypted) + 16 };
+    const gquic_str_t mac = { 32, GQUIC_STR_VAL(encrypted) + GQUIC_STR_SIZE(encrypted) - 32 };
+    const gquic_str_t cipher_text = { GQUIC_STR_SIZE(encrypted) - 16 - 16 - 32, GQUIC_STR_VAL(encrypted) + 16 + 16 };
+    const gquic_list_t *keys = NULL;
+    const gquic_tls_ticket_key_t *key = NULL;
+    gquic_tls_ticket_key_t *key_itr = NULL;
+    u_int32_t size = 0;
+    u_int8_t mac_cnt[32] = { 0 };
+    const gquic_str_t mac_expect = { 32, mac_cnt };
+    HMAC_CTX *hmac = NULL;
+    EVP_CIPHER_CTX *ctx = NULL;
+    if (plain == NULL || is_oldkey == NULL || conn == NULL || encrypted == NULL) {
+        return -1;
+    }
+    if (GQUIC_STR_SIZE(encrypted) < 16 + 16 + 32) {
+        return -2;
+    }
+    if ((hmac = HMAC_CTX_new()) == NULL) {
+        return -3;
+    }
+    if ((ctx = EVP_CIPHER_CTX_new()) == NULL) {
+        ret = -4;
+        goto failure;
+    }
+    keys = &conn->cfg->sess_ticket_keys;
+    GQUIC_LIST_FOREACH(key_itr, keys) {
+        const gquic_str_t name = { 16, key_itr->name };
+        if (gquic_str_cmp(&key_name, &name) == 0) {
+            key = key_itr;
+            break;
+        }
+    }
+    if (key == NULL) {
+        *is_oldkey = 0;
+        return 0;
+    }
+    if (HMAC_Init_ex(hmac, key->hmac_key, 16, EVP_sha256(), NULL) <= 0) {
+        ret = -5;
+        goto failure;
+    }
+    if (HMAC_Update(hmac, GQUIC_STR_VAL(encrypted), GQUIC_STR_SIZE(encrypted) - 32) <= 0) {
+        ret = -6;
+        goto failure;
+    }
+    if (HMAC_Final(hmac, mac_cnt, &size) <= 0) {
+        ret = -7;
+        goto failure;
+    }
+    if (gquic_str_cmp(&mac_expect, &mac) != 0) {
+        *is_oldkey = 0;
+        return 0;
+    }
+    if (EVP_DecryptInit_ex(ctx, EVP_aes_128_ctr(), NULL, key->aes_key, GQUIC_STR_VAL(&iv)) <= 0) {
+        ret = -8;
+        goto failure;
+    }
+    if (gquic_str_alloc(plain, GQUIC_STR_SIZE(&cipher_text)) != 0) {
+        ret = -9;
+        goto failure;
+    }
+    if (EVP_DecryptUpdate(ctx, GQUIC_STR_VAL(plain), (int *) &size, GQUIC_STR_VAL(&cipher_text), GQUIC_STR_SIZE(&cipher_text)) != 0) {
+        ret = -10;
+        goto failure;
+    }
+    if (EVP_DecryptFinal_ex(ctx, GQUIC_STR_VAL(plain) + size, (int *) &size) <= 0) {
+        ret = -11;
+        goto failure;
+    }
+    *is_oldkey = 1;
+
+    if (ctx != NULL) {
+        EVP_CIPHER_CTX_free(ctx);
+    }
+    if (hmac != NULL) {
+        HMAC_CTX_free(hmac);
+    }
+    return 0;
+failure:
+    *is_oldkey = 0;
+    if (ctx != NULL) {
+        EVP_CIPHER_CTX_free(ctx);
+    }
+    if (hmac != NULL) {
+        HMAC_CTX_free(hmac);
+    }
+    return ret;
 }

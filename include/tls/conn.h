@@ -93,4 +93,6 @@ int gquic_tls_common_handshake_record_release(const u_int16_t ver, const u_int8_
 
 int gquic_tls_conn_handshake(gquic_tls_conn_t *const conn);
 
+int gquic_tls_conn_get_sess_ticket(gquic_str_t *const msg, gquic_tls_conn_t *const conn);
+
 #endif
