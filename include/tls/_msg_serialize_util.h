@@ -36,6 +36,11 @@ static inline void __gquic_store_prefix_len(gquic_list_t *stack, size_t *off, co
     *off += len;
 }
 
+static inline void __gquic_fill_8byte(void *buf, size_t *off, const u_int32_t val) {
+    gquic_big_endian_transfer(buf + *off, &val, 8);
+    *off += 4;
+}
+
 static inline void __gquic_fill_4byte(void *buf, size_t *off, const u_int32_t val) {
     gquic_big_endian_transfer(buf + *off, &val, 4);
     *off += 4;
