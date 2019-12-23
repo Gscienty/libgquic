@@ -110,6 +110,8 @@ int gquic_tls_mac_md_update(gquic_tls_mac_t *const mac,
 int gquic_tls_mac_md_reset(gquic_tls_mac_t *const mac);
 int gquic_tls_mac_md_sum(gquic_str_t *const ret,
                          gquic_tls_mac_t *const mac);
+int gquic_tls_mac_md_copy(gquic_tls_mac_t *const ret,
+                          gquic_tls_mac_t *const origin);
 
 typedef struct gquic_tls_cipher_suite_s gquic_tls_cipher_suite_t;
 struct gquic_tls_cipher_suite_s {
