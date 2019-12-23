@@ -39,8 +39,6 @@ static int gquic_equal_common_name(const gquic_str_t *const, X509_NAME *const);
 
 static int gquic_tls_half_conn_inc_seq(gquic_tls_half_conn_t *const);
 
-static int gquic_tls_conn_encrypt_ticket(gquic_str_t *const, gquic_tls_conn_t *const, const gquic_str_t *const);
-static int gquic_tls_conn_decrypt_ticket(gquic_str_t *const, int *const, gquic_tls_conn_t *const, const gquic_str_t *const);
 
 int gquic_tls_half_conn_init(gquic_tls_half_conn_t *const half_conn) {
     if (half_conn == NULL) {
@@ -1047,7 +1045,7 @@ failure:
     return ret;
 }
 
-static int gquic_tls_conn_encrypt_ticket(gquic_str_t *const encrypted, gquic_tls_conn_t *const conn, const gquic_str_t *const state) {
+int gquic_tls_conn_encrypt_ticket(gquic_str_t *const encrypted, gquic_tls_conn_t *const conn, const gquic_str_t *const state) {
     int ret = 0;
     EVP_CIPHER_CTX *ctx = NULL;
     HMAC_CTX *hmac = NULL;
@@ -1119,10 +1117,10 @@ failure:
     return ret;
 }
 
-static int gquic_tls_conn_decrypt_ticket(gquic_str_t *const plain,
-                                         int *const is_oldkey,
-                                         gquic_tls_conn_t *const conn,
-                                         const gquic_str_t *const encrypted) {
+int gquic_tls_conn_decrypt_ticket(gquic_str_t *const plain,
+                                  int *const is_oldkey,
+                                  gquic_tls_conn_t *const conn,
+                                  const gquic_str_t *const encrypted) {
     int ret = 0;
     const gquic_str_t key_name = { 16, GQUIC_STR_VAL(encrypted) };
     const gquic_str_t iv = { 16, GQUIC_STR_VAL(encrypted) + 16 };
@@ -1211,4 +1209,28 @@ failure:
         HMAC_CTX_free(hmac);
     }
     return ret;
+}
+
+int gquic_tls_conn_handle_post_handshake_msg(gquic_tls_conn_t *const conn) {
+    void *msg = NULL;
+    u_int8_t msg_type = 0;
+    if (conn == NULL) {
+        return -1;
+    }
+
+    if (gquic_tls_conn_read_handshake(&msg_type, &msg, conn) != 0) {
+        return -2;
+    }
+
+    switch (msg_type) {
+    case GQUIC_TLS_HANDSHAKE_MSG_TYPE_NEW_SESS_TICKET:
+        // TODO
+    case GQUIC_TLS_HANDSHAKE_MSG_TYPE_KEY_UPDATE:
+        // TODO
+    default:
+        gquic_tls_conn_send_alert(conn, GQUIC_TLS_ALERT_UNEXPECTED_MESSAGE);
+    }
+
+    gquic_tls_common_handshake_record_release(GQUIC_TLS_VERSION_13, msg_type, msg);
+    return 0;
 }
