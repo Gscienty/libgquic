@@ -260,6 +260,21 @@ int gquic_tls_mac_md_sum(gquic_str_t *const ret,
     return 0;
 }
 
+int gquic_tls_mac_md_copy(gquic_tls_mac_t *const ret,
+                          gquic_tls_mac_t *const origin) {
+    if (ret == NULL || origin == NULL) {
+        return -1;
+    }
+    ret->md = origin->md;
+    if ((ret->md_ctx = EVP_MD_CTX_new()) == NULL) {
+        return -2;
+    }
+    if (EVP_MD_CTX_copy_ex(ret->md_ctx, origin->md_ctx) <= 0) {
+        return -3;
+    }
+    return 0;
+}
+
 int gquic_tls_aead_init(gquic_tls_aead_t *const aead) {
     if (aead == NULL) {
         return -1;
@@ -1048,12 +1063,15 @@ int gquic_tls_cipher_suite_finished_hash(gquic_str_t *const hash,
     gquic_str_t finished_key = { 0, NULL };
     gquic_str_t verify_data = { 0, NULL };
     gquic_tls_mac_t mac;
+    gquic_tls_mac_t tmp;
     gquic_tls_mac_init(&mac);
+    gquic_tls_mac_init(&tmp);
     static const gquic_str_t label = { 8, "finished" };
     if (hash == NULL || cipher_suite == NULL || base_key == NULL || transport == NULL) {
         return -1;
     }
-    if (gquic_tls_cipher_suite_expand_label(&finished_key, cipher_suite, base_key, &label, NULL, cipher_suite->mac_len) != 0) {
+    cipher_suite->mac(&tmp, GQUIC_TLS_VERSION_13, NULL);
+    if (gquic_tls_cipher_suite_expand_label(&finished_key, cipher_suite, base_key, &label, NULL, EVP_MD_size(tmp.md)) != 0) {
         ret = -2;
         goto failure;
     }
@@ -1073,11 +1091,13 @@ int gquic_tls_cipher_suite_finished_hash(gquic_str_t *const hash,
     gquic_str_reset(&finished_key);
     gquic_str_reset(&verify_data);
     gquic_tls_mac_release(&mac);
+    gquic_tls_mac_release(&tmp);
     return 0;
 failure:
     gquic_str_reset(&finished_key);
     gquic_str_reset(&verify_data);
     gquic_tls_mac_release(&mac);
+    gquic_tls_mac_release(&tmp);
     return ret;
 }
 
