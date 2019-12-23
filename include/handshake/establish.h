@@ -86,6 +86,9 @@ struct gquic_handshake_establish_s {
     int has_1rtt_opener;
 
     gquic_handshake_extension_handler_t extension_handler;
+
+    int handshake_done;
+    sem_t handshake_done_notify;
 };
 
 int gquic_handshake_establish_init(gquic_handshake_establish_t *const est);

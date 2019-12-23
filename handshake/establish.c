@@ -19,6 +19,8 @@ static int gquic_establish_record_layer_set_wkey(void *const, const u_int8_t, co
 static int gquic_establish_record_layer_write_record(size_t *const, void *const, const gquic_str_t *const);
 static int gquic_establish_record_layer_send_alert(void *const, const u_int8_t);
 
+static int gquic_establish_handle_post_handshake_msg(gquic_handshake_establish_t *const);
+
 int gquic_handshake_event_init(gquic_handshake_event_t *const event) {
     if (event == NULL) {
         return -1;
@@ -62,6 +64,9 @@ int gquic_handshake_establish_init(gquic_handshake_establish_t *const est) {
     est->has_1rtt_opener = 0;
 
     gquic_handshake_extension_handler_init(&est->extension_handler);
+
+    est->handshake_done = 0;
+    sem_init(&est->handshake_done_notify, 0, 0);
 
     return 0;
 }
@@ -187,6 +192,8 @@ int gquic_handshake_establish_run(gquic_handshake_establish_t *const est) {
         goto failure;
         break;
     }
+    est->handshake_done = 1;
+    sem_post(&est->handshake_done_notify);
 
     if (ending_event != NULL) {
         gquic_list_release(ending_event);
@@ -290,7 +297,7 @@ int gquic_handshake_establish_handle_msg(gquic_handshake_establish_t *const est,
     }
     gquic_sem_list_push(&est->msg_events_queue, msg);
     if (enc_level == GQUIC_ENC_LV_1RTT) {
-        // TODO new ticket OR key update
+        gquic_establish_handle_post_handshake_msg(est);
     }
 
     if (est->is_client) {
@@ -826,4 +833,44 @@ static int gquic_establish_record_layer_write_record(size_t *const size, void *c
 
 static int gquic_establish_record_layer_send_alert(void *const self, const u_int8_t alert) {
     return gquic_handshake_establish_send_alert(self, alert);
+}
+
+static int gquic_establish_handle_post_handshake_msg(gquic_handshake_establish_t *const est) {
+    gquic_establish_process_event_t *process_event = NULL;
+    gquic_establish_err_event_t *err_event = NULL;
+    gquic_establish_ending_event_t *ending_event = NULL;
+    if (est == NULL) {
+        return -1;
+    }
+    while (est->handshake_done != 1) {
+        sem_wait(&est->handshake_done_notify);
+    }
+
+    if (gquic_tls_conn_handle_post_handshake_msg(&est->conn) != 0) {
+        if (gquic_sem_list_pop((void **) &ending_event, &est->handshake_ending_events_queue) != 0) {
+            return -3;
+        }
+        switch (ending_event->type) {
+        case GQUIC_ESTABLISH_ENDING_EVENT_ALERT:
+            if (gquic_sem_list_pop((void **) &err_event, &est->err_events_queue) != 0) {
+                goto finished;
+            }
+            if (GQUIC_HANDSHAKE_EVENT_ON_ERR(&est->events, ending_event->payload.alert_code, err_event->ret) != 0) {
+                goto finished;
+            }
+            break;
+        }
+    }
+
+finished:
+    if (process_event != NULL) {
+        gquic_list_release(process_event);
+    }
+    if (err_event != NULL) {
+        gquic_list_release(err_event);
+    }
+    if (ending_event != NULL) {
+        gquic_list_release(ending_event);
+    }
+    return 0;
 }
