@@ -7,6 +7,7 @@
 #include "tls/cert_13_msg.h"
 #include "tls/cert_verify_msg.h"
 #include "tls/finished_msg.h"
+#include "tls/ticket.h"
 #include <openssl/rand.h>
 #include <openssl/x509.h>
 #include <openssl/pkcs12.h>
@@ -38,6 +39,7 @@ static int gquic_tls_handshake_server_state_read_cli_cert(gquic_tls_handshake_se
 static int gquic_tls_handshake_server_state_read_cli_finished(gquic_tls_handshake_server_state_t *const);
 static int gquic_tls_handshake_server_state_illegal_client_hello_change(gquic_tls_client_hello_msg_t *const, gquic_tls_client_hello_msg_t *const);
 static int gquic_tls_handshake_server_state_send_session_tickets(gquic_tls_handshake_server_state_t *const);
+static int gquic_tls_handshake_server_state_should_send_session_tickets(gquic_tls_handshake_server_state_t *const);
 
 static int mutual_protocol(const gquic_str_t **const, const gquic_list_t *const, const gquic_list_t *const);
 static int gquic_tls_handshake_server_state_request_cli_cert(gquic_tls_handshake_server_state_t *const);
@@ -511,14 +513,192 @@ static int gquic_tls_handshake_server_state_send_dummy_change_cipher_spec(gquic_
 }
 
 static int gquic_tls_handshake_server_state_check_for_resumption(gquic_tls_handshake_server_state_t *const ser_state) {
+    int mode = 0;
+    size_t i;
+    int psk_identities_count = 0;
+    int psk_binders_count = 0;
+    void *_ = NULL;
+    gquic_tls_psk_identity_t *identity = NULL;
+    gquic_str_t plain_text = { 0, NULL };
+    gquic_tls_sess_state_t sess_state;
+    const gquic_tls_cipher_suite_t *psk_suite = NULL;
+    int sess_has_client_certs = 0;
+    int need_client_certs = 0;
     if (ser_state == NULL) {
         return -1;
     }
+    gquic_tls_sess_state_init(&sess_state);
     if (ser_state->conn->cfg->sess_ticket_disabled) {
         return 0;
     }
     
-    // TODO
+    for (i = 0; i < GQUIC_STR_SIZE(&ser_state->c_hello->psk_modes); i++) {
+        if (((u_int8_t *) GQUIC_STR_VAL(&ser_state->c_hello->psk_modes))[i] == 1) {
+            mode = 1;
+            break;
+        }
+    }
+    if (!mode) {
+        return 0;
+    }
+
+    GQUIC_LIST_FOREACH(_, &ser_state->c_hello->psk_identities) {
+        psk_identities_count++;
+    }
+    GQUIC_LIST_FOREACH(_, &ser_state->c_hello->psk_binders) {
+        psk_binders_count++;
+    }
+    if (psk_binders_count != psk_identities_count) {
+        gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_ILLEGAL_PARAMS);
+        return -2;
+    }
+    if (psk_identities_count == 0) {
+        return 0;
+    }
+
+    i = 0;
+    GQUIC_LIST_FOREACH(identity, &ser_state->c_hello->psk_identities) {
+        int ignore;
+        if (i >= 5) {
+            break;
+        }
+        if (gquic_tls_conn_decrypt_ticket(&plain_text, &ignore, ser_state->conn, &identity->label) != 0) {
+            gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
+            return -3;
+        }
+        if (GQUIC_STR_SIZE(&plain_text) == 0) {
+            goto continue_loop;
+        }
+        if (gquic_tls_sess_state_deserialize(&sess_state, GQUIC_STR_VAL(&plain_text), GQUIC_STR_SIZE(&plain_text)) <= 0) {
+            goto continue_loop;
+        }
+        if (time(NULL) - sess_state.create_at < 7 * 24 * 60 * 60) {
+            goto continue_loop;
+        }
+        if (gquic_tls_get_cipher_suite(&psk_suite, sess_state.cipher_suite) != 0) {
+            goto continue_loop;
+        }
+        if (psk_suite == NULL || psk_suite->hash != ser_state->suite->hash) {
+            goto continue_loop;
+        }
+        sess_has_client_certs = !gquic_list_head_empty(&sess_state.cert.certs);
+        need_client_certs = gquic_tls_requires_cli_cert(ser_state->conn->cfg->cli_auth);
+        if (need_client_certs && !sess_has_client_certs) {
+            goto continue_loop;
+        }
+        if (sess_has_client_certs && ser_state->conn->cfg->cli_auth == 0) {
+            goto continue_loop;
+        }
+
+        int ret = 0;
+        gquic_str_t psk = { 0, NULL };
+        gquic_str_t binder_key = { 0, NULL };
+        gquic_str_t psk_binder = { 0, NULL };
+        gquic_str_t buf = { 0, NULL };
+        gquic_tls_mac_t transport;
+        gquic_tls_mac_t hash;
+        static const gquic_str_t label = { 10, "resumption" };
+        static const gquic_str_t resumption_binder_label = { 10, "res binder" };
+        gquic_tls_mac_init(&transport);
+        gquic_tls_mac_init(&hash);
+
+        ser_state->suite->mac(&hash, GQUIC_TLS_VERSION_13, NULL);
+        if (gquic_tls_cipher_suite_expand_label(&psk,
+                                                ser_state->suite,
+                                                &sess_state.resumption_sec,
+                                                &label,
+                                                NULL,
+                                                EVP_MD_size(hash.md)) != 0) {
+            ret = -4;
+            gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
+            goto failure;
+        }
+        if (gquic_tls_cipher_suite_extract(&ser_state->early_sec, ser_state->suite, &psk, NULL) != 0) {
+            ret = -5;
+            gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
+            goto failure;
+        }
+        if (gquic_tls_cipher_suite_derive_secret(&binder_key, ser_state->suite, NULL, &ser_state->early_sec, &resumption_binder_label) != 0) {
+            ret = -6;
+            gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
+            goto failure;
+        }
+        if (gquic_tls_mac_md_copy(&transport, &ser_state->transport) != 0) {
+            ret = -7;
+            gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
+            goto failure;
+        }
+        if (gquic_str_alloc(&buf, gquic_tls_client_hello_msg_size(ser_state->c_hello)) != 0) {
+            ret = -8;
+            gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
+            goto failure;
+        }
+        if (gquic_tls_client_hello_msg_serialize(ser_state->c_hello, GQUIC_STR_VAL(&buf), GQUIC_STR_SIZE(&buf)) <= 0) {
+            ret = -9;
+            gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
+            goto failure;
+        }
+        buf.size = gquic_tls_client_hello_msg_size_without_binders(ser_state->c_hello);
+        if (gquic_tls_cipher_suite_finished_hash(&psk_binder, ser_state->suite, &binder_key, &transport) != 0) {
+            ret = -10;
+            gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
+            goto failure;
+        }
+        size_t k = 0;
+        gquic_str_t *psk_binder_inner = NULL;
+        GQUIC_LIST_FOREACH(psk_binder_inner, &ser_state->c_hello->psk_binders) {
+            if (k == i) {
+                if (gquic_str_cmp(psk_binder_inner, &psk_binder) != 0) {
+                    ret = -11;
+                    gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_DECRYPT_ERROR);
+                    goto failure;
+                }
+                break;
+            }
+            k++;
+        }
+
+        // TODO process client certs
+        
+        ser_state->s_hello->selected_identity_persent = 1;
+        ser_state->s_hello->selected_identity = i;
+        ser_state->using_psk = 1;
+        ser_state->conn->did_resume = 1;
+
+        gquic_str_reset(&plain_text);
+        gquic_str_init(&plain_text);
+        gquic_tls_sess_state_reset(&sess_state);
+        gquic_tls_sess_state_init(&sess_state);
+
+        gquic_tls_mac_release(&hash);
+        gquic_tls_mac_release(&transport);
+        gquic_str_reset(&psk);
+        gquic_str_reset(&binder_key);
+        gquic_str_reset(&psk_binder);
+        gquic_str_reset(&buf);
+        return 0;
+failure:
+        gquic_str_reset(&plain_text);
+        gquic_str_init(&plain_text);
+        gquic_tls_sess_state_reset(&sess_state);
+        gquic_tls_sess_state_init(&sess_state);
+
+        gquic_tls_mac_release(&hash);
+        gquic_tls_mac_release(&transport);
+        gquic_str_reset(&psk);
+        gquic_str_reset(&binder_key);
+        gquic_str_reset(&psk_binder);
+        gquic_str_reset(&buf);
+        return ret;
+
+continue_loop:
+        i++;
+        gquic_str_reset(&plain_text);
+        gquic_str_init(&plain_text);
+        gquic_tls_sess_state_reset(&sess_state);
+        gquic_tls_sess_state_init(&sess_state);
+        psk_suite = NULL;
+    }
 
     return 0;
 }
@@ -1132,6 +1312,7 @@ static int gquic_tls_handshake_server_state_send_session_tickets(gquic_tls_hands
     int ret = 0;
     gquic_tls_finished_msg_t cli_finished;
     gquic_str_t buf = { 0, NULL };
+    static const gquic_str_t resumption_label = { 5, "res master" };
     if (ser_state == NULL) {
         return -1;
     }
@@ -1163,8 +1344,43 @@ static int gquic_tls_handshake_server_state_send_session_tickets(gquic_tls_hands
         goto failure;
     }
 
+    if (!gquic_tls_handshake_server_state_should_send_session_tickets(ser_state)) {
+        return 0;
+    }
+    if (gquic_tls_cipher_suite_derive_secret(&ser_state->conn->resumption_sec,
+                                             ser_state->suite,
+                                             &ser_state->transport,
+                                             &ser_state->master_sec,
+                                             &resumption_label) != 0) {
+        gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
+        ret = -7;
+        goto failure;
+    }
+
+    gquic_tls_finished_msg_reset(&cli_finished);
+    gquic_str_reset(&buf);
     return 0;
 failure:
 
+    gquic_tls_finished_msg_reset(&cli_finished);
+    gquic_str_reset(&buf);
     return ret;
+}
+
+static int gquic_tls_handshake_server_state_should_send_session_tickets(gquic_tls_handshake_server_state_t *const ser_state) {
+    size_t i;
+    if (ser_state == NULL) {
+        return 0;
+    }
+
+    if (ser_state->conn->cfg->sess_ticket_disabled) {
+        return 0;
+    }
+    for (i = 0; i < GQUIC_STR_SIZE(&ser_state->c_hello->psk_modes); i++) {
+        if (((u_int8_t *) GQUIC_STR_VAL(&ser_state->c_hello->psk_modes))[i] == 1) {
+            return 1;
+        }
+    }
+
+    return 0;
 }
