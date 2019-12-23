@@ -113,9 +113,8 @@ struct gquic_tls_psk_identity_s {
 typedef struct gquic_tls_config_s gquic_tls_config_t;
 
 const gquic_str_t *gquic_tls_hello_retry_request_random();
-
 int gquic_tls_is_supported_sigalg(const u_int16_t sigalg, const gquic_list_t *const sigalgs);
-
 u_int8_t gquic_tls_sig_from_sigalg(const u_int16_t sigalg);
+int gquic_tls_requires_cli_cert(u_int8_t c);
 
 #endif

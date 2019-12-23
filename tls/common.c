@@ -48,3 +48,13 @@ u_int8_t gquic_tls_sig_from_sigalg(const u_int16_t sigalg) {
     }
     return 0xFF;
 }
+
+int gquic_tls_requires_cli_cert(u_int8_t c) {
+    switch (c) {
+    case GQUIC_CLI_AUTH_REQ_ANY:
+    case GQUIC_CLI_AUTH_REQ_VERIFY:
+        return 1;
+    default:
+        return 0;
+    }
+}
