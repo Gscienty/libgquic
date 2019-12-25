@@ -5,8 +5,8 @@
 
 typedef struct gquic_frame_new_connection_id_s gquic_frame_new_connection_id_t;
 struct gquic_frame_new_connection_id_s {
-    gquic_varint_t seq;
-    gquic_varint_t prior;
+    u_int64_t seq;
+    u_int64_t prior;
     unsigned char len;
     unsigned char conn_id[20];
     unsigned char token[16];

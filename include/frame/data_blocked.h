@@ -5,7 +5,7 @@
 
 typedef struct gquic_frame_data_blocked_s gquic_frame_data_blocked_t;
 struct gquic_frame_data_blocked_s {
-    gquic_varint_t limit;
+    u_int64_t limit;
 };
 
 gquic_frame_data_blocked_t *gquic_frame_data_blocked_alloc();

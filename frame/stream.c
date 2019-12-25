@@ -28,7 +28,7 @@ static size_t gquic_frame_stream_size(gquic_abstract_frame_ptr_t frame) {
     if (spec == NULL) {
         return 0;
     }
-    return 1 + spec->id.length + spec->len.length + spec->off.length + spec->len.value;
+    return 1 + gquic_varint_size(&spec->id) + gquic_varint_size(&spec->len) + gquic_varint_size(&spec->off) + spec->len;
 }
 
 static ssize_t gquic_frame_stream_serialize(const gquic_abstract_frame_ptr_t frame, void *buf, const size_t size) {
@@ -45,7 +45,7 @@ static ssize_t gquic_frame_stream_serialize(const gquic_abstract_frame_ptr_t fra
         return -3;
     }
     ((gquic_frame_type_t *) buf)[off++] = GQUIC_FRAME_META(spec).type;
-    gquic_varint_t *vars[] = {
+    u_int64_t *vars[] = {
         &spec->id,
         ((GQUIC_FRAME_META(spec).type & 0x04) == 0x04 ? &spec->off : NULL),
         ((GQUIC_FRAME_META(spec).type & 0x02) == 0x02 ? &spec->len : NULL)
@@ -61,14 +61,14 @@ static ssize_t gquic_frame_stream_serialize(const gquic_abstract_frame_ptr_t fra
         }
         off += serialize_len;
     }
-    memcpy(buf + off, spec->data, spec->len.value);
-    return off + spec->len.value;
+    memcpy(buf + off, spec->data, spec->len);
+    return off + spec->len;
 }
 
 static ssize_t gquic_frame_stream_deserialize(const gquic_abstract_frame_ptr_t frame, const void *buf, const size_t size) {
     size_t off = 0;
     ssize_t deserialize_len = 0;
-    gquic_stream_type_t type;
+    u_int8_t type;
     gquic_frame_stream_t *spec = frame;
     if (spec == NULL) {
         return -1;
@@ -81,7 +81,7 @@ static ssize_t gquic_frame_stream_deserialize(const gquic_abstract_frame_ptr_t f
         return -3;
     }
     GQUIC_FRAME_META(spec).type = type;
-    gquic_varint_t *vars[] = {
+    u_int64_t *vars[] = {
         &spec->id,
         ((GQUIC_FRAME_META(spec).type & 0x04) == 0x04 ? &spec->off : NULL),
         ((GQUIC_FRAME_META(spec).type & 0x02) == 0x02 ? &spec->len : NULL)
@@ -97,12 +97,12 @@ static ssize_t gquic_frame_stream_deserialize(const gquic_abstract_frame_ptr_t f
         }
         off += deserialize_len;
     }
-    spec->data = malloc(spec->len.value);
+    spec->data = malloc(spec->len);
     if (spec->data == NULL) {
         return -4;
     }
-    memcpy(spec->data, buf + off, spec->len.value);
-    return off + spec->len.value;
+    memcpy(spec->data, buf + off, spec->len);
+    return off + spec->len;
 }
 
 static int gquic_frame_stream_init(gquic_abstract_frame_ptr_t frame) {
@@ -111,9 +111,9 @@ static int gquic_frame_stream_init(gquic_abstract_frame_ptr_t frame) {
         return -1;
     }
     spec->data = NULL;
-    gquic_varint_wrap(&spec->id, 0);
-    gquic_varint_wrap(&spec->len, 0);
-    gquic_varint_wrap(&spec->off, 0);
+    spec->id = 0;
+    spec->len = 0;
+    spec->off = 0;
     return 0;
 }
 

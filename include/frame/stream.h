@@ -6,9 +6,9 @@
 
 typedef struct gquic_frame_stream_s gquic_frame_stream_t;
 struct gquic_frame_stream_s {
-    gquic_stream_id_t id;
-    gquic_varint_t off;
-    gquic_varint_t len;
+    u_int64_t id;
+    u_int64_t off;
+    u_int64_t len;
     void *data;
 };
 

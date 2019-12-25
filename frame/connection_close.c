@@ -28,11 +28,11 @@ static size_t gquic_frame_connection_close_size(gquic_abstract_frame_ptr_t frame
     if (spec == NULL) {
         return 0;
     }
-    return 1 + spec->errcode.length
-        + spec->phase_len.length
-        + (GQUIC_FRAME_META(spec).type == 0x1d ? spec->type.length : 0)
-        + spec->phase_len.length
-        + spec->phase_len.value;
+    return 1 + gquic_varint_size(&spec->errcode)
+        + gquic_varint_size(&spec->phase_len)
+        + (GQUIC_FRAME_META(spec).type == 0x1d ? gquic_varint_size(&spec->type) : 0)
+        + gquic_varint_size(&spec->phase_len)
+        + spec->phase_len;
 }
 
 static ssize_t gquic_frame_connection_close_serialize(const gquic_abstract_frame_ptr_t frame, void *buf, const size_t size) {
@@ -50,7 +50,7 @@ static ssize_t gquic_frame_connection_close_serialize(const gquic_abstract_frame
     }
     ((gquic_frame_type_t *) buf)[off++] = GQUIC_FRAME_META(spec).type;
 
-    gquic_varint_t *vars[] = { &spec->errcode, (GQUIC_FRAME_META(spec).type == 0x1d ? &spec->type : NULL), &spec->phase_len };
+    u_int64_t *vars[] = { &spec->errcode, (GQUIC_FRAME_META(spec).type == 0x1d ? &spec->type : NULL), &spec->phase_len };
     int i;
     for (i = 0; i < 3; i++) {
         if (vars[i] == NULL) {
@@ -62,8 +62,8 @@ static ssize_t gquic_frame_connection_close_serialize(const gquic_abstract_frame
         }
         off += serialize_len;
     }
-    memcpy(buf + off, spec->phase, spec->phase_len.value);
-    return off + spec->phase_len.value;
+    memcpy(buf + off, spec->phase, spec->phase_len);
+    return off + spec->phase_len;
 }
 
 static ssize_t gquic_frame_connection_close_deserialize(const gquic_abstract_frame_ptr_t frame, const void *buf, const size_t size) {
@@ -82,7 +82,7 @@ static ssize_t gquic_frame_connection_close_deserialize(const gquic_abstract_fra
         return -3;
     }
     GQUIC_FRAME_META(spec).type = type;
-    gquic_varint_t *vars[] = { &spec->errcode, (type == 0x1d ? &spec->type : NULL), &spec->phase_len };
+    u_int64_t *vars[] = { &spec->errcode, (type == 0x1d ? &spec->type : NULL), &spec->phase_len };
     int i = 0;
     for (i = 0; i < 3; i++) {
         if (vars[i] == NULL) {
@@ -94,12 +94,12 @@ static ssize_t gquic_frame_connection_close_deserialize(const gquic_abstract_fra
         }
         off += deserialize_len;
     }
-    spec->phase = malloc(spec->phase_len.value);
+    spec->phase = malloc(spec->phase_len);
     if (spec->phase == NULL) {
         return -4;
     }
-    memcpy(spec->phase, buf + off, spec->phase_len.value);
-    return off + spec->phase_len.value;
+    memcpy(spec->phase, buf + off, spec->phase_len);
+    return off + spec->phase_len;
 }
 
 static int gquic_frame_connection_close_init(gquic_abstract_frame_ptr_t frame) {
@@ -107,9 +107,9 @@ static int gquic_frame_connection_close_init(gquic_abstract_frame_ptr_t frame) {
     if (spec == NULL) {
         return -1;
     }
-    gquic_varint_wrap(&spec->errcode, 0);
-    gquic_varint_wrap(&spec->phase_len, 0);
-    gquic_varint_wrap(&spec->type, 0);
+    spec->errcode = 0;
+    spec->phase_len = 0;
+    spec->type = 0;
     spec->phase = NULL;
     return 0;
 }

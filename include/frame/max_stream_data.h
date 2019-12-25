@@ -6,8 +6,8 @@
 
 typedef struct gquic_frame_max_stream_data_s gquic_frame_max_stream_data_t;
 struct gquic_frame_max_stream_data_s {
-    gquic_stream_id_t id;
-    gquic_varint_t max;
+    u_int64_t id;
+    u_int64_t max;
 };
 
 gquic_frame_max_stream_data_t *gquic_frame_max_stream_data_alloc();

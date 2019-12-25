@@ -132,19 +132,19 @@ static size_t gquic_packet_initial_header_size(const gquic_packet_initial_header
     if (header == NULL) {
         return 0;
     }
-    return header->len.length
-        + header->token_len.length
-        + header->token_len.value
+    return gquic_varint_size(&header->len)
+        + gquic_varint_size(&header->token_len)
+        + header->token_len
         + gquic_packet_number_size(header->pn);
 }
 
 static size_t gquic_packet_0rtt_header_size(const gquic_packet_0rtt_header_t *header) {
-    return header->len.length
+    return gquic_varint_size(&header->len)
         + gquic_packet_number_size(header->pn);
 }
 
 static size_t gquic_packet_handshake_header_size(const gquic_packet_handshake_header_t *header) {
-    return header->len.length
+    return gquic_varint_size(&header->len)
         + gquic_packet_number_size(header->pn);
 }
 
@@ -170,8 +170,8 @@ static ssize_t gquic_packet_initial_header_serialize(const gquic_packet_initial_
     }
     off += serialize_len;
 
-    memcpy(buf + off, header->token, header->token_len.value);
-    off += header->token_len.value;
+    memcpy(buf + off, header->token, header->token_len);
+    off += header->token_len;
 
     serialize_len = gquic_varint_serialize(&header->len, buf + off, size - off);
     if (serialize_len <= 0) {
@@ -254,15 +254,15 @@ static ssize_t gquic_packet_initial_header_deserialize(gquic_packet_initial_head
         return -3;
     }
     off += deserialize_len;
-    if (header->token_len.value > size - off) {
+    if (header->token_len > size - off) {
         return -3;
     }
-    header->token = malloc(header->token_len.value);
+    header->token = malloc(header->token_len);
     if (header->token == NULL) {
         return -3;
     }
-    memcpy(header->token, buf + off, header->token_len.value);
-    off += header->token_len.value;
+    memcpy(header->token, buf + off, header->token_len);
+    off += header->token_len;
     deserialize_len = gquic_varint_deserialize(&header->len, buf + off, size - off);
     if (deserialize_len <= 0) {
         return -3;

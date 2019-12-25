@@ -5,7 +5,7 @@
 
 typedef struct gquic_frame_max_data_s gquic_frame_max_data_t;
 struct gquic_frame_max_data_s {
-    gquic_varint_t max;
+    u_int64_t max;
 };
 
 gquic_frame_max_data_t *gquic_frame_max_data_alloc();

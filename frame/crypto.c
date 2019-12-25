@@ -28,7 +28,7 @@ static size_t gquic_frame_crypto_size(gquic_abstract_frame_ptr_t frame) {
     if (spec == NULL) {
         return 0;
     }
-    return 1 + spec->len.length + spec->off.length + spec->len.value;
+    return 1 + gquic_varint_size(&spec->len) + gquic_varint_size(&spec->off) + spec->len;
 }
 
 static ssize_t gquic_frame_crypto_serialize(const gquic_abstract_frame_ptr_t frame, void *buf, const size_t size) {
@@ -45,7 +45,7 @@ static ssize_t gquic_frame_crypto_serialize(const gquic_abstract_frame_ptr_t fra
         return -3;
     }
     ((gquic_frame_type_t *) buf)[off++] = GQUIC_FRAME_META(frame).type;
-    gquic_varint_t *vars[] = { &spec->off, &spec->len };
+    u_int64_t *vars[] = { &spec->off, &spec->len };
     int i;
     for (i = 0; i < 2; i++) {
         serialize_len = gquic_varint_serialize(vars[i], buf + off, size - off);
@@ -54,8 +54,8 @@ static ssize_t gquic_frame_crypto_serialize(const gquic_abstract_frame_ptr_t fra
         }
         off += serialize_len;
     }
-    memcpy(buf + off, spec->data, spec->len.value);
-    return off + spec->len.value;
+    memcpy(buf + off, spec->data, spec->len);
+    return off + spec->len;
  }
 
 static ssize_t gquic_frame_crypto_deserialize(const gquic_abstract_frame_ptr_t frame, const void *buf, const size_t size) {
@@ -71,7 +71,7 @@ static ssize_t gquic_frame_crypto_deserialize(const gquic_abstract_frame_ptr_t f
     if (((gquic_frame_type_t *) buf)[off++] != GQUIC_FRAME_META(frame).type) {
         return -3;
     }
-    gquic_varint_t *vars[] = { &spec->off, &spec->len };
+    u_int64_t *vars[] = { &spec->off, &spec->len };
     int i;
     for (i = 0; i < 2; i++) {
         deserialize_len = gquic_varint_deserialize(vars[i], buf + off, size - off);
@@ -80,15 +80,15 @@ static ssize_t gquic_frame_crypto_deserialize(const gquic_abstract_frame_ptr_t f
         }
         off += deserialize_len;
     }
-    if (spec->len.value > size - off) {
+    if (spec->len > size - off) {
         return -4;
     }
-    spec->data = malloc(spec->len.value);
+    spec->data = malloc(spec->len);
     if (spec->data == NULL) {
         return -4;
     }
-    memcpy(spec->data, buf + off, spec->len.value);
-    return off + spec->len.value;
+    memcpy(spec->data, buf + off, spec->len);
+    return off + spec->len;
 }
 
 static int gquic_frame_crypto_init(gquic_abstract_frame_ptr_t frame) {
@@ -96,8 +96,8 @@ static int gquic_frame_crypto_init(gquic_abstract_frame_ptr_t frame) {
     if (spec == NULL) {
         return -1;
     }
-    gquic_varint_wrap(&spec->off, 0);
-    gquic_varint_wrap(&spec->len, 0);
+    spec->off = 0;
+    spec->len = 0;
     spec->data = NULL;
     return 0;
 }

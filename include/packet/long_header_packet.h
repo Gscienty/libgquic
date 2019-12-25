@@ -17,22 +17,22 @@ struct gquic_packet_long_header_s {
 
 typedef struct gquic_packet_initial_header_s gquic_packet_initial_header_t;
 struct gquic_packet_initial_header_s {
-    gquic_varint_t token_len;
+    u_int64_t token_len;
     void *token;
-    gquic_varint_t len;
-    gquic_packet_number_t pn;
+    u_int64_t len;
+    u_int64_t pn;
 };
 
 typedef struct gquic_packet_0rtt_header_s gquic_packet_0rtt_header_t;
 struct gquic_packet_0rtt_header_s {
-    gquic_varint_t len;
-    gquic_packet_number_t pn;
+    u_int64_t len;
+    u_int64_t pn;
 };
 
 typedef struct gquic_packet_handshake_header_s gquic_packet_handshake_header_t;
 struct gquic_packet_handshake_header_s {
-    gquic_varint_t len;
-    gquic_packet_number_t pn;
+    u_int64_t len;
+    u_int64_t pn;
 };
 
 typedef struct gquic_packet_retry_header_s gquic_packet_retry_header_t;

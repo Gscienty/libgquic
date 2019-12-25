@@ -6,8 +6,8 @@
 
 typedef struct gquic_frame_stream_data_blocked_s gquic_frame_stream_data_blocked_t;
 struct gquic_frame_stream_data_blocked_s {
-    gquic_stream_id_t id;
-    gquic_varint_t limit;
+    u_int64_t id;
+    u_int64_t limit;
 };
 
 gquic_frame_stream_data_blocked_t *gquic_frame_stream_data_blocked_alloc();

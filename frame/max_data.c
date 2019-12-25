@@ -26,7 +26,7 @@ static size_t gquic_frame_max_data_size(gquic_abstract_frame_ptr_t frame) {
     if (spec == NULL) {
         return 0;
     }
-    return 1 + spec->max.length;
+    return 1 + gquic_varint_size(&spec->max);
 }
 
 static ssize_t gquic_frame_max_data_serialize(const gquic_abstract_frame_ptr_t frame, void *buf, const size_t size) {
@@ -75,7 +75,7 @@ static int gquic_frame_max_data_init(gquic_abstract_frame_ptr_t frame) {
     if (spec == NULL) {
         return -1;
     }
-    gquic_varint_wrap(&spec->max, 0);
+    spec->max = 0;
     return 0;
 }
 

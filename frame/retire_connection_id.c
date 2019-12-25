@@ -26,7 +26,7 @@ static size_t gquic_frame_retire_connection_id_size(gquic_abstract_frame_ptr_t f
     if (spec == NULL) {
         return 0;
     }
-    return 1 + spec->seq.length;
+    return 1 + gquic_varint_size(&spec->seq);
 }
 
 static ssize_t gquic_frame_retire_connection_id_serialize(const gquic_abstract_frame_ptr_t frame, void *buf, const size_t size) {
@@ -75,7 +75,7 @@ static int gquic_frame_retire_connection_id_init(gquic_abstract_frame_ptr_t fram
     if (spec == NULL) {
         return -1;
     }
-    gquic_varint_wrap(&spec->seq, 0);
+    spec->seq = 0;
     return 0;
 }
 

@@ -26,7 +26,7 @@ static size_t gquic_frame_streams_blocked_size(gquic_abstract_frame_ptr_t frame)
     if (spec == NULL) {
         return 0;
     }
-    return 1 + spec->limit.length;
+    return 1 + gquic_varint_size(&spec->limit);
 }
 
 static ssize_t gquic_frame_streams_blocked_serialize(const gquic_abstract_frame_ptr_t frame, void *buf, const size_t size) {
@@ -78,7 +78,7 @@ static int gquic_frame_streams_blocked_init(gquic_abstract_frame_ptr_t frame) {
     if (spec == NULL) {
         return -1;
     }
-    gquic_varint_wrap(&spec->limit, 0);
+    spec->limit = 0;
     return 0;
 }
 

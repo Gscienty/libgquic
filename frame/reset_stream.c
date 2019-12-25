@@ -27,7 +27,7 @@ static size_t gquic_frame_reset_stream_size(gquic_abstract_frame_ptr_t frame) {
     if (spec == NULL) {
         return 0;
     }
-    return 1 + spec->errcode.length + spec->final_size.length + spec->id.length;
+    return 1 + gquic_varint_size(&spec->errcode) + gquic_varint_size(&spec->final_size) + gquic_varint_size(&spec->id);
 }
 
 static ssize_t gquic_frame_reset_stream_serialize(const gquic_abstract_frame_ptr_t frame, void *buf, const size_t size) {
@@ -44,7 +44,7 @@ static ssize_t gquic_frame_reset_stream_serialize(const gquic_abstract_frame_ptr
         return -3;
     }
     ((gquic_frame_type_t *) buf)[off++] = GQUIC_FRAME_META(frame).type;
-    gquic_varint_t *vars[] = { &spec->id, &spec->errcode, &spec->final_size };
+    u_int64_t *vars[] = { &spec->id, &spec->errcode, &spec->final_size };
     int i;
     for (i = 0; i < 3; i++) {
         serialize_len = gquic_varint_serialize(vars[i], buf + off, size - off);
@@ -69,7 +69,7 @@ static ssize_t gquic_frame_reset_stream_deserialize(const gquic_abstract_frame_p
     if (((gquic_frame_type_t *) buf)[off++] != GQUIC_FRAME_META(frame).type) {
         return -3;
     }
-    gquic_varint_t *vars[] = { &spec->id, &spec->errcode, &spec->final_size };
+    u_int64_t *vars[] = { &spec->id, &spec->errcode, &spec->final_size };
     int i;
     for (i = 0; i < 3; i++) {
         deserialize_len = gquic_varint_deserialize(vars[i], buf + off, size - off);
@@ -86,9 +86,9 @@ static int gquic_frame_reset_stream_init(gquic_abstract_frame_ptr_t frame) {
     if (frame == NULL) {
         return -1;
     }
-    gquic_varint_wrap(&spec->id, 0);
-    gquic_varint_wrap(&spec->final_size, 0);
-    gquic_varint_wrap(&spec->errcode, 0);
+    spec->errcode = 0;
+    spec->final_size = 0;
+    spec->id = 0;
     return 0;
 }
 

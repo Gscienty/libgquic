@@ -28,7 +28,7 @@ static size_t gquic_frame_new_token_size(gquic_abstract_frame_ptr_t frame) {
     if (spec == NULL) {
         return 0;
     }
-    return 1 + spec->len.length + spec->len.value;
+    return 1 + gquic_varint_size(&spec->len) + spec->len;
 }
 
 static ssize_t gquic_frame_new_token_serialize(const gquic_abstract_frame_ptr_t frame, void *buf, const size_t size) {
@@ -50,8 +50,8 @@ static ssize_t gquic_frame_new_token_serialize(const gquic_abstract_frame_ptr_t 
         return -4;
     }
     off += serialize_len;
-    memcpy(buf + off, spec->token, spec->len.value);
-    return off + spec->len.value;
+    memcpy(buf + off, spec->token, spec->len);
+    return off + spec->len;
 }
 
 static ssize_t gquic_frame_new_token_deserialize(gquic_abstract_frame_ptr_t frame, const void *buf, const size_t size) {
@@ -71,15 +71,15 @@ static ssize_t gquic_frame_new_token_deserialize(gquic_abstract_frame_ptr_t fram
     if (deserialize_len <= 0) {
         return -4;
     }
-    if (spec->len.value > size - off) {
+    if (spec->len > size - off) {
         return -4;
     }
-    spec->token = malloc(spec->len.value);
+    spec->token = malloc(spec->len);
     if (spec->token == NULL) {
         return -4;
     }
-    memcpy(spec->token, buf + off, spec->len.value);
-    return off + spec->len.value;
+    memcpy(spec->token, buf + off, spec->len);
+    return off + spec->len;
 }
 
 static int gquic_frame_new_token_init(gquic_abstract_frame_ptr_t frame) {
@@ -87,7 +87,7 @@ static int gquic_frame_new_token_init(gquic_abstract_frame_ptr_t frame) {
     if (spec == NULL) {
         return -1;
     }
-    gquic_varint_wrap(&spec->len, 0);
+    spec->len = 0;
     spec->token = NULL;
     return 0;
 }
