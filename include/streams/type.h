@@ -3,10 +3,6 @@
 
 #include "util/varint.h"
 
-typedef gquic_varint_t gquic_stream_id_t;
-typedef unsigned char gquic_stream_type_t;
-
-
 #define GQUIC_STREAM_CLIENT_INITIATED 0x00
 #define GQUIC_STREAM_SERVER_INITIATED 0x01
 

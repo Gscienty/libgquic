@@ -7,12 +7,12 @@
 
 typedef struct gquic_packet_long_header_s gquic_packet_long_header_t;
 struct gquic_packet_long_header_s {
-    unsigned char flag;
+    u_int8_t flag;
     gquic_version_t version;
-    unsigned char dcid_len;
-    unsigned char dcid[20];
-    unsigned char scid_len;
-    unsigned char scid[20];
+    u_int8_t dcid_len;
+    u_int8_t dcid[20];
+    u_int8_t scid_len;
+    u_int8_t scid[20];
 };
 
 typedef struct gquic_packet_initial_header_s gquic_packet_initial_header_t;
@@ -41,14 +41,14 @@ struct gquic_packet_retry_header_s {
     unsigned char odcid[20];
 };
 
-typedef void *gquic_long_header_spec_ptr_t;
 
-#define GQUIC_LONG_HEADER_SPEC(h) ((gquic_long_header_spec_ptr_t) (((void *) (h)) + sizeof(gquic_packet_long_header_t)))
+#define GQUIC_LONG_HEADER_SPEC(h) ((void *) (((void *) (h)) + sizeof(gquic_packet_long_header_t)))
 #define GQUIC_LONG_HEADER_COMMON(h) (*((gquic_packet_long_header_t *) (((void *) (h)) + sizeof(gquic_packet_long_header_t))))
 
 gquic_packet_long_header_t *gquic_packet_long_header_alloc();
-size_t gquic_packet_long_header_size(const gquic_packet_long_header_t *);
-ssize_t gquic_packet_long_header_serialize(const gquic_packet_long_header_t *, void *, const size_t);
-ssize_t gquic_packet_long_header_deserialize(gquic_packet_long_header_t *, const void *, const size_t);
+int gquic_packet_long_header_release(gquic_packet_long_header_t *const header);
+size_t gquic_packet_long_header_size(const gquic_packet_long_header_t *const header);
+ssize_t gquic_packet_long_header_serialize(const gquic_packet_long_header_t *const header, void *const buf, const size_t size);
+ssize_t gquic_packet_long_header_deserialize(gquic_packet_long_header_t *const header, const void *const buf, const size_t size);
 
 #endif

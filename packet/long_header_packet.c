@@ -34,7 +34,7 @@ gquic_packet_long_header_t *gquic_packet_long_header_alloc() {
     return header;
 }
 
-size_t gquic_packet_long_header_size(const gquic_packet_long_header_t *header) {
+size_t gquic_packet_long_header_size(const gquic_packet_long_header_t *const header) {
     if (header == NULL) {
         return 0;
     }
@@ -52,7 +52,24 @@ size_t gquic_packet_long_header_size(const gquic_packet_long_header_t *header) {
     return 0;
 }
 
-ssize_t gquic_packet_long_header_serialize(const gquic_packet_long_header_t *header, void *buf, const size_t size) {
+int gquic_packet_long_header_release(gquic_packet_long_header_t *const header) {
+    gquic_packet_initial_header_t *initial_header_spec = NULL;
+    if (header == NULL) {
+        return -1;
+    }
+    switch ((header->flag & 0x30) >> 4) {
+    case 0x00:
+        initial_header_spec = GQUIC_LONG_HEADER_SPEC(header);
+        if (initial_header_spec->token != NULL) {
+            free(initial_header_spec->token);
+        }
+        break;
+    }
+    free(header);
+    return 0;
+}
+
+ssize_t gquic_packet_long_header_serialize(const gquic_packet_long_header_t *const header, void *const buf, const size_t size) {
     ssize_t serialize_len = 0;
     size_t off = 0;
     if (header == NULL) {
@@ -93,7 +110,7 @@ ssize_t gquic_packet_long_header_serialize(const gquic_packet_long_header_t *hea
     return off + serialize_len;
 }
 
-ssize_t gquic_packet_long_header_deserialize(gquic_packet_long_header_t *header, const void *buf, const size_t size) {
+ssize_t gquic_packet_long_header_deserialize(gquic_packet_long_header_t *const header, const void *const buf, const size_t size) {
     ssize_t deserialize_len = 0;
     size_t off = 0;
     if (header == NULL) {
