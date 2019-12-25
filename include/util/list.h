@@ -15,6 +15,7 @@ struct gquic_list_s {
 #define GQUIC_LIST_FIRST(h) (gquic_list_next(GQUIC_LIST_PAYLOAD((h))))
 #define GQUIC_LIST_LAST(h) (gquic_list_prev(GQUIC_LIST_PAYLOAD((h))))
 #define GQUIC_LIST_FOREACH(p, h) for ((p) = GQUIC_LIST_FIRST((h)); (p) != GQUIC_LIST_PAYLOAD((h)); (p) = gquic_list_next((p)))
+#define GQUIC_LIST_RFOREACH(p, h) for ((p) = GQUIC_LIST_LAST((h)); (p) != GQUIC_LIST_PAYLOAD((h)); (p) = gquic_list_prev((p)))
 
 void *gquic_list_alloc(size_t size);
 int gquic_list_release(void *const list);
