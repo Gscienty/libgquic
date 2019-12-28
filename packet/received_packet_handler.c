@@ -1,4 +1,6 @@
 #include "packet/received_packet_handler.h"
+#include "frame/meta.h"
+#include <time.h>
 #include <malloc.h>
 
 static int gquic_packet_received_mem_add(gquic_packet_received_mem_t *const, const u_int64_t);
@@ -210,6 +212,55 @@ int gquic_packet_received_packet_handler_received_packet(gquic_packet_received_p
     return 0;
 }
 
+int gquic_packet_received_mem_get_blocks(gquic_list_t *const blocks,
+                                         const gquic_packet_received_mem_t *const mem) {
+    gquic_packet_interval_t *interval = NULL;
+    gquic_frame_ack_block_t *block = NULL;
+    if (blocks == NULL || mem == NULL) {
+        return -1;
+    }
+    gquic_list_head_init(blocks);
+    if (mem->ranges_count == 0) {
+        return 0;
+    }
+    GQUIC_LIST_RFOREACH(interval, &mem->ranges) {
+        if ((block = gquic_list_alloc(sizeof(gquic_frame_ack_block_t))) == NULL) {
+            return -2;
+        }
+        block->smallest = interval->start;
+        block->largest = interval->end;
+        gquic_list_insert_before(blocks, block);
+    }
+
+    return 0;
+}
+
+int gquic_packet_receied_packet_handler_get_ack_frame(gquic_frame_ack_t *const ack,
+                                                      gquic_packet_received_packet_handler_t *const handler) {
+    gquic_list_t blocks;
+    if (ack == NULL || handler == NULL) {
+        return -1;
+    }
+    gquic_list_head_init(&blocks);
+    GQUIC_FRAME_INIT(ack);
+    if (gquic_packet_received_mem_get_blocks(&blocks, &handler->mem) != 0) {
+        return -2;
+    }
+    ack->delay = time(NULL) * 1000 - handler->largest_obeserved_time;
+    gquic_frame_ack_ranges_from_blocks(ack, &blocks);
+
+    handler->last_ack = ack;
+    handler->ack_alarm = 0;
+    handler->ack_queued = 0;
+    handler->since_last_ack.ack_eliciting_count = 0;
+    handler->since_last_ack.packets_count = 0;
+
+    while (!gquic_list_head_empty(&blocks)) {
+        gquic_list_release(GQUIC_LIST_FIRST(&blocks));
+    }
+    return 0;
+}
+
 static int gquic_packet_received_packet_handler_miss(const gquic_packet_received_packet_handler_t *const handler, const u_int64_t pn) {
     int ret = 0;
     gquic_list_t blocks;
@@ -242,13 +293,3 @@ static int gquic_packet_received_packet_handler_has_miss_packet(const gquic_pack
     return interval->start >= handler->last_ack->largest_ack && interval->end - interval->start + 1 <= 4;
 }
 
-int gquic_packet_received_packet_handler_get_blocks(gquic_list_t *const blocks,
-                                                    gquic_packet_received_packet_handler_t *const handler) {
-    if (blocks == NULL || handler == NULL) {
-        return -1;
-    }
-
-    // TODO
-
-    return 0;
-}
