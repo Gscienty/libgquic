@@ -19,6 +19,16 @@ int gquic_packet_received_mem_init(gquic_packet_received_mem_t *const mem) {
     return 0;
 }
 
+int gquic_packet_received_mem_release(gquic_packet_received_mem_t *const mem) {
+    if (mem == NULL) {
+        return -1;
+    }
+    while (!gquic_list_head_empty(&mem->ranges)) {
+        gquic_list_release(GQUIC_LIST_FIRST(&mem->ranges));
+    }
+    return 0;
+}
+
 int gquic_packet_reveived_mem_received(gquic_packet_received_mem_t *const mem, const u_int64_t pn) {
     if (mem == NULL) {
         return -1;
@@ -149,6 +159,17 @@ int gquic_packet_received_packet_handler_init(gquic_packet_received_packet_handl
     handler->ack_alarm = 0;
     handler->last_ack = NULL;
 
+    return 0;
+}
+
+int gquic_packet_received_packet_handler_release(gquic_packet_received_packet_handler_t *const handler) {
+    if (handler == NULL) {
+        return -1;
+    }
+    gquic_packet_received_mem_release(&handler->mem);
+    if (handler->last_ack != NULL) {
+        GQUIC_FRAME_RELEASE(handler->last_ack);
+    }
     return 0;
 }
 

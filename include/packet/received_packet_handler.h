@@ -1,5 +1,5 @@
-#ifndef _LIBGQUIC_RECEIVED_PACKET_HANDLER_H
-#define _LIBGQUIC_RECEIVED_PACKET_HANDLER_H
+#ifndef _LIBGQUIC_PACKET_RECEIVED_PACKET_HANDLER_H
+#define _LIBGQUIC_PACKET_RECEIVED_PACKET_HANDLER_H
 
 #include <sys/types.h>
 #include "util/list.h"
@@ -20,6 +20,7 @@ struct gquic_packet_received_mem_s {
 };
 
 int gquic_packet_received_mem_init(gquic_packet_received_mem_t *const mem);
+int gquic_packet_received_mem_release(gquic_packet_received_mem_t *const mem);
 int gquic_packet_reveived_mem_received(gquic_packet_received_mem_t *const mem, const u_int64_t pn);
 int gquic_packet_received_mem_delete_below(gquic_packet_received_mem_t *const mem, const u_int64_t pn);
 int gquic_packet_received_mem_get_blocks(gquic_list_t *const blocks,
@@ -44,6 +45,7 @@ struct gquic_packet_received_packet_handler_s {
 };
 
 int gquic_packet_received_packet_handler_init(gquic_packet_received_packet_handler_t *const handler);
+int gquic_packet_received_packet_handler_release(gquic_packet_received_packet_handler_t *const handler);
 int gquic_packet_received_packet_handler_received_packet(gquic_packet_received_packet_handler_t *const handler,
                                                          u_int64_t pn,
                                                          u_int64_t recv_time,
