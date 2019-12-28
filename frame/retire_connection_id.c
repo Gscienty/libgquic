@@ -1,11 +1,12 @@
 #include "frame/retire_connection_id.h"
 #include "frame/meta.h"
+#include <stddef.h>
 
-static size_t gquic_frame_retire_connection_id_size(gquic_abstract_frame_ptr_t);
-static ssize_t gquic_frame_retire_connection_id_serialize(const gquic_abstract_frame_ptr_t, void *, const size_t);
-static ssize_t gquic_frame_retire_connection_id_deserialize(gquic_abstract_frame_ptr_t, const void *, const size_t);
-static int gquic_frame_retire_connection_id_init(gquic_abstract_frame_ptr_t);
-static int gquic_frame_retire_connection_id_release(gquic_abstract_frame_ptr_t);
+static size_t gquic_frame_retire_connection_id_size(const void *const);
+static ssize_t gquic_frame_retire_connection_id_serialize(const void *const, void *, const size_t);
+static ssize_t gquic_frame_retire_connection_id_deserialize(void *const, const void *, const size_t);
+static int gquic_frame_retire_connection_id_init(void *const);
+static int gquic_frame_retire_connection_id_release(void *const);
 
 gquic_frame_retire_connection_id_t *gquic_frame_retire_connection_id_alloc() {
     gquic_frame_retire_connection_id_t *frame = gquic_frame_alloc(sizeof(gquic_frame_retire_connection_id_t));
@@ -21,28 +22,28 @@ gquic_frame_retire_connection_id_t *gquic_frame_retire_connection_id_alloc() {
     return frame;
 }
 
-static size_t gquic_frame_retire_connection_id_size(gquic_abstract_frame_ptr_t frame) {
-    gquic_frame_retire_connection_id_t *spec = frame;
+static size_t gquic_frame_retire_connection_id_size(const void *const frame) {
+    const gquic_frame_retire_connection_id_t *spec = frame;
     if (spec == NULL) {
         return 0;
     }
     return 1 + gquic_varint_size(&spec->seq);
 }
 
-static ssize_t gquic_frame_retire_connection_id_serialize(const gquic_abstract_frame_ptr_t frame, void *buf, const size_t size) {
+static ssize_t gquic_frame_retire_connection_id_serialize(const void *const frame, void *buf, const size_t size) {
     size_t off = 0;
     ssize_t serialize_len = 0;
-    gquic_frame_retire_connection_id_t *spec = frame;
+    const gquic_frame_retire_connection_id_t *spec = frame;
     if (spec == NULL) {
         return -1;
     }
     if (buf == NULL) {
         return -2;
     }
-    if (gquic_frame_size(spec) > size) {
+    if (GQUIC_FRAME_SIZE(spec) > size) {
         return -3;
     }
-    ((gquic_frame_type_t *) buf)[off++] = GQUIC_FRAME_META(spec).type;
+    ((u_int8_t *) buf)[off++] = GQUIC_FRAME_META(spec).type;
     serialize_len = gquic_varint_serialize(&spec->seq, buf + off, size - off);
     if (serialize_len <= 0) {
         return -3;
@@ -50,7 +51,7 @@ static ssize_t gquic_frame_retire_connection_id_serialize(const gquic_abstract_f
     return off;
 }
 
-static ssize_t gquic_frame_retire_connection_id_deserialize(gquic_abstract_frame_ptr_t frame, const void *buf, const size_t size) {
+static ssize_t gquic_frame_retire_connection_id_deserialize(void *const frame, const void *buf, const size_t size) {
     size_t off = 0;
     ssize_t deserialize_len = 0;
     gquic_frame_retire_connection_id_t *spec = frame;
@@ -60,7 +61,7 @@ static ssize_t gquic_frame_retire_connection_id_deserialize(gquic_abstract_frame
     if (buf == NULL) {
         return -2;
     }
-    if (GQUIC_FRAME_META(spec).type != ((gquic_frame_type_t *) buf)[off++]) {
+    if (GQUIC_FRAME_META(spec).type != ((u_int8_t *) buf)[off++]) {
         return -3;
     }
     deserialize_len = gquic_varint_deserialize(&spec->seq, buf + off, size - off);
@@ -70,7 +71,7 @@ static ssize_t gquic_frame_retire_connection_id_deserialize(gquic_abstract_frame
     return off;
 }
 
-static int gquic_frame_retire_connection_id_init(gquic_abstract_frame_ptr_t frame) {
+static int gquic_frame_retire_connection_id_init(void *const frame) {
     gquic_frame_retire_connection_id_t *spec = frame;
     if (spec == NULL) {
         return -1;
@@ -79,7 +80,7 @@ static int gquic_frame_retire_connection_id_init(gquic_abstract_frame_ptr_t fram
     return 0;
 }
 
-static int gquic_frame_retire_connection_id_release(gquic_abstract_frame_ptr_t frame) {
+static int gquic_frame_retire_connection_id_release(void *const frame) {
     if (frame == NULL) {
         return -1;
     }

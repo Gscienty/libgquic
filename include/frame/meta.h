@@ -1,25 +1,16 @@
 #ifndef _LIBGQUIC_FRAME_META_H
 #define _LIBGQUIC_FRAME_META_H
 
-#include <unistd.h>
-
-typedef void *gquic_abstract_frame_ptr_t;
-typedef unsigned char gquic_frame_type_t;
-
-typedef size_t (*gquic_frame_size_fptr_t) (gquic_abstract_frame_ptr_t);
-typedef ssize_t (*gquic_frame_serialize_fptr_t) (const gquic_abstract_frame_ptr_t, void *, const size_t);
-typedef ssize_t (*gquic_frame_deserialize_fptr_t) (gquic_abstract_frame_ptr_t, const void *, const size_t);
-typedef int (*gquic_frame_init_fptr_t) (gquic_abstract_frame_ptr_t);
-typedef int (*gquic_frame_release_fptr_t) (gquic_abstract_frame_ptr_t);
+#include <sys/types.h>
 
 typedef struct gquic_frame_meta_s gquic_frame_meta_t;
 struct gquic_frame_meta_s {
-    gquic_frame_init_fptr_t init_func;
-    gquic_frame_size_fptr_t size_func;
-    gquic_frame_serialize_fptr_t serialize_func;
-    gquic_frame_deserialize_fptr_t deserialize_func;
-    gquic_frame_release_fptr_t release_func;
-    gquic_frame_type_t type;
+    int (*init_func) (void *const);
+    size_t (*size_func) (const void *const);
+    ssize_t (*serialize_func) (const void *const, void *const, const size_t);
+    ssize_t (*deserialize_func) (void *const, const void *const, const size_t);
+    int (*release_func) (void *const);
+    u_int8_t type;
 
     size_t payload_size;
 };
@@ -27,17 +18,13 @@ struct gquic_frame_meta_s {
 #define GQUIC_FRAME_META(ptr) (*((gquic_frame_meta_t *) (((void *) ptr) - sizeof(gquic_frame_meta_t))))
 #define GQUIC_FRAME_SPEC(frame_type_t, ptr) (*((frame_type_t *) (((void *) ptr) + sizeof(gquic_frame_meta_t))))
 
-gquic_abstract_frame_ptr_t gquic_frame_alloc(size_t size);
+#define GQUIC_FRAME_INIT(ptr) (GQUIC_FRAME_META((ptr)).init_func((ptr)))
+#define GQUIC_FRAME_SIZE(ptr) (GQUIC_FRAME_META((ptr)).size_func((ptr)))
+#define GQUIC_FRAME_SERIALIZE(ptr, buf, size) (GQUIC_FRAME_META((ptr)).serialize_func((ptr), (buf), (size)))
+#define GQUIC_FRAME_DESRIALIZE(ptr, buf, size) (GQUIC_FRAME_META((ptr)).deserialize_func((ptr), (buf), (size)))
+#define GQUIC_FRAME_RELEASE(ptr) (GQUIC_FRAME_META((ptr)).release_func((ptr)))
 
-int gquic_frame_release(gquic_abstract_frame_ptr_t frame);
-
-int gquic_frame_init(gquic_abstract_frame_ptr_t frame);
-
-ssize_t gquic_frame_serialize(const gquic_abstract_frame_ptr_t frame, void *buf, const size_t size);
-
-ssize_t gquic_frame_deserialize(gquic_abstract_frame_ptr_t frame, const void *buf, const size_t size);
-
-size_t gquic_frame_size(gquic_abstract_frame_ptr_t frame);
+void *gquic_frame_alloc(size_t size);
 
 #endif
 

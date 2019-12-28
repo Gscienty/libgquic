@@ -3,11 +3,11 @@
 #include <string.h>
 #include <malloc.h>
 
-static size_t gquic_frame_connection_close_size(gquic_abstract_frame_ptr_t);
-static ssize_t gquic_frame_connection_close_serialize(const gquic_abstract_frame_ptr_t, void *, const size_t);
-static ssize_t gquic_frame_connection_close_deserialize(const gquic_abstract_frame_ptr_t, const void *, const size_t);
-static int gquic_frame_connection_close_init(gquic_abstract_frame_ptr_t);
-static int gquic_frame_connection_close_release(gquic_abstract_frame_ptr_t);
+static size_t gquic_frame_connection_close_size(const void *const);
+static ssize_t gquic_frame_connection_close_serialize(const void *const, void *, const size_t);
+static ssize_t gquic_frame_connection_close_deserialize(void *const, const void *, const size_t);
+static int gquic_frame_connection_close_init(void *const);
+static int gquic_frame_connection_close_release(void *const);
 
 gquic_frame_connection_close_t *gquic_frame_connection_close_alloc() {
     gquic_frame_connection_close_t *frame = gquic_frame_alloc(sizeof(gquic_frame_connection_close_t));
@@ -23,8 +23,8 @@ gquic_frame_connection_close_t *gquic_frame_connection_close_alloc() {
     return frame;
 }
 
-static size_t gquic_frame_connection_close_size(gquic_abstract_frame_ptr_t frame) {
-    gquic_frame_connection_close_t *spec = frame;
+static size_t gquic_frame_connection_close_size(const void *const frame) {
+    const gquic_frame_connection_close_t *spec = frame;
     if (spec == NULL) {
         return 0;
     }
@@ -35,22 +35,22 @@ static size_t gquic_frame_connection_close_size(gquic_abstract_frame_ptr_t frame
         + spec->phase_len;
 }
 
-static ssize_t gquic_frame_connection_close_serialize(const gquic_abstract_frame_ptr_t frame, void *buf, const size_t size) {
+static ssize_t gquic_frame_connection_close_serialize(const void *const frame, void *buf, const size_t size) {
     size_t off = 0;
     ssize_t serialize_len = 0;
-    gquic_frame_connection_close_t *spec = frame;
+    const gquic_frame_connection_close_t *spec = frame;
     if (spec == NULL) {
         return -1;
     }
     if (buf == NULL) {
         return -2;
     }
-    if (gquic_frame_size(spec) > size) {
+    if (GQUIC_FRAME_SIZE(spec) > size) {
         return -3;
     }
-    ((gquic_frame_type_t *) buf)[off++] = GQUIC_FRAME_META(spec).type;
+    ((u_int8_t *) buf)[off++] = GQUIC_FRAME_META(spec).type;
 
-    u_int64_t *vars[] = { &spec->errcode, (GQUIC_FRAME_META(spec).type == 0x1d ? &spec->type : NULL), &spec->phase_len };
+    const u_int64_t *vars[] = { &spec->errcode, (GQUIC_FRAME_META(spec).type == 0x1d ? &spec->type : NULL), &spec->phase_len };
     int i;
     for (i = 0; i < 3; i++) {
         if (vars[i] == NULL) {
@@ -66,10 +66,10 @@ static ssize_t gquic_frame_connection_close_serialize(const gquic_abstract_frame
     return off + spec->phase_len;
 }
 
-static ssize_t gquic_frame_connection_close_deserialize(const gquic_abstract_frame_ptr_t frame, const void *buf, const size_t size) {
+static ssize_t gquic_frame_connection_close_deserialize(void *const frame, const void *buf, const size_t size) {
     size_t off = 0;
     ssize_t deserialize_len = 0;
-    gquic_frame_type_t type;
+    u_int8_t type;
     gquic_frame_connection_close_t *spec = frame;
     if (spec == NULL) {
         return -1;
@@ -77,7 +77,7 @@ static ssize_t gquic_frame_connection_close_deserialize(const gquic_abstract_fra
     if (buf == NULL) {
         return -2;
     }
-    type = ((gquic_frame_type_t *) buf)[off++];
+    type = ((u_int8_t *) buf)[off++];
     if (type != 0x1c && type != 0x1d) {
         return -3;
     }
@@ -102,7 +102,7 @@ static ssize_t gquic_frame_connection_close_deserialize(const gquic_abstract_fra
     return off + spec->phase_len;
 }
 
-static int gquic_frame_connection_close_init(gquic_abstract_frame_ptr_t frame) {
+static int gquic_frame_connection_close_init(void *const frame) {
     gquic_frame_connection_close_t *spec = frame;
     if (spec == NULL) {
         return -1;
@@ -114,7 +114,7 @@ static int gquic_frame_connection_close_init(gquic_abstract_frame_ptr_t frame) {
     return 0;
 }
 
-static int gquic_frame_connection_close_release(gquic_abstract_frame_ptr_t frame) {
+static int gquic_frame_connection_close_release(void *const frame) {
     gquic_frame_connection_close_t *spec = frame;
     if (spec == NULL) {
         return -1;

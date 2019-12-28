@@ -3,11 +3,11 @@
 #include <string.h>
 #include <malloc.h>
 
-static size_t gquic_frame_stream_size(gquic_abstract_frame_ptr_t);
-static ssize_t gquic_frame_stream_serialize(const gquic_abstract_frame_ptr_t, void *, const size_t);
-static ssize_t gquic_frame_stream_deserialize(const gquic_abstract_frame_ptr_t, const void *, const size_t);
-static int gquic_frame_stream_init(gquic_abstract_frame_ptr_t);
-static int gquic_frame_stream_release(gquic_abstract_frame_ptr_t);
+static size_t gquic_frame_stream_size(const void *const);
+static ssize_t gquic_frame_stream_serialize(const void *const, void *, const size_t);
+static ssize_t gquic_frame_stream_deserialize(void *const, const void *, const size_t);
+static int gquic_frame_stream_init(void *const);
+static int gquic_frame_stream_release(void *const);
 
 gquic_frame_stream_t *gquic_frame_stream_alloc() {
     gquic_frame_stream_t *frame = gquic_frame_alloc(sizeof(gquic_frame_stream_t));
@@ -23,29 +23,29 @@ gquic_frame_stream_t *gquic_frame_stream_alloc() {
     return frame;
 }
 
-static size_t gquic_frame_stream_size(gquic_abstract_frame_ptr_t frame) {
-    gquic_frame_stream_t *spec = frame;
+static size_t gquic_frame_stream_size(const void *const frame) {
+    const gquic_frame_stream_t *spec = frame;
     if (spec == NULL) {
         return 0;
     }
     return 1 + gquic_varint_size(&spec->id) + gquic_varint_size(&spec->len) + gquic_varint_size(&spec->off) + spec->len;
 }
 
-static ssize_t gquic_frame_stream_serialize(const gquic_abstract_frame_ptr_t frame, void *buf, const size_t size) {
+static ssize_t gquic_frame_stream_serialize(const void *const frame, void *buf, const size_t size) {
     size_t off = 0;
     ssize_t serialize_len = 0;
-    gquic_frame_stream_t *spec = frame;
+    const gquic_frame_stream_t *spec = frame;
     if (spec == NULL) {
         return -1;
     }
     if (buf == NULL) {
         return -2;
     }
-    if (gquic_frame_size(spec) > size) {
+    if (GQUIC_FRAME_SIZE(spec) > size) {
         return -3;
     }
-    ((gquic_frame_type_t *) buf)[off++] = GQUIC_FRAME_META(spec).type;
-    u_int64_t *vars[] = {
+    ((u_int8_t *) buf)[off++] = GQUIC_FRAME_META(spec).type;
+    const u_int64_t *vars[] = {
         &spec->id,
         ((GQUIC_FRAME_META(spec).type & 0x04) == 0x04 ? &spec->off : NULL),
         ((GQUIC_FRAME_META(spec).type & 0x02) == 0x02 ? &spec->len : NULL)
@@ -65,7 +65,7 @@ static ssize_t gquic_frame_stream_serialize(const gquic_abstract_frame_ptr_t fra
     return off + spec->len;
 }
 
-static ssize_t gquic_frame_stream_deserialize(const gquic_abstract_frame_ptr_t frame, const void *buf, const size_t size) {
+static ssize_t gquic_frame_stream_deserialize(void *const frame, const void *buf, const size_t size) {
     size_t off = 0;
     ssize_t deserialize_len = 0;
     u_int8_t type;
@@ -76,7 +76,7 @@ static ssize_t gquic_frame_stream_deserialize(const gquic_abstract_frame_ptr_t f
     if (buf == NULL) {
         return -2;
     }
-    type = ((gquic_frame_type_t *) buf)[off++];
+    type = ((u_int8_t *) buf)[off++];
     if ((type & 0x08) != 0x08) {
         return -3;
     }
@@ -105,7 +105,7 @@ static ssize_t gquic_frame_stream_deserialize(const gquic_abstract_frame_ptr_t f
     return off + spec->len;
 }
 
-static int gquic_frame_stream_init(gquic_abstract_frame_ptr_t frame) {
+static int gquic_frame_stream_init(void *const frame) {
     gquic_frame_stream_t *spec = frame;
     if (spec == NULL) {
         return -1;
@@ -117,7 +117,7 @@ static int gquic_frame_stream_init(gquic_abstract_frame_ptr_t frame) {
     return 0;
 }
 
-static int gquic_frame_stream_release(gquic_abstract_frame_ptr_t frame) {
+static int gquic_frame_stream_release(void *const frame) {
     gquic_frame_stream_t *spec = frame;
     if (spec == NULL) {
         return -1;
