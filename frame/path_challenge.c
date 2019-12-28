@@ -6,7 +6,7 @@ static size_t gquic_frame_path_challenge_size(const void *const);
 static ssize_t gquic_frame_path_challenge_serialize(const void *const, void *, const size_t);
 static ssize_t gquic_frame_path_challenge_deserialize(void *const, const void *, const size_t);
 static int gquic_frame_path_challenge_init(void *const);
-static int gquic_frame_path_challenge_release(void *const);
+static int gquic_frame_path_challenge_dtor(void *const);
 
 gquic_frame_path_challenge_t *gquic_frame_path_challenge_alloc() {
     gquic_frame_path_challenge_t *frame = gquic_frame_alloc(sizeof(gquic_frame_path_challenge_t));
@@ -16,7 +16,7 @@ gquic_frame_path_challenge_t *gquic_frame_path_challenge_alloc() {
     GQUIC_FRAME_META(frame).type = 0x1a;
     GQUIC_FRAME_META(frame).deserialize_func = gquic_frame_path_challenge_deserialize;
     GQUIC_FRAME_META(frame).init_func = gquic_frame_path_challenge_init;
-    GQUIC_FRAME_META(frame).release_func = gquic_frame_path_challenge_release;
+    GQUIC_FRAME_META(frame).dtor_func = gquic_frame_path_challenge_dtor;
     GQUIC_FRAME_META(frame).serialize_func = gquic_frame_path_challenge_serialize;
     GQUIC_FRAME_META(frame).size_func = gquic_frame_path_challenge_size;
     return frame;
@@ -71,7 +71,7 @@ static int gquic_frame_path_challenge_init(void *const frame) {
     return 0;
 }
 
-static int gquic_frame_path_challenge_release(void *const frame) {
+static int gquic_frame_path_challenge_dtor(void *const frame) {
     if (frame == NULL) {
         return -1;
     }

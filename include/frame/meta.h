@@ -9,7 +9,7 @@ struct gquic_frame_meta_s {
     size_t (*size_func) (const void *const);
     ssize_t (*serialize_func) (const void *const, void *const, const size_t);
     ssize_t (*deserialize_func) (void *const, const void *const, const size_t);
-    int (*release_func) (void *const);
+    int (*dtor_func) (void *const);
     u_int8_t type;
 
     size_t payload_size;
@@ -22,9 +22,10 @@ struct gquic_frame_meta_s {
 #define GQUIC_FRAME_SIZE(ptr) (GQUIC_FRAME_META((ptr)).size_func((ptr)))
 #define GQUIC_FRAME_SERIALIZE(ptr, buf, size) (GQUIC_FRAME_META((ptr)).serialize_func((ptr), (buf), (size)))
 #define GQUIC_FRAME_DESRIALIZE(ptr, buf, size) (GQUIC_FRAME_META((ptr)).deserialize_func((ptr), (buf), (size)))
-#define GQUIC_FRAME_RELEASE(ptr) (GQUIC_FRAME_META((ptr)).release_func((ptr)))
+#define GQUIC_FRAME_DTOR(ptr) (GQUIC_FRAME_META((ptr)).dtor_func((ptr)))
 
 void *gquic_frame_alloc(size_t size);
+int gquic_frame_release(void *const frame);
 
 #endif
 
