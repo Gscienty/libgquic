@@ -26,7 +26,7 @@ static gquic_rbtree_t nil = {
     0
 };
 
-int gquic_rbtree_root_init(gquic_rbtree_t **root) {
+int gquic_rbtree_root_init(gquic_rbtree_t **const root) {
     if (root == NULL) {
         return -1;
     }
@@ -64,7 +64,7 @@ int gquic_rbtree_release(gquic_rbtree_t *const rb, int (*release_val)(void *cons
     return 0;
 }
 
-int gquic_rbtree_insert(gquic_rbtree_t **root, gquic_rbtree_t *node) {
+int gquic_rbtree_insert(gquic_rbtree_t **const root, gquic_rbtree_t *const node) {
     int cmpret;
     gquic_rbtree_t *parent = &nil;
     gquic_rbtree_t **in = root;
@@ -112,8 +112,29 @@ int gquic_rbtree_remove(gquic_rbtree_t **const root, gquic_rbtree_t **const node
     return 0;
 }
 
-int gquic_rbtree_is_nil(gquic_rbtree_t *node) {
+int gquic_rbtree_is_nil(gquic_rbtree_t *const node) {
     return node == &nil;
+}
+
+int gquic_rbtree_find(const gquic_rbtree_t **const ret, const gquic_rbtree_t *const root, const void *key, const size_t key_len) {
+    int cmpret;
+    if (ret == NULL || root == NULL) {
+        return -1;
+    }
+    *ret = root;
+    while (*ret != &nil) {
+        cmpret = gquic_rbtree_key_cmp(key, key_len, *ret);
+        if (cmpret == 0) {
+            return 0;
+        }
+        if (cmpret < 0) {
+            *ret = (*ret)->left;
+        }
+        else {
+            *ret = (*ret)->right;
+        }
+    }
+    return -2;
 }
 
 static int gquic_rbtree_left_rotate(gquic_rbtree_t **root, gquic_rbtree_t *node) {
