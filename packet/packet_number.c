@@ -24,3 +24,26 @@ size_t gquic_packet_number_flag_to_size(const u_int8_t flag) {
     return (flag & 0x03) + 1;
 }
 
+int gquic_packet_number_gen_init(gquic_packet_number_gen_t *const gen) {
+    if (gen == NULL) {
+        return -1;
+    }
+    gen->average = 0;
+    gen->next = 0;
+    gen->skip = 0;
+    gquic_list_head_init(&gen->mem);
+
+    return 0;
+}
+
+int gquic_packet_number_gen_dtor(gquic_packet_number_gen_t *const gen) {
+    if (gen == NULL) {
+        return -1;
+    }
+    while (!gquic_list_head_empty(&gen->mem)) {
+        gquic_list_release(GQUIC_LIST_FIRST(&gen->mem));
+    }
+
+    return 0;
+}
+

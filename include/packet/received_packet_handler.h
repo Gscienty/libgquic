@@ -20,7 +20,7 @@ struct gquic_packet_received_mem_s {
 };
 
 int gquic_packet_received_mem_init(gquic_packet_received_mem_t *const mem);
-int gquic_packet_received_mem_release(gquic_packet_received_mem_t *const mem);
+int gquic_packet_received_mem_dtor(gquic_packet_received_mem_t *const mem);
 int gquic_packet_reveived_mem_received(gquic_packet_received_mem_t *const mem, const u_int64_t pn);
 int gquic_packet_received_mem_delete_below(gquic_packet_received_mem_t *const mem, const u_int64_t pn);
 int gquic_packet_received_mem_get_blocks(gquic_list_t *const blocks,
@@ -45,11 +45,11 @@ struct gquic_packet_received_packet_handler_s {
 };
 
 int gquic_packet_received_packet_handler_init(gquic_packet_received_packet_handler_t *const handler);
-int gquic_packet_received_packet_handler_release(gquic_packet_received_packet_handler_t *const handler);
+int gquic_packet_received_packet_handler_dtor(gquic_packet_received_packet_handler_t *const handler);
 int gquic_packet_received_packet_handler_received_packet(gquic_packet_received_packet_handler_t *const handler,
                                                          u_int64_t pn,
                                                          u_int64_t recv_time,
                                                          int should_inst_ack);
-int gquic_packet_receied_packet_handler_get_ack_frame(gquic_frame_ack_t *const ack,
+int gquic_packet_receied_packet_handler_get_ack_frame(gquic_frame_ack_t **const ack,
                                                       gquic_packet_received_packet_handler_t *const handler);
 #endif

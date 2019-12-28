@@ -16,12 +16,12 @@ int gquic_packet_init(gquic_packet_t *const packet) {
     return 0;
 }
 
-int gquic_packet_release(gquic_packet_t *const packet) {
+int gquic_packet_dtor(gquic_packet_t *const packet) {
     if (packet == NULL) {
         return -1;
     }
     while (!gquic_list_head_empty(&packet->frames)) {
-        GQUIC_FRAME_RELEASE(GQUIC_LIST_FIRST(&packet->frames));
+        gquic_frame_release(*(void **) GQUIC_LIST_FIRST(&packet->frames));
         gquic_list_release(GQUIC_LIST_FIRST(&packet->frames));
     }
 

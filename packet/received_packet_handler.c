@@ -19,7 +19,7 @@ int gquic_packet_received_mem_init(gquic_packet_received_mem_t *const mem) {
     return 0;
 }
 
-int gquic_packet_received_mem_release(gquic_packet_received_mem_t *const mem) {
+int gquic_packet_received_mem_dtor(gquic_packet_received_mem_t *const mem) {
     if (mem == NULL) {
         return -1;
     }
@@ -162,13 +162,13 @@ int gquic_packet_received_packet_handler_init(gquic_packet_received_packet_handl
     return 0;
 }
 
-int gquic_packet_received_packet_handler_release(gquic_packet_received_packet_handler_t *const handler) {
+int gquic_packet_received_packet_handler_dtor(gquic_packet_received_packet_handler_t *const handler) {
     if (handler == NULL) {
         return -1;
     }
-    gquic_packet_received_mem_release(&handler->mem);
+    gquic_packet_received_mem_dtor(&handler->mem);
     if (handler->last_ack != NULL) {
-        GQUIC_FRAME_RELEASE(handler->last_ack);
+        gquic_frame_release(handler->last_ack);
     }
     return 0;
 }
@@ -256,21 +256,24 @@ int gquic_packet_received_mem_get_blocks(gquic_list_t *const blocks,
     return 0;
 }
 
-int gquic_packet_receied_packet_handler_get_ack_frame(gquic_frame_ack_t *const ack,
+int gquic_packet_receied_packet_handler_get_ack_frame(gquic_frame_ack_t **const ack,
                                                       gquic_packet_received_packet_handler_t *const handler) {
     gquic_list_t blocks;
     if (ack == NULL || handler == NULL) {
         return -1;
     }
+    if ((*ack = gquic_frame_ack_alloc()) == NULL) {
+        return -2;
+    }
     gquic_list_head_init(&blocks);
-    GQUIC_FRAME_INIT(ack);
+    GQUIC_FRAME_INIT(*ack);
     if (gquic_packet_received_mem_get_blocks(&blocks, &handler->mem) != 0) {
         return -2;
     }
-    ack->delay = time(NULL) * 1000 - handler->largest_obeserved_time;
-    gquic_frame_ack_ranges_from_blocks(ack, &blocks);
+    (*ack)->delay = time(NULL) * 1000 - handler->largest_obeserved_time;
+    gquic_frame_ack_ranges_from_blocks(*ack, &blocks);
 
-    handler->last_ack = ack;
+    handler->last_ack = *ack;
     handler->ack_alarm = 0;
     handler->ack_queued = 0;
     handler->since_last_ack.ack_eliciting_count = 0;
