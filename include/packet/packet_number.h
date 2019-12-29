@@ -13,10 +13,13 @@ struct gquic_packet_number_gen_s {
     u_int64_t average;
     u_int64_t next;
     u_int64_t skip;
+    int mem_count;
     gquic_list_t mem;
 };
 
 int gquic_packet_number_gen_init(gquic_packet_number_gen_t *const gen);
 int gquic_packet_number_gen_dtor(gquic_packet_number_gen_t *const gen);
+int gquic_packet_number_gen_new_skip(gquic_packet_number_gen_t *const gen);
+int gquic_packet_number_gen_next(u_int64_t *const pn, gquic_packet_number_gen_t *const gen);
 
 #endif
