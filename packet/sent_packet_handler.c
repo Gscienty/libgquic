@@ -4,7 +4,7 @@ int gquic_packet_sent_mem_init(gquic_packet_sent_mem_t *const mem) {
     if (mem == NULL) {
         return -1;
     }
-
+    mem->count = 0;
     gquic_list_head_init(&mem->list);
     gquic_rbtree_root_init(&mem->root);
 
@@ -47,6 +47,7 @@ int gquic_packet_sent_mem_sent_packet(gquic_packet_sent_mem_t *const mem, const 
 
     gquic_list_insert_before(&mem->list, packet_storage);
     gquic_rbtree_insert(&mem->root, packet_storage_rb_node);
+    mem->count++;
 
     return 0;
 }
@@ -84,5 +85,20 @@ int gquic_packet_sent_mem_remove(gquic_packet_sent_mem_t *const mem, const u_int
             return -3;
         }
     }
+    mem->count--;
+    return 0;
+}
+
+int gquic_packet_sent_pn_init(gquic_packet_sent_pn_t *const sent_pn) {
+    if (sent_pn == NULL) {
+        return -1;
+    }
+    gquic_packet_sent_mem_init(&sent_pn->mem);
+    gquic_packet_number_gen_init(&sent_pn->pn_gen);
+    sent_pn->largest_ack = -1;
+    sent_pn->largest_sent = -1;
+    sent_pn->loss_time = 0;
+    sent_pn->last_sent_ack = 0;
+
     return 0;
 }
