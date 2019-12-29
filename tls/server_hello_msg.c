@@ -1,6 +1,7 @@
 #include "tls/server_hello_msg.h"
 #include "tls/_msg_serialize_util.h"
 #include "tls/_msg_deserialize_util.h"
+#include "tls/meta.h"
 
 static ssize_t gquic_tls_server_hello_msg_payload_size(const gquic_tls_server_hello_msg_t *);
 static ssize_t gquic_tls_server_hello_msg_optional_size(const gquic_tls_server_hello_msg_t *);
@@ -11,57 +12,79 @@ static ssize_t gquic_tls_server_hello_msg_optional_serialize(const gquic_tls_ser
 static ssize_t gquic_tls_server_hello_payload_deserialize(gquic_tls_server_hello_msg_t *, const void *, const size_t);
 static ssize_t gquic_tls_server_hello_optional_deserialize(gquic_tls_server_hello_msg_t *, const void *, const size_t);
 
-#include <stdio.h>
+static int gquic_tls_server_hello_msg_init(void *const msg);
+static int gquic_tls_server_hello_msg_dtor(void *const msg);
+static ssize_t gquic_tls_server_hello_msg_size(const void *const msg);
+static ssize_t gquic_tls_server_hello_msg_serialize(const void *const msg, void *const buf, const size_t size);
+static ssize_t gquic_tls_server_hello_msg_deserialize(void *const msg, const void *const buf, const size_t size);
 
-int gquic_tls_server_hello_msg_init(gquic_tls_server_hello_msg_t *msg) {
+
+gquic_tls_server_hello_msg_t *gquic_tls_server_hello_msg_alloc() {
+    gquic_tls_server_hello_msg_t *msg = gquic_tls_msg_alloc(sizeof(gquic_tls_server_hello_msg_t));
+    if (msg == NULL) {
+        return NULL;
+    }
+    GQUIC_TLS_MSG_META(msg).deserialize_func = gquic_tls_server_hello_msg_deserialize;
+    GQUIC_TLS_MSG_META(msg).dtor_func = gquic_tls_server_hello_msg_dtor;
+    GQUIC_TLS_MSG_META(msg).init_func = gquic_tls_server_hello_msg_init;
+    GQUIC_TLS_MSG_META(msg).serialize_func = gquic_tls_server_hello_msg_serialize;
+    GQUIC_TLS_MSG_META(msg).size_func = gquic_tls_server_hello_msg_size;
+    GQUIC_TLS_MSG_META(msg).type = GQUIC_TLS_HANDSHAKE_MSG_TYPE_SERVER_HELLO;
+
+    return msg;
+}
+
+static int gquic_tls_server_hello_msg_init(void *const msg) {
+    gquic_tls_server_hello_msg_t *const spec = msg;
     if (msg == NULL) {
         return -1;
     }
-    msg->vers = 0;
-    gquic_str_init(&msg->random);
-    gquic_str_init(&msg->sess_id);
-    msg->cipher_suite = 0;
-    msg->compression_method = 0;
-    msg->next_proto_neg = 0;
-    gquic_list_head_init(&msg->next_protos);
-    msg->ocsp_stapling = 0;
-    msg->ticket_supported = 0;
-    msg->secure_regegotiation_supported = 0;
-    gquic_str_init(&msg->secure_regegotation);
-    gquic_str_init(&msg->alpn_proto);
-    gquic_list_head_init(&msg->scts);
-    msg->supported_version = 0;
-    gquic_str_init(&msg->ser_share.data);
-    msg->ser_share.group = 0;
-    msg->selected_identity_persent = 0;
-    msg->selected_identity = 0;
-    gquic_str_init(&msg->cookie);
-    msg->selected_group = 0;
+    spec->vers = 0;
+    gquic_str_init(&spec->random);
+    gquic_str_init(&spec->sess_id);
+    spec->cipher_suite = 0;
+    spec->compression_method = 0;
+    spec->next_proto_neg = 0;
+    gquic_list_head_init(&spec->next_protos);
+    spec->ocsp_stapling = 0;
+    spec->ticket_supported = 0;
+    spec->secure_regegotiation_supported = 0;
+    gquic_str_init(&spec->secure_regegotation);
+    gquic_str_init(&spec->alpn_proto);
+    gquic_list_head_init(&spec->scts);
+    spec->supported_version = 0;
+    gquic_str_init(&spec->ser_share.data);
+    spec->ser_share.group = 0;
+    spec->selected_identity_persent = 0;
+    spec->selected_identity = 0;
+    gquic_str_init(&spec->cookie);
+    spec->selected_group = 0;
     return 0;
 }
 
-int gquic_tls_server_hello_msg_reset(gquic_tls_server_hello_msg_t *msg) {
+static int gquic_tls_server_hello_msg_dtor(void *const msg) {
+    gquic_tls_server_hello_msg_t *const spec = msg;
     if (msg == NULL) {
         return -1;
     }
-    gquic_str_reset(&msg->random);
-    gquic_str_reset(&msg->sess_id);
-    gquic_str_reset(&msg->secure_regegotation);
-    gquic_str_reset(&msg->alpn_proto);
-    gquic_str_reset(&msg->ser_share.data);
-    gquic_str_reset(&msg->cookie);
-    while (!gquic_list_head_empty(&msg->next_protos)) {
-        gquic_str_reset(GQUIC_LIST_FIRST(&msg->next_protos));
-        gquic_list_release(GQUIC_LIST_FIRST(&msg->next_protos));
+    gquic_str_reset(&spec->random);
+    gquic_str_reset(&spec->sess_id);
+    gquic_str_reset(&spec->secure_regegotation);
+    gquic_str_reset(&spec->alpn_proto);
+    gquic_str_reset(&spec->ser_share.data);
+    gquic_str_reset(&spec->cookie);
+    while (!gquic_list_head_empty(&spec->next_protos)) {
+        gquic_str_reset(GQUIC_LIST_FIRST(&spec->next_protos));
+        gquic_list_release(GQUIC_LIST_FIRST(&spec->next_protos));
     }
-    while (!gquic_list_head_empty(&msg->scts)) {
-        gquic_str_reset(GQUIC_LIST_FIRST(&msg->scts));
-        gquic_list_release(GQUIC_LIST_FIRST(&msg->scts));
+    while (!gquic_list_head_empty(&spec->scts)) {
+        gquic_str_reset(GQUIC_LIST_FIRST(&spec->scts));
+        gquic_list_release(GQUIC_LIST_FIRST(&spec->scts));
     }
     return 0;
 }
 
-ssize_t gquic_tls_server_hello_msg_size(const gquic_tls_server_hello_msg_t *msg) {
+static ssize_t gquic_tls_server_hello_msg_size(const void *const msg) {
     size_t ret = 0;
     if (msg == NULL) {
         return -1;
@@ -134,7 +157,7 @@ static ssize_t gquic_tls_server_hello_msg_optional_size(const gquic_tls_server_h
     return ret;
 }
 
-ssize_t gquic_tls_server_hello_msg_serialize(const gquic_tls_server_hello_msg_t *msg, void *buf, const size_t size) {
+static ssize_t gquic_tls_server_hello_msg_serialize(const void *const msg, void *const buf, const size_t size) {
     size_t off = 0;
     ssize_t ret = 0;
     gquic_list_t prefix_len_stack;
@@ -308,7 +331,7 @@ static ssize_t gquic_tls_server_hello_msg_optional_serialize(const gquic_tls_ser
     return off;
 }
 
-ssize_t gquic_tls_server_hello_msg_deserialize(gquic_tls_server_hello_msg_t *msg, const void *buf, const size_t size) {
+static ssize_t gquic_tls_server_hello_msg_deserialize(void *const msg, const void *const buf, const size_t size) {
     size_t off = 0;
     ssize_t ret = 0;
     if (msg == NULL || buf == NULL) {

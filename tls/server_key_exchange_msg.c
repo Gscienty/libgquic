@@ -2,33 +2,60 @@
 #include "tls/_msg_serialize_util.h"
 #include "tls/_msg_deserialize_util.h"
 #include "tls/common.h"
+#include "tls/meta.h"
 #include <unistd.h>
 
-int gquic_tls_server_key_exchange_msg_init(gquic_tls_server_key_exchange_msg_t *msg) {
+static int gquic_tls_server_key_exchange_msg_init(void *const msg);
+static int gquic_tls_server_key_exchange_msg_dtor(void *const msg);
+static ssize_t gquic_tls_server_key_exchange_msg_size(const void *const msg);
+static ssize_t gquic_tls_server_key_exchange_msg_serialize(const void *const msg, void *const buf, const size_t size);
+static ssize_t gquic_tls_server_key_exchange_msg_deserialize(void *const msg, const void *const buf, const size_t size);
+
+
+gquic_tls_server_key_exchange_msg_t *gquic_tls_server_key_exchange_msg_alloc() {
+    gquic_tls_server_key_exchange_msg_t *msg = gquic_tls_msg_alloc(sizeof(gquic_tls_server_key_exchange_msg_t));
+    if (msg == NULL) {
+        return NULL;
+    }
+    GQUIC_TLS_MSG_META(msg).deserialize_func = gquic_tls_server_key_exchange_msg_deserialize;
+    GQUIC_TLS_MSG_META(msg).dtor_func = gquic_tls_server_key_exchange_msg_dtor;
+    GQUIC_TLS_MSG_META(msg).init_func = gquic_tls_server_key_exchange_msg_init;
+    GQUIC_TLS_MSG_META(msg).serialize_func = gquic_tls_server_key_exchange_msg_serialize;
+    GQUIC_TLS_MSG_META(msg).size_func = gquic_tls_server_key_exchange_msg_size;
+    GQUIC_TLS_MSG_META(msg).type = GQUIC_TLS_HANDSHAKE_MSG_TYPE_SER_KEY_EXCHANGE;
+
+    return msg;
+}
+
+static int gquic_tls_server_key_exchange_msg_init(void *const msg) {
+    gquic_tls_server_key_exchange_msg_t *const spec = msg;
     if (msg == NULL) {
         return -1;
     }
-    gquic_str_init(&msg->key);
+    gquic_str_init(&spec->key);
     return 0;
 }
 
-int gquic_tls_server_key_exchange_msg_reset(gquic_tls_server_key_exchange_msg_t *msg) {
+static int gquic_tls_server_key_exchange_msg_dtor(void *const msg) {
+    gquic_tls_server_key_exchange_msg_t *const spec = msg;
     if (msg == NULL) {
         return -1;
     }
-    gquic_str_reset(&msg->key);
+    gquic_str_reset(&spec->key);
     gquic_tls_server_key_exchange_msg_init(msg);
     return 0;
 }
 
-ssize_t gquic_tls_server_key_exchange_msg_size(const gquic_tls_server_key_exchange_msg_t *msg) {
+static ssize_t gquic_tls_server_key_exchange_msg_size(const void *const msg) {
+    const gquic_tls_server_key_exchange_msg_t *const spec = msg;
     if (msg == NULL) {
         return -1;
     }
-    return 1 + 3 + msg->key.size;
+    return 1 + 3 + spec->key.size;
 }
 
-ssize_t gquic_tls_server_key_exchange_msg_serialize(const gquic_tls_server_key_exchange_msg_t *msg, void *buf, const size_t size) {
+ssize_t gquic_tls_server_key_exchange_msg_serialize(const void *const msg, void *const buf, const size_t size) {
+    const gquic_tls_server_key_exchange_msg_t *const spec = msg;
     size_t off = 0;
     gquic_list_t prefix_len_stack;
     if (msg == NULL || buf == NULL) {
@@ -39,11 +66,12 @@ ssize_t gquic_tls_server_key_exchange_msg_serialize(const gquic_tls_server_key_e
     }
     gquic_list_head_init(&prefix_len_stack);
     __gquic_fill_1byte(buf, &off, GQUIC_TLS_HANDSHAKE_MSG_TYPE_SER_KEY_EXCHANGE);
-    __gquic_fill_str_full(buf, &off, &msg->key, 3);
+    __gquic_fill_str_full(buf, &off, &spec->key, 3);
     return off;
 }
 
-ssize_t gquic_tls_server_key_exchange_msg_deserialize(gquic_tls_server_key_exchange_msg_t *msg, const void *buf, const size_t size) {
+static ssize_t gquic_tls_server_key_exchange_msg_deserialize(void *const msg, const void *const buf, const size_t size) {
+    gquic_tls_server_key_exchange_msg_t *const spec = msg;
     size_t off = 0;
     if (msg == NULL || buf == NULL) {
         return -1;
@@ -51,7 +79,7 @@ ssize_t gquic_tls_server_key_exchange_msg_deserialize(gquic_tls_server_key_excha
     if (((unsigned char *) buf)[off++] != GQUIC_TLS_HANDSHAKE_MSG_TYPE_SER_KEY_EXCHANGE) {
         return -2;
     }
-    if (__gquic_recovery_str_full(&msg->key, 3, buf, size, &off) != 0) {
+    if (__gquic_recovery_str_full(&spec->key, 3, buf, size, &off) != 0) {
         return -2;
     }
     return off;

@@ -10,7 +10,7 @@ struct gquic_tls_ecdhe_params_s {
     u_int16_t (*curve_id) (const void *const);
     int (*public_key) (const void *const, gquic_str_t *const);
     int (*shared_key) (const void *const, gquic_str_t *const, const gquic_str_t *const);
-    int (*release) (void *const);
+    int (*dtor) (void *const);
 };
 
 #define GQUIC_TLS_ECDHE_PARAMS_CURVE_ID(p) \
@@ -24,13 +24,14 @@ struct gquic_tls_ecdhe_params_s {
                                                     ((gquic_tls_ecdhe_params_t *) (p))->self,\
                                                     (r),\
                                                     (s)))
+#define GQUIC_TLS_ECDHE_PARAMS_DTOR(p) \
+    (((gquic_tls_ecdhe_params_t *) (p))->dtor(((gquic_tls_ecdhe_params_t *) (p))->self))
 
 int gquic_tls_ecdhe_params_generate(gquic_tls_ecdhe_params_t *param, const u_int16_t curve_id);
 int gquic_tls_ecdhe_params_init(gquic_tls_ecdhe_params_t *param);
-int gquic_tls_ecdhe_params_release(gquic_tls_ecdhe_params_t *param);
+int gquic_tls_ecdhe_params_dtor(gquic_tls_ecdhe_params_t *param);
 
 int gquic_tls_hkdf_extract(gquic_str_t *const ret, gquic_tls_mac_t *const hash, const gquic_str_t *const secret, const gquic_str_t *const salt);
-
 int gquic_tls_hkdf_expand_label(gquic_str_t *const ret,
                                 gquic_tls_mac_t *const hash,
                                 const gquic_str_t *const secret,

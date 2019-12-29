@@ -14,7 +14,7 @@ int gquic_tls_cert_init(gquic_tls_cert_t *const msg) {
     return 0;
 }
 
-int gquic_tls_cert_reset(gquic_tls_cert_t *const msg) {
+int gquic_tls_cert_dtor(gquic_tls_cert_t *const msg) {
     if (msg == NULL) {
         return -1;
     }

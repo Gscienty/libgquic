@@ -30,9 +30,9 @@ struct gquic_tls_handshake_client_state_s {
 };
 
 int gquic_tls_handshake_client_state_init(gquic_tls_handshake_client_state_t *const cli_state);
-int gquic_tls_handshake_client_state_release(gquic_tls_handshake_client_state_t *const cli_state);
+int gquic_tls_handshake_client_state_dtor(gquic_tls_handshake_client_state_t *const cli_state);
 
-int gquic_tls_handshake_client_hello_init(gquic_tls_client_hello_msg_t *const msg,
+int gquic_tls_handshake_client_hello_init(gquic_tls_client_hello_msg_t **const msg,
                                           gquic_tls_ecdhe_params_t *const params,
                                           const gquic_tls_conn_t *conn);
 

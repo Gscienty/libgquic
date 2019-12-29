@@ -4,6 +4,7 @@
 #include "tls/cert_verify_msg.h"
 #include "tls/auth.h"
 #include "tls/finished_msg.h"
+#include "tls/meta.h"
 #include <openssl/rand.h>
 #include <openssl/pem.h>
 #include <openssl/x509.h>
@@ -15,17 +16,24 @@ static gquic_str_t sser_sec = { 0, NULL };
 static gquic_tls_mac_t transport;
 
 static int write_client_hello_record(const gquic_str_t *const chello_buf) {
-    printf("REC CHELLO: \n");
-    gquic_str_test_echo(chello_buf);
+    static int i = 0;
+    if (i++ == 0) {
+        printf("client say CHELLO: \n");
+        gquic_str_test_echo(chello_buf);
 
-    gquic_tls_client_hello_msg_t chello;
-    gquic_tls_client_hello_msg_init(&chello);
-    gquic_tls_client_hello_msg_deserialize(&chello, GQUIC_STR_VAL(chello_buf), GQUIC_STR_SIZE(chello_buf));
+        gquic_tls_client_hello_msg_t *chello = gquic_tls_client_hello_msg_alloc();
+        GQUIC_TLS_MSG_INIT(chello);
+        GQUIC_TLS_MSG_DESERIALIZE(chello, GQUIC_STR_VAL(chello_buf), GQUIC_STR_SIZE(chello_buf));
 
-    gquic_str_copy(&sess_id, &chello.sess_id);
-    gquic_tls_key_share_t *key_share = gquic_list_next(GQUIC_LIST_PAYLOAD(&chello.key_shares));
-    gquic_str_copy(&client_pubkey, &key_share->data);
-    gquic_tls_mac_md_update(&transport, chello_buf);
+        gquic_str_copy(&sess_id, &chello->sess_id);
+        gquic_tls_key_share_t *key_share = gquic_list_next(GQUIC_LIST_PAYLOAD(&chello->key_shares));
+        gquic_str_copy(&client_pubkey, &key_share->data);
+        gquic_tls_mac_md_update(&transport, chello_buf);
+    }
+    else {
+        printf("client say FIN: \n");
+        gquic_str_test_echo(chello_buf);
+    }
     return 0;
 }
 
@@ -37,27 +45,26 @@ static int write_record(size_t *const size, void *const self, const gquic_str_t 
 }
 
 static int server_hello_handshake_msg(gquic_str_t *const msg) {
-    gquic_tls_server_hello_msg_t hello;
-    gquic_tls_server_hello_msg_init(&hello);
+    gquic_tls_server_hello_msg_t *hello = gquic_tls_server_hello_msg_alloc();
+    GQUIC_TLS_MSG_INIT(hello);
 
-    hello.vers = GQUIC_TLS_VERSION_13;
-    hello.supported_version = GQUIC_TLS_VERSION_13;
-    gquic_str_alloc(&hello.random, 32);
-    RAND_bytes(GQUIC_STR_VAL(&hello.random), 32);
-    gquic_str_copy(&hello.sess_id, &sess_id);
-    hello.cipher_suite = GQUIC_TLS_CIPHER_SUITE_AES_128_GCM_SHA256;
+    hello->vers = GQUIC_TLS_VERSION_13;
+    hello->supported_version = GQUIC_TLS_VERSION_13;
+    gquic_str_alloc(&hello->random, 32);
+    RAND_bytes(GQUIC_STR_VAL(&hello->random), 32);
+    gquic_str_copy(&hello->sess_id, &sess_id);
+    hello->cipher_suite = GQUIC_TLS_CIPHER_SUITE_AES_128_GCM_SHA256;
     gquic_str_t cookie = { 6, "cookie" };
-    gquic_str_copy(&hello.cookie, &cookie);
-    hello.ser_share.group = GQUIC_TLS_CURVE_X25519;
+    gquic_str_copy(&hello->cookie, &cookie);
+    hello->ser_share.group = GQUIC_TLS_CURVE_X25519;
     gquic_tls_ecdhe_params_t ecdhe;
     gquic_tls_ecdhe_params_init(&ecdhe);
     gquic_tls_ecdhe_params_generate(&ecdhe, GQUIC_TLS_CURVE_X25519);
-    GQUIC_TLS_ECDHE_PARAMS_PUBLIC_KEY(&ecdhe, &hello.ser_share.data);
+    GQUIC_TLS_ECDHE_PARAMS_PUBLIC_KEY(&ecdhe, &hello->ser_share.data);
 
-    gquic_str_alloc(msg, gquic_tls_server_hello_msg_size(&hello));
-    gquic_tls_server_hello_msg_serialize(&hello, GQUIC_STR_VAL(msg), GQUIC_STR_SIZE(msg));
+    gquic_tls_msg_combine_serialize(msg, hello);
 
-    printf("SEN SHELLO:\n");
+    printf("server say SHELLO:\n");
     gquic_str_test_echo(msg);
     gquic_tls_mac_md_update(&transport, msg);
 
@@ -82,21 +89,20 @@ static int server_hello_handshake_msg(gquic_str_t *const msg) {
 }
 
 static int encrypted_exts_handshake_msg(gquic_str_t *const msg) {
-    gquic_tls_encrypt_ext_msg_t ext;
-    gquic_tls_encrypt_ext_msg_init(&ext);
+    gquic_tls_encrypt_ext_msg_t *ext = gquic_tls_encrypt_ext_msg_alloc();
+    GQUIC_TLS_MSG_INIT(ext);
 
-    gquic_str_alloc(msg, gquic_tls_encrypt_ext_msg_size(&ext));
-    gquic_tls_encrypt_ext_msg_serialize(&ext, GQUIC_STR_VAL(msg), GQUIC_STR_SIZE(msg));
+    gquic_tls_msg_combine_serialize(msg, ext);
     
-    printf("SEN ENC EXTS:\n");
+    printf("server say ENC EXTS:\n");
     gquic_str_test_echo(msg);
     gquic_tls_mac_md_update(&transport, msg);
     return 0;
 }
 
 static int cert_msg(gquic_str_t *const msg) {
-    gquic_tls_cert_13_msg_t cert;
-    gquic_tls_cert_13_msg_init(&cert);
+    gquic_tls_cert_13_msg_t *cert = gquic_tls_cert_13_msg_alloc();
+    GQUIC_TLS_MSG_INIT(cert);
 
     gquic_str_t *x509_b = gquic_list_alloc(sizeof(gquic_str_t));
     X509 *x509 = NULL;
@@ -108,11 +114,10 @@ static int cert_msg(gquic_str_t *const msg) {
     X509_free(x509);
     fclose(x509_f);
 
-    gquic_list_insert_before(&cert.cert.certs, x509_b);
+    gquic_list_insert_before(&cert->cert.certs, x509_b);
 
-    gquic_str_alloc(msg, gquic_tls_cert_13_msg_size(&cert));
-    gquic_tls_cert_13_msg_serialize(&cert, GQUIC_STR_VAL(msg), GQUIC_STR_SIZE(msg));
-    printf("SEN CERT:\n");
+    gquic_tls_msg_combine_serialize(msg, cert);
+    printf("server say CERT:\n");
     gquic_str_test_echo(msg);
     gquic_tls_mac_md_update(&transport, msg);
     return 0;
@@ -124,11 +129,11 @@ static int verify_msg(gquic_str_t *const msg) {
     gquic_str_t verify_msg = { 0, NULL };
     gquic_tls_mac_md_sum(&sum, &transport);
 
-    gquic_tls_cert_verify_msg_t verify;
-    gquic_tls_cert_verify_msg_init(&verify);
+    gquic_tls_cert_verify_msg_t *verify = gquic_tls_cert_verify_msg_alloc();
+    GQUIC_TLS_MSG_INIT(verify);
 
-    verify.sign_algo = GQUIC_SIGALG_ED25519;
-    verify.has_sign_algo = 1;
+    verify->sign_algo = GQUIC_SIGALG_ED25519;
+    verify->has_sign_algo = 1;
     gquic_tls_signed_msg(&verify_msg, NULL, &ser_sign_cnt, &transport);
 
     FILE *pkey_f = fopen("test_certs/ed25519_pkey.pem", "r");
@@ -142,31 +147,29 @@ static int verify_msg(gquic_str_t *const msg) {
     
     size_t sign_len = 0;
     EVP_DigestSign(ctx, NULL, &sign_len, GQUIC_STR_VAL(&verify_msg), GQUIC_STR_SIZE(&verify_msg));
-    gquic_str_alloc(&verify.sign, sign_len);
-    EVP_DigestSign(ctx, GQUIC_STR_VAL(&verify.sign), &sign_len, GQUIC_STR_VAL(&verify_msg), GQUIC_STR_SIZE(&verify_msg));
+    gquic_str_alloc(&verify->sign, sign_len);
+    EVP_DigestSign(ctx, GQUIC_STR_VAL(&verify->sign), &sign_len, GQUIC_STR_VAL(&verify_msg), GQUIC_STR_SIZE(&verify_msg));
 
-    gquic_str_alloc(msg, gquic_tls_cert_verify_msg_size(&verify));
-    gquic_tls_cert_verify_msg_serialize(&verify, GQUIC_STR_VAL(msg), GQUIC_STR_SIZE(msg));
-    printf("SEN VERI:\n");
+    gquic_tls_msg_combine_serialize(msg, verify);
+    printf("server say VERI:\n");
     gquic_str_test_echo(msg);
     gquic_tls_mac_md_update(&transport, msg);
     return 0;
 }
 
 static int finish_msg(gquic_str_t *const msg) {
-    gquic_tls_finished_msg_t finished;
-    gquic_tls_finished_msg_init(&finished);
+    gquic_tls_finished_msg_t *finished = gquic_tls_finished_msg_alloc();
+    GQUIC_TLS_MSG_INIT(finished);
 
     const gquic_tls_cipher_suite_t *cipher_suite = NULL;
     gquic_tls_get_cipher_suite(&cipher_suite, GQUIC_TLS_CIPHER_SUITE_AES_128_GCM_SHA256);
-    gquic_tls_cipher_suite_finished_hash(&finished.verify, cipher_suite, &sser_sec, &transport);
+    gquic_tls_cipher_suite_finished_hash(&finished->verify, cipher_suite, &sser_sec, &transport);
 
-    printf("verify:\n");
-    gquic_str_test_echo(&finished.verify);
+    printf("server verify:\n");
+    gquic_str_test_echo(&finished->verify);
 
-    gquic_str_alloc(msg, gquic_tls_finished_msg_size(&finished));
-    gquic_tls_finished_msg_serialize(&finished, GQUIC_STR_VAL(msg), GQUIC_STR_SIZE(msg));
-    printf("SEN FIN:\n");
+    gquic_tls_msg_combine_serialize(msg, finished);
+    printf("server say FIN:\n");
     gquic_str_test_echo(msg);
     return 0;
 }

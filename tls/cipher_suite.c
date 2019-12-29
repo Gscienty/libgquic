@@ -14,8 +14,8 @@ struct gquic_tls_aead_ctx_s {
     int (*nonce_wrapper) (gquic_str_t *const, const gquic_str_t *const, const gquic_str_t *const);
 };
 
-int gquic_tls_aead_ctx_init(gquic_tls_aead_ctx_t *const ctx);
-int gquic_tls_aead_ctx_release(gquic_tls_aead_ctx_t *const ctx);
+static int gquic_tls_aead_ctx_init(gquic_tls_aead_ctx_t *const ctx);
+static int gquic_tls_aead_ctx_dtor(gquic_tls_aead_ctx_t *const ctx);
 
 static int ecdhe_rsa_ka(gquic_tls_key_agreement_t *const, const u_int16_t);
 static int ecdhe_ecdsa_ka(gquic_tls_key_agreement_t *const, const u_int16_t);
@@ -63,7 +63,7 @@ static int gquic_tls_aead_open(gquic_str_t *const,
 static int aead_prefix_nonce_wrapper(gquic_str_t *const, const gquic_str_t *const, const gquic_str_t *const);
 static int aead_xor_nonce_wrapper(gquic_str_t *const, const gquic_str_t *const, const gquic_str_t *const);
 
-static int aead_ctx_release(void *self);
+static int aead_ctx_dtor(void *self);
 static inline int aead_aes_gcm_init(gquic_tls_aead_t *const, const gquic_str_t *const, const gquic_str_t *const);
 static inline int aead_chacha20_poly1305_init(gquic_tls_aead_t *const, const gquic_str_t *const, const gquic_str_t *const);
 static int aead_aes_gcm_init_prefix(gquic_tls_aead_t *const, const gquic_str_t *const, const gquic_str_t *const);
@@ -158,13 +158,13 @@ int gquic_tls_create_aead(gquic_tls_aead_t *const aead, const gquic_tls_cipher_s
 
     gquic_str_reset(&key);
     gquic_str_reset(&iv);
-    gquic_tls_mac_release(&hash);
+    gquic_tls_mac_dtor(&hash);
     return 0;
 failure:
 
     gquic_str_reset(&key);
     gquic_str_reset(&iv);
-    gquic_tls_mac_release(&hash);
+    gquic_tls_mac_dtor(&hash);
     return ret;
 }
 
@@ -275,6 +275,16 @@ int gquic_tls_mac_md_copy(gquic_tls_mac_t *const ret,
     return 0;
 }
 
+int gquic_tls_aead_dtor(gquic_tls_aead_t *const aead) {
+    if (aead == NULL) {
+        return -1;
+    }
+    GQUIC_TLS_AEAD_DTOR(aead);
+    free(aead->self);
+
+    return 0;
+}
+
 int gquic_tls_aead_init(gquic_tls_aead_t *const aead) {
     if (aead == NULL) {
         return -1;
@@ -282,20 +292,7 @@ int gquic_tls_aead_init(gquic_tls_aead_t *const aead) {
     aead->self = NULL;
     aead->open = NULL;
     aead->seal = NULL;
-    aead->release = NULL;
-    return 0;
-}
-
-int gquic_tls_aead_release(gquic_tls_aead_t *const aead) {
-    if (aead == NULL) {
-        return -1;
-    }
-    if (aead->release != NULL) {
-        if (aead->self != NULL) {
-            aead->release(aead->self);
-            free(aead->self);
-        }
-    }
+    aead->dtor = NULL;
     return 0;
 }
 
@@ -320,7 +317,7 @@ int gquic_tls_cipher_init(gquic_tls_cipher_t *const cipher) {
     return 0;
 }
 
-int gquic_tls_cipher_release(gquic_tls_cipher_t *const cipher) {
+int gquic_tls_cipher_dtor(gquic_tls_cipher_t *const cipher) {
     if (cipher == NULL) {
         return -1;
     }
@@ -380,7 +377,7 @@ int gquic_tls_cipher_decrypt(gquic_str_t *const ret, gquic_tls_cipher_t *const c
     return 0;
 }
 
-int gquic_tls_aead_ctx_init(gquic_tls_aead_ctx_t *const ctx) {
+static int gquic_tls_aead_ctx_init(gquic_tls_aead_ctx_t *const ctx) {
     if (ctx == NULL) {
         return -1;
     }
@@ -391,7 +388,7 @@ int gquic_tls_aead_ctx_init(gquic_tls_aead_ctx_t *const ctx) {
     return 0;
 }
 
-int gquic_tls_aead_ctx_release(gquic_tls_aead_ctx_t *const ctx) {
+static int gquic_tls_aead_ctx_dtor(gquic_tls_aead_ctx_t *const ctx) {
     if (ctx == NULL) {
         return -1;
     }
@@ -498,7 +495,7 @@ int gquic_tls_mac_init(gquic_tls_mac_t *const mac) {
     return 0;
 }
 
-int gquic_tls_mac_release(gquic_tls_mac_t *const mac) {
+int gquic_tls_mac_dtor(gquic_tls_mac_t *const mac) {
     if (mac == NULL) {
         return -1;
     }
@@ -808,8 +805,8 @@ static int aead_open(gquic_str_t *const ret,
     return EVP_DecryptFinal_ex(ctx, GQUIC_STR_VAL(ret), &outlen);
 }
 
-static int aead_ctx_release(void *self) {
-    return gquic_tls_aead_ctx_release(self);
+static int aead_ctx_dtor(void *self) {
+    return gquic_tls_aead_ctx_dtor(self);
 }
 
 static inline int aead_aes_gcm_init(gquic_tls_aead_t *const ret, const gquic_str_t *const key, const gquic_str_t *const nonce) {
@@ -845,7 +842,7 @@ static inline int aead_aes_gcm_init(gquic_tls_aead_t *const ret, const gquic_str
     ret->self = ctx;
     ret->open = gquic_tls_aead_open;
     ret->seal = gquic_tls_aead_seal;
-    ret->release = aead_ctx_release;
+    ret->dtor = aead_ctx_dtor;
     return 0;
 }
 
@@ -871,7 +868,7 @@ static inline int aead_chacha20_poly1305_init(gquic_tls_aead_t *const ret, const
     ret->self = ctx;
     ret->open = gquic_tls_aead_open;
     ret->seal = gquic_tls_aead_seal;
-    ret->release = aead_ctx_release;
+    ret->dtor = aead_ctx_dtor;
     return 0;
 }
 
@@ -976,11 +973,11 @@ int gquic_tls_cipher_suite_expand_label(gquic_str_t *const ret,
         return -2;
     }
     if (gquic_tls_hkdf_expand_label(ret, &hash, secret, content, label, length) != 0) {
-        gquic_tls_mac_release(&hash);
+        gquic_tls_mac_dtor(&hash);
         return -3;
     }
 
-    gquic_tls_mac_release(&hash);
+    gquic_tls_mac_dtor(&hash);
     return 0;
 }
 
@@ -1011,7 +1008,7 @@ int gquic_tls_cipher_suite_derive_secret(gquic_str_t *const ret,
                                             EVP_MD_size(transport == NULL ? default_transport.md : transport->md)) != 0) {
         return -3;
     }
-    gquic_tls_mac_release(&default_transport);
+    gquic_tls_mac_dtor(&default_transport);
     gquic_str_reset(&content);
     return 0;
 }
@@ -1029,11 +1026,11 @@ int gquic_tls_cipher_suite_extract(gquic_str_t *const ret,
         return -2;
     }
     if (gquic_tls_hkdf_extract(ret, &hash, secret, salt) != 0) {
-        gquic_tls_mac_release(&hash);
+        gquic_tls_mac_dtor(&hash);
         return -3;
     }
 
-    gquic_tls_mac_release(&hash);
+    gquic_tls_mac_dtor(&hash);
     return 0;
 }
 
@@ -1090,14 +1087,14 @@ int gquic_tls_cipher_suite_finished_hash(gquic_str_t *const hash,
 
     gquic_str_reset(&finished_key);
     gquic_str_reset(&verify_data);
-    gquic_tls_mac_release(&mac);
-    gquic_tls_mac_release(&tmp);
+    gquic_tls_mac_dtor(&mac);
+    gquic_tls_mac_dtor(&tmp);
     return 0;
 failure:
     gquic_str_reset(&finished_key);
     gquic_str_reset(&verify_data);
-    gquic_tls_mac_release(&mac);
-    gquic_tls_mac_release(&tmp);
+    gquic_tls_mac_dtor(&mac);
+    gquic_tls_mac_dtor(&tmp);
     return ret;
 }
 
@@ -1106,22 +1103,22 @@ int gquic_tls_ekm_init(gquic_tls_ekm_t *const ekm) {
         return -1;
     }
     ekm->ekm = NULL;
-    ekm->release = NULL;
+    ekm->dtor = NULL;
     ekm->self = NULL;
     return 0;
 }
 
-int gquic_tls_ekm_release(gquic_tls_ekm_t *const ekm) {
+int gquic_tls_ekm_dtor(gquic_tls_ekm_t *const ekm) {
     if (ekm == NULL) {
         return -1;
     }
     if (ekm->self == NULL) {
         return 0;
     }
-    if (ekm->release != NULL) {
-        ekm->release(ekm->self);
+    if (ekm->dtor != NULL) {
+        ekm->dtor(ekm->self);
+        free(ekm->self);
     }
-    free(ekm->self);
     return 0;
 }
 
@@ -1165,27 +1162,27 @@ static int gquic_tls_ekm_keying_material_invoke(gquic_str_t *const ret,
     }
     if (gquic_tls_mac_md_update(&hash, cnt) != 0) {
         gquic_str_reset(&sec);
-        gquic_tls_mac_release(&hash);
+        gquic_tls_mac_dtor(&hash);
         return -4;
     }
     if (gquic_tls_mac_md_sum(&cnt_hash, &hash) != 0) {
         gquic_str_reset(&sec);
-        gquic_tls_mac_release(&hash);
+        gquic_tls_mac_dtor(&hash);
         return -5;
     }
     if (gquic_tls_cipher_suite_expand_label(ret, ekm_self->cipher_suite, &sec, &exporter_label, &cnt_hash, length) != 0) {
         gquic_str_reset(&sec);
         gquic_str_reset(&cnt_hash);
-        gquic_tls_mac_release(&hash);
+        gquic_tls_mac_dtor(&hash);
         return -6;
     }
     gquic_str_reset(&sec);
     gquic_str_reset(&cnt_hash);
-    gquic_tls_mac_release(&hash);
+    gquic_tls_mac_dtor(&hash);
     return 0;
 }
 
-static int gquic_tls_ekm_keying_material_release(void *self) {
+static int gquic_tls_ekm_keying_material_dtor(void *self) {
     gquic_tls_ekm_keying_material_t *ekm_self = self;
     if (self == NULL) {
         return -1;
@@ -1212,6 +1209,6 @@ int gquic_tls_cipher_suite_export_keying_material(gquic_tls_ekm_t *const ekm,
 
     ekm->self = self;
     ekm->ekm = gquic_tls_ekm_keying_material_invoke;
-    ekm->release = gquic_tls_ekm_keying_material_release;
+    ekm->dtor = gquic_tls_ekm_keying_material_dtor;
     return 0;
 }

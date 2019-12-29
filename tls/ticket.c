@@ -16,12 +16,12 @@ int gquic_tls_sess_state_init(gquic_tls_sess_state_t *const state) {
     return 0;
 }
 
-int gquic_tls_sess_state_reset(gquic_tls_sess_state_t *const state) {
+int gquic_tls_sess_state_dtor(gquic_tls_sess_state_t *const state) {
     if (state == NULL) {
         return -1;
     }
     gquic_str_reset(&state->resumption_sec);
-    gquic_tls_cert_reset(&state->cert);
+    gquic_tls_cert_dtor(&state->cert);
 
     return 0;
 }

@@ -17,8 +17,8 @@ static u_int16_t gquic_x25519_params_curve_id(const void *const);
 static int gquic_x25519_params_public_key(const void *const, gquic_str_t *);
 static int gquic_x25519_params_shared_key(const void *const, gquic_str_t *, const gquic_str_t *);
 
-static int gquic_tls_ecdhe_params_generate_x25519(gquic_tls_ecdhe_params_t *param);
-static int gquic_tls_ecdhe_params_release_x25519(void *const);
+static int gquic_tls_ecdhe_params_x25519_generate(gquic_tls_ecdhe_params_t *param);
+static int gquic_tls_ecdhe_params_x25519_dtor(void *const);
 
 int gquic_tls_ecdhe_params_generate(gquic_tls_ecdhe_params_t *param, const u_int16_t curve_id) {
     if (param == NULL) {
@@ -28,7 +28,7 @@ int gquic_tls_ecdhe_params_generate(gquic_tls_ecdhe_params_t *param, const u_int
         return -2;
     }
 
-    return gquic_tls_ecdhe_params_generate_x25519(param);
+    return gquic_tls_ecdhe_params_x25519_generate(param);
 }
 
 int gquic_tls_ecdhe_params_init(gquic_tls_ecdhe_params_t *param) {
@@ -39,26 +39,27 @@ int gquic_tls_ecdhe_params_init(gquic_tls_ecdhe_params_t *param) {
     param->curve_id = NULL;
     param->public_key = NULL;
     param->shared_key = NULL;
-    param->release = NULL;
+    param->dtor = NULL;
 
     return 0;
 }
 
-int gquic_tls_ecdhe_params_release(gquic_tls_ecdhe_params_t *param) {
+int gquic_tls_ecdhe_params_dtor(gquic_tls_ecdhe_params_t *param) {
     if (param == NULL) {
         return -1;
     }
     if (param->self == NULL) {
         return 0;
     }
-    if (param->release != NULL) {
-        param->release(param->self);
+    if (param->dtor != NULL) {
+        GQUIC_TLS_ECDHE_PARAMS_DTOR(param);
+        free(param->self);
     }
 
     return 0;
 }
 
-static int gquic_tls_ecdhe_params_generate_x25519(gquic_tls_ecdhe_params_t *param) {
+static int gquic_tls_ecdhe_params_x25519_generate(gquic_tls_ecdhe_params_t *param) {
     if (param == NULL) {
         return -1;
     }
@@ -71,7 +72,7 @@ static int gquic_tls_ecdhe_params_generate_x25519(gquic_tls_ecdhe_params_t *para
     param->curve_id = gquic_x25519_params_curve_id;
     param->public_key = gquic_x25519_params_public_key;
     param->shared_key = gquic_x25519_params_shared_key;
-    param->release = gquic_tls_ecdhe_params_release_x25519;
+    param->dtor = gquic_tls_ecdhe_params_x25519_dtor;
 
     gquic_str_init(&x25519_param->pri_key);
     gquic_str_init(&x25519_param->pub_key);
@@ -152,7 +153,7 @@ static int gquic_x25519_params_shared_key(const void *const self, gquic_str_t *r
     return 0;
 }
 
-static int gquic_tls_ecdhe_params_release_x25519(void *const self) {
+static int gquic_tls_ecdhe_params_x25519_dtor(void *const self) {
     if (self == NULL) {
         return -1;
     }

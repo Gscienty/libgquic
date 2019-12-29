@@ -59,21 +59,25 @@ struct gquic_tls_aead_s {
                 const gquic_str_t *const,
                 const gquic_str_t *const,
                 const gquic_str_t *const);
-    int (*release) (void *const);
+    int (*dtor) (void *const);
 };
 
 #define GQUIC_TLS_AEAD_SEAL(tag, cipher_text, aead, nonce, plain_text, addata) \
     (((aead)->seal) == NULL \
     ? -1 \
-    : ((aead)->seal((tag), (cipher_text), &(aead)->self, (nonce), (plain_text), (addata))))
+    : ((aead)->seal((tag), (cipher_text), (aead)->self, (nonce), (plain_text), (addata))))
 
 #define GQUIC_TLS_AEAD_OPEN(plain_text, aead, nonce, tag, cipher_text, addata) \
     (((aead)->open) == NULL \
      ? -1 \
-     : ((aead)->open((plain_text), &(aead)->self, (nonce), (tag), (cipher_text), (addata))))
+     : ((aead)->open((plain_text), (aead)->self, (nonce), (tag), (cipher_text), (addata))))
+#define GQUIC_TLS_AEAD_DTOR(aead) \
+    (((aead)->dtor) == NULL \
+     ? -1 \
+     : ((aead)->dtor((aead)->self)))
 
 int gquic_tls_aead_init(gquic_tls_aead_t *const aead);
-int gquic_tls_aead_release(gquic_tls_aead_t *const aead);
+int gquic_tls_aead_dtor(gquic_tls_aead_t *const aead);
 int gquic_tls_aead_copy(gquic_tls_aead_t *const aead, const gquic_tls_aead_t *const ref);
 
 typedef struct gquic_tls_cipher_s gquic_tls_cipher_t;
@@ -83,7 +87,7 @@ struct gquic_tls_cipher_s {
     gquic_str_t iv;
 };
 int gquic_tls_cipher_init(gquic_tls_cipher_t *const cipher);
-int gquic_tls_cipher_release(gquic_tls_cipher_t *const cipher);
+int gquic_tls_cipher_dtor(gquic_tls_cipher_t *const cipher);
 int gquic_tls_cipher_encrypt(gquic_str_t *const ret, gquic_tls_cipher_t *const cipher, const gquic_str_t *const plain_text);
 int gquic_tls_cipher_decrypt(gquic_str_t *const ret, gquic_tls_cipher_t *const cipher, const gquic_str_t *const cipher_text);
 
@@ -95,7 +99,7 @@ struct gquic_tls_mac_s {
     gquic_str_t key;
 };
 int gquic_tls_mac_init(gquic_tls_mac_t *const mac);
-int gquic_tls_mac_release(gquic_tls_mac_t *const mac);
+int gquic_tls_mac_dtor(gquic_tls_mac_t *const mac);
 int gquic_tls_mac_hmac_hash(gquic_str_t *const ret,
                             gquic_tls_mac_t *const mac,
                             const gquic_str_t *const seq,
@@ -204,11 +208,11 @@ typedef struct gquic_tls_ekm_s gquic_tls_ekm_t;
 struct gquic_tls_ekm_s {
     void *self;
     int (*ekm) (gquic_str_t *const, void *const, const gquic_str_t *const, const gquic_str_t *const, const size_t);
-    int (*release) (void *self);
+    int (*dtor) (void *self);
 };
 
 int gquic_tls_ekm_init(gquic_tls_ekm_t *const ekm);
-int gquic_tls_ekm_release(gquic_tls_ekm_t *const ekm);
+int gquic_tls_ekm_dtor(gquic_tls_ekm_t *const ekm);
 int gquic_tls_ekm_invoke(gquic_str_t *const ret,
                          gquic_tls_ekm_t *const ekm,
                          const gquic_str_t *const cnt,
