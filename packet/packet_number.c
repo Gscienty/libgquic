@@ -97,25 +97,15 @@ int gquic_packet_number_gen_next(u_int64_t *const pn, gquic_packet_number_gen_t 
     return 0;
 }
 
-int gquic_packet_number_gen_valid(gquic_packet_number_gen_t *const gen, const gquic_frame_ack_t *const ack_frame) {
-    int ret = 1;
-    gquic_list_t blocks;
+int gquic_packet_number_gen_valid(gquic_packet_number_gen_t *const gen, const gquic_list_t *const blocks) {
     u_int64_t *pn = NULL;
-    if (ack_frame == NULL) {
+    if (gen == NULL || blocks == NULL) {
         return 0;
     }
-    gquic_list_head_init(&blocks);
-    gquic_frame_ack_ranges_to_blocks(&blocks, ack_frame);
-
     GQUIC_LIST_FOREACH(pn, &gen->mem) {
-        if (gquic_frame_ack_acks_packet(&blocks, *pn)) {
-            ret = 0;
-            goto finished;
+        if (gquic_frame_ack_acks_packet(blocks, *pn)) {
+            return 0;
         }
     }
-finished:
-    while (!gquic_list_head_empty(&blocks)) {
-        gquic_list_release(GQUIC_LIST_FIRST(&blocks));
-    }
-    return ret;
+    return 1;
 }

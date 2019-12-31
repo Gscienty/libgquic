@@ -23,6 +23,6 @@ int gquic_packet_number_gen_ctor(gquic_packet_number_gen_t *const gen, const u_i
 int gquic_packet_number_gen_dtor(gquic_packet_number_gen_t *const gen);
 int gquic_packet_number_gen_new_skip(gquic_packet_number_gen_t *const gen);
 int gquic_packet_number_gen_next(u_int64_t *const pn, gquic_packet_number_gen_t *const gen);
-int gquic_packet_number_gen_valid(gquic_packet_number_gen_t *const gen, const gquic_frame_ack_t *const ack_frame);
+int gquic_packet_number_gen_valid(gquic_packet_number_gen_t *const gen, const gquic_list_t *const blocks);
 
 #endif
