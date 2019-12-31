@@ -12,6 +12,12 @@ struct gquic_frame_meta_s {
     int (*dtor_func) (void *const);
     u_int8_t type;
 
+    struct {
+        void *self;
+        int (*on_acked) (void *const, void *const);
+        int (*on_lost) (void *const, void *const);
+    } event;
+
     size_t payload_size;
 };
 
@@ -23,6 +29,8 @@ struct gquic_frame_meta_s {
 #define GQUIC_FRAME_SERIALIZE(ptr, buf, size) (GQUIC_FRAME_META((ptr)).serialize_func((ptr), (buf), (size)))
 #define GQUIC_FRAME_DESRIALIZE(ptr, buf, size) (GQUIC_FRAME_META((ptr)).deserialize_func((ptr), (buf), (size)))
 #define GQUIC_FRAME_DTOR(ptr) (GQUIC_FRAME_META((ptr)).dtor_func((ptr)))
+#define GQUIC_FRAME_ON_ACKED(ptr) (GQUIC_FRAME_META((ptr)).event.on_acked((GQUIC_FRAME_META((ptr)).event.self), (ptr)))
+#define GQUIC_FRAME_ON_LOST(ptr) (GQUIC_FRAME_META((ptr)).event.on_lost((GQUIC_FRAME_META((ptr)).event.self), (ptr)))
 
 void *gquic_frame_alloc(size_t size);
 int gquic_frame_release(void *const frame);
