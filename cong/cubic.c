@@ -23,11 +23,27 @@ int gquic_cong_cubic_init(gquic_cong_cubic_t *const cubic) {
     cubic->min_cwnd = 2 * 1460;
     cubic->max_cwnd = 0;
     cubic->slow_start_threshold = 0;
-    cubic->conn_count = 1;
+    cubic->conn_count = 0;
     cubic->acked_packets_count = 0;
     cubic->initial_cwnd = 0;
     cubic->initial_max_cwnd = 0;
     cubic->min_slow_start_exit_wnd = 0;
+
+    return 0;
+}
+
+int gquic_cong_cubic_ctor(gquic_cong_cubic_t *const cubic, const gquic_rtt_t *const rtt, const u_int64_t initial_cwnd, const u_int64_t initial_max_cwnd) {
+    if (cubic == NULL) {
+        return -1;
+    }
+    cubic->initial_cwnd = initial_cwnd;
+    cubic->initial_max_cwnd = initial_max_cwnd;
+    cubic->cwnd = initial_cwnd;
+    cubic->min_cwnd = 1460 * 2;
+    cubic->slow_start_threshold = initial_cwnd;
+    cubic->max_cwnd = initial_cwnd;
+    cubic->conn_count = 1;
+    cubic->rtt = rtt;
 
     return 0;
 }
