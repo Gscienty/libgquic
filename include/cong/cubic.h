@@ -35,6 +35,7 @@ struct gquic_cong_cubic_s {
 };
 
 int gquic_cong_cubic_init(gquic_cong_cubic_t *const cubic);
+int gquic_cong_cubic_ctor(gquic_cong_cubic_t *const cubic, const gquic_rtt_t *const rtt, const u_int64_t initial_cwnd, const u_int64_t initial_max_cwnd);
 u_int64_t gquic_cong_cubic_time_util_send(gquic_cong_cubic_t *const cubic, const u_int64_t infly_bytes);
 int gquic_cong_cubic_on_packet_sent(gquic_cong_cubic_t *const cubic,
                                     const u_int64_t pn,
