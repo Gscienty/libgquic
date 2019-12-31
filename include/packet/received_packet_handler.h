@@ -31,7 +31,7 @@ typedef struct gquic_packet_received_packet_handler_s gquic_packet_received_pack
 struct gquic_packet_received_packet_handler_s {
     u_int64_t largest_observed;
     u_int64_t ignore_below;
-    u_int64_t largest_obeserved_time; /* millisecond */
+    u_int64_t largest_obeserved_time; /* microsecond */
     gquic_packet_received_mem_t mem;
     u_int64_t max_ack_delay;
     const gquic_rtt_t *rtt;

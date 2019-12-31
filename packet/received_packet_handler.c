@@ -270,7 +270,7 @@ int gquic_packet_receied_packet_handler_get_ack_frame(gquic_frame_ack_t **const 
     if (gquic_packet_received_mem_get_blocks(&blocks, &handler->mem) != 0) {
         return -2;
     }
-    (*ack)->delay = time(NULL) * 1000 - handler->largest_obeserved_time;
+    (*ack)->delay = time(NULL) * 1000 * 1000 - handler->largest_obeserved_time;
     gquic_frame_ack_ranges_from_blocks(*ack, &blocks);
 
     handler->last_ack = *ack;
