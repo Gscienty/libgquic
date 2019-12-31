@@ -1,4 +1,5 @@
 #include "packet/packet_number.h"
+#include "util/st.h"
 #include <openssl/rand.h>
 
 size_t gquic_packet_number_size(const u_int64_t pn) {
@@ -34,6 +35,16 @@ int gquic_packet_number_gen_init(gquic_packet_number_gen_t *const gen) {
     gen->skip = 0;
     gen->mem_count = 0;
     gquic_list_head_init(&gen->mem);
+    return 0;
+}
+
+int gquic_packet_number_gen_ctor(gquic_packet_number_gen_t *const gen, const u_int64_t init_pn, const u_int64_t average) {
+    if (gen == NULL) {
+        return -1;
+    }
+    gen->next = init_pn;
+    gen->average = average;
+    gquic_packet_number_gen_new_skip(gen);
     return 0;
 }
 
@@ -84,4 +95,27 @@ int gquic_packet_number_gen_next(u_int64_t *const pn, gquic_packet_number_gen_t 
     }
 
     return 0;
+}
+
+int gquic_packet_number_gen_valid(gquic_packet_number_gen_t *const gen, const gquic_frame_ack_t *const ack_frame) {
+    int ret = 1;
+    gquic_list_t blocks;
+    u_int64_t *pn = NULL;
+    if (ack_frame == NULL) {
+        return 0;
+    }
+    gquic_list_head_init(&blocks);
+    gquic_frame_ack_ranges_to_blocks(&blocks, ack_frame);
+
+    GQUIC_LIST_FOREACH(pn, &gen->mem) {
+        if (gquic_frame_ack_acks_packet(&blocks, *pn)) {
+            ret = 0;
+            goto finished;
+        }
+    }
+finished:
+    while (!gquic_list_head_empty(&blocks)) {
+        gquic_list_release(GQUIC_LIST_FIRST(&blocks));
+    }
+    return ret;
 }
