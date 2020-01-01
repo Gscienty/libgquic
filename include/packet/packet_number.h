@@ -25,4 +25,15 @@ int gquic_packet_number_gen_new_skip(gquic_packet_number_gen_t *const gen);
 int gquic_packet_number_gen_next(u_int64_t *const pn, gquic_packet_number_gen_t *const gen);
 int gquic_packet_number_gen_valid(gquic_packet_number_gen_t *const gen, const gquic_list_t *const blocks);
 
+static inline int gquic_packet_number_len(const u_int64_t pn, const u_int64_t lowest_unacked) {
+    const u_int64_t diff = pn - lowest_unacked;
+    if (diff < (1 << 15)) {
+        return 2;
+    }
+    if (diff < (1 << 23)) {
+        return 3;
+    }
+    return 4;
+}
+
 #endif
