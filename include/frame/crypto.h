@@ -11,6 +11,6 @@ struct gquic_frame_crypto_s {
     void *data;
 };
 
-gquic_frame_crypto_t *gquic_frame_crypto_alloc(size_t size);
+gquic_frame_crypto_t *gquic_frame_crypto_alloc();
 
 #endif
