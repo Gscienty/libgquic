@@ -59,7 +59,7 @@ struct gquic_packet_sent_packet_handler_s {
     } event_cb;
 };
 
-#define GQUIC_PACKET_SENT_PACKET_HANDLER_EVENT_CALLBACK(handler, event) (handler->event_cb.cb((handler->event_cb.self), event))
+#define GQUIC_PACKET_SENT_PACKET_HANDLER_EVENT_CALLBACK(handler, event) ((handler)->event_cb.cb(((handler)->event_cb.self), (event)))
 
 int gquic_packet_sent_packet_handler_init(gquic_packet_sent_packet_handler_t *const handler);
 int gquic_packet_sent_packet_handler_ctor(gquic_packet_sent_packet_handler_t *const handler,
