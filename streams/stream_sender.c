@@ -41,6 +41,9 @@ static int uni_stream_sender_on_stream_completed(void *const sender, const u_int
     if (sender == NULL) {
         return -1;
     }
+    if (uni_sender->on_stream_completed_cb.self == NULL) {
+        return 0;
+    }
     if (uni_sender->on_stream_completed_cb.cb(uni_sender->on_stream_completed_cb.self) != 0) {
         return -2;
     }
