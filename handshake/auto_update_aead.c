@@ -58,14 +58,14 @@ int gquic_auto_update_aead_roll(gquic_auto_update_aead_t *const aead, const stru
     aead->cur_key_num_recv = 0;
     aead->cur_key_num_sent = 0;
 
-    gquic_tls_aead_release(&aead->prev_recv_aead);
+    gquic_tls_aead_dtor(&aead->prev_recv_aead);
     gquic_tls_aead_init(&aead->prev_recv_aead);
     gquic_tls_aead_copy(&aead->prev_recv_aead, &aead->recv_aead);
     pto = 3 * gquic_time_pto(aead->rtt, 1);
     aead->prev_recv_aead_expire.tv_sec = (now->tv_sec + pto / 1000000) + (now->tv_usec + pto % 1000000) / 1000000;
     aead->prev_recv_aead_expire.tv_usec = now->tv_usec + pto % 1000000;
     gquic_tls_aead_copy(&aead->recv_aead, &aead->next_recv_aead);
-    gquic_tls_aead_release(&aead->send_aead);
+    gquic_tls_aead_dtor(&aead->send_aead);
     gquic_tls_aead_init(&aead->send_aead);
     gquic_tls_aead_copy(&aead->send_aead, &aead->next_send_aead);
 
@@ -117,7 +117,7 @@ static int gquic_auto_update_aead_next_traffic_sec(gquic_str_t *const ret,
         return -3;
     }
 
-    gquic_tls_mac_release(&hash);
+    gquic_tls_mac_dtor(&hash);
     return 0;
 }
 
@@ -131,7 +131,7 @@ int gquic_auto_update_aead_set_rkey(gquic_auto_update_aead_t *const aead,
     gquic_header_protector_release(&aead->header_dec);
     gquic_header_protector_init(&aead->header_dec);
 
-    gquic_tls_aead_release(&aead->recv_aead);
+    gquic_tls_aead_dtor(&aead->recv_aead);
     gquic_tls_aead_init(&aead->recv_aead);
     if (gquic_tls_create_aead(&aead->recv_aead, suite, traffic_sec) != 0) {
         return -2;
@@ -151,7 +151,7 @@ int gquic_auto_update_aead_set_rkey(gquic_auto_update_aead_t *const aead,
     }
     gquic_str_reset(&aead->next_recv_traffic_sec);
     gquic_str_copy(&aead->next_recv_traffic_sec, &next_recv_traffic_sec);
-    gquic_tls_aead_release(&aead->next_recv_aead);
+    gquic_tls_aead_dtor(&aead->next_recv_aead);
     gquic_tls_aead_init(&aead->next_recv_aead);
     if (gquic_tls_create_aead(&aead->next_recv_aead, suite, &aead->next_recv_traffic_sec) != 0) {
         return -6;
@@ -171,7 +171,7 @@ int gquic_auto_update_aead_set_wkey(gquic_auto_update_aead_t *const aead,
     gquic_header_protector_release(&aead->header_enc);
     gquic_header_protector_init(&aead->header_enc);
 
-    gquic_tls_aead_release(&aead->send_aead);
+    gquic_tls_aead_dtor(&aead->send_aead);
     gquic_tls_aead_init(&aead->send_aead);
     if (gquic_tls_create_aead(&aead->send_aead, suite, traffic_sec) != 0) {
         return -2;
@@ -191,7 +191,7 @@ int gquic_auto_update_aead_set_wkey(gquic_auto_update_aead_t *const aead,
     }
     gquic_str_reset(&aead->next_send_traffic_sec);
     gquic_str_copy(&aead->next_send_traffic_sec, &next_send_traffic_sec);
-    gquic_tls_aead_release(&aead->next_send_aead);
+    gquic_tls_aead_dtor(&aead->next_send_aead);
     gquic_tls_aead_init(&aead->next_send_aead);
     if (gquic_tls_create_aead(&aead->next_send_aead, suite, &aead->next_send_traffic_sec) != 0) {
         return -6;
@@ -216,7 +216,7 @@ int gquic_auto_update_aead_open(gquic_str_t *const plain_text,
         && (recv_time->tv_sec > aead->prev_recv_aead_expire.tv_sec
             || (recv_time->tv_sec == aead->prev_recv_aead_expire.tv_sec
                 && recv_time->tv_usec > aead->prev_recv_aead_expire.tv_usec))) {
-        gquic_tls_aead_release(&aead->prev_recv_aead);
+        gquic_tls_aead_dtor(&aead->prev_recv_aead);
         gquic_tls_aead_init(&aead->prev_recv_aead);
         aead->prev_recv_aead_expire.tv_sec = 0;
         aead->prev_recv_aead_expire.tv_usec = 0;

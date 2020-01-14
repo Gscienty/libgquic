@@ -132,12 +132,12 @@ static int gquic_handshake_generate_secs(gquic_str_t *const cli_sec, gquic_str_t
     }
     
     gquic_str_reset(&initial_sec);
-    gquic_tls_mac_release(&hash);
+    gquic_tls_mac_dtor(&hash);
     return 0;
 failure:
 
     gquic_str_reset(&initial_sec);
-    gquic_tls_mac_release(&hash);
+    gquic_tls_mac_dtor(&hash);
     return ret;
 }
 
@@ -157,14 +157,14 @@ static int gquic_handshake_generate_key_iv(gquic_str_t *const key, gquic_str_t *
         return -3;
     }
     if (gquic_tls_hkdf_expand_label(key, &hash, sec, NULL, &key_label, 16) != 0) {
-        gquic_tls_mac_release(&hash);
+        gquic_tls_mac_dtor(&hash);
         return -4;
     }
     if (gquic_tls_hkdf_expand_label(iv, &hash, sec, NULL, &iv_label, 16) != 0) {
-        gquic_tls_mac_release(&hash);
+        gquic_tls_mac_dtor(&hash);
         return -5;
     }
 
-    gquic_tls_mac_release(&hash);
+    gquic_tls_mac_dtor(&hash);
     return 0;
 }

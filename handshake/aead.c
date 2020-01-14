@@ -19,7 +19,7 @@ int gquic_long_header_sealer_release(gquic_long_header_sealer_t *const sealer) {
     if (sealer == NULL) {
         return -1;
     }
-    gquic_tls_aead_release(&sealer->aead);
+    gquic_tls_aead_dtor(&sealer->aead);
     gquic_header_protector_release(&sealer->protector);
     gquic_str_reset(&sealer->nonce_buf);
 
@@ -62,7 +62,7 @@ int gquic_long_header_opener_release(gquic_long_header_opener_t *const opener) {
     if (opener == NULL) {
         return -1;
     }
-    gquic_tls_aead_release(&opener->aead);
+    gquic_tls_aead_dtor(&opener->aead);
     gquic_header_protector_release(&opener->protector);
     gquic_str_reset(&opener->nonce_buf);
 

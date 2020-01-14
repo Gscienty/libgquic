@@ -85,7 +85,7 @@ static int gquic_aes_header_protector_init(gquic_aes_header_protector_t *const p
     }
     protector->is_long_header = is_long_header;
 
-    gquic_tls_mac_release(&hash);
+    gquic_tls_mac_dtor(&hash);
     gquic_str_reset(&header_protector_key);
     return 0;
 }

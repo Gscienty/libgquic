@@ -26,7 +26,7 @@ int gquic_hybrid_slow_start_start_recv_round(gquic_cong_bybrid_slow_start_t *con
     return 0;
 }
 
-int gquic_hybrid_slow_start_should_exit(const gquic_cong_bybrid_slow_start_t *const slowstart,
+int gquic_hybrid_slow_start_should_exit(gquic_cong_bybrid_slow_start_t *const slowstart,
                                         const u_int64_t last_rtt,
                                         const u_int64_t min_rtt,
                                         const u_int64_t cwnd) {
