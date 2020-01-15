@@ -35,6 +35,7 @@ int gquic_send_stream_ctor(gquic_send_stream_t *const str,
                            const u_int64_t stream_id,
                            gquic_stream_sender_t *const sender,
                            gquic_flowcontrol_stream_flow_ctrl_t *const flow_ctrl);
+int gquic_send_stream_write(int *const writed, gquic_send_stream_t *const str, const gquic_str_t *const data);
 
 
 #endif
