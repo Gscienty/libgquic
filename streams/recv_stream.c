@@ -132,6 +132,7 @@ static inline int gquic_recv_stream_dequeue_next_frame(gquic_recv_stream_t *cons
 
 static int gquic_recv_stream_read_inner(int *const completed, int *const read, gquic_recv_stream_t *const str, gquic_str_t *const data) {
     u_int64_t read_bytes = 0;
+    u_int64_t deadline = 0;
     size_t readed_size = 0;
     if (completed == NULL || read == NULL || str == NULL || data == NULL) {
         return -1;
@@ -181,12 +182,13 @@ static int gquic_recv_stream_read_inner(int *const completed, int *const read, g
                 *read = read_bytes;
                 return str->reset_remote_reason;
             }
-            if (str->deadline != 0) {
+            deadline = str->deadline;
+            if (deadline != 0) {
                 struct timeval tv;
                 struct timezone tz;
                 gettimeofday(&tv, &tz);
                 u_int64_t now = tv.tv_sec * 1000 * 1000 + tv.tv_usec;
-                if (now >= str->deadline) {
+                if (now >= deadline) {
                     *completed = 0;
                     *read = read_bytes;
                     return -3;
@@ -196,11 +198,11 @@ static int gquic_recv_stream_read_inner(int *const completed, int *const read, g
                 break;
             }
             sem_post(&str->mtx);
-            if (str->deadline == 0) {
+            if (deadline == 0) {
                 sem_wait(&str->read_sem);
             }
             else {
-                struct timespec timeout = { str->deadline / (1000 * 1000), str->deadline % (1000 * 1000) };
+                struct timespec timeout = { deadline / (1000 * 1000), deadline % (1000 * 1000) };
                 sem_timedwait(&str->read_sem, &timeout);
             }
             sem_wait(&str->mtx);
@@ -279,7 +281,7 @@ static int gquic_recv_stream_handle_stream_frame_inner(int *const completed, gqu
     if (completed == NULL || str == NULL || frame == NULL) {
         return -1;
     }
-    max_off = frame->off + frame->len;
+    max_off = frame->off + GQUIC_STR_SIZE(&frame->data);
     fin = (GQUIC_FRAME_META(frame).type & 0x01) != 0x00;
     if (gquic_flowcontrol_stream_flow_ctrl_update_highest_recv(str->flow_ctrl, max_off, fin) != 0) {
         *completed = 0;
@@ -293,9 +295,8 @@ static int gquic_recv_stream_handle_stream_frame_inner(int *const completed, gqu
         *completed = newly_recv_final_off;
         return 0;
     }
-    gquic_str_t frame_data = { frame->len, frame->data };
     if (gquic_frame_sorter_push(&str->frame_queue,
-                            &frame_data,
+                            &frame->data,
                             frame->off,
                             gquic_recv_stream_sorter_push_done_cb,
                             frame) != 0) {
