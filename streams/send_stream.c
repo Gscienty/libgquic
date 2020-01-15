@@ -1,12 +1,20 @@
 #include "streams/send_stream.h"
 #include "frame/stream_data_blocked.h"
+#include "frame/reset_stream.h"
 #include "frame/meta.h"
+#include "frame/stream_pool.h"
 #include <sys/time.h>
 #include <string.h>
 
 static int gquic_send_stream_get_writing_data(gquic_frame_stream_t *const, gquic_send_stream_t *const, u_int64_t);
 static int gquic_send_stream_pop_new_stream_frame(gquic_frame_stream_t *const, gquic_send_stream_t *const, const u_int64_t);
 static int gquic_send_stream_try_retransmission(gquic_frame_stream_t **const, gquic_send_stream_t *const, const u_int64_t);
+static int gquic_send_stream_pop_new_or_retransmission_stream_frame(gquic_frame_stream_t **const, gquic_send_stream_t *const, const u_int64_t);
+static int gquic_send_stream_queue_retransmission(gquic_send_stream_t *const, void *const);
+static int gquic_send_stream_queue_retransmission_wrap(void *const, void *const);
+static int gquic_send_stream_frame_acked(gquic_send_stream_t *const, void *const);
+static int gquic_send_stream_frame_acked_wrap(void *const, void *const);
+inline static int gquic_send_stream_is_newly_completed(gquic_send_stream_t *const);
 
 int gquic_send_stream_init(gquic_send_stream_t *const str) {
     if (str == NULL) {
@@ -221,3 +229,203 @@ static int gquic_send_stream_try_retransmission(gquic_frame_stream_t **const fra
     return !gquic_list_head_empty(&str->retransmission_queue);
 }
 
+static int gquic_send_stream_pop_new_or_retransmission_stream_frame(gquic_frame_stream_t **const frame, gquic_send_stream_t *const str, const u_int64_t max_bytes) {
+    int remain_data = 0;
+    if (frame == NULL || str == NULL) {
+        return 0;
+    }
+    if (!gquic_list_head_empty(&str->retransmission_queue)) {
+        if (gquic_send_stream_try_retransmission(frame, str, max_bytes) || *frame != NULL) {
+            return 1;
+        }
+    }
+    gquic_stream_frame_pool_get(frame);
+    GQUIC_FRAME_META(*frame).type |= 0x02;
+    GQUIC_FRAME_META(*frame).type |= str->write_off != 0 ? 0x04 : 0x00;
+    (*frame)->id = str->stream_id;
+    (*frame)->off = str->write_off;
+    remain_data = gquic_send_stream_pop_new_stream_frame(*frame, str, max_bytes);
+    if (GQUIC_STR_SIZE(&(*frame)->data) == 0 && (GQUIC_FRAME_META(*frame).type & 0x01) == 0x00) {
+        gquic_stream_frame_pool_put((*frame));
+        *frame = NULL;
+        return remain_data;
+    }
+    return remain_data;
+}
+
+int gquic_send_stream_pop_stream_frame(gquic_frame_stream_t **const frame, gquic_send_stream_t *const str, const u_int64_t max_bytes) {
+    int remain_data = 0;
+    if (frame == NULL || str == NULL) {
+        return 0;
+    }
+    sem_wait(&str->mtx);
+    remain_data = gquic_send_stream_pop_new_or_retransmission_stream_frame(frame, str, max_bytes);
+    if (*frame != NULL) {
+        str->outstanding_frames_count++;
+    }
+    sem_post(&str->mtx);
+    if (*frame == NULL) {
+        return remain_data;
+    }
+    GQUIC_FRAME_META(*frame).event.self = str;
+    GQUIC_FRAME_META(*frame).event.on_lost = gquic_send_stream_queue_retransmission_wrap;
+    GQUIC_FRAME_META(*frame).event.on_acked = gquic_send_stream_frame_acked_wrap;
+    return remain_data;
+}
+
+static int gquic_send_stream_queue_retransmission(gquic_send_stream_t *const str, void *const frame) {
+    gquic_frame_stream_t **stream_frame_storage = NULL;
+    gquic_frame_stream_t *stream_frame = frame;
+    if (str == NULL || frame == NULL) {
+        return -1;
+    }
+    GQUIC_FRAME_META(stream_frame).type |= 0x02;
+    if ((stream_frame_storage = gquic_list_alloc(sizeof(gquic_frame_stream_t *))) == NULL) {
+        return -2;
+    }
+    *stream_frame_storage = stream_frame;
+    sem_wait(&str->mtx);
+    gquic_list_insert_before(&str->retransmission_queue, stream_frame_storage);
+    str->outstanding_frames_count--;
+    if (str->outstanding_frames_count < 0) {
+        sem_post(&str->mtx);
+        return -3;
+    }
+    sem_post(&str->mtx);
+
+    GQUIC_SENDER_ON_HAS_STREAM_DATA(str->sender, str->stream_id);
+    return 0;
+}
+
+static int gquic_send_stream_queue_retransmission_wrap(void *const str, void *const frame) {
+    return gquic_send_stream_queue_retransmission(str, frame);
+}
+
+static int gquic_send_stream_frame_acked(gquic_send_stream_t *const str, void *const frame) {
+    int newly_completed = 0;
+    if (str == NULL || frame == NULL) {
+        return -1;
+    }
+    gquic_stream_frame_pool_put(frame);
+    sem_wait(&str->mtx);
+    str->outstanding_frames_count--;
+    if (str->outstanding_frames_count < 0) {
+        sem_post(&str->mtx);
+        return -2;
+    }
+    newly_completed = gquic_send_stream_is_newly_completed(str);
+    sem_post(&str->mtx);
+    if (newly_completed) {
+        GQUIC_SENDER_ON_STREAM_COMPLETED(str->sender, str->stream_id);
+    }
+    return 0;
+}
+
+static int gquic_send_stream_frame_acked_wrap(void *const str, void *const frame) {
+    return gquic_send_stream_frame_acked(str, frame);
+}
+
+inline static int gquic_send_stream_is_newly_completed(gquic_send_stream_t *const str) {
+    int completed = 0;
+    if (str == NULL) {
+        return 0;
+    }
+    completed = (str->fin_sent || str->canceled_write) && str->outstanding_frames_count == 0 && gquic_list_head_empty(&str->retransmission_queue);
+    if (completed && !str->completed) {
+        str->completed = 1;
+        return 1;
+    }
+    return 0;
+}
+
+int gquic_send_stream_handle_stop_sending_frame(gquic_send_stream_t *const str, const gquic_frame_stop_sending_t *const stop_sending) {
+    if (str == NULL || stop_sending == NULL) {
+        return -1;
+    }
+    gquic_send_stream_cancel_write(str, stop_sending->errcode);
+    return 0;
+}
+
+int gquic_send_stream_cancel_write(gquic_send_stream_t *const str, const u_int64_t err) {
+    int newly_completed = 0;
+    gquic_frame_reset_stream_t *reset_frame = NULL;
+    if (str == NULL) {
+        return -1;
+    }
+    sem_wait(&str->mtx);
+    if (str->canceled_write) {
+        sem_post(&str->mtx);
+        return 0;
+    }
+    str->canceled_write = 1;
+    str->canceled_write_reason = -err;
+    newly_completed = gquic_send_stream_is_newly_completed(str);
+    sem_post(&str->mtx);
+
+    sem_post(&str->write_sem);
+    if ((reset_frame = gquic_frame_reset_stream_alloc()) == NULL) {
+        return -2;
+    }
+    reset_frame->id = str->stream_id;
+    reset_frame->final_size = str->write_off;
+    reset_frame->errcode = err;
+    if (newly_completed) {
+        GQUIC_SENDER_ON_STREAM_COMPLETED(str->sender, str->stream_id);
+    }
+    return 0;
+}
+
+int gquic_send_stream_has_data(gquic_send_stream_t *const str) {
+    int has_data = 0;
+    if (str == NULL) {
+        return 0;
+    }
+    sem_wait(&str->mtx);
+    has_data = GQUIC_STR_SIZE(&str->writing_data) > 0;
+    sem_post(&str->mtx);
+    return has_data;
+}
+
+int gquic_send_stream_close_for_shutdown(gquic_send_stream_t *const str, const int err) {
+    if (str == NULL) {
+        return -1;
+    }
+    sem_wait(&str->mtx);
+    str->canceled_write = 1;
+    str->canceled_write_reason = err;
+    sem_post(&str->mtx);
+    sem_post(&str->write_sem);
+
+    return 0;
+}
+
+int gquic_send_stream_handle_max_stream_data_frame(gquic_send_stream_t *const str, gquic_frame_max_stream_data_t *const frame) {
+    int has_stream_data = 0;
+    if (str == NULL || frame == NULL) {
+        return -1;
+    }
+    sem_wait(&str->mtx);
+    has_stream_data = GQUIC_STR_SIZE(&str->writing_data) > 0;
+    sem_post(&str->mtx);
+
+    gquic_flowcontrol_base_update_swnd(&str->flow_ctrl->base, frame->max);
+    if (has_stream_data) {
+        GQUIC_SENDER_ON_HAS_STREAM_DATA(str->sender, str->stream_id);
+    }
+    return 0;
+}
+
+int gquic_send_stream_close(gquic_send_stream_t *const str) {
+    if (str == NULL) {
+        return -1;
+    }
+    sem_wait(&str->mtx);
+    if (str->canceled_write) {
+        sem_post(&str->mtx);
+        return -2;
+    }
+    str->finished_writing = 1;
+    sem_post(&str->mtx);
+    GQUIC_SENDER_ON_HAS_STREAM_DATA(str->sender, str->stream_id);
+    return 0;
+}

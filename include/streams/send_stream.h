@@ -4,6 +4,8 @@
 #include <semaphore.h>
 #include <sys/types.h>
 #include "frame/stream.h"
+#include "frame/stop_sending.h"
+#include "frame/max_stream_data.h"
 #include "flowcontrol/stream_flow_ctrl.h"
 #include "streams/stream_sender.h"
 #include "util/list.h"
@@ -36,6 +38,12 @@ int gquic_send_stream_ctor(gquic_send_stream_t *const str,
                            gquic_stream_sender_t *const sender,
                            gquic_flowcontrol_stream_flow_ctrl_t *const flow_ctrl);
 int gquic_send_stream_write(int *const writed, gquic_send_stream_t *const str, const gquic_str_t *const data);
-
+int gquic_send_stream_pop_stream_frame(gquic_frame_stream_t **const frame, gquic_send_stream_t *const str, const u_int64_t max_bytes);
+int gquic_send_stream_handle_stop_sending_frame(gquic_send_stream_t *const str, const gquic_frame_stop_sending_t *const stop_sending);
+int gquic_send_stream_cancel_write(gquic_send_stream_t *const str, const u_int64_t err);
+int gquic_send_stream_has_data(gquic_send_stream_t *const str);
+int gquic_send_stream_close_for_shutdown(gquic_send_stream_t *const str, const int err);
+int gquic_send_stream_handle_max_stream_data_frame(gquic_send_stream_t *const str, gquic_frame_max_stream_data_t *const frame);
+int gquic_send_stream_close(gquic_send_stream_t *const str);
 
 #endif
