@@ -45,5 +45,6 @@ int gquic_send_stream_has_data(gquic_send_stream_t *const str);
 int gquic_send_stream_close_for_shutdown(gquic_send_stream_t *const str, const int err);
 int gquic_send_stream_handle_max_stream_data_frame(gquic_send_stream_t *const str, gquic_frame_max_stream_data_t *const frame);
 int gquic_send_stream_close(gquic_send_stream_t *const str);
+int gquic_send_stream_set_write_deadline(gquic_send_stream_t *const str, const u_int64_t deadline);
 
 #endif

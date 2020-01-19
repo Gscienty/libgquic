@@ -429,3 +429,14 @@ int gquic_send_stream_close(gquic_send_stream_t *const str) {
     GQUIC_SENDER_ON_HAS_STREAM_DATA(str->sender, str->stream_id);
     return 0;
 }
+
+int gquic_send_stream_set_write_deadline(gquic_send_stream_t *const str, const u_int64_t deadline) {
+    if (str == NULL) {
+        return -1;
+    }
+    sem_wait(&str->mtx);
+    str->deadline = deadline;
+    sem_post(&str->mtx);
+    sem_post(&str->write_sem);
+    return 0;
+}

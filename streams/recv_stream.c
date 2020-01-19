@@ -399,3 +399,4 @@ int gquic_recv_stream_close_for_shutdown(gquic_recv_stream_t *const str, int err
     sem_post(&str->read_sem);
     return 0;
 }
+
