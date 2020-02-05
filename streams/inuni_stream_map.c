@@ -1,10 +1,10 @@
-#include "streams/inbidi_stream_map.h"
+#include "streams/inuni_stream_map.h"
 #include "frame/meta.h"
 #include "frame/max_streams.h"
 
-static int gquic_inbidi_stream_map_delete_stream_inner(gquic_inbidi_stream_map_t *const, const u_int64_t);
+static int gquic_inuni_stream_map_delete_stream_inner(gquic_inuni_stream_map_t *const, const u_int64_t);
 
-int gquic_inbidi_stream_map_init(gquic_inbidi_stream_map_t *const str_map) {
+int gquic_inuni_stream_map_init(gquic_inuni_stream_map_t *const str_map) {
     if (str_map == NULL) {
         return -1;
     }
@@ -32,12 +32,12 @@ int gquic_inbidi_stream_map_init(gquic_inbidi_stream_map_t *const str_map) {
     return 0;
 }
 
-int gquic_inbidi_stream_map_ctor(gquic_inbidi_stream_map_t *const str_map,
-                                 void *const new_stream_self,
-                                 int (*new_stream_cb) (gquic_stream_t *const, void *const, const u_int64_t),
-                                 u_int64_t max_stream_count,
-                                 void *const queue_max_stream_id_self,
-                                 int (*queue_max_stream_id_cb) (void *const, const void *const)) {
+int gquic_inuni_stream_map_ctor(gquic_inuni_stream_map_t *const str_map,
+                                void *const new_stream_self,
+                                int (*new_stream_cb) (gquic_stream_t *const, void *const, const u_int64_t),
+                                u_int64_t max_stream_count,
+                                void *const queue_max_stream_id_self,
+                                int (*queue_max_stream_id_cb) (void *const, const void *const)) {
     if (str_map == NULL || new_stream_self == NULL || new_stream_cb == NULL || queue_max_stream_id_self == NULL || queue_max_stream_id_cb == NULL) {
         return -1;
     }
@@ -53,7 +53,7 @@ int gquic_inbidi_stream_map_ctor(gquic_inbidi_stream_map_t *const str_map,
     return 0;
 }
 
-int gquic_inbidi_stream_map_accept_stream(gquic_stream_t **const str, gquic_inbidi_stream_map_t *const str_map) {
+int gquic_inuni_stream_map_accept_stream(gquic_stream_t **const str, gquic_inuni_stream_map_t *const str_map) {
     u_int64_t num = 0;
     const gquic_rbtree_t *rb_str = NULL;
     const gquic_rbtree_t *rb_del_str = NULL;
@@ -80,7 +80,7 @@ int gquic_inbidi_stream_map_accept_stream(gquic_stream_t **const str, gquic_inbi
     if (gquic_rbtree_find(&rb_del_str, str_map->streams_del_root, &num, sizeof(u_int64_t)) == 0) {
         gquic_rbtree_remove(&str_map->streams_del_root, (gquic_rbtree_t **) &rb_del_str);
         gquic_rbtree_release((gquic_rbtree_t *) rb_del_str, NULL);
-        if ((ret = gquic_inbidi_stream_map_delete_stream_inner(str_map, num)) != 0) {
+        if ((ret = gquic_inuni_stream_map_delete_stream_inner(str_map, num)) != 0) {
             goto finished;
         }
     }
@@ -90,7 +90,7 @@ finished:
     return ret;
 }
 
-int gquic_inbidi_stream_map_get_or_open_stream(gquic_stream_t **const str, gquic_inbidi_stream_map_t *const str_map, const u_int64_t num) {
+int gquic_inuni_stream_map_get_or_open_stream(gquic_stream_t **const str, gquic_inuni_stream_map_t *const str_map, const u_int64_t num) {
     u_int64_t new_num = 0;
     gquic_rbtree_t *rb_str = NULL;
     int ret = 0;
@@ -115,12 +115,12 @@ int gquic_inbidi_stream_map_get_or_open_stream(gquic_stream_t **const str, gquic
         if (gquic_rbtree_find((const gquic_rbtree_t **) &rb_str, str_map->streams_root, &new_num, sizeof(u_int64_t)) == 0) {
             gquic_stream_dtor(GQUIC_RBTREE_VALUE(rb_str));
             gquic_stream_init(GQUIC_RBTREE_VALUE(rb_str));
-            GQUIC_INBIDI_STREAM_MAP_CTOR_STREAM(GQUIC_RBTREE_VALUE(rb_str), str_map, new_num);
+            GQUIC_INUNI_STREAM_MAP_CTOR_STREAM(GQUIC_RBTREE_VALUE(rb_str), str_map, new_num);
         }
         else if (gquic_rbtree_alloc(&rb_str, sizeof(u_int64_t), sizeof(gquic_stream_t)) == 0) {
             *(u_int64_t *) GQUIC_RBTREE_KEY(rb_str) = new_num;
             gquic_stream_init(GQUIC_RBTREE_VALUE(rb_str));
-            GQUIC_INBIDI_STREAM_MAP_CTOR_STREAM(GQUIC_RBTREE_VALUE(rb_str), str_map, new_num);
+            GQUIC_INUNI_STREAM_MAP_CTOR_STREAM(GQUIC_RBTREE_VALUE(rb_str), str_map, new_num);
             gquic_rbtree_insert(&str_map->streams_root, rb_str);
             str_map->streams_count++;
         }
@@ -141,20 +141,20 @@ finished:
     return ret;
 }
 
-int gquic_inbidi_stream_map_delete_stream(gquic_inbidi_stream_map_t *const str_map, const u_int64_t num) {
+int gquic_inuni_stream_map_delete_stream(gquic_inuni_stream_map_t *const str_map, const u_int64_t num) {
     int ret = 0;
     if (str_map == NULL) {
         return -1;
     }
     sem_wait(&str_map->mtx);
 
-    ret = gquic_inbidi_stream_map_delete_stream_inner(str_map, num);
+    ret = gquic_inuni_stream_map_delete_stream_inner(str_map, num);
 
     sem_post(&str_map->mtx);
     return ret;
 }
 
-static int gquic_inbidi_stream_map_delete_stream_inner(gquic_inbidi_stream_map_t *const str_map, const u_int64_t num) {
+static int gquic_inuni_stream_map_delete_stream_inner(gquic_inuni_stream_map_t *const str_map, const u_int64_t num) {
     gquic_rbtree_t *rb_str = NULL;
     gquic_rbtree_t *rb_del_str = NULL;
     gquic_frame_max_streams_t *frame = NULL;
@@ -188,15 +188,15 @@ static int gquic_inbidi_stream_map_delete_stream_inner(gquic_inbidi_stream_map_t
             return -6;
         }
         GQUIC_FRAME_INIT(frame);
-        GQUIC_FRAME_META(frame).type = 0x12;
+        GQUIC_FRAME_META(frame).type = 0x13;
         frame->max = str_map->max_stream;
-        GQUIC_INBIDI_STREAM_MAP_QUEUE_MAX_STREAM_ID(str_map, frame);
+        GQUIC_INUNI_STREAM_MAP_QUEUE_MAX_STREAM_ID(str_map, frame);
     }
 
     return 0;
 }
 
-int gquic_inbidi_stream_map_close(gquic_inbidi_stream_map_t *const str_map, const int err) {
+int gquic_inuni_stream_map_close(gquic_inuni_stream_map_t *const str_map, const int err) {
     gquic_rbtree_t *rbt = NULL;
     gquic_list_t queue;
     if (str_map == NULL) {
