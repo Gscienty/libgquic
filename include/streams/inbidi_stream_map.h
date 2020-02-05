@@ -22,7 +22,7 @@ struct gquic_inbidi_stream_map_s {
     struct {
         void *self;
         int (*cb) (gquic_stream_t *const, void *const, const u_int64_t);
-    } ctor_stream;
+    } stream_ctor;
     struct {
         void *self;
         int (*cb) (void *const, const void *const);
@@ -32,7 +32,7 @@ struct gquic_inbidi_stream_map_s {
     int closed_reason;
 };
 
-#define GQUIC_INBIDI_STREAM_MAP_CTOR_STREAM(stream, map, n) ((map)->ctor_stream.cb(stream, (map)->ctor_stream.self, n))
+#define GQUIC_INBIDI_STREAM_MAP_CTOR_STREAM(stream, map, n) ((map)->stream_ctor.cb(stream, (map)->stream_ctor.self, n))
 #define GQUIC_INBIDI_STREAM_MAP_QUEUE_MAX_STREAM_ID(map, stream) ((map)->queue_max_stream_id.cb((map)->queue_max_stream_id.self, stream))
 
 int gquic_inbidi_stream_map_init(gquic_inbidi_stream_map_t *const str_map);

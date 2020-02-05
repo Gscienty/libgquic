@@ -3,7 +3,6 @@
 
 #include "streams/stream.h"
 #include "util/rbtree.h"
-#include "frame/streams_blocked.h"
 #include <semaphore.h>
 
 typedef struct gquic_outbidi_stream_map_s gquic_outbidi_stream_map_t;

@@ -20,8 +20,8 @@ int gquic_inbidi_stream_map_init(gquic_inbidi_stream_map_t *const str_map) {
     str_map->max_stream = 0;
     str_map->max_stream_count = 0;
 
-    str_map->ctor_stream.cb = NULL;
-    str_map->ctor_stream.self = NULL;
+    str_map->stream_ctor.cb = NULL;
+    str_map->stream_ctor.self = NULL;
 
     str_map->queue_max_stream_id.cb = NULL;
     str_map->queue_max_stream_id.self = NULL;
@@ -43,8 +43,8 @@ int gquic_inbidi_stream_map_ctor(gquic_inbidi_stream_map_t *const str_map,
     }
     str_map->max_stream_count = max_stream_count;
     str_map->max_stream = max_stream_count;
-    str_map->ctor_stream.self = new_stream_self;
-    str_map->ctor_stream.cb = new_stream_cb;
+    str_map->stream_ctor.self = new_stream_self;
+    str_map->stream_ctor.cb = new_stream_cb;
     str_map->queue_max_stream_id.self = queue_max_stream_id_self;
     str_map->queue_max_stream_id.cb = queue_max_stream_id_cb;
     str_map->next_stream_open = 1;
