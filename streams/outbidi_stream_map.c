@@ -296,6 +296,7 @@ int gquic_outbidi_stream_map_close(gquic_outbidi_stream_map_t *const str_map, co
 
         if (*(sem_t **) GQUIC_RBTREE_VALUE(rbt) != NULL) {
             sem_post(*(sem_t **) GQUIC_RBTREE_VALUE(rbt));
+            sem_close(*(sem_t **) GQUIC_RBTREE_VALUE(rbt));
         }
 
         gquic_list_release(GQUIC_LIST_FIRST(&queue));
