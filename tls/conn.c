@@ -766,7 +766,7 @@ int gquic_tls_conn_get_sess_ticket(gquic_str_t *const msg, gquic_tls_conn_t *con
     if (msg == NULL || conn == NULL) {
         return -1;
     }
-    if (conn->is_client || conn->handshake_status == 1 || conn->cfg->alt_record.self == NULL) {
+    if (conn->is_client || conn->handshake_status != 1 || conn->cfg->alt_record.self == NULL) {
         return -2;
     }
     if (conn->cfg->sess_ticket_disabled) {

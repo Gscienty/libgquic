@@ -21,6 +21,8 @@ static int gquic_establish_record_layer_send_alert(void *const, const u_int8_t);
 
 static int gquic_establish_handle_post_handshake_msg(gquic_handshake_establish_t *const);
 
+static int gquic_establish_try_send_sess_ticket(gquic_handshake_establish_t *const);
+
 int gquic_handshake_event_init(gquic_handshake_event_t *const event) {
     if (event == NULL) {
         return -1;
@@ -183,7 +185,7 @@ int gquic_handshake_establish_run(gquic_handshake_establish_t *const est) {
     case GQUIC_ESTABLISH_ENDING_EVENT_HANDSHAKE_COMPLETE:
         GQUIC_HANDSHAKE_EVENT_ON_HANDSHAKE_COMPLETE(&est->events);
         if (!est->is_client) {
-            // TODO send sess_ticket
+            gquic_establish_try_send_sess_ticket(est);
         }
         break;
 
@@ -871,6 +873,22 @@ finished:
     }
     if (ending_event != NULL) {
         gquic_list_release(ending_event);
+    }
+    return 0;
+}
+
+static int gquic_establish_try_send_sess_ticket(gquic_handshake_establish_t *const est) {
+    gquic_str_t ticket = { 0, NULL };
+    if (est == NULL) {
+        return -1;
+    }
+    if (gquic_tls_conn_get_sess_ticket(&ticket, &est->conn) != 0) {
+        GQUIC_HANDSHAKE_EVENT_ON_ERR(&est->events, GQUIC_TLS_ALERT_INTERNAL_ERROR, -3);
+        return 0;
+    }
+    if (GQUIC_STR_SIZE(&ticket) != 0) {
+        size_t size;
+        GQUIC_IO_WRITE(&size, &est->one_rtt_output, &ticket);
     }
     return 0;
 }
