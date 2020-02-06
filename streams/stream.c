@@ -19,29 +19,34 @@ int gquic_stream_init(gquic_stream_t *const str) {
     str->recv_completed = 0;
     str->send_completed = 0;
 
+    gquic_flowcontrol_stream_flow_ctrl_init(&str->flow_ctrl);
+
     return 0;
 }
 
 int gquic_stream_ctor(gquic_stream_t *const str,
                       const u_int64_t stream_id,
                       gquic_stream_sender_t *const sender,
-                      gquic_flowcontrol_stream_flow_ctrl_t *const flow_ctrl) {
-    if (str == NULL || sender == NULL || flow_ctrl == NULL) {
+                      void *const flow_ctrl_ctor_self,
+                      int (*flow_ctrl_ctor_cb) (gquic_flowcontrol_stream_flow_ctrl_t *const, void *const, const u_int64_t)) {
+    if (str == NULL || sender == NULL || flow_ctrl_ctor_self == NULL || flow_ctrl_ctor_cb == NULL) {
         return -1;
     }
+    flow_ctrl_ctor_cb(&str->flow_ctrl, flow_ctrl_ctor_self, stream_id);
+
     str->sender = sender;
 
     str->recv_uni_sender.base = *sender;
     str->recv_uni_sender.on_stream_completed_cb.cb = gquic_stream_sender_for_recv_stream_on_completed;
     str->recv_uni_sender.on_stream_completed_cb.self = str;
     gquic_uni_stream_sender_prototype(&str->recv_sender, &str->recv_uni_sender);
-    gquic_recv_stream_ctor(&str->recv, stream_id, &str->recv_sender, flow_ctrl);
+    gquic_recv_stream_ctor(&str->recv, stream_id, &str->recv_sender, &str->flow_ctrl);
 
     str->send_uni_sender.base = *sender;
     str->send_uni_sender.on_stream_completed_cb.cb = gquic_stream_sender_for_send_stream_on_completed;
     str->send_uni_sender.on_stream_completed_cb.self = str;
     gquic_uni_stream_sender_prototype(&str->send_sender, &str->send_uni_sender);
-    gquic_send_stream_ctor(&str->send, stream_id, &str->send_sender, flow_ctrl);
+    gquic_send_stream_ctor(&str->send, stream_id, &str->send_sender, &str->flow_ctrl);
 
     return 0;
 }

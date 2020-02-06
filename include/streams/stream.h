@@ -20,13 +20,16 @@ struct gquic_stream_s {
 
     int recv_completed;
     int send_completed;
+
+    gquic_flowcontrol_stream_flow_ctrl_t flow_ctrl;
 };
 
 int gquic_stream_init(gquic_stream_t *const str);
 int gquic_stream_ctor(gquic_stream_t *const str,
                       const u_int64_t stream_id,
                       gquic_stream_sender_t *const sender,
-                      gquic_flowcontrol_stream_flow_ctrl_t *const flow_ctrl);
+                      void *const flow_ctrl_ctor_self,
+                      int (*flow_ctrl_ctor_cb) (gquic_flowcontrol_stream_flow_ctrl_t *const, void *const, const u_int64_t));
 int gquic_stream_dtor(gquic_stream_t *const str);
 int gquic_stream_close(gquic_stream_t *const str);
 int gquic_stream_set_deadline(gquic_stream_t *const str, const u_int64_t deadline);

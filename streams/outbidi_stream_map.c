@@ -31,9 +31,9 @@ int gquic_outbidi_stream_map_init(gquic_outbidi_stream_map_t *const str_map) {
 
 int gquic_outbidi_stream_map_ctor(gquic_outbidi_stream_map_t *const str_map,
                                   void *const stream_ctor_self,
-                                  int (*stream_ctor_cb) (gquic_stream_t *const, void *const),
+                                  int (*stream_ctor_cb) (gquic_stream_t *const, void *const, const u_int64_t),
                                   void *const queue_stream_id_blocked_self,
-                                  int (*queue_stream_id_blocked_cb) (void *const, const void *const)) {
+                                  int (*queue_stream_id_blocked_cb) (void *const, void *const)) {
     if (str_map == NULL
         || stream_ctor_self == NULL
         || stream_ctor_cb == NULL
@@ -61,7 +61,7 @@ static int gquic_outbidi_stream_map_open_stream_inner(gquic_stream_t **const str
     *str = GQUIC_RBTREE_VALUE(stream_rbt);
     *((u_int64_t *) GQUIC_RBTREE_KEY(stream_rbt)) = str_map->next_stream;
     gquic_stream_init(GQUIC_RBTREE_VALUE(stream_rbt));
-    GQUIC_OUTBIDI_STREAM_MAP_STREAM_CTOR(GQUIC_RBTREE_VALUE(stream_rbt), str_map);
+    GQUIC_OUTBIDI_STREAM_MAP_STREAM_CTOR(GQUIC_RBTREE_VALUE(stream_rbt), str_map, str_map->next_stream);
     str_map->next_stream++;
     gquic_rbtree_insert(&str_map->streams_root, stream_rbt);
     return 0;

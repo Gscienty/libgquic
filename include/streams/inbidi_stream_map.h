@@ -25,7 +25,7 @@ struct gquic_inbidi_stream_map_s {
     } stream_ctor;
     struct {
         void *self;
-        int (*cb) (void *const, const void *const);
+        int (*cb) (void *const, void *const);
     } queue_max_stream_id;
 
     int closed;
@@ -41,10 +41,10 @@ int gquic_inbidi_stream_map_ctor(gquic_inbidi_stream_map_t *const str_map,
                                  int (*new_stream_cb) (gquic_stream_t *const, void *const, const u_int64_t),
                                  u_int64_t max_stream_count,
                                  void *const queue_max_stream_id_self,
-                                 int (*queue_max_stream_id_cb) (void *const, const void *const));
+                                 int (*queue_max_stream_id_cb) (void *const, void *const));
 int gquic_inbidi_stream_map_accept_stream(gquic_stream_t **const str, gquic_inbidi_stream_map_t *const str_map);
 int gquic_inbidi_stream_map_get_or_open_stream(gquic_stream_t **const str, gquic_inbidi_stream_map_t *const str_map, const u_int64_t num);
-int gquic_inbidi_stream_map_delete_stream(gquic_inbidi_stream_map_t *const str_map, const u_int64_t num);
+int gquic_inbidi_stream_map_release_stream(gquic_inbidi_stream_map_t *const str_map, const u_int64_t num);
 int gquic_inbidi_stream_map_close(gquic_inbidi_stream_map_t *const str_map, const int reason);
 
 #endif

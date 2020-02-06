@@ -2,7 +2,7 @@
 #include "frame/meta.h"
 #include "frame/max_streams.h"
 
-static int gquic_inbidi_stream_map_delete_stream_inner(gquic_inbidi_stream_map_t *const, const u_int64_t);
+static int gquic_inbidi_stream_map_release_stream_inner(gquic_inbidi_stream_map_t *const, const u_int64_t);
 
 int gquic_inbidi_stream_map_init(gquic_inbidi_stream_map_t *const str_map) {
     if (str_map == NULL) {
@@ -37,7 +37,7 @@ int gquic_inbidi_stream_map_ctor(gquic_inbidi_stream_map_t *const str_map,
                                  int (*new_stream_cb) (gquic_stream_t *const, void *const, const u_int64_t),
                                  u_int64_t max_stream_count,
                                  void *const queue_max_stream_id_self,
-                                 int (*queue_max_stream_id_cb) (void *const, const void *const)) {
+                                 int (*queue_max_stream_id_cb) (void *const, void *const)) {
     if (str_map == NULL || new_stream_self == NULL || new_stream_cb == NULL || queue_max_stream_id_self == NULL || queue_max_stream_id_cb == NULL) {
         return -1;
     }
@@ -80,7 +80,7 @@ int gquic_inbidi_stream_map_accept_stream(gquic_stream_t **const str, gquic_inbi
     if (gquic_rbtree_find(&rb_del_str, str_map->streams_del_root, &num, sizeof(u_int64_t)) == 0) {
         gquic_rbtree_remove(&str_map->streams_del_root, (gquic_rbtree_t **) &rb_del_str);
         gquic_rbtree_release((gquic_rbtree_t *) rb_del_str, NULL);
-        if ((ret = gquic_inbidi_stream_map_delete_stream_inner(str_map, num)) != 0) {
+        if ((ret = gquic_inbidi_stream_map_release_stream_inner(str_map, num)) != 0) {
             goto finished;
         }
     }
@@ -141,20 +141,20 @@ finished:
     return ret;
 }
 
-int gquic_inbidi_stream_map_delete_stream(gquic_inbidi_stream_map_t *const str_map, const u_int64_t num) {
+int gquic_inbidi_stream_map_release_stream(gquic_inbidi_stream_map_t *const str_map, const u_int64_t num) {
     int ret = 0;
     if (str_map == NULL) {
         return -1;
     }
     sem_wait(&str_map->mtx);
 
-    ret = gquic_inbidi_stream_map_delete_stream_inner(str_map, num);
+    ret = gquic_inbidi_stream_map_release_stream_inner(str_map, num);
 
     sem_post(&str_map->mtx);
     return ret;
 }
 
-static int gquic_inbidi_stream_map_delete_stream_inner(gquic_inbidi_stream_map_t *const str_map, const u_int64_t num) {
+static int gquic_inbidi_stream_map_release_stream_inner(gquic_inbidi_stream_map_t *const str_map, const u_int64_t num) {
     gquic_rbtree_t *rb_str = NULL;
     gquic_rbtree_t *rb_del_str = NULL;
     gquic_frame_max_streams_t *frame = NULL;
@@ -180,6 +180,8 @@ static int gquic_inbidi_stream_map_delete_stream_inner(gquic_inbidi_stream_map_t
     }
 
     gquic_rbtree_remove(&str_map->streams_root, &rb_str);
+    gquic_stream_dtor(GQUIC_RBTREE_VALUE(rb_str));
+    gquic_rbtree_release(rb_str, NULL);
     str_map->streams_count--;
     if (str_map->max_stream_count > str_map->streams_count) {
         new_streams_count = str_map->max_stream_count - str_map->streams_count;

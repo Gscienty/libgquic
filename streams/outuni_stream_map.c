@@ -30,9 +30,9 @@ int gquic_outuni_stream_map_init(gquic_outuni_stream_map_t *const str_map) {
 
 int gquic_outuni_stream_map_ctor(gquic_outuni_stream_map_t *const str_map,
                                  void *const stream_ctor_self,
-                                 int (*stream_ctor_cb) (gquic_stream_t *const, void *const),
+                                 int (*stream_ctor_cb) (gquic_stream_t *const, void *const, const u_int64_t),
                                  void *const queue_stream_id_blocked_self,
-                                 int (*queue_stream_id_blocked_cb) (void *const, const void *const)) {
+                                 int (*queue_stream_id_blocked_cb) (void *const, void *const)) {
     if (str_map == NULL || stream_ctor_self == NULL || stream_ctor_cb == NULL || queue_stream_id_blocked_self == NULL || queue_stream_id_blocked_cb == NULL) {
         return -1;
     }
@@ -108,7 +108,7 @@ static int gquic_outuni_stream_map_open_stream_inner(gquic_stream_t **const str,
     }
 
     gquic_stream_init(GQUIC_RBTREE_VALUE(rb_str));
-    GQUIC_OUTUNI_STREAM_MAP_STREAM_CTOR(GQUIC_RBTREE_VALUE(rb_str), str_map);
+    GQUIC_OUTUNI_STREAM_MAP_STREAM_CTOR(GQUIC_RBTREE_VALUE(rb_str), str_map, str_map->next_stream);
     str_map->next_stream++;
 
     return 0;
