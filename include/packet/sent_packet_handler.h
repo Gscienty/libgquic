@@ -12,7 +12,7 @@
 typedef struct gquic_packet_sent_mem_s gquic_packet_sent_mem_t;
 struct gquic_packet_sent_mem_s {
     int count;
-    gquic_list_t list; /* gquic_packet_t ** */
+    gquic_list_t list; /* gquic_packet_t * */
     gquic_rbtree_t *root;
 };
 
