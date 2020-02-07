@@ -103,3 +103,15 @@ int gquic_str_cmp(const gquic_str_t *const str_a, const gquic_str_t *const str_b
 
     return 0;
 }
+
+int gquic_reader_str_readed_count(gquic_reader_str_t *const str, const size_t n) {
+    if (str == NULL) {
+        return -1;
+    }
+    if (GQUIC_STR_SIZE(str) < n) {
+        return -2;
+    }
+    str->size -= n;
+    str->val += n;
+    return 0;
+}
