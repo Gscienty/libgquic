@@ -8,8 +8,8 @@
 static int gquic_tls_server_hello_done_msg_init(void *const msg);
 static int gquic_tls_server_hello_done_msg_dtor(void *const msg);
 static ssize_t gquic_tls_server_hello_done_msg_size(const void *const msg);
-static ssize_t gquic_tls_server_hello_done_msg_serialize(const void *const msg, void *const buf, const size_t size);
-static ssize_t gquic_tls_server_hello_done_msg_deserialize(void *const msg, const void *const buf, const size_t size);
+static int gquic_tls_server_hello_done_msg_serialize(const void *const msg, gquic_writer_str_t *const);
+static int gquic_tls_server_hello_done_msg_deserialize(void *const msg, gquic_reader_str_t *const);
 
 gquic_tls_server_hello_done_msg_t *gquic_tls_server_hello_done_msg_alloc() {
     gquic_tls_server_hello_done_msg_t *msg = gquic_tls_msg_alloc(sizeof(gquic_tls_server_hello_done_msg_t));
@@ -47,29 +47,26 @@ static ssize_t gquic_tls_server_hello_done_msg_size(const void *const msg) {
     return 4;
 }
 
-static ssize_t gquic_tls_server_hello_done_msg_serialize(const void *const msg, void *const buf, const size_t size) {
+static int gquic_tls_server_hello_done_msg_serialize(const void *const msg, gquic_writer_str_t *const writer) {
     size_t off = 0;
-    if (msg == NULL || buf == NULL) {
+    if (msg == NULL || writer == NULL) {
         return -1;
     }
-    if ((size_t) gquic_tls_server_hello_done_msg_size(msg) > size) {
+    if ((size_t) gquic_tls_server_hello_done_msg_size(msg) > GQUIC_STR_SIZE(writer)) {
         return -2;
     }
-    __gquic_fill_1byte(buf, &off, GQUIC_TLS_HANDSHAKE_MSG_TYPE_SER_HELLO_DONE);
-    __gquic_fill_1byte(buf, &off, 0);
-    __gquic_fill_2byte(buf, &off, 0);
+    gquic_big_endian_writer_1byte(writer, GQUIC_TLS_HANDSHAKE_MSG_TYPE_SER_HELLO_DONE);
+    gquic_big_endian_writer_1byte(writer, 0);
+    gquic_big_endian_writer_2byte(writer, 0);
     return off;
 }
 
-static ssize_t gquic_tls_server_hello_done_msg_deserialize(void *const msg, const void *const buf, const size_t size) {
-    if (msg == NULL || buf == NULL) {
+static int gquic_tls_server_hello_done_msg_deserialize(void *const msg, gquic_reader_str_t *const reader) {
+    if (msg == NULL || reader == NULL) {
         return -1;
     }
-    if (((unsigned char *) buf)[0] != GQUIC_TLS_HANDSHAKE_MSG_TYPE_SER_HELLO_DONE) {
+    if (gquic_reader_str_read_byte(reader) != GQUIC_TLS_HANDSHAKE_MSG_TYPE_SER_HELLO_DONE) {
         return -2;
     }
-    if (4 > size) {
-        return -2;
-    }
-    return 4;
+    return gquic_reader_str_readed_size(reader, 3);
 }

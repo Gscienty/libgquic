@@ -16,7 +16,7 @@ struct gquic_tls_sess_state_s {
 int gquic_tls_sess_state_init(gquic_tls_sess_state_t *const state);
 int gquic_tls_sess_state_dtor(gquic_tls_sess_state_t *const state);
 ssize_t gquic_tls_sess_state_size(const gquic_tls_sess_state_t *const state);
-ssize_t gquic_tls_sess_state_serialize(const gquic_tls_sess_state_t *const state, void *const buf, const size_t size);
-ssize_t gquic_tls_sess_state_deserialize(gquic_tls_sess_state_t *const state, const void *const buf, const size_t size);
+int gquic_tls_sess_state_serialize(const gquic_tls_sess_state_t *const state, gquic_writer_str_t *const writer);
+int gquic_tls_sess_state_deserialize(gquic_tls_sess_state_t *const state, gquic_reader_str_t *const reader);
 
 #endif

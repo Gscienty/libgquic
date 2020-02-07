@@ -8,8 +8,8 @@
 static int gquic_tls_key_update_msg_init(void *const msg);
 static int gquic_tls_key_update_msg_dtor(void *const msg);
 static ssize_t gquic_tls_key_update_msg_size(const void *const msg);
-static ssize_t gquic_tls_key_update_msg_serialize(const void *const msg, void *const buf, const size_t size);
-static ssize_t gquic_tls_key_update_msg_deserialize(void *const msg, const void *const buf, const size_t size);
+static int gquic_tls_key_update_msg_serialize(const void *const msg, gquic_writer_str_t *const);
+static int gquic_tls_key_update_msg_deserialize(void *const msg, gquic_reader_str_t *const);
 
 gquic_tls_key_update_msg_t *gquic_tls_key_update_msg_alloc() {
     gquic_tls_key_update_msg_t *msg = gquic_tls_msg_alloc(sizeof(gquic_tls_key_update_msg_t));
@@ -49,50 +49,48 @@ static ssize_t gquic_tls_key_update_msg_size(const void *const msg) {
     return 1 + 3 + 1;
 }
 
-static ssize_t gquic_tls_key_update_msg_serialize(const void *const msg, void *const buf, const size_t size) {
+static int gquic_tls_key_update_msg_serialize(const void *const msg, gquic_writer_str_t *const writer) {
     const gquic_tls_key_update_msg_t *const spec = msg;
-    size_t off = 0;
     gquic_list_t prefix_len_stack;
-    if (msg == NULL || buf == NULL) {
+    if (msg == NULL || writer == NULL) {
         return -1;
     }
-    if ((size_t) gquic_tls_key_update_msg_size(msg) > size) {
+    if ((size_t) gquic_tls_key_update_msg_size(msg) > GQUIC_STR_SIZE(writer)) {
         return -2;
     }
     gquic_list_head_init(&prefix_len_stack);
-    __gquic_fill_1byte(buf, &off, GQUIC_TLS_HANDSHAKE_MSG_TYPE_KEY_UPDATE);
-    __gquic_store_prefix_len(&prefix_len_stack, &off, 3);
+    gquic_big_endian_writer_1byte(writer, GQUIC_TLS_HANDSHAKE_MSG_TYPE_KEY_UPDATE);
+    __gquic_store_prefix_len(&prefix_len_stack, writer, 3);
     if (spec->req) {
-        __gquic_fill_1byte(buf, &off, 1);
+        gquic_big_endian_writer_1byte(writer, 1);
     }
     else {
-        __gquic_fill_1byte(buf, &off, 0);
+        gquic_big_endian_writer_1byte(writer, 0);
     }
-    __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 3);
+    __gquic_fill_prefix_len(&prefix_len_stack, writer);
 
-    return off;
+    return 0;
 }
 
-static ssize_t gquic_tls_key_update_msg_deserialize(void *const msg, const void *const buf, const size_t size) {
+static int gquic_tls_key_update_msg_deserialize(void *const msg, gquic_reader_str_t *const reader) {
     gquic_tls_key_update_msg_t *const spec = msg;
-    size_t off = 0;
     size_t prefix_len = 0;
-    if (msg == NULL || buf == NULL) {
+    if (msg == NULL || reader == NULL) {
         return -1;
     }
-    if (((unsigned char *) buf)[off++] != GQUIC_TLS_HANDSHAKE_MSG_TYPE_KEY_UPDATE) {
+    if (gquic_reader_str_read_byte(reader) != GQUIC_TLS_HANDSHAKE_MSG_TYPE_KEY_UPDATE) {
         return -2;
     }
     prefix_len = 0;
-    if (__gquic_recovery_bytes(&prefix_len, 3, buf, size, &off) != 0) {
-        return -2;
+    if (__gquic_recovery_bytes(&prefix_len, 3, reader) != 0) {
+        return -3;
     }
-    if (prefix_len > size - off) {
-        return -2;
+    if (prefix_len > GQUIC_STR_SIZE(reader)) {
+        return -4;
     }
-    if (__gquic_recovery_bytes(&spec->req, 1, buf, size, &off) != 0) {
-        return -2;
+    if (__gquic_recovery_bytes(&spec->req, 1, reader) != 0) {
+        return -5;
     }
-    return off;
+    return 0;
 }
 

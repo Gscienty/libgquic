@@ -4,67 +4,47 @@
 #include <sys/types.h>
 #include <string.h>
 
-static inline void __gquic_stack_push(gquic_list_t *, const size_t);
-static inline size_t __gquic_stack_pop(gquic_list_t *);
-static inline void __gquic_fill_prefix_len(gquic_list_t *, void *, const size_t, const size_t);
-static inline void __gquic_store_prefix_len(gquic_list_t *, size_t *, const size_t);
-static inline void __gquic_fill_4byte(void *, size_t *, const u_int32_t);
-static inline void __gquic_fill_2byte(void *, size_t *, const u_int16_t);
-static inline void __gquic_fill_1byte(void *, size_t *, const u_int8_t);
-static inline void __gquic_fill_str(void *, size_t *, const gquic_str_t *);
-static inline void __gquic_fill_str_full(void *, size_t *, const gquic_str_t *, const size_t);
+typedef struct gquic_serialize_stack_s gquic_serialize_stack_t;
+struct gquic_serialize_stack_s {
+    void *ptr;
+    u_int8_t size;
+};
 
-static inline void __gquic_stack_push(gquic_list_t *stack, const size_t val) {
-    gquic_list_insert_after(stack, gquic_list_alloc(sizeof(size_t)));
-    *(size_t *) gquic_list_next(GQUIC_LIST_PAYLOAD(stack)) = val;
+
+static inline void __gquic_stack_push(gquic_list_t *, gquic_writer_str_t *const, const u_int8_t);
+static inline void __gquic_stack_pop(void **const, u_int8_t *const, gquic_list_t *);
+static inline void __gquic_fill_prefix_len(gquic_list_t *, gquic_writer_str_t *const);
+static inline void __gquic_store_prefix_len(gquic_list_t *, gquic_writer_str_t*const, const u_int8_t);
+static inline void __gquic_fill_str(gquic_writer_str_t *const, const gquic_str_t *, const u_int8_t);
+
+static inline void __gquic_stack_push(gquic_list_t *stack, gquic_writer_str_t *const writer, const u_int8_t size) {
+    gquic_list_insert_after(stack, gquic_list_alloc(sizeof(gquic_serialize_stack_t)));
+    ((gquic_serialize_stack_t *) GQUIC_LIST_FIRST(stack))->ptr = GQUIC_STR_VAL(writer);
+    ((gquic_serialize_stack_t *) GQUIC_LIST_FIRST(stack))->size = size;
 }
 
-static inline size_t __gquic_stack_pop(gquic_list_t *stack) {
-    size_t ret = *(size_t *) gquic_list_next(GQUIC_LIST_PAYLOAD(stack));
-    gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(stack)));
-    return ret;
+static inline void __gquic_stack_pop(void **const ptr, u_int8_t *const prefix_len, gquic_list_t *stack) {
+    gquic_serialize_stack_t *ele = GQUIC_LIST_FIRST(stack);
+    *ptr = ele->ptr;
+    *prefix_len = ele->size;
+    gquic_list_release(GQUIC_LIST_FIRST(stack));
 }
 
-static inline void __gquic_fill_prefix_len(gquic_list_t *stack, void *buf, const size_t off, const size_t len) {
-    size_t prefix_len_off = __gquic_stack_pop(stack);
-    size_t prefix_len = off - len - prefix_len_off;
-    gquic_big_endian_transfer(buf + prefix_len_off, &prefix_len, len);
+static inline void __gquic_fill_prefix_len(gquic_list_t *stack, gquic_writer_str_t *const writer) {
+    void *prefix_len_storage = NULL;
+    u_int8_t prefix_len = 0;
+    __gquic_stack_pop(&prefix_len_storage, &prefix_len, stack);
+    size_t payload_len = GQUIC_STR_VAL(writer) - prefix_len_storage - prefix_len;
+    gquic_big_endian_transfer(prefix_len_storage, &payload_len, prefix_len);
 }
 
-static inline void __gquic_store_prefix_len(gquic_list_t *stack, size_t *off, const size_t len) {
-    __gquic_stack_push(stack, *off);
-    *off += len;
+static inline void __gquic_store_prefix_len(gquic_list_t *stack, gquic_writer_str_t *const writer, const u_int8_t len) {
+    __gquic_stack_push(stack, writer, len);
+    gquic_writer_str_writed_size(writer, len);
 }
 
-static inline void __gquic_fill_8byte(void *buf, size_t *off, const u_int32_t val) {
-    gquic_big_endian_transfer(buf + *off, &val, 8);
-    *off += 4;
-}
-
-static inline void __gquic_fill_4byte(void *buf, size_t *off, const u_int32_t val) {
-    gquic_big_endian_transfer(buf + *off, &val, 4);
-    *off += 4;
-}
-
-static inline void __gquic_fill_2byte(void *buf, size_t *off, const u_int16_t val) {
-    gquic_big_endian_transfer(buf + *off, &val, 2);
-    *off += 2;
-}
-
-static inline void __gquic_fill_1byte(void *buf, size_t *off, const u_int8_t val) {
-    gquic_big_endian_transfer(buf + *off, &val, 1);
-    *off += 1;
-}
-
-static inline void __gquic_fill_str(void *buf, size_t *off, const gquic_str_t *str) {
-    memcpy(buf + *off, str->val, str->size);
-    *off += str->size;
-}
-
-static inline void __gquic_fill_str_full(void *buf, size_t *off, const gquic_str_t *str, const size_t prefix_len) {
-    gquic_list_t prefix_len_off;
-    gquic_list_head_init(&prefix_len_off);
-    __gquic_store_prefix_len(&prefix_len_off, off, prefix_len);
-    __gquic_fill_str(buf, off, str);
-    __gquic_fill_prefix_len(&prefix_len_off, buf, *off, prefix_len);
+static inline void __gquic_fill_str(gquic_writer_str_t *const writer, const gquic_str_t *str, const u_int8_t prefix_len) {
+    gquic_big_endian_transfer(GQUIC_STR_VAL(writer), &str->size, prefix_len);
+    gquic_writer_str_writed_size(writer, prefix_len);
+    gquic_writer_str_write(writer, str);
 }

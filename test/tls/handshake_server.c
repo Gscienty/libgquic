@@ -1,6 +1,6 @@
 #include "tls/handshake_server.h"
 #include "tls/encrypt_ext_msg.h"
-#include "tls/cert_13_msg.h"
+#include "tls/cert_msg.h"
 #include "tls/cert_verify_msg.h"
 #include "tls/auth.h"
 #include "tls/finished_msg.h"
@@ -29,7 +29,8 @@ static int write_record(size_t *const size, void *const self, const gquic_str_t 
     if (step == 0) {
         gquic_tls_server_hello_msg_t *hello = gquic_tls_server_hello_msg_alloc();
         GQUIC_TLS_MSG_INIT(hello);
-        GQUIC_TLS_MSG_DESERIALIZE(hello, GQUIC_STR_VAL(buf), GQUIC_STR_SIZE(buf));
+        gquic_reader_str_t reader = *buf;
+        GQUIC_TLS_MSG_DESERIALIZE(hello, &reader);
 
         GQUIC_TLS_ECDHE_PARAMS_SHARED_KEY(&ecdhe_params, &shared_key, &hello->ser_share.data);
         const gquic_tls_cipher_suite_t *cipher_suite;
@@ -44,6 +45,8 @@ static int write_record(size_t *const size, void *const self, const gquic_str_t 
         static const gquic_str_t cli_handshake_traffic_label = { 12, "c hs traffic" };
         gquic_tls_cipher_suite_derive_secret(&scli_sec, cipher_suite, &transport, &handshake_sec, &cli_handshake_traffic_label);
     }
+
+    gquic_str_test_echo(buf);
 
     step++;
     return 0;
@@ -135,6 +138,8 @@ static int read_handshake_msg(gquic_str_t *const msg, void *self) {
         read_cli_finished(msg);
         break;
     }
+
+    gquic_str_test_echo(msg);
 
     (*(int *) self)++;
     return 0;

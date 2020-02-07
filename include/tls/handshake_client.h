@@ -3,7 +3,7 @@
 
 #include "tls/client_hello_msg.h"
 #include "tls/server_hello_msg.h"
-#include "tls/cert_req_13_msg.h"
+#include "tls/cert_req_msg.h"
 #include "tls/conn.h"
 #include "tls/key_schedule.h"
 #include "tls/client_sess_state.h"
@@ -20,7 +20,7 @@ struct gquic_tls_handshake_client_state_s {
     gquic_str_t early_sec;
     gquic_str_t binder_key;
 
-    gquic_tls_cert_req_13_msg_t *cert_req;
+    gquic_tls_cert_req_msg_t *cert_req;
     int using_psk;
     int sent_dummy_ccs;
     const gquic_tls_cipher_suite_t *suite;

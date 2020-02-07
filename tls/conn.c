@@ -4,12 +4,9 @@
 #include "tls/hello_req_msg.h"
 #include "tls/client_hello_msg.h"
 #include "tls/server_hello_msg.h"
-#include "tls/new_sess_ticket_13_msg.h"
 #include "tls/new_sess_ticket_msg.h"
 #include "tls/cert_msg.h"
-#include "tls/cert_13_msg.h"
 #include "tls/cert_req_msg.h"
-#include "tls/cert_req_13_msg.h"
 #include "tls/cert_status_msg.h"
 #include "tls/server_key_exchange_msg.h"
 #include "tls/server_hello_done_msg.h"
@@ -469,7 +466,7 @@ int gquic_tls_conn_read_handshake(void **const msg, gquic_tls_conn_t *const conn
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_NEW_SESS_TICKET:
         if (conn->ver == GQUIC_TLS_VERSION_13) {
-            if ((*msg = gquic_tls_new_sess_ticket_13_msg_alloc()) == NULL) {
+            if ((*msg = gquic_tls_new_sess_ticket_msg_alloc()) == NULL) {
                 ret = -6;
                 goto failure;
             }
@@ -481,7 +478,7 @@ int gquic_tls_conn_read_handshake(void **const msg, gquic_tls_conn_t *const conn
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT:
         if (conn->ver == GQUIC_TLS_VERSION_13) {
-            if ((*msg = gquic_tls_cert_13_msg_alloc()) == NULL) {
+            if ((*msg = gquic_tls_cert_msg_alloc()) == NULL) {
                 ret = -8;
                 goto failure;
             }
@@ -493,7 +490,7 @@ int gquic_tls_conn_read_handshake(void **const msg, gquic_tls_conn_t *const conn
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT_REQ:
         if (conn->ver == GQUIC_TLS_VERSION_13) {
-            if ((*msg = gquic_tls_cert_req_13_msg_alloc()) == NULL) {
+            if ((*msg = gquic_tls_cert_req_msg_alloc()) == NULL) {
                 ret = -10;
                 goto failure;
             }
@@ -568,7 +565,8 @@ int gquic_tls_conn_read_handshake(void **const msg, gquic_tls_conn_t *const conn
         goto failure;
     }
     GQUIC_TLS_MSG_INIT(*msg);
-    if (GQUIC_TLS_MSG_DESERIALIZE(*msg, GQUIC_STR_VAL(&data), GQUIC_STR_SIZE(&data)) < 0) {
+    gquic_reader_str_t reader = data;
+    if ((ret = GQUIC_TLS_MSG_DESERIALIZE(*msg, &reader)) != 0) {
         return -23;
     }
 
@@ -762,7 +760,7 @@ int gquic_tls_conn_get_sess_ticket(gquic_str_t *const msg, gquic_tls_conn_t *con
     gquic_tls_sess_state_t state;
     gquic_str_t *peer_cert = NULL;
     gquic_str_t *cert = NULL;
-    gquic_tls_new_sess_ticket_13_msg_t *ticket = NULL;
+    gquic_tls_new_sess_ticket_msg_t *ticket = NULL;
     if (msg == NULL || conn == NULL) {
         return -1;
     }
@@ -772,7 +770,7 @@ int gquic_tls_conn_get_sess_ticket(gquic_str_t *const msg, gquic_tls_conn_t *con
     if (conn->cfg->sess_ticket_disabled) {
         return 0;
     }
-    if ((ticket = gquic_tls_new_sess_ticket_13_msg_alloc()) == NULL) {
+    if ((ticket = gquic_tls_new_sess_ticket_msg_alloc()) == NULL) {
         return -3;
     }
     GQUIC_TLS_MSG_INIT(ticket);
@@ -800,7 +798,8 @@ int gquic_tls_conn_get_sess_ticket(gquic_str_t *const msg, gquic_tls_conn_t *con
         ret = -7;
         goto failure;
     }
-    if (gquic_tls_sess_state_serialize(&state, GQUIC_STR_VAL(&ticket->label), GQUIC_STR_SIZE(&ticket->label)) <= 0) {
+    gquic_writer_str_t writer = ticket->label;
+    if (gquic_tls_sess_state_serialize(&state, &writer) <= 0) {
         ret = -8;
         goto failure;
     }

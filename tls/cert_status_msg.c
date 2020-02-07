@@ -8,8 +8,8 @@
 static int gquic_tls_cert_status_msg_init(void *const msg);
 static int gquic_tls_cert_status_msg_dtor(void *const msg);
 static ssize_t gquic_tls_cert_status_msg_size(const void *const msg);
-static ssize_t gquic_tls_cert_status_msg_serialize(const void *const msg, void *const buf, const size_t size);
-static ssize_t gquic_tls_cert_status_msg_deserialize(void *const msg, const void *const buf, const size_t size);
+static int gquic_tls_cert_status_msg_serialize(const void *const msg, gquic_writer_str_t *const);
+static int gquic_tls_cert_status_msg_deserialize(void *const msg, gquic_reader_str_t *const);
 
 gquic_tls_cert_status_msg_t *gquic_tls_cert_status_msg_alloc() {
     gquic_tls_cert_status_msg_t *msg = gquic_tls_msg_alloc(sizeof(gquic_tls_cert_status_msg_t));
@@ -53,33 +53,33 @@ static ssize_t gquic_tls_cert_status_msg_size(const void *const msg) {
     return 1 + 3 + spec->res.size;
 }
 
-static ssize_t gquic_tls_cert_status_msg_serialize(const void *const msg, void *const buf, const size_t size) {
+static int gquic_tls_cert_status_msg_serialize(const void *const msg, gquic_writer_str_t *const writer) {
     const gquic_tls_cert_status_msg_t *const spec = msg;
     size_t off = 0;
     gquic_list_t prefix_len_stack;
-    if (msg == NULL || buf == NULL) {
+    if (msg == NULL || writer == NULL) {
         return -1;
     }
-    if ((size_t) gquic_tls_cert_status_msg_size(msg) > size) {
+    if ((size_t) gquic_tls_cert_status_msg_size(msg) > GQUIC_STR_SIZE(writer)) {
         return -2;
     }
     gquic_list_head_init(&prefix_len_stack);
-    __gquic_fill_1byte(buf, &off, GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT_STATUS);
-    __gquic_fill_str_full(buf, &off, &spec->res, 3);
+    gquic_big_endian_writer_1byte(writer, GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT_STATUS);
+    __gquic_fill_str(writer, &spec->res, 3);
     return off;
 }
 
-static ssize_t gquic_tls_cert_status_msg_deserialize(void *const msg, const void *const buf, const size_t size) {
+static int gquic_tls_cert_status_msg_deserialize(void *const msg, gquic_reader_str_t *const reader) {
     gquic_tls_cert_status_msg_t *const spec = msg;
     size_t off = 0;
-    if (msg == NULL || buf == NULL) {
+    if (msg == NULL || reader == NULL) {
         return -1;
     }
-    if (((unsigned char *) buf)[off++] != GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT_STATUS) {
+    if (gquic_reader_str_read_byte(reader) != GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT_STATUS) {
         return -2;
     }
-    if (__gquic_recovery_str_full(&spec->res, 3, buf, size, &off) != 0) {
-        return -2;
+    if (__gquic_recovery_str(&spec->res, 3, reader) != 0) {
+        return -3;
     }
     return off;
 }

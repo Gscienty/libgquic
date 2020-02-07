@@ -4,7 +4,8 @@
 #include "tls/server_hello_msg.h"
 #include "tls/encrypt_ext_msg.h"
 #include "tls/auth.h"
-#include "tls/cert_13_msg.h"
+#include "tls/cert_msg.h"
+#include "tls/cert_req_msg.h"
 #include "tls/cert_verify_msg.h"
 #include "tls/finished_msg.h"
 #include "tls/ticket.h"
@@ -107,7 +108,7 @@ int gquic_tls_server_handshake(gquic_tls_conn_t *const conn) {
     if (gquic_tls_conn_set_alt_record(conn) != 0) {
         return -2;
     }
-    if (gquic_tls_conn_read_handshake((void **) &ser_state.c_hello, conn) != 0
+    if ((ret = gquic_tls_conn_read_handshake((void **) &ser_state.c_hello, conn)) != 0
         || GQUIC_TLS_MSG_META(ser_state.c_hello).type != GQUIC_TLS_HANDSHAKE_MSG_TYPE_CLIENT_HELLO) {
         gquic_tls_msg_release(ser_state.c_hello);
         return -4;
@@ -552,7 +553,8 @@ static int gquic_tls_handshake_server_state_check_for_resumption(gquic_tls_hands
         if (GQUIC_STR_SIZE(&plain_text) == 0) {
             goto continue_loop;
         }
-        if (gquic_tls_sess_state_deserialize(&sess_state, GQUIC_STR_VAL(&plain_text), GQUIC_STR_SIZE(&plain_text)) <= 0) {
+        gquic_reader_str_t reader = plain_text;
+        if (gquic_tls_sess_state_deserialize(&sess_state, &reader) != 0) {
             goto continue_loop;
         }
         if (time(NULL) - sess_state.create_at < 7 * 24 * 60 * 60) {
@@ -917,8 +919,8 @@ static int mutual_protocol(const gquic_str_t **const ret, const gquic_list_t *co
 
 static int gquic_tls_handshake_server_state_send_ser_cert(gquic_tls_handshake_server_state_t *const ser_state) {
     int ret = 0;
-    gquic_tls_cert_req_13_msg_t *cert_req = NULL;
-    gquic_tls_cert_13_msg_t *cert_msg = NULL;
+    gquic_tls_cert_req_msg_t *cert_req = NULL;
+    gquic_tls_cert_msg_t *cert_msg = NULL;
     gquic_tls_cert_verify_msg_t *verify_msg = NULL;
     gquic_str_t buf = { 0, NULL };
     PKCS12 *cert_p12 = NULL;
@@ -936,10 +938,10 @@ static int gquic_tls_handshake_server_state_send_ser_cert(gquic_tls_handshake_se
     if (ser_state->using_psk) {
         return 0;
     }
-    if ((cert_req = gquic_tls_cert_req_13_msg_alloc()) == NULL) {
+    if ((cert_req = gquic_tls_cert_req_msg_alloc()) == NULL) {
         return -2;
     }
-    if ((cert_msg = gquic_tls_cert_13_msg_alloc()) == NULL) {
+    if ((cert_msg = gquic_tls_cert_msg_alloc()) == NULL) {
         return -3;
     }
     if ((verify_msg = gquic_tls_cert_verify_msg_alloc()) == NULL) {

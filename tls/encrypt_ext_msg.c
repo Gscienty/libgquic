@@ -4,13 +4,13 @@
 #include "tls/_msg_serialize_util.h"
 #include "tls/meta.h"
 
-static ssize_t gquic_tls_encrypt_ext_msg_optional_deserialize(gquic_tls_encrypt_ext_msg_t *, const void *, const size_t);
+static ssize_t gquic_tls_encrypt_ext_msg_optional_deserialize(gquic_tls_encrypt_ext_msg_t *, gquic_reader_str_t *const);
 
 static int gquic_tls_encrypt_ext_msg_init(void *const msg);
 static int gquic_tls_encrypt_ext_msg_dtor(void *const msg);
 static ssize_t gquic_tls_encrypt_ext_msg_size(const void *const msg);
-static ssize_t gquic_tls_encrypt_ext_msg_serialize(const void *const msg, void *const buf, const size_t size);
-static ssize_t gquic_tls_encrypt_ext_msg_deserialize(void *const msg, const void *const buf, const size_t size);
+static int gquic_tls_encrypt_ext_msg_serialize(const void *const msg, gquic_writer_str_t *const);
+static int gquic_tls_encrypt_ext_msg_deserialize(void *const msg, gquic_reader_str_t *const);
 
 
 gquic_tls_encrypt_ext_msg_t *gquic_tls_encrypt_ext_msg_alloc() {
@@ -70,114 +70,111 @@ static ssize_t gquic_tls_encrypt_ext_msg_size(const void *const msg) {
     return ret;
 }
 
-static ssize_t gquic_tls_encrypt_ext_msg_serialize(const void *const msg, void *const buf, const size_t size) {
+static int gquic_tls_encrypt_ext_msg_serialize(const void *const msg, gquic_writer_str_t *const writer) {
     const gquic_tls_encrypt_ext_msg_t *const spec = msg;
-    size_t off = 0;
     gquic_list_t prefix_len_stack;
-    if (msg == NULL || buf == NULL) {
+    int _lazy = 0;
+    if (msg == NULL || writer == NULL) {
         return -1;
     }
-    if ((size_t) gquic_tls_encrypt_ext_msg_size(msg) > size) {
+    if ((size_t) gquic_tls_encrypt_ext_msg_size(msg) > GQUIC_STR_SIZE(writer)) {
         return -2;
     }
     gquic_list_head_init(&prefix_len_stack);
-    __gquic_fill_1byte(buf, &off, GQUIC_TLS_HANDSHAKE_MSG_TYPE_ENCRYPTED_EXTS);
+    gquic_big_endian_writer_1byte(writer, GQUIC_TLS_HANDSHAKE_MSG_TYPE_ENCRYPTED_EXTS);
 
-    __gquic_store_prefix_len(&prefix_len_stack, &off, 3);
-    __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
+    __gquic_store_prefix_len(&prefix_len_stack, writer, 3);
+    __gquic_store_prefix_len(&prefix_len_stack, writer, 2);
     if (GQUIC_STR_SIZE(&spec->alpn_proto) != 0) {
-        __gquic_fill_2byte(buf, &off, GQUIC_TLS_EXTENSION_ALPN);
-        __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
-        __gquic_store_prefix_len(&prefix_len_stack, &off, 2);
-        __gquic_fill_str_full(buf, &off, &spec->alpn_proto, 1);
-        __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
-        __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
+        gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_ALPN);
+        __gquic_store_prefix_len(&prefix_len_stack, writer, 2);
+        __gquic_store_prefix_len(&prefix_len_stack, writer, 2);
+        __gquic_fill_str(writer, &spec->alpn_proto, 1);
+        for (_lazy = 0; _lazy < 2; _lazy++) __gquic_fill_prefix_len(&prefix_len_stack, writer);
     }
     gquic_tls_extension_t *ext;
     GQUIC_LIST_FOREACH(ext, &spec->addition_exts) {
-        __gquic_fill_2byte(buf, &off, ext->type);
-        __gquic_fill_str_full(buf, &off, &ext->data, 2);
+        gquic_big_endian_writer_2byte(writer, ext->type);
+        __gquic_fill_str(writer, &ext->data, 2);
     }
-    __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 2);
-    __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 3);
-    return off;
+    for (_lazy = 0; _lazy < 2; _lazy++) __gquic_fill_prefix_len(&prefix_len_stack, writer);
+    return 0;
 }
 
-static ssize_t gquic_tls_encrypt_ext_msg_deserialize(void *const msg, const void *const buf, const size_t size) {
-    size_t off = 0;
+static int gquic_tls_encrypt_ext_msg_deserialize(void *const msg, gquic_reader_str_t *const reader) {
     ssize_t prefix_len = 0;
-    if (msg == NULL || buf == NULL) {
+    if (msg == NULL || reader == NULL) {
         return -1;
     }
-    if (((unsigned char *) buf)[off++] != GQUIC_TLS_HANDSHAKE_MSG_TYPE_ENCRYPTED_EXTS) {
+    if (gquic_reader_str_read_byte(reader) != GQUIC_TLS_HANDSHAKE_MSG_TYPE_ENCRYPTED_EXTS) {
         return -2;
     }
-    __gquic_recovery_bytes(&prefix_len, 3, buf, size, &off);
-    if ((size_t) prefix_len > size - off) {
+    __gquic_recovery_bytes(&prefix_len, 3, reader);
+    if ((size_t) prefix_len > GQUIC_STR_SIZE(reader)) {
         return -3;
     }
-    __gquic_recovery_bytes(&prefix_len, 2, buf, size, &off);
-    if ((size_t) prefix_len > size - off) {
+    __gquic_recovery_bytes(&prefix_len, 2, reader);
+    if ((size_t) prefix_len > GQUIC_STR_SIZE(reader)) {
         return -3;
     }
-    if ((prefix_len = gquic_tls_encrypt_ext_msg_optional_deserialize(msg, buf + off, prefix_len)) < 0) {
+    gquic_reader_str_t opt_reader = { prefix_len, GQUIC_STR_VAL(reader) };
+    if (gquic_tls_encrypt_ext_msg_optional_deserialize(msg, &opt_reader) < 0) {
         return -2;
     }
-    off += prefix_len;
+    gquic_reader_str_readed_size(reader, GQUIC_STR_VAL(&opt_reader) - GQUIC_STR_VAL(reader));
 
-    return off;
+    return 0;
 }
 
-static ssize_t gquic_tls_encrypt_ext_msg_optional_deserialize(gquic_tls_encrypt_ext_msg_t*msg, const void *buf, const size_t size) {
+static ssize_t gquic_tls_encrypt_ext_msg_optional_deserialize(gquic_tls_encrypt_ext_msg_t*msg, gquic_reader_str_t *const reader) {
     u_int16_t opt_type = 0;
-    size_t off = 0;
     size_t prefix_len = 0;
-    size_t _;
+    void *_ = NULL;
     gquic_tls_extension_t *field;
-    if (msg == NULL || buf == NULL) {
+    if (msg == NULL || reader == NULL) {
         return -1;
     }
-    while (off < size) {
+    while (GQUIC_STR_SIZE(reader) > 0) {
         opt_type = 0;
-        if (__gquic_recovery_bytes(&opt_type, 2, buf, size, &off) != 0) {
+        if (__gquic_recovery_bytes(&opt_type, 2, reader) != 0) {
             return -2;
         }
 
         switch (opt_type) {
 
         case GQUIC_TLS_EXTENSION_ALPN:
-            off += 2 + 2;
+            gquic_reader_str_readed_size(reader, 2 + 2);
             prefix_len = 0;
-            if (__gquic_recovery_bytes(&prefix_len, 1, buf, size, &off) != 0) {
-                return -2;
+            if (__gquic_recovery_bytes(&prefix_len, 1, reader) != 0) {
+                return -3;
             }
-            for (_ = off; off - _ < prefix_len;) {
+            for (_ = GQUIC_STR_VAL(reader); (size_t) (GQUIC_STR_VAL(reader) - _) < prefix_len;) {
                 u_int8_t *alpn = gquic_list_alloc(sizeof(u_int8_t));
                 if (alpn == NULL) {
-                    return -2;
+                    return -4;
                 }
-                if (__gquic_recovery_bytes(alpn, 1, buf, size, &off) != 0) {
-                    return -2;
+                if (__gquic_recovery_bytes(alpn, 1, reader) != 0) {
+                    return -5;
                 }
                 if (gquic_list_insert_before(GQUIC_LIST_PAYLOAD(&msg->alpn_proto), alpn) != 0) {
-                    return -2;
+                    return -6;
                 }
             }
             break;
 
         default:
             if ((field = gquic_list_alloc(sizeof(gquic_tls_extension_t))) == NULL) {
-                return -2;
+                return -7;
             }
             field->type = opt_type;
-            if (__gquic_recovery_str_full(&field->data, 2, buf, size, &off) != 0) {
-                return -2;
+            if (__gquic_recovery_str(&field->data, 2, reader) != 0) {
+                return -8;
             }
             if (gquic_list_insert_before(&msg->addition_exts, field) != 0) {
-                return -2;
+                return -9;
             }
             break;
         }
     }
-    return off;
+    return 0;
 }

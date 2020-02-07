@@ -2,90 +2,99 @@
 #include "tls/_msg_serialize_util.h"
 #include "tls/_msg_deserialize_util.h"
 #include "tls/common.h"
-#include "util/str.h"
+#include "tls/meta.h"
 
-int gquic_tls_cert_msg_init(gquic_tls_cert_msg_t *msg) {
+static int gquic_tls_cert_msg_init(void *const msg);
+static int gquic_tls_cert_msg_dtor(void *const msg);
+static ssize_t gquic_tls_cert_msg_size(const void *const msg);
+static int gquic_tls_cert_msg_serialize(const void *const msg, gquic_writer_str_t *const);
+static int gquic_tls_cert_msg_deserialize(void *const msg, gquic_reader_str_t *const);
+
+gquic_tls_cert_msg_t *gquic_tls_cert_msg_alloc() {
+    gquic_tls_cert_msg_t *msg = gquic_tls_msg_alloc(sizeof(gquic_tls_cert_msg_t));
+    if (msg == NULL) {
+        return NULL;
+    }
+    GQUIC_TLS_MSG_META(msg).init_func = gquic_tls_cert_msg_init;
+    GQUIC_TLS_MSG_META(msg).dtor_func = gquic_tls_cert_msg_dtor;
+    GQUIC_TLS_MSG_META(msg).deserialize_func = gquic_tls_cert_msg_deserialize;
+    GQUIC_TLS_MSG_META(msg).serialize_func = gquic_tls_cert_msg_serialize;
+    GQUIC_TLS_MSG_META(msg).size_func = gquic_tls_cert_msg_size;
+    GQUIC_TLS_MSG_META(msg).type = GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT;
+
+    return msg;
+}
+
+static int gquic_tls_cert_msg_init(void *const msg) {
+    gquic_tls_cert_msg_t *const spec = msg;
     if (msg == NULL) {
         return -1;
     }
-    gquic_list_head_init(&msg->certs);
+    if (gquic_tls_cert_init(&spec->cert) != 0) {
+        return -2;
+    }
     return 0;
 }
 
-int gquic_tls_cert_msg_reset(gquic_tls_cert_msg_t *msg) {
+static int gquic_tls_cert_msg_dtor(void *const msg) {
+    gquic_tls_cert_msg_t *const spec = msg;
     if (msg == NULL) {
         return -1;
     }
-    while (!gquic_list_head_empty(&msg->certs)) {
-        gquic_str_reset(GQUIC_LIST_FIRST(&msg->certs));
-        gquic_list_release(GQUIC_LIST_FIRST(&msg->certs));
+    if (gquic_tls_cert_dtor(&spec->cert) != 0) {
+        return -2;
     }
     gquic_tls_cert_msg_init(msg);
     return 0;
 }
 
-ssize_t gquic_tls_cert_msg_size(const gquic_tls_cert_msg_t *msg) {
-    size_t off = 0;
-    gquic_str_t *field;
+static ssize_t gquic_tls_cert_msg_size(const void *const msg) {
+    const gquic_tls_cert_msg_t *const spec = msg;
     if (msg == NULL) {
         return -1;
     }
-    off += 1 + 3 + 3;
-    GQUIC_LIST_FOREACH(field, &msg->certs) off += 3 + field->size;
-    return off;
+    return 1 + 3 + 1 + gquic_tls_cert_size(&spec->cert);
 }
 
-ssize_t gquic_tls_cert_msg_serialize(const gquic_tls_cert_msg_t *msg, void *buf, const size_t size) {
-    size_t off = 0;
+static int gquic_tls_cert_msg_serialize(const void *const msg, gquic_writer_str_t *const writer) {
+    ssize_t ret;
     gquic_list_t prefix_len_stack;
-    gquic_str_t *field;
-    if (msg == NULL || buf == NULL) {
+    const gquic_tls_cert_msg_t *const spec = msg;
+    if (msg == NULL || writer == NULL) {
         return -1;
     }
-    if ((size_t) gquic_tls_cert_msg_size(msg) > size) {
+    if ((size_t) gquic_tls_cert_msg_size(msg) > GQUIC_STR_SIZE(writer)) {
         return -2;
     }
-    __gquic_fill_1byte(buf, &off, GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT);
     gquic_list_head_init(&prefix_len_stack);
-    __gquic_store_prefix_len(&prefix_len_stack, &off, 3);
-    __gquic_store_prefix_len(&prefix_len_stack, &off, 3);
-    GQUIC_LIST_FOREACH(field, &msg->certs) {
-        __gquic_fill_str_full(buf, &off, field, 3);
+    gquic_big_endian_writer_1byte(writer, GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT);
+    __gquic_store_prefix_len(&prefix_len_stack, writer, 3);
+    gquic_big_endian_writer_1byte(writer, 0);
+    if ((ret = gquic_tls_cert_serialize(&spec->cert, writer)) < 0) {
+        return -3;
     }
-    __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 3);
-    __gquic_fill_prefix_len(&prefix_len_stack, buf, off, 3);
-    return off;
+    __gquic_fill_prefix_len(&prefix_len_stack, writer);
+    return 0;
 }
 
-ssize_t gquic_tls_cert_msg_deserialize(gquic_tls_cert_msg_t *msg, const void *buf, const size_t size) {
-    size_t off = 0;
-    size_t prefix_len = 0;
-    size_t start_position = 0;
-    gquic_str_t *field = NULL;
-    if (msg == NULL || buf == NULL) {
+static int gquic_tls_cert_msg_deserialize(void *const msg, gquic_reader_str_t *const reader) {
+    int ret = 0;
+    u_int64_t cert_len = 0;
+    gquic_tls_cert_msg_t *const spec = msg;
+    if (msg == NULL || reader == NULL) {
         return -1;
     }
-    if (((unsigned char *) buf)[off++] != GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT) {
+    if (gquic_reader_str_read_byte(reader) != GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT) {
         return -2;
     }
-    off += 3;
-    if (__gquic_recovery_bytes(&prefix_len, 3, buf, size, &off) != 0) {
+    if (__gquic_recovery_bytes(&cert_len, 3, reader) != 0) {
         return -3;
     }
-    if (prefix_len > size - off) {
-        return -3;
+    gquic_reader_str_t cert_reader = { cert_len, GQUIC_STR_VAL(reader) };
+    gquic_reader_str_read_byte(&cert_reader);
+    if ((ret = gquic_tls_cert_deserialize(&spec->cert, &cert_reader)) != 0) {
+        return -4;
     }
-    for(start_position = off; off - start_position < prefix_len;) {
-        if ((field = gquic_list_alloc(sizeof(gquic_str_t))) == NULL) {
-            return -3;
-        }
-        if (__gquic_recovery_str_full(field, 3, buf, size, &off) != 0) {
-            return -3;
-        }
-        if (gquic_list_insert_before(&msg->certs, field) != 0) {
-            return -3;
-        }
-    }
-    return off;
+    gquic_reader_str_readed_size(reader, GQUIC_STR_VAL(&cert_reader) - GQUIC_STR_VAL(reader));
+    return 0;
 }
-

@@ -8,8 +8,8 @@
 static int gquic_tls_hello_req_msg_init(void *const msg);
 static int gquic_tls_hello_req_msg_dtor(void *const msg);
 static ssize_t gquic_tls_hello_req_msg_size(const void *const msg);
-static ssize_t gquic_tls_hello_req_msg_serialize(const void *const msg, void *const buf, const size_t size);
-static ssize_t gquic_tls_hello_req_msg_deserialize(void *const msg, const void *const buf, const size_t size);
+static int gquic_tls_hello_req_msg_serialize(const void *const msg, gquic_writer_str_t *const);
+static int gquic_tls_hello_req_msg_deserialize(void *const msg, gquic_reader_str_t *const);
 
 gquic_tls_hello_req_msg_t *gquic_tls_hello_req_msg_alloc() {
     gquic_tls_hello_req_msg_t *msg = gquic_tls_msg_alloc(sizeof(gquic_tls_hello_req_msg_t));
@@ -47,29 +47,28 @@ static ssize_t gquic_tls_hello_req_msg_size(const void *const msg) {
     return 4;
 }
 
-static ssize_t gquic_tls_hello_req_msg_serialize(const void *const msg, void *const buf, const size_t size) {
-    size_t off = 0;
-    if (msg == NULL || buf == NULL) {
+static int gquic_tls_hello_req_msg_serialize(const void *const msg, gquic_writer_str_t *const writer) {
+    if (msg == NULL || writer == NULL) {
         return -1;
     }
-    if ((size_t) gquic_tls_hello_req_msg_size(msg) > size) {
+    if ((size_t) gquic_tls_hello_req_msg_size(msg) > GQUIC_STR_SIZE(writer)) {
         return -2;
     }
-    __gquic_fill_1byte(buf, &off, GQUIC_TLS_HANDSHAKE_MSG_TYPE_HELLO_REQ);
-    __gquic_fill_1byte(buf, &off, 0);
-    __gquic_fill_2byte(buf, &off, 0);
-    return off;
+    gquic_big_endian_writer_1byte(writer, GQUIC_TLS_HANDSHAKE_MSG_TYPE_HELLO_REQ);
+    gquic_big_endian_writer_1byte(writer, 0);
+    gquic_big_endian_writer_2byte(writer, 0);
+    return 0;
 }
 
-static ssize_t gquic_tls_hello_req_msg_deserialize(void *const msg, const void *const buf, const size_t size) {
-    if (msg == NULL || buf == NULL) {
+static int gquic_tls_hello_req_msg_deserialize(void *const msg, gquic_reader_str_t *const reader) {
+    if (msg == NULL || reader == NULL) {
         return -1;
     }
-    if (((unsigned char *) buf)[0] != GQUIC_TLS_HANDSHAKE_MSG_TYPE_HELLO_REQ) {
+    if (gquic_reader_str_read_byte(reader) != GQUIC_TLS_HANDSHAKE_MSG_TYPE_HELLO_REQ) {
         return -2;
     }
-    if (4 > size) {
-        return -2;
+    if (gquic_reader_str_readed_size(reader, 3) != 0) {
+        return -3;
     }
-    return 4;
+    return 0;
 }

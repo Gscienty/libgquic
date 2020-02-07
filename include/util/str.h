@@ -40,6 +40,13 @@ int gquic_str_test_echo(const gquic_str_t *const str);
 int gquic_str_cmp(const gquic_str_t *const str_a, const gquic_str_t *const str_b);
 
 typedef gquic_str_t gquic_reader_str_t;
-int gquic_reader_str_readed_count(gquic_reader_str_t *const str, const size_t n);
+int gquic_reader_str_readed_size(gquic_reader_str_t *const reader, const size_t n);
+u_int8_t gquic_reader_str_read_byte(gquic_reader_str_t *const reader);
+int gquic_reader_str_read(gquic_str_t *const out, gquic_reader_str_t *const reader);
+
+typedef gquic_str_t gquic_writer_str_t;
+int gquic_writer_str_writed_size(gquic_writer_str_t *const writer, const size_t n);
+int gquic_writer_str_write(gquic_writer_str_t *const writer, const gquic_str_t *const buf);
+int gquic_writer_str_write_byte(gquic_writer_str_t *const writer, u_int8_t b);
 
 #endif

@@ -1,6 +1,6 @@
 #include "tls/handshake_client.h"
 #include "tls/encrypt_ext_msg.h"
-#include "tls/cert_13_msg.h"
+#include "tls/cert_msg.h"
 #include "tls/cert_verify_msg.h"
 #include "tls/auth.h"
 #include "tls/finished_msg.h"
@@ -23,7 +23,8 @@ static int write_client_hello_record(const gquic_str_t *const chello_buf) {
 
         gquic_tls_client_hello_msg_t *chello = gquic_tls_client_hello_msg_alloc();
         GQUIC_TLS_MSG_INIT(chello);
-        GQUIC_TLS_MSG_DESERIALIZE(chello, GQUIC_STR_VAL(chello_buf), GQUIC_STR_SIZE(chello_buf));
+        gquic_writer_str_t writer = *chello_buf;
+        GQUIC_TLS_MSG_DESERIALIZE(chello, &writer);
 
         gquic_str_copy(&sess_id, &chello->sess_id);
         gquic_tls_key_share_t *key_share = gquic_list_next(GQUIC_LIST_PAYLOAD(&chello->key_shares));
@@ -101,7 +102,7 @@ static int encrypted_exts_handshake_msg(gquic_str_t *const msg) {
 }
 
 static int cert_msg(gquic_str_t *const msg) {
-    gquic_tls_cert_13_msg_t *cert = gquic_tls_cert_13_msg_alloc();
+    gquic_tls_cert_msg_t *cert = gquic_tls_cert_msg_alloc();
     GQUIC_TLS_MSG_INIT(cert);
 
     gquic_str_t *x509_b = gquic_list_alloc(sizeof(gquic_str_t));

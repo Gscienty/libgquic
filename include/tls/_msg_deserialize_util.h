@@ -3,53 +3,39 @@
 #include <unistd.h>
 #include <string.h>
 
-static inline int __gquic_recovery_bytes(void *, const size_t, const void *, const size_t, size_t *);
-static inline int __gquic_recovery_str(gquic_str_t *, const size_t, const void *, const size_t, size_t *);
-static inline int __gquic_recovery_str_full(gquic_str_t *, const size_t, const void *, const size_t, size_t *);
+static inline int __gquic_recovery_bytes(void *, const size_t, gquic_reader_str_t *const reader);
+static inline int __gquic_recovery_str(gquic_str_t *, const size_t, gquic_reader_str_t *const reader);
 
-static inline int __gquic_recovery_bytes(void *ret, const size_t bytes, const void *buf, const size_t size, size_t *off) {
-    if (bytes > size - *off) {
+static inline int __gquic_recovery_bytes(void *ret, const size_t bytes, gquic_reader_str_t *const reader) {
+    if (bytes > GQUIC_STR_SIZE(reader)) {
         return -1;
     }
-    if (gquic_big_endian_transfer(ret, buf + *off, bytes) != 0) {
+    if (gquic_big_endian_transfer(ret, GQUIC_STR_VAL(reader), bytes) != 0) {
         return -2;
     }
-    *off += bytes;
+    gquic_reader_str_readed_size(reader, bytes);
     return 0;
 }
 
-static inline int __gquic_recovery_str(gquic_str_t *str, const size_t bytes, const void *buf, const size_t size, size_t *off) {
-    if (str == NULL || buf == NULL) {
+static inline int __gquic_recovery_str(gquic_str_t *str, const size_t bytes, gquic_reader_str_t *const reader) {
+    if (str == NULL || reader == NULL) {
         return -1;
     }
-    if (bytes > size - *off) {
-        return -2;
-    }
-    if (gquic_str_alloc(str, bytes) != 0) {
-        return -3;
-    }
-    memcpy(str->val, buf + *off, bytes);
-    *off += bytes;
-
-    return 0;
-}
-
-static inline int __gquic_recovery_str_full(gquic_str_t *str, const size_t bytes, const void *buf, const size_t size, size_t *off) {
-    if (str == NULL || buf == NULL) {
-        return -1;
-    }
-    if (bytes > size - *off) {
+    if (bytes > GQUIC_STR_SIZE(reader)) {
         return -2;
     }
     gquic_str_init(str);
-    if (__gquic_recovery_bytes(&str->size, bytes, buf, size, off) < 0) {
+    if (__gquic_recovery_bytes(&str->size, bytes, reader) != 0) {
         return -3;
     }
-    if (str->size > size - *off) {
+    if (str->size > GQUIC_STR_SIZE(reader)) {
         return -4;
     }
-    if (__gquic_recovery_str(str, str->size, buf, size, off) < 0) {
+    if (gquic_str_alloc(str, str->size) != 0) {
         return -5;
+    }
+    if (gquic_reader_str_read(str, reader) != 0) {
+        return -6;
     }
     return 0;
 }

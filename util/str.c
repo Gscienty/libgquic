@@ -104,14 +104,74 @@ int gquic_str_cmp(const gquic_str_t *const str_a, const gquic_str_t *const str_b
     return 0;
 }
 
-int gquic_reader_str_readed_count(gquic_reader_str_t *const str, const size_t n) {
-    if (str == NULL) {
+int gquic_reader_str_readed_size(gquic_reader_str_t *const reader, const size_t n) {
+    if (reader == NULL) {
         return -1;
     }
-    if (GQUIC_STR_SIZE(str) < n) {
+    if (GQUIC_STR_SIZE(reader) < n) {
         return -2;
     }
-    str->size -= n;
-    str->val += n;
+    reader->size -= n;
+    reader->val += n;
     return 0;
+}
+
+u_int8_t gquic_reader_str_read_byte(gquic_reader_str_t *const reader) {
+    u_int8_t ret = 0;
+    if (reader == NULL) {
+        return 0;
+    }
+    if (GQUIC_STR_SIZE(reader) < 1) {
+        return 0;
+    }
+    ret = GQUIC_STR_FIRST_BYTE(reader);
+    gquic_reader_str_readed_size(reader, 1);
+    return ret;
+}
+
+int gquic_reader_str_read(gquic_str_t *const out, gquic_reader_str_t *const reader) {
+    if (out == NULL || reader == NULL) {
+        return -1;
+    }
+    if (GQUIC_STR_SIZE(out) > GQUIC_STR_SIZE(reader)) {
+        return -2;
+    }
+    memcpy(GQUIC_STR_VAL(out), GQUIC_STR_VAL(reader), GQUIC_STR_SIZE(out));
+    gquic_reader_str_readed_size(reader, GQUIC_STR_SIZE(out));
+    return 0;
+}
+
+int gquic_writer_str_writed_size(gquic_writer_str_t *const writer, const size_t n) {
+    if (writer == NULL) {
+        return -1;
+    }
+    if (GQUIC_STR_SIZE(writer) < n) {
+        return -2;
+    }
+    writer->size -= n;
+    writer->val += n;
+    return 0;
+}
+
+int gquic_writer_str_write(gquic_writer_str_t *const writer, const gquic_str_t *const buf) {
+    if (writer == NULL || buf == NULL) {
+        return -1;
+    }
+    if (GQUIC_STR_SIZE(writer) < GQUIC_STR_SIZE(buf)) {
+        return -2;
+    }
+    memcpy(GQUIC_STR_VAL(writer), GQUIC_STR_VAL(buf), GQUIC_STR_SIZE(buf));
+    gquic_writer_str_writed_size(writer, GQUIC_STR_SIZE(buf));
+    return 0;
+}
+
+int gquic_writer_str_write_byte(gquic_writer_str_t *const writer, u_int8_t b) {
+    if (writer == NULL) {
+        return -1;
+    }
+    if (GQUIC_STR_SIZE(writer) < 1) {
+        return -2;
+    }
+    gquic_str_t bbuf = { 1, &b };
+    return gquic_writer_str_write(writer, &bbuf);
 }

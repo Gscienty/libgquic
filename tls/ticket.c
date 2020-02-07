@@ -35,42 +35,40 @@ ssize_t gquic_tls_sess_state_size(const gquic_tls_sess_state_t *const state) {
     return ret;
 }
 
-ssize_t gquic_tls_sess_state_serialize(const gquic_tls_sess_state_t *const state, void *const buf, const size_t size) {
+int gquic_tls_sess_state_serialize(const gquic_tls_sess_state_t *const state, gquic_writer_str_t *const writer) {
     size_t ret = 0;
-    size_t off = 0;
-    if (state == NULL || buf == NULL) {
+    if (state == NULL || writer == NULL) {
         return -1;
     }
-    if ((size_t) gquic_tls_sess_state_size(state) > size) {
+    if ((size_t) gquic_tls_sess_state_size(state) > GQUIC_STR_SIZE(writer)) {
         return -2;
     }
-    __gquic_fill_2byte(buf, &off, GQUIC_TLS_VERSION_13);
-    __gquic_fill_1byte(buf, &off, 0);
-    __gquic_fill_2byte(buf, &off, state->cipher_suite);
-    __gquic_fill_8byte(buf, &off, state->create_at);
-    __gquic_fill_str_full(buf, &off, &state->resumption_sec, 1);
-    gquic_tls_cert_serialize(&state->cert, buf + off, size - off);
+    gquic_big_endian_writer_2byte(writer, GQUIC_TLS_VERSION_13);
+    gquic_big_endian_writer_1byte(writer, 0);
+    gquic_big_endian_writer_2byte(writer, state->cipher_suite);
+    gquic_big_endian_writer_8byte(writer, state->create_at);
+    __gquic_fill_str(writer, &state->resumption_sec, 1);
+    gquic_tls_cert_serialize(&state->cert, writer);
 
     return ret;
 }
 
-ssize_t gquic_tls_sess_state_deserialize(gquic_tls_sess_state_t *const state, const void *const buf, const size_t size) {
+int gquic_tls_sess_state_deserialize(gquic_tls_sess_state_t *const state, gquic_reader_str_t *const reader) {
     size_t ret = 0;
-    size_t off = 0;
-    if (state == NULL || buf == NULL) {
+    if (state == NULL || reader == NULL) {
         return -1;
     }
-    off += 3;
-    if (__gquic_recovery_bytes(&state->cipher_suite, 2, buf, size, &off) != 0) {
+    gquic_reader_str_readed_size(reader, 3);
+    if (__gquic_recovery_bytes(&state->cipher_suite, 2, reader) != 0) {
         return -2;
     }
-    if (__gquic_recovery_bytes(&state->create_at, 8, buf, size, &off) != 0) {
+    if (__gquic_recovery_bytes(&state->create_at, 8, reader) != 0) {
         return -3;
     }
-    if (__gquic_recovery_str_full(&state->resumption_sec, 1, buf, size, &off) != 0) {
+    if (__gquic_recovery_str(&state->resumption_sec, 1, reader) != 0) {
         return -4;
     }
-    if (gquic_tls_cert_deserialize(&state->cert, buf + off, size - off) != 0) {
+    if (gquic_tls_cert_deserialize(&state->cert, reader) != 0) {
         return -5;
     }
 
