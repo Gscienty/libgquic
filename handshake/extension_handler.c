@@ -36,7 +36,8 @@ int gquic_handshake_extension_handler_assign(gquic_handshake_extension_handler_t
     if (gquic_str_alloc(&handler->params, gquic_transport_parameters_size(params)) != 0) {
         return -2;
     }
-    if (gquic_transport_parameters_serialize(params, GQUIC_STR_VAL(&handler->params), GQUIC_STR_SIZE(&handler->params)) < 0) {
+    gquic_writer_str_t writer = handler->params;
+    if (gquic_transport_parameters_serialize(params, &writer) < 0) {
         return -3;
     }
     return 0;

@@ -40,7 +40,7 @@ struct gquic_transport_parameters_s {
 
 int gquic_transport_parameters_init(gquic_transport_parameters_t *const params);
 size_t gquic_transport_parameters_size(const gquic_transport_parameters_t *const params);
-ssize_t gquic_transport_parameters_serialize(const gquic_transport_parameters_t *const params, void *const buf, const size_t size);
-ssize_t gquic_transport_parameters_deserialize(gquic_transport_parameters_t *const params, const void *const buf, const size_t size);
+int gquic_transport_parameters_serialize(const gquic_transport_parameters_t *const params, gquic_writer_str_t *const writer);
+int gquic_transport_parameters_deserialize(gquic_transport_parameters_t *const params, gquic_reader_str_t *const reader);
 
 #endif
