@@ -1,7 +1,7 @@
 #include "handshake/establish.h"
 #include "tls/key_schedule.h"
 #include "tls/encrypt_ext_msg.h"
-#include "tls/cert_13_msg.h"
+#include "tls/cert_msg.h"
 #include "tls/cert_verify_msg.h"
 #include "tls/auth.h"
 #include "tls/finished_msg.h"

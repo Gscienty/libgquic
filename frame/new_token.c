@@ -4,8 +4,8 @@
 #include <string.h>
 
 static size_t gquic_frame_new_token_size(const void *const);
-static ssize_t gquic_frame_new_token_serialize(const void *const, void *, const size_t);
-static ssize_t gquic_frame_new_token_deserialize(void *const, const void *, const size_t);
+static int gquic_frame_new_token_serialize(const void *const, gquic_writer_str_t *const);
+static int gquic_frame_new_token_deserialize(void *const, gquic_reader_str_t *const);
 static int gquic_frame_new_token_init(void *const);
 static int gquic_frame_new_token_dtor(void *const);
 
@@ -31,55 +31,50 @@ static size_t gquic_frame_new_token_size(const void *const frame) {
     return 1 + gquic_varint_size(&spec->len) + spec->len;
 }
 
-static ssize_t gquic_frame_new_token_serialize(const void *const frame, void *buf, const size_t size) {
-    size_t off = 0;
-    ssize_t serialize_len = 0;
+static int gquic_frame_new_token_serialize(const void *const frame, gquic_writer_str_t *const writer) {
     const gquic_frame_new_token_t *spec = frame;
-    if (spec == NULL) {
+    if (spec == NULL || writer == NULL) {
         return -1;
     }
-    if (buf == NULL) {
+    if (GQUIC_FRAME_SIZE(spec) > GQUIC_STR_SIZE(writer)) {
         return -2;
     }
-    if (GQUIC_FRAME_SIZE(spec) > size) {
+    if (gquic_writer_str_write_byte(writer, GQUIC_FRAME_META(spec).type) != 0) {
         return -3;
     }
-    ((u_int8_t *) buf)[off++] = GQUIC_FRAME_META(spec).type;
-    serialize_len = gquic_varint_serialize(&spec->len, buf + off, size - off);
-    if (serialize_len <= 0) {
+    if (gquic_varint_serialize(&spec->len, writer) != 0) {
         return -4;
     }
-    off += serialize_len;
-    memcpy(buf + off, spec->token, spec->len);
-    return off + spec->len;
+    gquic_str_t token = { spec->len, spec->token };
+    if (gquic_writer_str_write(writer, &token) != 0) {
+        return -5;
+    }
+    return 0;
 }
 
-static ssize_t gquic_frame_new_token_deserialize(void *const frame, const void *buf, const size_t size) {
-    size_t off = 0;
-    ssize_t deserialize_len = 0;
+static int gquic_frame_new_token_deserialize(void *const frame, gquic_reader_str_t *const reader) {
     gquic_frame_new_token_t *spec = frame;
-    if (spec == NULL) {
+    if (spec == NULL || reader == NULL) {
         return -1;
     }
-    if (buf == NULL) {
+    if (gquic_reader_str_read_byte(reader) != GQUIC_FRAME_META(spec).type) {
         return -2;
     }
-    if (GQUIC_FRAME_META(spec).type != ((u_int8_t *) buf)[off++]) {
+    if (gquic_varint_deserialize(&spec->len, reader) != 0) {
         return -3;
     }
-    deserialize_len = gquic_varint_deserialize(&spec->len, buf + off, size - off);
-    if (deserialize_len <= 0) {
-        return -4;
-    }
-    if (spec->len > size - off) {
+    if (spec->len > GQUIC_STR_SIZE(reader)) {
         return -4;
     }
     spec->token = malloc(spec->len);
     if (spec->token == NULL) {
-        return -4;
+        return -5;
     }
-    memcpy(spec->token, buf + off, spec->len);
-    return off + spec->len;
+    gquic_str_t token = { spec->len, spec->token };
+    if (gquic_reader_str_read(&token, reader) != 0) {
+        return -6;
+    }
+    return 0;
 }
 
 static int gquic_frame_new_token_init(void *const frame) {

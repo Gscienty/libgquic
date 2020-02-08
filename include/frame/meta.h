@@ -1,14 +1,15 @@
 #ifndef _LIBGQUIC_FRAME_META_H
 #define _LIBGQUIC_FRAME_META_H
 
+#include "util/str.h"
 #include <sys/types.h>
 
 typedef struct gquic_frame_meta_s gquic_frame_meta_t;
 struct gquic_frame_meta_s {
     int (*init_func) (void *const);
     size_t (*size_func) (const void *const);
-    ssize_t (*serialize_func) (const void *const, void *const, const size_t);
-    ssize_t (*deserialize_func) (void *const, const void *const, const size_t);
+    int (*serialize_func) (const void *const, gquic_writer_str_t *const);
+    int (*deserialize_func) (void *const, gquic_reader_str_t *const);
     int (*dtor_func) (void *const);
     u_int8_t type;
 
@@ -26,8 +27,8 @@ struct gquic_frame_meta_s {
 
 #define GQUIC_FRAME_INIT(ptr) (GQUIC_FRAME_META((ptr)).init_func((ptr)))
 #define GQUIC_FRAME_SIZE(ptr) (GQUIC_FRAME_META((ptr)).size_func((ptr)))
-#define GQUIC_FRAME_SERIALIZE(ptr, buf, size) (GQUIC_FRAME_META((ptr)).serialize_func((ptr), (buf), (size)))
-#define GQUIC_FRAME_DESRIALIZE(ptr, buf, size) (GQUIC_FRAME_META((ptr)).deserialize_func((ptr), (buf), (size)))
+#define GQUIC_FRAME_SERIALIZE(ptr, writer) (GQUIC_FRAME_META((ptr)).serialize_func((ptr), (writer)))
+#define GQUIC_FRAME_DESRIALIZE(ptr, reader) (GQUIC_FRAME_META((ptr)).deserialize_func((ptr), (reader)))
 #define GQUIC_FRAME_DTOR(ptr) (GQUIC_FRAME_META((ptr)).dtor_func((ptr)))
 #define GQUIC_FRAME_ON_ACKED(ptr) (GQUIC_FRAME_META((ptr)).event.on_acked((GQUIC_FRAME_META((ptr)).event.self), (ptr)))
 #define GQUIC_FRAME_ON_LOST(ptr) (GQUIC_FRAME_META((ptr)).event.on_lost((GQUIC_FRAME_META((ptr)).event.self), (ptr)))

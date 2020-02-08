@@ -23,32 +23,55 @@ ssize_t gquic_packet_short_header_size(const gquic_packet_short_header_t *const 
     return 1 + header->dcid_len + (header->flag & 0x03) + 1;
 }
 
-ssize_t gquic_packet_short_header_serialize(const gquic_packet_short_header_t *const header, void *const buf, const size_t size) {
-    size_t off = 0;
-    if (header == NULL || buf == NULL) {
+int gquic_packet_short_header_serialize(const gquic_packet_short_header_t *const header, gquic_writer_str_t *const writer) {
+    if (header == NULL || writer == NULL) {
         return -1;
     }
-    if ((size_t) gquic_packet_short_header_size(header) > size) {
+    if ((size_t) gquic_packet_short_header_size(header) > GQUIC_STR_SIZE(writer)) {
         return -2;
     }
-    ((u_int8_t *) buf)[off++] = header->flag;
-    memcpy(buf + off, header->dcid, header->dcid_len);
-    off += header->dcid_len;
-    gquic_big_endian_transfer(buf + off, &header->pn, (header->flag & 0x03) + 1);
-    off += (header->flag & 0x03) + 1;
-    return off;
+    gquic_writer_str_write_byte(writer, header->flag);
+    gquic_str_t dcid = { header->dcid_len, (void *) header->dcid };
+    gquic_writer_str_write(writer, &dcid);
+
+    switch ((header->flag & 0x03) + 1) {
+    case 1:
+        gquic_big_endian_writer_1byte(writer, header->pn);
+        break;
+    case 2:
+        gquic_big_endian_writer_2byte(writer, header->pn);
+        break;
+    case 3:
+        gquic_big_endian_writer_3byte(writer, header->pn);
+        break;
+    case 4:
+        gquic_big_endian_writer_4byte(writer, header->pn);
+        break;
+    }
+    return 0;
 }
 
-ssize_t gquic_packet_short_header_deserialize(gquic_packet_short_header_t *const header, const void *const buf, const size_t size) {
-    (void) size;
-    size_t off = 0;
-    if (header == NULL || buf == NULL) {
+int gquic_packet_short_header_deserialize(gquic_packet_short_header_t *const header, gquic_reader_str_t *const reader) {
+    if (header == NULL || reader == NULL) {
         return -1;
     }
-    header->flag = ((u_int8_t *) buf)[off++];
-    memcpy(header->dcid, buf + off, header->dcid_len);
-    off += header->dcid_len;
-    gquic_big_endian_transfer(&header->pn, buf + off, (header->flag & 0x03) + 1);
-    off += (header->flag & 0x03) + 1;
-    return off;
+    header->flag = gquic_reader_str_read_byte(reader);
+    gquic_str_t dcid = { header->dcid_len, header->dcid };
+    gquic_reader_str_read(&dcid, reader);
+    header->pn = 0;
+    switch ((header->flag & 0x03) + 1) {
+    case 1:
+        gquic_big_endian_reader_1byte((u_int8_t *) &header->pn, reader);
+        break;
+    case 2:
+        gquic_big_endian_reader_2byte((u_int16_t *) &header->pn, reader);
+        break;
+    case 3:
+        gquic_big_endian_reader_3byte((u_int32_t *) &header->pn, reader);
+        break;
+    case 4:
+        gquic_big_endian_reader_4byte((u_int32_t *) &header->pn, reader);
+        break;
+    }
+    return 0;
 }

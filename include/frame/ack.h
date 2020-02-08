@@ -28,6 +28,8 @@ struct gquic_frame_ack_range_s {
     u_int64_t range;
 };
 
+int gquic_frame_ack_range_init(gquic_frame_ack_range_t *const range);
+
 typedef struct gquic_frame_ack_block_s gquic_frame_ack_block_t;
 struct gquic_frame_ack_block_s {
     u_int64_t smallest;

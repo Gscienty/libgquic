@@ -3,10 +3,20 @@
 #include "util/list.h"
 
 static size_t gquic_frame_ack_size(const void *const);
-static ssize_t gquic_frame_ack_serialize(const void *const, void *, const size_t);
-static ssize_t gquic_frame_ack_deserialize(void *const, const void *, const size_t);
+static int gquic_frame_ack_serialize(const void *const, gquic_writer_str_t *const);
+static int gquic_frame_ack_deserialize(void *const, gquic_reader_str_t *const);
 static int gquic_frame_ack_init(void *const);
 static int gquic_frame_ack_dtor(void *const);
+
+int gquic_frame_ack_range_init(gquic_frame_ack_range_t *const range) {
+    if (range == NULL) {
+        return -1;
+    }
+    range->gap = 0;
+    range->range = 0;
+
+    return 0;
+}
 
 gquic_frame_ack_t *gquic_frame_ack_alloc() {
     gquic_frame_ack_t *frame = gquic_frame_alloc(sizeof(gquic_frame_ack_t));
@@ -39,105 +49,86 @@ static size_t gquic_frame_ack_size(const void *const frame) {
     return ret;
 }
 
-static ssize_t gquic_frame_ack_serialize(const void *const frame, void *buf, const size_t size) {
-    size_t off = 0;
-    ssize_t serialize_len = 0;
+static int gquic_frame_ack_serialize(const void *const frame, gquic_writer_str_t *const writer) {
     const gquic_frame_ack_t *spec = frame;
-    if (spec == NULL) {
+    if (spec == NULL || writer == NULL) {
         return -1;
     }
-    if (buf == NULL) {
+    if (GQUIC_FRAME_SIZE(spec) > GQUIC_STR_SIZE(writer)) {
         return -2;
     }
-    if (GQUIC_FRAME_SIZE(spec) > size) {
+    if (gquic_writer_str_write_byte(writer, GQUIC_FRAME_META(spec).type) != 0) {
         return -3;
     }
-    ((u_int8_t *) buf)[off++] = GQUIC_FRAME_META(spec).type;
     const u_int64_t *vars[] = { &spec->largest_ack, &spec->delay, &spec->count, &spec->first_range };
     int i = 0;
     for (i = 0; i < 4; i++) {
-        serialize_len = gquic_varint_serialize(vars[i], buf + off, size - off);
-        if (serialize_len <= 0) {
+        if (gquic_varint_serialize(vars[i], writer) != 0) {
             return -4;
         }
-        off += serialize_len;
     }
     gquic_frame_ack_range_t *range;
     GQUIC_LIST_FOREACH(range, &spec->ranges) {
         u_int64_t *vars[] = { &range->gap, &range->range };
         for (i = 0; i < 2; i++) {
-            serialize_len = gquic_varint_serialize(vars[i], buf + off, size - off);
-            if (serialize_len <= 0) {
-                return -4;
+            if (gquic_varint_serialize(vars[i], writer) != 0) {
+                return -5;
             }
-            off += serialize_len;
         }
     }
     if (GQUIC_FRAME_META(spec).type == 0x03) {
         const u_int64_t *vars[] = { &spec->ecn.ect[0], &spec->ecn.ect[1], &spec->ecn.ecn_ce };
         for (i = 0; i < 3; i++) {
-            serialize_len = gquic_varint_serialize(vars[i], buf + off, size - off);
-            if (serialize_len <= 0) {
-                return -4;
+            if (gquic_varint_serialize(vars[i], writer) != 0) {
+                return -6;
             }
-            off += serialize_len;
         }
     }
-    return off;
+    return 0;
 }
 
-static ssize_t gquic_frame_ack_deserialize(void *const frame, const void *buf, const size_t size) {
-    size_t off = 0;
-    ssize_t deserialize_len = 0;
+static int gquic_frame_ack_deserialize(void *const frame, gquic_reader_str_t *const reader) {
     u_int8_t type;
     gquic_frame_ack_t *spec = frame;
-    if (spec == NULL) {
+    if (spec == NULL || reader == NULL) {
         return -1;
     }
-    if (buf == NULL) {
-        return -2;
-    }
-    type = ((u_int8_t *) buf)[off++];
+    type = gquic_reader_str_read_byte(reader);
     if (type != 0x02 && type != 0x03) {
-        return -3;
+        return -2;
     }
     GQUIC_FRAME_META(spec).type = type;
     u_int64_t *vars[] = { &spec->largest_ack, &spec->delay, &spec->count, &spec->first_range };
     size_t i = 0;
     for (i = 0; i < 4; i++) {
-        deserialize_len = gquic_varint_deserialize(vars[i], buf + off, size - off);
-        if (deserialize_len <= 0) {
-            return -4;
+        if (gquic_varint_deserialize(vars[i], reader) != 0) {
+            return -3;
         }
-        off += deserialize_len;
     }
     for (i = 0; i < spec->count - 1; i++) {
         gquic_frame_ack_range_t *range = gquic_list_alloc(sizeof(gquic_frame_ack_range_t));
+        gquic_frame_ack_range_init(range);
         if (gquic_list_insert_before(&spec->ranges, range) != 0) {
             return -4;
         }
         u_int64_t *range_vars[] = { &range->gap, &range->range };
         int j = 0;
         for (j = 0; j < 2; j++) {
-            deserialize_len = gquic_varint_deserialize(range_vars[j], buf + off, size - off);
-            if (deserialize_len <= 0) {
-                return -4;
+            if (gquic_varint_deserialize(range_vars[i], reader) != 0) {
+                return -5;
             }
-            off += deserialize_len;
         }
     }
 
     if (GQUIC_FRAME_META(spec).type == 0x03) {
         u_int64_t *vars[] = { &spec->ecn.ect[0], &spec->ecn.ect[1], &spec->ecn.ecn_ce };
         for (i = 0; i < 3; i++) {
-            deserialize_len = gquic_varint_deserialize(vars[i], buf + off, size - off);
-            if (deserialize_len <= 0) {
-                return -4;
+            if (gquic_varint_deserialize(vars[i], reader) != 0) {
+                return -6;
             }
-            off += deserialize_len;
         }
     }
-    return off;
+    return 0;
 }
 
 static int gquic_frame_ack_init(void *const frame) {

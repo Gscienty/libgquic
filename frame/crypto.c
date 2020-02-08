@@ -4,8 +4,8 @@
 #include <malloc.h>
 
 static size_t gquic_frame_crypto_size(const void *const);
-static ssize_t gquic_frame_crypto_serialize(const void *const, void *, const size_t);
-static ssize_t gquic_frame_crypto_deserialize(void *const, const void *, const size_t);
+static int gquic_frame_crypto_serialize(const void *const, gquic_writer_str_t *const);
+static int gquic_frame_crypto_deserialize(void *const, gquic_reader_str_t *const);
 static int gquic_frame_crypto_init(void *const);
 static int gquic_frame_crypto_dtor(void *const);
 
@@ -31,64 +31,58 @@ static size_t gquic_frame_crypto_size(const void *const frame) {
     return 1 + gquic_varint_size(&spec->len) + gquic_varint_size(&spec->off) + spec->len;
 }
 
-static ssize_t gquic_frame_crypto_serialize(const void *const frame, void *buf, const size_t size) {
-    size_t off = 0;
-    ssize_t serialize_len = 0;
+static int gquic_frame_crypto_serialize(const void *const frame, gquic_writer_str_t *const writer) {
     const gquic_frame_crypto_t *spec = frame;
-    if (spec == NULL) {
+    if (spec == NULL || writer == NULL) {
         return -1;
     }
-    if (buf == NULL) {
+    if (GQUIC_FRAME_SIZE(spec) > GQUIC_STR_SIZE(writer)) {
         return -2;
     }
-    if (GQUIC_FRAME_SIZE(spec) > size) {
+    if (gquic_writer_str_write_byte(writer, GQUIC_FRAME_META(frame).type) != 0) {
         return -3;
     }
-    ((u_int8_t *) buf)[off++] = GQUIC_FRAME_META(frame).type;
     const u_int64_t *vars[] = { &spec->off, &spec->len };
     int i;
     for (i = 0; i < 2; i++) {
-        serialize_len = gquic_varint_serialize(vars[i], buf + off, size - off);
-        if (serialize_len <= 0) {
+        if (gquic_varint_serialize(vars[i], writer) != 0) {
             return -4;
         }
-        off += serialize_len;
     }
-    memcpy(buf + off, spec->data, spec->len);
-    return off + spec->len;
+    gquic_str_t data = { spec->len, spec->data };
+    if (gquic_writer_str_write(writer, &data) != 0) {
+        return -5;
+    }
+    return 0;
  }
 
-static ssize_t gquic_frame_crypto_deserialize(void *const frame, const void *buf, const size_t size) {
-    size_t off = 0;
-    ssize_t deserialize_len = 0;
+static int gquic_frame_crypto_deserialize(void *const frame, gquic_reader_str_t *const reader) {
     gquic_frame_crypto_t *spec = frame;
-    if (frame == NULL) {
+    if (frame == NULL || reader == NULL) {
         return -1;
     }
-    if (buf == NULL) {
+    if (gquic_reader_str_read_byte(reader) != GQUIC_FRAME_META(frame).type) {
         return -2;
-    }
-    if (((u_int8_t *) buf)[off++] != GQUIC_FRAME_META(frame).type) {
-        return -3;
     }
     u_int64_t *vars[] = { &spec->off, &spec->len };
     int i;
     for (i = 0; i < 2; i++) {
-        deserialize_len = gquic_varint_deserialize(vars[i], buf + off, size - off);
-        if (deserialize_len <= 0) {
-            return -4;
+        if (gquic_varint_deserialize(vars[i], reader) != 0) {
+            return -3;
         }
-        off += deserialize_len;
     }
-    if (spec->len > size - off) {
+    if (spec->len > GQUIC_STR_SIZE(reader)) {
         return -4;
     }
     spec->data = malloc(spec->len);
     if (spec->data == NULL) {
-        return -4;
+        return -5;
     }
-    memcpy(spec->data, buf + off, spec->len);
-    return off + spec->len;
+    gquic_str_t data = { spec->len, spec->data };
+    if (gquic_reader_str_read(&data, reader) != 0) {
+        return -6;
+    }
+    return 0;
 }
 
 static int gquic_frame_crypto_init(void *const frame) {

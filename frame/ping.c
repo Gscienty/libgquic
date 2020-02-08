@@ -3,8 +3,8 @@
 #include <stddef.h>
 
 static size_t gquic_frame_ping_size(const void *const);
-static ssize_t gquic_frame_ping_serialize(const void *const, void *, const size_t);
-static ssize_t gquic_frame_ping_deserialize(void *const, const void *, const size_t);
+static int gquic_frame_ping_serialize(const void *const, gquic_writer_str_t *const);
+static int gquic_frame_ping_deserialize(void *const, gquic_reader_str_t *const);
 static int gquic_frame_ping_init(void *const);
 static int gquic_frame_ping_dtor(void *const);
 
@@ -31,20 +31,21 @@ static size_t gquic_frame_ping_size(const void *const frame) {
     return 1;
 }
 
-static ssize_t gquic_frame_ping_serialize(const void *const frame, void * offbuf, const size_t remain_size) {
+static int gquic_frame_ping_serialize(const void *const frame, gquic_writer_str_t *const writer) {
     size_t used_size = GQUIC_FRAME_META(frame).size_func(frame);
-    if (used_size > remain_size) {
+    if (used_size > GQUIC_STR_SIZE(writer)) {
         return -1;
     }
-    ((u_int8_t *) offbuf)[0] = 0x01;
-    return used_size;
+    if (gquic_writer_str_write_byte(writer, 0x01) != 0) {
+        return -2;
+    }
+    return 0;
 }
 
-static ssize_t gquic_frame_ping_deserialize(void *const frame, const void *offbuf, const size_t remain_size) {
+static int gquic_frame_ping_deserialize(void *const frame, gquic_reader_str_t *const reader) {
     (void) frame;
-    (void) offbuf;
-    (void) remain_size;
-    return 1;
+    gquic_reader_str_readed_size(reader, 1);
+    return 0;
 }
 
 static int gquic_frame_ping_init(void *const frame) {
@@ -54,6 +55,6 @@ static int gquic_frame_ping_init(void *const frame) {
 
 static int gquic_frame_ping_dtor(void *const frame) {
     (void) frame;
-    return 1;
+    return 0;
 }
 

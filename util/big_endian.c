@@ -26,6 +26,12 @@ int gquic_big_endian_writer_2byte(gquic_writer_str_t *const writer, const u_int1
     return 0;
 }
 
+int gquic_big_endian_writer_3byte(gquic_writer_str_t *const writer, const u_int32_t bytes) {
+    gquic_big_endian_transfer(GQUIC_STR_VAL(writer), &bytes, 3);
+    gquic_writer_str_writed_size(writer, 3);
+    return 0;
+}
+
 int gquic_big_endian_writer_4byte(gquic_writer_str_t *const writer, const u_int32_t bytes) {
     gquic_big_endian_transfer(GQUIC_STR_VAL(writer), &bytes, 4);
     gquic_writer_str_writed_size(writer, 4);
@@ -47,6 +53,12 @@ int gquic_big_endian_reader_1byte(u_int8_t *bytes, gquic_reader_str_t *const rea
 int gquic_big_endian_reader_2byte(u_int16_t *bytes, gquic_reader_str_t *const reader) {
     gquic_big_endian_transfer(bytes, GQUIC_STR_VAL(reader), 2);
     gquic_reader_str_readed_size(reader, 2);
+    return 0;
+}
+
+int gquic_big_endian_reader_3byte(u_int32_t *bytes, gquic_reader_str_t *const reader) {
+    gquic_big_endian_transfer(bytes, GQUIC_STR_VAL(reader), 3);
+    gquic_reader_str_readed_size(reader, 3);
     return 0;
 }
 
