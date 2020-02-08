@@ -235,3 +235,13 @@ int gquic_frame_ack_ranges_from_blocks(gquic_frame_ack_t *const spec, const gqui
 
     return 0;
 }
+
+int gquic_frames_has_frame_ack(gquic_list_t *const frames) {
+    void *frame = NULL;
+    GQUIC_LIST_FOREACH(frame, frames) {
+        if (GQUIC_FRAME_META(frame).type == 0x02 || GQUIC_FRAME_META(frame).type == 0x03) {
+            return 1;
+        }
+    }
+    return 0;
+}

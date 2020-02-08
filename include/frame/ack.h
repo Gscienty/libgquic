@@ -41,4 +41,6 @@ int gquic_frame_ack_acks_packet(const gquic_list_t *const blocks, const u_int64_
 int gquic_frame_ack_ranges_to_blocks(gquic_list_t *const blocks, const gquic_frame_ack_t *const spec);
 int gquic_frame_ack_ranges_from_blocks(gquic_frame_ack_t *const spec, const gquic_list_t *const blocks);
 
+int gquic_frames_has_frame_ack(gquic_list_t *const frames);
+
 #endif
