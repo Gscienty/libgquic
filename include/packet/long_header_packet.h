@@ -51,4 +51,11 @@ size_t gquic_packet_long_header_size(const gquic_packet_long_header_t *const hea
 int gquic_packet_long_header_serialize(const gquic_packet_long_header_t *const header, gquic_writer_str_t *const writer);
 int gquic_packet_long_header_deserialize(gquic_packet_long_header_t *const header, gquic_reader_str_t *const reader);
 
+#define GQUIC_LONG_HEADER_INITIAL 0x01
+#define GQUIC_LONG_HEADER_0RTT 0x02
+#define GQUIC_LONG_HEADER_HANDSHAKE 0x03
+#define GQUIC_LONG_HEADER_RETRY 0x04
+
+u_int8_t gquic_packet_long_header_type(const gquic_packet_long_header_t *const header);
+
 #endif

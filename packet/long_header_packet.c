@@ -375,3 +375,20 @@ static int gquic_packet_retry_header_deserialize(gquic_packet_retry_header_t *he
     return 0;
 }
 
+u_int8_t gquic_packet_long_header_type(const gquic_packet_long_header_t *const header) {
+    if (header == NULL) {
+        return 0;
+    }
+
+    switch ((header->flag & 0x30) >> 4) {
+    case 0x00:
+        return GQUIC_LONG_HEADER_INITIAL;
+    case 0x01:
+        return GQUIC_LONG_HEADER_0RTT;
+    case 0x02:
+        return GQUIC_LONG_HEADER_HANDSHAKE;
+    case 0x03:
+        return GQUIC_LONG_HEADER_RETRY;
+    }
+    return 0;
+}
