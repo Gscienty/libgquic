@@ -1,5 +1,6 @@
 #include "packet/received_packet_handler.h"
 #include "frame/meta.h"
+#include "tls/common.h"
 #include <time.h>
 #include <malloc.h>
 
@@ -162,6 +163,17 @@ int gquic_packet_received_packet_handler_init(gquic_packet_received_packet_handl
     return 0;
 }
 
+int gquic_packet_received_packet_handler_ctor(gquic_packet_received_packet_handler_t *const handler,
+                                              gquic_rtt_t *const rtt) {
+    if (handler == NULL || rtt == NULL) {
+        return -1;
+    }
+    handler->max_ack_delay = 25 * 1000;
+    handler->rtt = rtt;
+
+    return 0;
+}
+
 int gquic_packet_received_packet_handler_dtor(gquic_packet_received_packet_handler_t *const handler) {
     if (handler == NULL) {
         return -1;
@@ -174,9 +186,9 @@ int gquic_packet_received_packet_handler_dtor(gquic_packet_received_packet_handl
 }
 
 int gquic_packet_received_packet_handler_received_packet(gquic_packet_received_packet_handler_t *const handler,
-                                                         u_int64_t pn,
-                                                         u_int64_t recv_time,
-                                                         int should_inst_ack) {
+                                                         const u_int64_t pn,
+                                                         const u_int64_t recv_time,
+                                                         const int should_inst_ack) {
     if (handler == NULL) {
         return -1;
     }
@@ -256,8 +268,8 @@ int gquic_packet_received_mem_get_blocks(gquic_list_t *const blocks,
     return 0;
 }
 
-int gquic_packet_receied_packet_handler_get_ack_frame(gquic_frame_ack_t **const ack,
-                                                      gquic_packet_received_packet_handler_t *const handler) {
+int gquic_packet_received_packet_handler_get_ack_frame(gquic_frame_ack_t **const ack,
+                                                       gquic_packet_received_packet_handler_t *const handler) {
     gquic_list_t blocks;
     if (ack == NULL || handler == NULL) {
         return -1;
@@ -270,7 +282,10 @@ int gquic_packet_receied_packet_handler_get_ack_frame(gquic_frame_ack_t **const 
     if (gquic_packet_received_mem_get_blocks(&blocks, &handler->mem) != 0) {
         return -2;
     }
-    (*ack)->delay = time(NULL) * 1000 * 1000 - handler->largest_obeserved_time;
+    struct timeval tv;
+    struct timezone tz;
+    gettimeofday(&tv, &tz);
+    (*ack)->delay = tv.tv_sec * 1000 * 1000 + tv.tv_usec - handler->largest_obeserved_time;
     gquic_frame_ack_ranges_from_blocks(*ack, &blocks);
 
     handler->last_ack = *ack;
@@ -282,6 +297,21 @@ int gquic_packet_receied_packet_handler_get_ack_frame(gquic_frame_ack_t **const 
     while (!gquic_list_head_empty(&blocks)) {
         gquic_list_release(GQUIC_LIST_FIRST(&blocks));
     }
+    return 0;
+}
+
+int gquic_packet_received_packet_handler_ignore_below(gquic_packet_received_packet_handler_t *const handler,
+                                                      const u_int64_t pn) {
+    if (handler == NULL) {
+        return -1;
+    }
+    if (pn <= handler->ignore_below) {
+        return 0;
+    }
+    if (gquic_packet_received_mem_delete_below(&handler->mem, pn) != 0) {
+        return -2;
+    }
+
     return 0;
 }
 
@@ -317,3 +347,162 @@ static int gquic_packet_received_packet_handler_has_miss_packet(const gquic_pack
     return interval->start >= handler->last_ack->largest_ack && interval->end - interval->start + 1 <= 4;
 }
 
+int gquic_packet_received_packet_handlers_init(gquic_packet_received_packet_handlers_t *const handlers) {
+    if (handlers == NULL) {
+        return -1;
+    }
+    gquic_packet_received_packet_handler_init(&handlers->initial);
+    gquic_packet_received_packet_handler_init(&handlers->handshake);
+    gquic_packet_received_packet_handler_init(&handlers->one_rtt);
+    handlers->handshake_dropped = 1;
+    handlers->initial_dropped = 1;
+    handlers->one_rtt_dropped = 1;
+
+    return 0;
+}
+
+int gquic_packet_received_packet_handlers_ctor(gquic_packet_received_packet_handlers_t *const handlers,
+                                               gquic_rtt_t *const rtt) {
+    if (handlers == NULL || rtt == NULL) {
+        return -1;
+    }
+    gquic_packet_received_packet_handler_ctor(&handlers->initial, rtt);
+    gquic_packet_received_packet_handler_ctor(&handlers->handshake, rtt);
+    gquic_packet_received_packet_handler_ctor(&handlers->one_rtt, rtt);
+    handlers->handshake_dropped = 0;
+    handlers->initial_dropped = 0;
+    handlers->one_rtt_dropped = 0;
+
+    return 0;
+}
+
+int gquic_packet_received_packet_handlers_dtor(gquic_packet_received_packet_handlers_t *const handlers) {
+    if (handlers == NULL) {
+        return -1;
+    }
+    gquic_packet_received_packet_handler_dtor(&handlers->initial);
+    gquic_packet_received_packet_handler_dtor(&handlers->handshake);
+    gquic_packet_received_packet_handler_dtor(&handlers->one_rtt);
+    handlers->handshake_dropped = 0;
+    handlers->initial_dropped = 0;
+    handlers->one_rtt_dropped = 0;
+
+    return 0;
+}
+
+int gquic_packet_received_packet_handlers_received_packet(gquic_packet_received_packet_handlers_t *const handlers,
+                                                          const u_int64_t pn,
+                                                          const u_int64_t recv_time,
+                                                          const int should_inst_ack,
+                                                          const u_int8_t enc_lv) {
+    if (handlers == NULL) {
+        return -1;
+    }
+    switch (enc_lv) {
+    case GQUIC_ENC_LV_INITIAL:
+        if (handlers->initial_dropped) {
+            return -2;
+        }
+        return gquic_packet_received_packet_handler_received_packet(&handlers->initial, pn, recv_time, should_inst_ack);
+    case GQUIC_ENC_LV_HANDSHAKE:
+        if (handlers->handshake_dropped) {
+            return -3;
+        }
+        return gquic_packet_received_packet_handler_received_packet(&handlers->handshake, pn, recv_time, should_inst_ack);
+    case GQUIC_ENC_LV_1RTT:
+        if (handlers->one_rtt_dropped) {
+            return -4;
+        }
+        return gquic_packet_received_packet_handler_received_packet(&handlers->one_rtt, pn, recv_time, should_inst_ack);
+    default:
+        return -5;
+    }
+}
+
+int gquic_packet_received_packet_handlers_ignore_below(gquic_packet_received_packet_handlers_t *const handlers,
+                                                       const u_int64_t pn) {
+    if (handlers == NULL) {
+        return -1;
+    }
+    return gquic_packet_received_packet_handler_ignore_below(&handlers->one_rtt, pn);
+}
+
+int gquic_packet_received_packet_handlers_drop_packets(gquic_packet_received_packet_handlers_t *const handlers,
+                                                       const u_int8_t enc_lv) {
+    if (handlers == NULL) {
+        return -1;
+    }
+    switch (enc_lv) {
+    case GQUIC_ENC_LV_INITIAL:
+        gquic_packet_received_packet_handler_dtor(&handlers->initial);
+        handlers->initial_dropped = 1;
+        break;
+    case GQUIC_ENC_LV_HANDSHAKE:
+        gquic_packet_received_packet_handler_dtor(&handlers->handshake);
+        handlers->handshake_dropped = 1;
+        break;
+    default:
+        return -2;
+    }
+    return 0;
+}
+
+u_int64_t gquic_packet_received_packet_handlers_get_alarm_timeout(gquic_packet_received_packet_handlers_t *const handlers) {
+    u_int64_t initial_alarm = 0;
+    u_int64_t handshake_alarm = 0;
+    u_int64_t one_rtt_alarm = 0;
+    u_int64_t ret = 0;
+    if (handlers == NULL) {
+        return 0;
+    }
+    if (!handlers->initial_dropped) {
+        initial_alarm = handlers->initial.ack_alarm;
+    }
+    if (!handlers->handshake_dropped) {
+        handshake_alarm = handlers->handshake.ack_alarm;
+    }
+    one_rtt_alarm = handlers->one_rtt.ack_alarm;
+    if (initial_alarm != 0) {
+        ret = initial_alarm;
+    }
+    if (handshake_alarm < ret && handshake_alarm != 0) {
+        ret = handshake_alarm;
+    }
+    if (one_rtt_alarm < ret && one_rtt_alarm != 0) {
+        ret = one_rtt_alarm;
+    }
+    return ret;
+}
+
+int gquic_packet_received_packet_handlers_get_ack_frame(gquic_frame_ack_t **const ack,
+                                                        gquic_packet_received_packet_handlers_t *const handlers,
+                                                        const u_int8_t enc_lv) {
+    if (ack == NULL || handlers == NULL) {
+        return -1;
+    }
+    switch (enc_lv) {
+    case GQUIC_ENC_LV_INITIAL:
+        if (!handlers->initial_dropped) {
+            if (gquic_packet_received_packet_handler_get_ack_frame(ack, &handlers->initial) != 0) {
+                return -2;
+            }
+        }
+        break;
+    case GQUIC_ENC_LV_HANDSHAKE:
+        if (!handlers->handshake_dropped) {
+            if (gquic_packet_received_packet_handler_get_ack_frame(ack, &handlers->handshake) != 0) {
+                return -3;
+            }
+        }
+        break;
+    case GQUIC_ENC_LV_1RTT:
+        return gquic_packet_received_packet_handler_get_ack_frame(ack, &handlers->one_rtt);
+    default:
+        return 0;
+    }
+
+    if (*ack != NULL) {
+        (*ack)->delay = 0;
+    }
+    return 0;
+}
