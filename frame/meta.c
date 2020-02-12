@@ -13,9 +13,10 @@ void *gquic_frame_alloc(size_t size) {
     meta->size_func = NULL;
     meta->type = 0x00;
     meta->payload_size = size;
-    meta->event.self = NULL;
-    meta->event.on_acked = NULL;
-    meta->event.on_lost = NULL;
+    meta->on_acked.self = NULL;
+    meta->on_acked.cb = NULL;
+    meta->on_lost.self = NULL;
+    meta->on_lost.cb = NULL;
     return ((void *) meta) + sizeof(gquic_frame_meta_t);
 }
 
