@@ -104,6 +104,23 @@ int gquic_str_cmp(const gquic_str_t *const str_a, const gquic_str_t *const str_b
     return 0;
 }
 
+int gquic_str_concat(gquic_str_t *const ret, const gquic_str_t *const a, const gquic_str_t *const b) {
+    if (ret == NULL || a == NULL || b == NULL) {
+        return -1;
+    }
+    if (gquic_str_alloc(ret, GQUIC_STR_SIZE(a) + GQUIC_STR_SIZE(b)) != 0) {
+        return -2;
+    }
+    gquic_writer_str_t writer = *ret;
+    if (gquic_writer_str_write(&writer, a) != 0) {
+        return -3;
+    }
+    if (gquic_writer_str_write(&writer, b) != 0) {
+        return -4;
+    }
+    return 0;
+}
+
 int gquic_reader_str_readed_size(gquic_reader_str_t *const reader, const size_t n) {
     if (reader == NULL) {
         return -1;
@@ -174,4 +191,16 @@ int gquic_writer_str_write_byte(gquic_writer_str_t *const writer, u_int8_t b) {
     }
     gquic_str_t bbuf = { 1, &b };
     return gquic_writer_str_write(writer, &bbuf);
+}
+
+int gquic_writer_str_write_padding(gquic_writer_str_t *const writer, u_int8_t padding_cnt, const u_int64_t padding_len) {
+    if (writer == NULL) {
+        return -1;
+    }
+    if (GQUIC_STR_SIZE(writer) < padding_len) {
+        return -2;
+    }
+    memset(GQUIC_STR_VAL(writer), padding_cnt, padding_len);
+    gquic_writer_str_writed_size(writer, padding_cnt);
+    return 0;
 }
