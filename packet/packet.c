@@ -11,7 +11,7 @@ int gquic_packet_init(gquic_packet_t *const packet) {
     packet->enc_lv = 0;
     packet->send_time = 0;
     packet->included_infly = 0;
-    gquic_list_head_init(&packet->frames);
+    packet->frames = NULL;
 
     return 0;
 }
@@ -19,10 +19,6 @@ int gquic_packet_init(gquic_packet_t *const packet) {
 int gquic_packet_dtor(gquic_packet_t *const packet) {
     if (packet == NULL) {
         return -1;
-    }
-    while (!gquic_list_head_empty(&packet->frames)) {
-        gquic_frame_release(*(void **) GQUIC_LIST_FIRST(&packet->frames));
-        gquic_list_release(GQUIC_LIST_FIRST(&packet->frames));
     }
 
     return 0;
