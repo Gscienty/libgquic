@@ -281,6 +281,7 @@ int gquic_tls_aead_dtor(gquic_tls_aead_t *const aead) {
     }
     GQUIC_TLS_AEAD_DTOR(aead);
     free(aead->self);
+    aead->self = NULL;
 
     return 0;
 }
