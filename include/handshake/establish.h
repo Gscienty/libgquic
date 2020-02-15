@@ -45,17 +45,40 @@ struct gquic_establish_process_event_s {
 
 typedef struct gquic_handshake_event_s gquic_handshake_event_t;
 struct gquic_handshake_event_s {
-    void *self;
-    int (*on_recv_params) (void *const, const gquic_str_t *const);
-    int (*on_err) (void *const, const u_int16_t, const int);
-    int (*drop_keys) (void *const, const u_int16_t);
-    int (*on_handshake_complete) (void *const);
+    struct {
+        void *self;
+        int (*cb) (void *const, const gquic_str_t *const);
+    } on_recv_params;
+    struct {
+        void *self;
+        int (*cb) (void *const, const u_int16_t, const int);
+    } on_err;
+    struct {
+        void *self;
+        int (*cb) (void *const, const u_int16_t);
+    } drop_keys;
+    struct {
+        void *self;
+        int (*cb) (void *const);
+    } on_handshake_complete;
 };
 
-#define GQUIC_HANDSHAKE_EVENT_ON_RECV_PARAMS(p, e) (((p) == NULL || (p)->on_recv_params == NULL || (p)->self == NULL) ? -1 : ((p)->on_recv_params((p)->self, (e))))
-#define GQUIC_HANDSHAKE_EVENT_ON_ERR(p, a, e) (((p) == NULL || (p)->on_err == NULL || (p)->self == NULL) ? -1 : ((p)->on_err((p)->self, (a), (e))))
-#define GQUIC_HANDSHAKE_EVENT_DROP_KEYS(p, e) (((p) == NULL || (p)->drop_keys == NULL || (p)->self == NULL) ? -1 : ((p)->drop_keys((p)->self, (e))))
-#define GQUIC_HANDSHAKE_EVENT_ON_HANDSHAKE_COMPLETE(p) (((p) == NULL || (p)->on_handshake_complete == NULL || (p)->self == NULL) ? -1 : ((p)->on_handshake_complete((p)->self)))
+#define GQUIC_HANDSHAKE_EVENT_ON_RECV_PARAMS(p, e) \
+    (((p) == NULL || (p)->on_recv_params.cb == NULL || (p)->on_recv_params.self == NULL) \
+     ? -1 \
+     : ((p)->on_recv_params.cb((p)->on_recv_params.self, (e))))
+#define GQUIC_HANDSHAKE_EVENT_ON_ERR(p, a, e) \
+    (((p) == NULL || (p)->on_err.cb == NULL || (p)->on_err.self == NULL) \
+     ? -1 \
+     : ((p)->on_err.cb((p)->on_err.self, (a), (e))))
+#define GQUIC_HANDSHAKE_EVENT_DROP_KEYS(p, e) \
+    (((p) == NULL || (p)->drop_keys.cb == NULL || (p)->drop_keys.self == NULL) \
+     ? -1 : \
+     ((p)->drop_keys.cb((p)->drop_keys.self, (e))))
+#define GQUIC_HANDSHAKE_EVENT_ON_HANDSHAKE_COMPLETE(p) \
+    (((p) == NULL || (p)->on_handshake_complete.cb == NULL || (p)->on_handshake_complete.self == NULL) \
+     ? -1 \
+     : ((p)->on_handshake_complete.cb((p)->on_handshake_complete.self)))
 
 int gquic_handshake_event_init(gquic_handshake_event_t *const event);
 
@@ -75,11 +98,11 @@ struct gquic_handshake_establish_s {
     u_int8_t read_enc_level;
     u_int8_t write_enc_level;
     gquic_io_t init_output;
-    gquic_handshake_opener_t init_opener;
-    gquic_handshake_sealer_t init_sealer;
+    gquic_common_long_header_opener_t initial_opener;
+    gquic_common_long_header_sealer_t initial_sealer;
     gquic_io_t handshake_output;
-    gquic_handshake_opener_t handshake_opener;
-    gquic_handshake_sealer_t handshake_sealer;
+    gquic_common_long_header_opener_t handshake_opener;
+    gquic_common_long_header_sealer_t handshake_sealer;
     gquic_io_t one_rtt_output;
     gquic_auto_update_aead_t aead;
     int has_1rtt_sealer;
@@ -92,14 +115,20 @@ struct gquic_handshake_establish_s {
 };
 
 int gquic_handshake_establish_init(gquic_handshake_establish_t *const est);
-int gquic_handshake_establish_release(gquic_handshake_establish_t *const est);
-int gquic_handshake_establish_assign(gquic_handshake_establish_t *const est,
-                                     gquic_tls_config_t *const cfg,
-                                     const gquic_str_t *const conn_id,
-                                     const gquic_transport_parameters_t *const params,
-                                     gquic_rtt_t *const rtt,
-                                     const gquic_net_addr_t *const addr,
-                                     const int is_client);
+int gquic_handshake_establish_ctor(gquic_handshake_establish_t *const est,
+                                   void *initial_stream_self,
+                                   int (*initial_stream_cb) (void *const, gquic_writer_str_t *const),
+                                   void *handshake_stream_self,
+                                   int (*handshake_stream_cb) (void *const, gquic_writer_str_t *const),
+                                   void *one_rtt_self,
+                                   int (*one_rtt_cb) (void *const, gquic_writer_str_t *const),
+                                   gquic_tls_config_t *const cfg,
+                                   const gquic_str_t *const conn_id,
+                                   const gquic_transport_parameters_t *const params,
+                                   gquic_rtt_t *const rtt,
+                                   const gquic_net_addr_t *const addr,
+                                   const int is_client);
+int gquic_handshake_establish_dtor(gquic_handshake_establish_t *const est);
 int gquic_handshake_establish_change_conn_id(gquic_handshake_establish_t *const est,
                                              const gquic_str_t *const conn_id);
 int gquic_handshake_establish_1rtt_set_last_acked(gquic_handshake_establish_t *const est,

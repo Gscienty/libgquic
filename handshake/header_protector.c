@@ -11,17 +11,18 @@ struct gquic_aes_header_protector_s {
     int is_long_header;
 };
 
-static int gquic_aes_header_protector_init(gquic_aes_header_protector_t *const,
-                                                     const gquic_tls_cipher_suite_t *const,
-                                                     const gquic_str_t *const,
-                                                     int);
+static int gquic_aes_header_protector_init(gquic_aes_header_protector_t *const);
+static int gquic_aes_header_protector_ctor(gquic_aes_header_protector_t *const,
+                                           const gquic_tls_cipher_suite_t *const,
+                                           const gquic_str_t *const,
+                                           int);
 static int gquic_aes_header_protector_encrypt(gquic_str_t *const, u_int8_t *const, void *const, gquic_str_t *const);
 static int gquic_aes_header_protector_decrypt(gquic_str_t *const, u_int8_t *const, void *const, gquic_str_t *const);
 static int gquic_aes_header_protector_apply(gquic_str_t *const,
                                                       u_int8_t *const,
                                                       gquic_aes_header_protector_t *const,
                                                       gquic_str_t *const);
-static int gquic_aes_header_protector_release(void *const);
+static int gquic_aes_header_protector_dtor(void *const);
 
 int gquic_header_protector_init(gquic_header_protector_t *const protector) {
     if (protector == NULL) {
@@ -30,14 +31,14 @@ int gquic_header_protector_init(gquic_header_protector_t *const protector) {
     protector->self = NULL;
     protector->encrypt = NULL;
     protector->decrypt = NULL;
-    protector->release = NULL;
+    protector->dtor = NULL;
     return 0;
 }
 
-int gquic_header_protector_assign(gquic_header_protector_t *const protector,
-                                  const gquic_tls_cipher_suite_t *const suite,
-                                  const gquic_str_t *const traffic_sec,
-                                  int is_long_header) {
+int gquic_header_protector_ctor(gquic_header_protector_t *const protector,
+                                const gquic_tls_cipher_suite_t *const suite,
+                                const gquic_str_t *const traffic_sec,
+                                int is_long_header) {
     if (protector == NULL || suite == NULL || traffic_sec == NULL) {
         return -1;
     }
@@ -48,12 +49,13 @@ int gquic_header_protector_assign(gquic_header_protector_t *const protector,
         if ((protector->self = malloc(sizeof(gquic_aes_header_protector_t))) == NULL) {
             return -2;
         }
-        if (gquic_aes_header_protector_init(protector->self, suite, traffic_sec, is_long_header) != 0) {
+        gquic_aes_header_protector_init(protector->self);
+        if (gquic_aes_header_protector_ctor(protector->self, suite, traffic_sec, is_long_header) != 0) {
             return -3;
         }
         protector->encrypt = gquic_aes_header_protector_encrypt;
         protector->decrypt = gquic_aes_header_protector_decrypt;
-        protector->release = gquic_aes_header_protector_release;
+        protector->dtor = gquic_aes_header_protector_dtor;
         break;
     case GQUIC_TLS_CIPHER_SUITE_CHACHA20_POLY1305_SHA256:
         // TODO
@@ -64,7 +66,17 @@ int gquic_header_protector_assign(gquic_header_protector_t *const protector,
     return 0;
 }
 
-static int gquic_aes_header_protector_init(gquic_aes_header_protector_t *const protector,
+static int gquic_aes_header_protector_init(gquic_aes_header_protector_t *const protector) {
+    if (protector == NULL) {
+        return -1;
+    }
+    gquic_str_init(&protector->mask);
+    protector->is_long_header = 0;
+
+    return 0;
+}
+
+static int gquic_aes_header_protector_ctor(gquic_aes_header_protector_t *const protector,
                                                      const gquic_tls_cipher_suite_t *const suite,
                                                      const gquic_str_t *const traffic_sec,
                                                      int is_long_header) {
@@ -129,7 +141,7 @@ static int gquic_aes_header_protector_apply(gquic_str_t *const header,
     return 0;
 }
 
-static int gquic_aes_header_protector_release(void *const protector) {
+static int gquic_aes_header_protector_dtor(void *const protector) {
     if (protector == NULL) {
         return -1;
     }
@@ -137,13 +149,13 @@ static int gquic_aes_header_protector_release(void *const protector) {
     return 0;
 }
 
-int gquic_header_protector_release(gquic_header_protector_t *const protector) {
+int gquic_header_protector_dtor(gquic_header_protector_t *const protector) {
     if (protector == NULL) {
         return -1;
     }
 
-    if (protector->release != NULL && protector->self != NULL) {
-        if (protector->release(protector->self) != 0) {
+    if (protector->dtor != NULL && protector->self != NULL) {
+        if (protector->dtor(protector->self) != 0) {
             return -2;
         }
         free(protector->self);

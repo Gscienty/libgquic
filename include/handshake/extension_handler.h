@@ -14,11 +14,11 @@ struct gquic_handshake_extension_handler_s {
 };
 
 int gquic_handshake_extension_handler_init(gquic_handshake_extension_handler_t *const handler);
-int gquic_handshake_extension_handler_release(gquic_handshake_extension_handler_t *const handler);
-int gquic_handshake_extension_handler_assign(gquic_handshake_extension_handler_t *const handler,
-                                             gquic_sem_list_t *const process_event_sem,
-                                             const gquic_transport_parameters_t *const params,
-                                             const int is_client);
+int gquic_handshake_extension_handler_ctor(gquic_handshake_extension_handler_t *const handler,
+                                           gquic_sem_list_t *const process_event_sem,
+                                           const gquic_transport_parameters_t *const params,
+                                           const int is_client);
+int gquic_handshake_extension_handler_dtor(gquic_handshake_extension_handler_t *const handler);
 int gquic_handshake_extension_handler_get_extensions(gquic_list_t *const extensions,
                                                      gquic_handshake_extension_handler_t *const handler,
                                                      const u_int8_t msg_type);

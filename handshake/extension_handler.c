@@ -15,7 +15,7 @@ int gquic_handshake_extension_handler_init(gquic_handshake_extension_handler_t *
     return 0;
 }
 
-int gquic_handshake_extension_handler_release(gquic_handshake_extension_handler_t *const handler) {
+int gquic_handshake_extension_handler_dtor(gquic_handshake_extension_handler_t *const handler) {
     if (handler == NULL) {
         return -1;
     }
@@ -24,10 +24,10 @@ int gquic_handshake_extension_handler_release(gquic_handshake_extension_handler_
     return 0;
 }
 
-int gquic_handshake_extension_handler_assign(gquic_handshake_extension_handler_t *const handler,
-                                             gquic_sem_list_t *const process_event_sem,
-                                             const gquic_transport_parameters_t *const params,
-                                             const int is_client) {
+int gquic_handshake_extension_handler_ctor(gquic_handshake_extension_handler_t *const handler,
+                                           gquic_sem_list_t *const process_event_sem,
+                                           const gquic_transport_parameters_t *const params,
+                                           const int is_client) {
     if (handler == NULL || process_event_sem == NULL || params == NULL) {
         return -1;
     }

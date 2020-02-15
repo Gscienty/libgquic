@@ -128,7 +128,7 @@ int gquic_auto_update_aead_set_rkey(gquic_auto_update_aead_t *const aead,
     if (aead == NULL || suite == NULL || traffic_sec == NULL) {
         return -1;
     }
-    gquic_header_protector_release(&aead->header_dec);
+    gquic_header_protector_dtor(&aead->header_dec);
     gquic_header_protector_init(&aead->header_dec);
 
     gquic_tls_aead_dtor(&aead->recv_aead);
@@ -136,7 +136,7 @@ int gquic_auto_update_aead_set_rkey(gquic_auto_update_aead_t *const aead,
     if (gquic_tls_create_aead(&aead->recv_aead, suite, traffic_sec) != 0) {
         return -2;
     }
-    if (gquic_header_protector_assign(&aead->header_dec, suite, traffic_sec, 0) != 0) {
+    if (gquic_header_protector_ctor(&aead->header_dec, suite, traffic_sec, 0) != 0) {
         return -3;
     }
     if (aead->suite == NULL) {
@@ -168,7 +168,7 @@ int gquic_auto_update_aead_set_wkey(gquic_auto_update_aead_t *const aead,
     if (aead == NULL || suite == NULL || traffic_sec == NULL) {
         return -1;
     }
-    gquic_header_protector_release(&aead->header_enc);
+    gquic_header_protector_dtor(&aead->header_enc);
     gquic_header_protector_init(&aead->header_enc);
 
     gquic_tls_aead_dtor(&aead->send_aead);
@@ -176,7 +176,7 @@ int gquic_auto_update_aead_set_wkey(gquic_auto_update_aead_t *const aead,
     if (gquic_tls_create_aead(&aead->send_aead, suite, traffic_sec) != 0) {
         return -2;
     }
-    if (gquic_header_protector_assign(&aead->header_enc, suite, traffic_sec, 0) != 0) {
+    if (gquic_header_protector_ctor(&aead->header_enc, suite, traffic_sec, 0) != 0) {
         return -3;
     }
     if (aead->suite == NULL) {

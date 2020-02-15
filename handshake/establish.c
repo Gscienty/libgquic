@@ -27,11 +27,14 @@ int gquic_handshake_event_init(gquic_handshake_event_t *const event) {
     if (event == NULL) {
         return -1;
     }
-    event->self = NULL;
-    event->on_recv_params = NULL;
-    event->on_err = NULL;
-    event->drop_keys = NULL;
-    event->on_handshake_complete = NULL;
+    event->on_recv_params.cb = NULL;
+    event->on_recv_params.self = NULL;
+    event->on_err.cb = NULL;
+    event->on_err.self = NULL;
+    event->drop_keys.cb = NULL;
+    event->drop_keys.self = NULL;
+    event->on_handshake_complete.cb = NULL;
+    event->on_handshake_complete.self = NULL;
 
     return 0;
 }
@@ -55,11 +58,11 @@ int gquic_handshake_establish_init(gquic_handshake_establish_t *const est) {
     est->read_enc_level = GQUIC_ENC_LV_INITIAL;
     est->write_enc_level = GQUIC_ENC_LV_INITIAL;
     gquic_io_init(&est->init_output);
-    gquic_handshake_opener_init(&est->init_opener);
-    gquic_handshake_sealer_init(&est->init_sealer);
+    gquic_common_long_header_opener_init(&est->initial_opener);
+    gquic_common_long_header_sealer_init(&est->initial_sealer);
     gquic_io_init(&est->handshake_output);
-    gquic_handshake_opener_init(&est->handshake_opener);
-    gquic_handshake_sealer_init(&est->handshake_sealer);
+    gquic_common_long_header_opener_init(&est->handshake_opener);
+    gquic_common_long_header_sealer_init(&est->handshake_sealer);
     gquic_io_init(&est->one_rtt_output);
     gquic_auto_update_aead_init(&est->aead);
     est->has_1rtt_sealer = 0;
@@ -73,7 +76,7 @@ int gquic_handshake_establish_init(gquic_handshake_establish_t *const est) {
     return 0;
 }
 
-int gquic_handshake_establish_release(gquic_handshake_establish_t *const est) {
+int gquic_handshake_establish_dtor(gquic_handshake_establish_t *const est) {
     if (est == NULL) {
         return -1;
     }
@@ -83,24 +86,34 @@ int gquic_handshake_establish_release(gquic_handshake_establish_t *const est) {
     return 0;
 }
 
-int gquic_handshake_establish_assign(gquic_handshake_establish_t *const est,
-                                     gquic_tls_config_t *const cfg,
-                                     const gquic_str_t *const conn_id,
-                                     const gquic_transport_parameters_t *const params,
-                                     gquic_rtt_t *const rtt,
-                                     const gquic_net_addr_t *const addr,
-                                     const int is_client) {
+int gquic_handshake_establish_ctor(gquic_handshake_establish_t *const est,
+                                   void *initial_stream_self,
+                                   int (*initial_stream_cb) (void *const, gquic_writer_str_t *const),
+                                   void *handshake_stream_self,
+                                   int (*handshake_stream_cb) (void *const, gquic_writer_str_t *const),
+                                   void *one_rtt_self,
+                                   int (*one_rtt_cb) (void *const, gquic_writer_str_t *const),
+                                   gquic_tls_config_t *const cfg,
+                                   const gquic_str_t *const conn_id,
+                                   const gquic_transport_parameters_t *const params,
+                                   gquic_rtt_t *const rtt,
+                                   const gquic_net_addr_t *const addr,
+                                   const int is_client) {
     if (est == NULL || conn_id == NULL || params == NULL || cfg == NULL || rtt == NULL || addr == NULL) {
         return -1;
     }
-    gquic_handshake_extension_handler_assign(&est->extension_handler, &est->handshake_process_events_queue, params, is_client);
+    gquic_handshake_extension_handler_ctor(&est->extension_handler, &est->handshake_process_events_queue, params, is_client);
 
     gquic_handshake_extension_handler_set_config_extension(cfg, &est->extension_handler);
     gquic_handshake_establish_set_record_layer(&cfg->alt_record, est);
 
-    gquic_handshake_opener_release(&est->init_opener);
-    gquic_handshake_sealer_release(&est->init_sealer);
-    gquic_handshake_initial_aead_init(&est->init_sealer, &est->init_opener, conn_id, is_client);
+    gquic_common_long_header_sealer_init(&est->initial_sealer);
+    gquic_common_long_header_opener_init(&est->initial_opener);
+    gquic_handshake_initial_aead_init(&est->initial_sealer, &est->initial_opener, conn_id, is_client);
+
+    gquic_io_implement(&est->init_output, initial_stream_self, initial_stream_cb);
+    gquic_io_implement(&est->handshake_output, handshake_stream_self, handshake_stream_cb);
+    gquic_io_implement(&est->one_rtt_output, one_rtt_self, one_rtt_cb);
 
     est->aead.rtt = rtt;
     est->cfg = cfg;
@@ -117,8 +130,10 @@ int gquic_handshake_establish_change_conn_id(gquic_handshake_establish_t *const 
     if (est == NULL || conn_id == NULL) {
         return -1;
     }
-    gquic_handshake_sealer_release(&est->handshake_sealer);
-    gquic_handshake_opener_release(&est->handshake_opener);
+    gquic_common_long_header_sealer_dtor(&est->handshake_sealer);
+    gquic_common_long_header_sealer_init(&est->handshake_sealer);
+    gquic_common_long_header_opener_dtor(&est->handshake_opener);
+    gquic_common_long_header_opener_init(&est->handshake_opener);
     if (gquic_handshake_initial_aead_init(&est->handshake_sealer,
                                           &est->handshake_opener,
                                           conn_id,
@@ -134,13 +149,6 @@ int gquic_handshake_establish_1rtt_set_last_acked(gquic_handshake_establish_t *c
         return -1;
     }
     est->aead.last_ack_pn = pn;
-    if (est->handshake_opener.opener.aead.self != NULL) {
-        gquic_handshake_opener_release(&est->handshake_opener);
-        gquic_handshake_opener_init(&est->handshake_opener);
-        gquic_handshake_sealer_release(&est->handshake_sealer);
-        gquic_handshake_sealer_init(&est->handshake_sealer);
-        GQUIC_HANDSHAKE_EVENT_DROP_KEYS(&est->events, GQUIC_ENC_LV_HANDSHAKE);
-    }
 
     return 0;
 }
@@ -631,19 +639,14 @@ int gquic_handshake_establish_set_rkey(gquic_handshake_establish_t *const est,
     switch (enc_level) {
     case GQUIC_ENC_LV_HANDSHAKE:
         est->read_enc_level = GQUIC_ENC_LV_HANDSHAKE;
-        gquic_handshake_opener_release(&est->handshake_opener);
-        gquic_handshake_opener_init(&est->handshake_opener);
-        if (gquic_tls_create_aead(&est->handshake_opener.opener.aead, suite, traffic_sec) != 0) {
-            ret = -2;
-            goto failure;
-        }
-        if (gquic_header_protector_assign(&est->handshake_opener.opener.protector, suite, traffic_sec, 1) != 0) {
-            ret = -3;
-            goto failure;
-        }
-        est->handshake_opener.is_client = est->is_client;
-        est->handshake_opener.drop_keys_self = est;
-        est->handshake_opener.drop_keys = gquic_establish_drop_initial_keys_wrap;
+        gquic_common_long_header_opener_dtor(&est->handshake_opener);
+        gquic_common_long_header_opener_init(&est->handshake_opener);
+        gquic_common_long_header_opener_handshake_traffic_ctor(&est->handshake_opener,
+                                                               suite,
+                                                               traffic_sec,
+                                                               est,
+                                                               gquic_establish_drop_initial_keys_wrap,
+                                                               est->is_client);
         break;
 
     case GQUIC_ENC_LV_APP:
@@ -684,19 +687,14 @@ int gquic_handshake_establish_set_wkey(gquic_handshake_establish_t *const est,
     switch (enc_level) {
     case GQUIC_ENC_LV_HANDSHAKE:
         est->write_enc_level = GQUIC_ENC_LV_HANDSHAKE;
-        gquic_handshake_sealer_release(&est->handshake_sealer);
-        gquic_handshake_sealer_init(&est->handshake_sealer);
-        if (gquic_tls_create_aead(&est->handshake_sealer.sealer.aead, suite, traffic_sec) != 0) {
-            ret = -2;
-            goto failure;
-        }
-        if (gquic_header_protector_assign(&est->handshake_sealer.sealer.protector, suite, traffic_sec, 1) != 0) {
-            ret = -3;
-            goto failure;
-        }
-        est->handshake_sealer.is_client = est->is_client;
-        est->handshake_sealer.drop_keys_self = est;
-        est->handshake_sealer.drop_keys = gquic_establish_drop_initial_keys_wrap;
+        gquic_common_long_header_sealer_dtor(&est->handshake_sealer);
+        gquic_common_long_header_sealer_init(&est->handshake_sealer);
+        gquic_common_long_header_sealer_handshake_traffic_ctor(&est->handshake_sealer,
+                                                               suite,
+                                                               traffic_sec,
+                                                               est,
+                                                               gquic_establish_drop_initial_keys_wrap,
+                                                               est->is_client);
         break;
 
     case GQUIC_ENC_LV_APP:
@@ -729,8 +727,8 @@ int gquic_handshake_establish_drop_initial_keys(gquic_handshake_establish_t *con
         return -1;
     }
     sem_wait(&est->mtx);
-    gquic_handshake_opener_release(&est->handshake_opener);
-    gquic_handshake_sealer_release(&est->handshake_sealer);
+    gquic_common_long_header_opener_dtor(&est->handshake_opener);
+    gquic_common_long_header_sealer_dtor(&est->handshake_sealer);
     sem_post(&est->mtx);
     GQUIC_HANDSHAKE_EVENT_DROP_KEYS(&est->events, GQUIC_ENC_LV_INITIAL);
     return 0;
@@ -747,9 +745,10 @@ int gquic_handshake_establish_write_record(size_t *const size, gquic_handshake_e
         return -1;
     }
     sem_wait(&est->mtx);
+    gquic_writer_str_t writer = *data;
     switch (est->write_enc_level) {
     case GQUIC_ENC_LV_INITIAL:
-        if (GQUIC_IO_WRITE(size, &est->init_output, data) != 0) {
+        if (GQUIC_IO_WRITE(&est->init_output, &writer) != 0) {
             ret = -2;
             goto failure;
         }
@@ -767,7 +766,7 @@ int gquic_handshake_establish_write_record(size_t *const size, gquic_handshake_e
         }
         break;
     case GQUIC_ENC_LV_HANDSHAKE:
-        if (GQUIC_IO_WRITE(size, &est->handshake_output, data) != 0) {
+        if (GQUIC_IO_WRITE(&est->handshake_output, &writer) != 0) {
             ret = -4;
             goto failure;
         }
@@ -777,6 +776,7 @@ int gquic_handshake_establish_write_record(size_t *const size, gquic_handshake_e
         return -5;
     }
     sem_post(&est->mtx);
+    *size = GQUIC_STR_VAL(&writer) - GQUIC_STR_VAL(data);
     return 0;
 failure:
     sem_post(&est->mtx);
@@ -887,8 +887,8 @@ static int gquic_establish_try_send_sess_ticket(gquic_handshake_establish_t *con
         return 0;
     }
     if (GQUIC_STR_SIZE(&ticket) != 0) {
-        size_t size;
-        GQUIC_IO_WRITE(&size, &est->one_rtt_output, &ticket);
+        gquic_writer_str_t writer = ticket;
+        GQUIC_IO_WRITE(&est->one_rtt_output, &writer);
     }
     return 0;
 }

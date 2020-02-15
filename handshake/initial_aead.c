@@ -5,8 +5,8 @@
 static int gquic_handshake_generate_secs(gquic_str_t *const, gquic_str_t *const, const gquic_str_t *const);
 static int gquic_handshake_generate_key_iv(gquic_str_t *const, gquic_str_t *const, const gquic_str_t *const);
 
-int gquic_handshake_initial_aead_init(gquic_handshake_sealer_t *const sealer,
-                                      gquic_handshake_opener_t *const opener,
+int gquic_handshake_initial_aead_init(gquic_common_long_header_sealer_t *const sealer,
+                                      gquic_common_long_header_opener_t *const opener,
                                       const gquic_str_t *const conn_id,
                                       int is_client) {
     int ret = 0;
@@ -23,8 +23,8 @@ int gquic_handshake_initial_aead_init(gquic_handshake_sealer_t *const sealer,
     if (gquic_tls_get_cipher_suite(&suite, GQUIC_TLS_CIPHER_SUITE_AES_128_GCM_SHA256) != 0) {
         return -2;
     }
-    gquic_handshake_sealer_init(sealer);
-    gquic_handshake_opener_init(opener);
+    gquic_common_long_header_sealer_init(sealer);
+    gquic_common_long_header_opener_init(opener);
     if (gquic_handshake_generate_secs(&cli_sec, &ser_sec, conn_id) != 0) {
         return -3;
     }
@@ -37,38 +37,22 @@ int gquic_handshake_initial_aead_init(gquic_handshake_sealer_t *const sealer,
         goto failure;
     }
     if (is_client) {
-        if (suite->aead(&sealer->sealer.aead, &cli_key, &cli_iv) != 0) {
+        if (gquic_common_long_header_sealer_long_header_ctor(sealer, suite, &cli_key, &cli_iv, suite, &cli_sec) != 0) {
             ret = -6;
             goto failure;
         }
-        if (suite->aead(&opener->opener.aead, &ser_key, &ser_iv) != 0) {
+        if (gquic_common_long_header_opener_long_header_ctor(opener, suite, &ser_key, &ser_iv, suite, &ser_sec) != 0) {
             ret = -7;
-            goto failure;
-        }
-        if (gquic_header_protector_assign(&sealer->sealer.protector, suite, &cli_sec, 1) != 0) {
-            ret = -8;
-            goto failure;
-        }
-        if (gquic_header_protector_assign(&opener->opener.protector, suite, &ser_sec, 1) != 0) {
-            ret = -9;
             goto failure;
         }
     }
     else {
-        if (suite->aead(&sealer->sealer.aead, &ser_key, &ser_iv) != 0) {
-            ret = -10;
+        if (gquic_common_long_header_sealer_long_header_ctor(sealer, suite, &ser_key, &ser_iv, suite, &ser_sec) != 0) {
+            ret = -7;
             goto failure;
         }
-        if (suite->aead(&opener->opener.aead, &cli_key, &cli_iv) != 0) {
-            ret = -11;
-            goto failure;
-        }
-        if (gquic_header_protector_assign(&sealer->sealer.protector, suite, &ser_sec, 1) != 0) {
-            ret = -12;
-            goto failure;
-        }
-        if (gquic_header_protector_assign(&opener->opener.protector, suite, &cli_sec, 1) != 0) {
-            ret = -13;
+        if (gquic_common_long_header_opener_long_header_ctor(opener, suite, &cli_key, &cli_iv, suite, &cli_sec) != 0) {
+            ret = -6;
             goto failure;
         }
     }
