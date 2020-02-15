@@ -201,6 +201,6 @@ int gquic_writer_str_write_padding(gquic_writer_str_t *const writer, u_int8_t pa
         return -2;
     }
     memset(GQUIC_STR_VAL(writer), padding_cnt, padding_len);
-    gquic_writer_str_writed_size(writer, padding_cnt);
+    gquic_writer_str_writed_size(writer, padding_len);
     return 0;
 }

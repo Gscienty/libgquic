@@ -5,7 +5,7 @@
 #include <sys/types.h>
 
 ssize_t gquic_varint_size(const u_int64_t *const val);
-ssize_t gquic_varint_serialize(const u_int64_t *const val, gquic_writer_str_t *const writer);
-ssize_t gquic_varint_deserialize(u_int64_t *const val, gquic_reader_str_t *const reader);
+int gquic_varint_serialize(const u_int64_t *const val, gquic_writer_str_t *const writer);
+int gquic_varint_deserialize(u_int64_t *const val, gquic_reader_str_t *const reader);
 
 #endif
