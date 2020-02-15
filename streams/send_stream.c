@@ -267,9 +267,10 @@ int gquic_send_stream_pop_stream_frame(gquic_frame_stream_t **const frame, gquic
     if (*frame == NULL) {
         return remain_data;
     }
-    GQUIC_FRAME_META(*frame).event.self = str;
-    GQUIC_FRAME_META(*frame).event.on_lost = gquic_send_stream_queue_retransmission_wrap;
-    GQUIC_FRAME_META(*frame).event.on_acked = gquic_send_stream_frame_acked_wrap;
+    GQUIC_FRAME_META(*frame).on_lost.self = str;
+    GQUIC_FRAME_META(*frame).on_lost.cb = gquic_send_stream_queue_retransmission_wrap;
+    GQUIC_FRAME_META(*frame).on_acked.self = str;
+    GQUIC_FRAME_META(*frame).on_acked.cb = gquic_send_stream_frame_acked_wrap;
     return remain_data;
 }
 
