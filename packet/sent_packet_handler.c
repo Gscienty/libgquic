@@ -490,7 +490,7 @@ static inline int gquic_packet_sent_packet_handler_sent_packet_inner(gquic_packe
         return 0;
     }
     pn_spc->largest_sent = packet->pn;
-    ack_eliciting = !gquic_list_head_empty(&packet->frames);
+    ack_eliciting = !gquic_list_head_empty(packet->frames);
     if (ack_eliciting) {
         pn_spc->last_sent_ack_time = packet->send_time;
         packet->included_infly = 1;
@@ -585,7 +585,7 @@ static int gquic_packet_sent_packet_handler_on_packet_acked(gquic_packet_sent_pa
         return -4;
     }
     GQUIC_LIST_FOREACH(frame, &packet->frames) {
-        if (GQUIC_FRAME_META(*frame).event.self != NULL) {
+        if (GQUIC_FRAME_META(*frame).on_acked.self != NULL) {
             GQUIC_FRAME_ON_ACKED(*frame);
         }
     }
@@ -669,7 +669,7 @@ static int gquic_packet_sent_packet_handler_detect_lost_packets(gquic_packet_sen
                 (*lost_packet_storage)->enc_lv,
                 (*lost_packet_storage)->pn,
                 (*lost_packet_storage)->len,
-                &(*lost_packet_storage)->frames
+                (*lost_packet_storage)->frames
             };
             GQUIC_PACKET_SENT_PACKET_HANDLER_EVENT_CALLBACK(handler, &event);
         }
