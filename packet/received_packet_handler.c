@@ -274,14 +274,20 @@ int gquic_packet_received_packet_handler_get_ack_frame(gquic_frame_ack_t **const
     if (ack == NULL || handler == NULL) {
         return -1;
     }
-    if ((*ack = gquic_frame_ack_alloc()) == NULL) {
-        return -2;
-    }
     gquic_list_head_init(&blocks);
-    GQUIC_FRAME_INIT(*ack);
     if (gquic_packet_received_mem_get_blocks(&blocks, &handler->mem) != 0) {
         return -2;
     }
+    if (gquic_list_head_empty(&blocks)) {
+        return 0;
+    }
+    if ((*ack = gquic_frame_ack_alloc()) == NULL) {
+        while (!gquic_list_head_empty(&blocks)) {
+            gquic_list_release(GQUIC_LIST_FIRST(&blocks));
+        }
+        return -3;
+    }
+    GQUIC_FRAME_INIT(*ack);
     struct timeval tv;
     struct timezone tz;
     gettimeofday(&tv, &tz);
