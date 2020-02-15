@@ -29,7 +29,6 @@ static size_t gquic_frame_connection_close_size(const void *const frame) {
         return 0;
     }
     return 1 + gquic_varint_size(&spec->errcode)
-        + gquic_varint_size(&spec->phase_len)
         + (GQUIC_FRAME_META(spec).type == 0x1d ? gquic_varint_size(&spec->type) : 0)
         + gquic_varint_size(&spec->phase_len)
         + spec->phase_len;
