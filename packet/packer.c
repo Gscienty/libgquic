@@ -8,18 +8,12 @@ static int gquic_retransmission_queue_add_initial_wrapper(void *const, void *con
 static int gquic_retransmission_queue_add_handshake_wrapper(void *const, void *const);
 static int gquic_retransmission_queue_add_app_wrapper(void *const, void *const);
 
-static int gquic_handshake_sealer_seal_wrapper(gquic_str_t *const,
+static int gquic_common_long_header_sealer_seal_wrapper(gquic_str_t *const,
                                                gquic_str_t *const,
                                                void *const,
                                                const u_int64_t,
                                                const gquic_str_t *const,
                                                const gquic_str_t *const);
-static int gquic_initial_sealer_seal_wrapper(gquic_str_t *const,
-                                             gquic_str_t *const,
-                                             void *const,
-                                             const u_int64_t,
-                                             const gquic_str_t *const,
-                                             const gquic_str_t *const);
 static int gquic_1rtt_sealer_seal_wrapper(gquic_str_t *const,
                                           gquic_str_t *const,
                                           void *const,
@@ -27,7 +21,7 @@ static int gquic_1rtt_sealer_seal_wrapper(gquic_str_t *const,
                                           const gquic_str_t *const,
                                           const gquic_str_t *const);
 
-static int gquic_packet_packer_get_sealer_and_header(gquic_packed_packet_payload_t *const, gquic_packet_packer_t *const, const u_int8_t);
+static int gquic_packet_packer_get_sealer_and_header(gquic_packed_packet_payload_t *const, gquic_packet_packer_t *const);
 
 int gquic_packed_packet_init(gquic_packed_packet_t *packed_packet) {
     if (packed_packet == NULL) {
@@ -277,18 +271,21 @@ int gquic_packet_packer_pack_conn_close(gquic_packed_packet_t *const packed_pack
         payload.sealer.self = &packer->est->aead;
         payload.header_sealer = &packer->est->aead.header_enc;
         gquic_packet_packer_get_short_header(&payload.hdr, packer, packer->est->aead.times);
+        payload.enc_lv = GQUIC_ENC_LV_1RTT;
     }
-    else if (packer->est->handshake_sealer.sealer.aead.self != NULL) {
-        payload.sealer.cb = gquic_handshake_sealer_seal_wrapper;
+    else if (packer->est->handshake_sealer.available) {
+        payload.sealer.cb = gquic_common_long_header_sealer_seal_wrapper;
         payload.sealer.self = &packer->est->handshake_sealer;
-        payload.header_sealer = &packer->est->handshake_sealer.sealer.protector;
+        gquic_common_long_header_sealer_get_header_sealer(&payload.header_sealer, &packer->est->handshake_sealer);
         gquic_packet_packer_get_long_header(&payload.hdr, packer, GQUIC_ENC_LV_HANDSHAKE);
+        payload.enc_lv = GQUIC_ENC_LV_HANDSHAKE;
     }
-    else if (packer->est->init_sealer.sealer.aead.self != NULL) {
-        payload.sealer.cb = gquic_initial_sealer_seal_wrapper;
-        payload.sealer.self = &packer->est->init_sealer;
-        payload.header_sealer = &packer->est->init_sealer.sealer.protector;
+    else if (packer->est->initial_sealer.available) {
+        payload.sealer.cb = gquic_common_long_header_sealer_seal_wrapper;
+        payload.sealer.self = &packer->est->initial_sealer;
+        gquic_common_long_header_sealer_get_header_sealer(&payload.header_sealer, &packer->est->initial_sealer);
         gquic_packet_packer_get_long_header(&payload.hdr, packer, GQUIC_ENC_LV_INITIAL);
+        payload.enc_lv = GQUIC_ENC_LV_INITIAL;
     }
 
     if (gquic_packet_packer_pack(packed_packet, packer, &payload) != 0) {
@@ -298,22 +295,13 @@ int gquic_packet_packer_pack_conn_close(gquic_packed_packet_t *const packed_pack
     return 0;
 }
 
-static int gquic_handshake_sealer_seal_wrapper(gquic_str_t *const tag,
-                                               gquic_str_t *const cipher_text,
-                                               void *const self,
-                                               const u_int64_t pn,
-                                               const gquic_str_t *const plain_text,
-                                               const gquic_str_t *const addata) {
-    return gquic_handshake_sealer_seal(tag, cipher_text, self, pn, plain_text, addata);
-}
-
-static int gquic_initial_sealer_seal_wrapper(gquic_str_t *const tag,
-                                             gquic_str_t *const cipher_text,
-                                             void *const self,
-                                             const u_int64_t pn,
-                                             const gquic_str_t *const plain_text,
-                                             const gquic_str_t *const addata) {
-    return gquic_handshake_sealer_seal(tag, cipher_text, self, pn, plain_text, addata);
+static int gquic_common_long_header_sealer_seal_wrapper(gquic_str_t *const tag,
+                                                        gquic_str_t *const cipher_text,
+                                                        void *const self,
+                                                        const u_int64_t pn,
+                                                        const gquic_str_t *const plain_text,
+                                                        const gquic_str_t *const addata) {
+    return gquic_common_long_header_sealer_seal(tag, cipher_text, self, pn, plain_text, addata);
 }
 
 static int gquic_1rtt_sealer_seal_wrapper(gquic_str_t *const tag,
@@ -356,6 +344,7 @@ int gquic_packet_packer_get_long_header(gquic_packet_header_t *const hdr, gquic_
     if (hdr == NULL || packer == NULL) {
         return -1;
     }
+    hdr->is_long = 1;
     if ((hdr->hdr.l_hdr = gquic_packet_long_header_alloc()) == NULL) {
         return -2;
     }
@@ -404,10 +393,16 @@ int gquic_packet_packer_pack(gquic_packed_packet_t *const packed_packet,
         return -1;
     }
     if (payload->hdr.is_long) {
+        if (payload->hdr.hdr.l_hdr == NULL) {
+            return -2;
+        }
         pn_len = (0x03 & payload->hdr.hdr.l_hdr->flag) + 1;
         header_type = (payload->hdr.hdr.l_hdr->flag & 0x30) >> 4;
     }
     else {
+        if (payload->hdr.hdr.l_hdr == NULL) {
+            return -3;
+        }
         pn_len = (0x03 & payload->hdr.hdr.s_hdr->flag) + 1;
     }
 
@@ -419,7 +414,7 @@ int gquic_packet_packer_pack(gquic_packed_packet_t *const packed_packet,
     }
 
     if (gquic_packet_packer_pack_with_padding(packed_packet, packer, payload, padding_len) != 0) {
-        return -2;
+        return -4;
     }
     return 0;
 }
@@ -431,7 +426,7 @@ int gquic_packet_packer_pack_with_padding(gquic_packed_packet_t *const packed_pa
     int ret = 0;
     int pn_len = 0;
     u_int64_t hdr_pn = 0;
-    void *frame = NULL;
+    void **frame_storage = NULL;
     gquic_packet_buffer_t *buffer = NULL;
     u_int64_t header_size = 0;
     gquic_str_t tag = { 0, NULL };
@@ -460,7 +455,7 @@ int gquic_packet_packer_pack_with_padding(gquic_packed_packet_t *const packed_pa
     }
     hdr_pn = gquic_packet_header_get_pn(&payload->hdr);
     header_size = GQUIC_STR_VAL(&writer) - GQUIC_STR_VAL(&buffer->slice);
-    if (payload->ack != 0) {
+    if (payload->ack != NULL) {
         if (GQUIC_FRAME_SERIALIZE(payload->ack, &writer) != 0) {
             ret = -5;
             goto failure;
@@ -473,8 +468,8 @@ int gquic_packet_packer_pack_with_padding(gquic_packed_packet_t *const packed_pa
         }
     }
     if (payload->frames != NULL) {
-        GQUIC_LIST_FOREACH(frame, payload->frames) {
-            if (GQUIC_FRAME_SERIALIZE(frame, &writer) != 0) {
+        GQUIC_LIST_FOREACH(frame_storage, payload->frames) {
+            if (GQUIC_FRAME_SERIALIZE(*frame_storage, &writer) != 0) {
                 ret = -7;
                 goto failure;
             }
@@ -543,7 +538,6 @@ failure:
 
 int gquic_packet_packer_try_pack_ack_packet(gquic_packed_packet_t *const packed_packet,
                                             gquic_packet_packer_t *const packer) {
-    u_int8_t enc_lv = 0;
     gquic_packed_packet_payload_t payload;
     if (packed_packet == NULL || packer == NULL) {
         return -1;
@@ -554,7 +548,7 @@ int gquic_packet_packer_try_pack_ack_packet(gquic_packed_packet_t *const packed_
             return -2;
         }
         if (payload.ack != NULL) {
-            enc_lv = GQUIC_ENC_LV_INITIAL;
+            payload.enc_lv = GQUIC_ENC_LV_INITIAL;
         }
         else {
             if (gquic_packet_received_packet_handlers_get_ack_frame(&payload.ack, packer->acks, GQUIC_ENC_LV_HANDSHAKE) != 0) {
@@ -562,7 +556,7 @@ int gquic_packet_packer_try_pack_ack_packet(gquic_packed_packet_t *const packed_
                 return -3;
             }
             if (payload.ack != NULL) {
-                enc_lv = GQUIC_ENC_LV_HANDSHAKE;
+                payload.enc_lv = GQUIC_ENC_LV_HANDSHAKE;
             }
         }
     }
@@ -572,7 +566,7 @@ int gquic_packet_packer_try_pack_ack_packet(gquic_packed_packet_t *const packed_
             return -4;
         }
         if (payload.ack != NULL) {
-            enc_lv = GQUIC_ENC_LV_HANDSHAKE;
+            payload.enc_lv = GQUIC_ENC_LV_HANDSHAKE;
         }
         else {
             gquic_packed_packet_payload_dtor(&payload);
@@ -580,7 +574,7 @@ int gquic_packet_packer_try_pack_ack_packet(gquic_packed_packet_t *const packed_
         }
     }
     payload.len = GQUIC_FRAME_SIZE(payload.ack);
-    if (gquic_packet_packer_get_sealer_and_header(&payload, packer, enc_lv) != 0) {
+    if (gquic_packet_packer_get_sealer_and_header(&payload, packer) != 0) {
         gquic_packed_packet_payload_dtor(&payload);
         return -5;
     }
@@ -593,28 +587,29 @@ int gquic_packet_packer_try_pack_ack_packet(gquic_packed_packet_t *const packed_
 }
 
 static int gquic_packet_packer_get_sealer_and_header(gquic_packed_packet_payload_t *const payload,
-                                                     gquic_packet_packer_t *const packer,
-                                                     const u_int8_t enc_lv) {
+                                                     gquic_packet_packer_t *const packer) {
     if (payload == NULL || packer == NULL) {
         return -1;
     }
-    switch (enc_lv) {
+    switch (payload->enc_lv) {
     case GQUIC_ENC_LV_INITIAL:
-        if (packer->est->init_sealer.sealer.aead.self == NULL) {
+        if (!packer->est->initial_sealer.available) {
             return -2;
         }
-        payload->sealer.cb = gquic_initial_sealer_seal_wrapper;
-        payload->sealer.self = &packer->est->init_sealer;
+        payload->sealer.cb = gquic_common_long_header_sealer_seal_wrapper;
+        payload->sealer.self = &packer->est->initial_sealer;
+        gquic_common_long_header_sealer_get_header_sealer(&payload->header_sealer, &packer->est->initial_sealer);
         if (gquic_packet_packer_get_long_header(&payload->hdr, packer, GQUIC_ENC_LV_INITIAL) != 0) {
             return -3;
         }
         break;
     case GQUIC_ENC_LV_HANDSHAKE:
-        if (packer->est->handshake_sealer.sealer.aead.self == NULL) {
+        if (!packer->est->handshake_sealer.available) {
             return -4;
         }
-        payload->sealer.cb = gquic_handshake_sealer_seal_wrapper;
+        payload->sealer.cb = gquic_common_long_header_sealer_seal_wrapper;
         payload->sealer.self = &packer->est->handshake_sealer;
+        gquic_common_long_header_sealer_get_header_sealer(&payload->header_sealer, &packer->est->handshake_sealer);
         if (gquic_packet_packer_get_long_header(&payload->hdr, packer, GQUIC_ENC_LV_HANDSHAKE) != 0) {
             return -5;
         }
@@ -625,6 +620,7 @@ static int gquic_packet_packer_get_sealer_and_header(gquic_packed_packet_payload
         }
         payload->sealer.cb = gquic_1rtt_sealer_seal_wrapper;
         payload->sealer.self = &packer->est->aead;
+        payload->header_sealer = &packer->est->aead.header_enc;
         if (gquic_packet_packer_get_short_header(&payload->hdr, packer, packer->est->aead.times) != 0) {
             return -7;
         }
@@ -645,11 +641,12 @@ int gquic_packet_packer_try_pack_initial_packet(gquic_packed_packet_t *const pac
     }
     gquic_packed_packet_payload_init(&payload);
 
-    if (packer->est->handshake_sealer.sealer.aead.self == NULL) {
+    if (!packer->est->initial_sealer.available) {
         return -2;
     }
-    payload.sealer.cb = gquic_initial_sealer_seal_wrapper;
-    payload.sealer.self = &packer->est->init_sealer;
+    payload.sealer.cb = gquic_common_long_header_sealer_seal_wrapper;
+    payload.sealer.self = &packer->est->initial_sealer;
+    gquic_common_long_header_sealer_get_header_sealer(&payload.header_sealer, &packer->est->initial_sealer);
     if (gquic_packet_received_packet_handlers_get_ack_frame(&payload.ack, packer->acks, GQUIC_ENC_LV_INITIAL) != 0) {
         return -3;
     }
@@ -666,7 +663,8 @@ int gquic_packet_packer_try_pack_initial_packet(gquic_packed_packet_t *const pac
         return -4;
     }
     gquic_list_head_init(payload.frames);
-    if (gquic_packet_packer_pack_crypto_packet(packed_packet, packer, &payload, GQUIC_ENC_LV_INITIAL, has_retransmission) != 0) {
+    payload.enc_lv = GQUIC_ENC_LV_INITIAL;
+    if (gquic_packet_packer_pack_crypto_packet(packed_packet, packer, &payload, has_retransmission) != 0) {
         gquic_packed_packet_payload_dtor(&payload);
         return -5;
     }
@@ -683,14 +681,15 @@ int gquic_packet_packer_try_pack_handshake_packet(gquic_packed_packet_t *const p
     }
     gquic_packed_packet_payload_init(&payload);
 
-    if (packer->est->handshake_sealer.sealer.aead.self == NULL) {
-        if (packer->est->init_sealer.sealer.aead.self == NULL) {
+    if (!packer->est->handshake_sealer.available) {
+        if (!packer->est->initial_sealer.available) {
             return -2;
         }
         return -3;
     }
-    payload.sealer.cb = gquic_handshake_sealer_seal_wrapper;
+    payload.sealer.cb = gquic_common_long_header_sealer_seal_wrapper;
     payload.sealer.self = &packer->est->handshake_sealer;
+    gquic_common_long_header_sealer_get_header_sealer(&payload.header_sealer, &packer->est->handshake_sealer);
     if (gquic_packet_received_packet_handlers_get_ack_frame(&payload.ack, packer->acks, GQUIC_ENC_LV_INITIAL) != 0) {
         return -4;
     }
@@ -707,7 +706,8 @@ int gquic_packet_packer_try_pack_handshake_packet(gquic_packed_packet_t *const p
         return -5;
     }
     gquic_list_head_init(payload.frames);
-    if (gquic_packet_packer_pack_crypto_packet(packed_packet, packer, &payload, GQUIC_ENC_LV_INITIAL, has_retransmission) != 0) {
+    payload.enc_lv = GQUIC_ENC_LV_INITIAL;
+    if (gquic_packet_packer_pack_crypto_packet(packed_packet, packer, &payload, has_retransmission) != 0) {
         gquic_packed_packet_payload_dtor(&payload);
         return -6;
     }
@@ -737,6 +737,7 @@ int gquic_packet_packer_try_pack_app_packet(gquic_packed_packet_t *const packed_
     gquic_list_head_init(payload.frames);
     payload.sealer.cb = gquic_1rtt_sealer_seal_wrapper;
     payload.sealer.self = &packer->est->aead;
+    payload.header_sealer = &packer->est->aead.header_enc;
     if (gquic_packet_packer_get_short_header(&payload.hdr, packer, packer->est->aead.times) != 0) {
         gquic_packed_packet_payload_dtor(&payload);
         return -3;
@@ -848,7 +849,6 @@ int gquic_packet_packer_try_pack_crypto_packet(gquic_packed_packet_t *const pack
 int gquic_packet_packer_pack_crypto_packet(gquic_packed_packet_t *const packed_packet,
                                            gquic_packet_packer_t *const packer,
                                            gquic_packed_packet_payload_t *const payload,
-                                           const u_int8_t enc_lv,
                                            const int has_retransmission) {
     gquic_crypto_stream_t *str = NULL;
     u_int64_t header_len = 0;
@@ -858,14 +858,14 @@ int gquic_packet_packer_pack_crypto_packet(gquic_packed_packet_t *const packed_p
     if (packed_packet == NULL || packer == NULL || payload == NULL) {
         return -1;
     }
-    if (enc_lv == GQUIC_ENC_LV_HANDSHAKE) {
+    if (payload->enc_lv == GQUIC_ENC_LV_HANDSHAKE) {
         str = packer->handshake_stream;
     }
     else {
         str = packer->initial_stream;
     }
 
-    if (gquic_packet_packer_get_long_header(&payload->hdr, packer, enc_lv) != 0) {
+    if (gquic_packet_packer_get_long_header(&payload->hdr, packer, payload->enc_lv) != 0) {
         return -2;
     }
     header_len = gquic_packet_long_header_size(payload->hdr.hdr.l_hdr);
@@ -873,7 +873,7 @@ int gquic_packet_packer_pack_crypto_packet(gquic_packed_packet_t *const packed_p
     if (has_retransmission) {
         for ( ;; ) {
             frame = NULL;
-            switch (enc_lv) {
+            switch (payload->enc_lv) {
             case GQUIC_ENC_LV_INITIAL:
                 remain = 16 * (1 << 10) - header_len - 16 - payload->len;
                 gquic_retransmission_queue_get_initial(&frame, packer->retransmission_queue, remain);
