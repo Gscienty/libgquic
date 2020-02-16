@@ -13,7 +13,7 @@ struct gquic_auto_update_aead_s {
     u_int64_t last_ack_pn;
     u_int64_t update_interval;
 
-    struct timeval prev_recv_aead_expire;
+    u_int64_t prev_recv_aead_expire;
     gquic_tls_aead_t prev_recv_aead;
 
     u_int64_t cur_key_first_recv_pn;
@@ -39,7 +39,7 @@ struct gquic_auto_update_aead_s {
 };
 
 int gquic_auto_update_aead_init(gquic_auto_update_aead_t *const aead);
-int gquic_auto_update_aead_roll(gquic_auto_update_aead_t *const aead, const struct timeval *const now);
+int gquic_auto_update_aead_roll(gquic_auto_update_aead_t *const aead, const u_int64_t now);
 int gquic_auto_update_aead_set_rkey(gquic_auto_update_aead_t *const aead,
                                     const gquic_tls_cipher_suite_t *const suite,
                                     const gquic_str_t *const traffic_sec);
@@ -48,7 +48,7 @@ int gquic_auto_update_aead_set_wkey(gquic_auto_update_aead_t *const aead,
                                     const gquic_str_t *const traffic_sec);
 int gquic_auto_update_aead_open(gquic_str_t *const plain_text,
                                 gquic_auto_update_aead_t *const aead,
-                                const struct timeval *const recv_time,
+                                const u_int64_t recv_time,
                                 const u_int64_t pn,
                                 int kp,
                                 const gquic_str_t *const tag,

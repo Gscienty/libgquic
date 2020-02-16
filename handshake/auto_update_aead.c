@@ -15,8 +15,7 @@ int gquic_auto_update_aead_init(gquic_auto_update_aead_t *const aead) {
     aead->last_ack_pn = -1;
     aead->update_interval = 0;
 
-    aead->prev_recv_aead_expire.tv_sec = 0;
-    aead->prev_recv_aead_expire.tv_usec = 0;
+    aead->prev_recv_aead_expire = 0;
     gquic_tls_aead_init(&aead->prev_recv_aead);
 
     aead->cur_key_first_recv_pn = -1;
@@ -43,12 +42,12 @@ int gquic_auto_update_aead_init(gquic_auto_update_aead_t *const aead) {
     return 0;
 }
 
-int gquic_auto_update_aead_roll(gquic_auto_update_aead_t *const aead, const struct timeval *const now) {
+int gquic_auto_update_aead_roll(gquic_auto_update_aead_t *const aead, const u_int64_t now) {
     int ret = 0;
     useconds_t pto = 0;
     gquic_str_t next_recv_traffic_sec = { 0, NULL };
     gquic_str_t next_send_traffic_sec = { 0, NULL };
-    if (aead == NULL || now == NULL) {
+    if (aead == NULL) {
         return -1;
     }
 
@@ -62,8 +61,7 @@ int gquic_auto_update_aead_roll(gquic_auto_update_aead_t *const aead, const stru
     gquic_tls_aead_init(&aead->prev_recv_aead);
     gquic_tls_aead_copy(&aead->prev_recv_aead, &aead->recv_aead);
     pto = 3 * gquic_time_pto(aead->rtt, 1);
-    aead->prev_recv_aead_expire.tv_sec = (now->tv_sec + pto / 1000000) + (now->tv_usec + pto % 1000000) / 1000000;
-    aead->prev_recv_aead_expire.tv_usec = now->tv_usec + pto % 1000000;
+    aead->prev_recv_aead_expire = now + pto;
     gquic_tls_aead_copy(&aead->recv_aead, &aead->next_recv_aead);
     gquic_tls_aead_dtor(&aead->send_aead);
     gquic_tls_aead_init(&aead->send_aead);
@@ -203,23 +201,19 @@ int gquic_auto_update_aead_set_wkey(gquic_auto_update_aead_t *const aead,
 
 int gquic_auto_update_aead_open(gquic_str_t *const plain_text,
                                 gquic_auto_update_aead_t *const aead,
-                                const struct timeval *const recv_time,
+                                const u_int64_t recv_time,
                                 const u_int64_t pn,
                                 int kp,
                                 const gquic_str_t *const tag,
                                 const gquic_str_t *const cipher_text,
                                 const gquic_str_t *const addata) {
-    if (plain_text == NULL || aead == NULL || recv_time == NULL || tag == NULL || cipher_text == NULL || addata == NULL) {
+    if (plain_text == NULL || aead == NULL || tag == NULL || cipher_text == NULL || addata == NULL) {
         return -1;
     }
-    if (aead->prev_recv_aead.self != NULL
-        && (recv_time->tv_sec > aead->prev_recv_aead_expire.tv_sec
-            || (recv_time->tv_sec == aead->prev_recv_aead_expire.tv_sec
-                && recv_time->tv_usec > aead->prev_recv_aead_expire.tv_usec))) {
+    if (aead->prev_recv_aead.self != NULL && recv_time > aead->prev_recv_aead_expire) {
         gquic_tls_aead_dtor(&aead->prev_recv_aead);
         gquic_tls_aead_init(&aead->prev_recv_aead);
-        aead->prev_recv_aead_expire.tv_sec = 0;
-        aead->prev_recv_aead_expire.tv_usec = 0;
+        aead->prev_recv_aead_expire = 0;
     }
     gquic_big_endian_transfer(GQUIC_STR_VAL(&aead->nonce_buf) - 8, &pn, 8);
     if (kp != (aead->times % 2 == 1)) {
