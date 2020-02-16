@@ -23,7 +23,7 @@ gquic_frame_ack_t *gquic_frame_ack_alloc() {
     if (frame == NULL) {
         return NULL;
     }
-    GQUIC_FRAME_META(frame).type = 0x00;
+    GQUIC_FRAME_META(frame).type = 0x02;
     GQUIC_FRAME_META(frame).deserialize_func = gquic_frame_ack_deserialize;
     GQUIC_FRAME_META(frame).init_func = gquic_frame_ack_init;
     GQUIC_FRAME_META(frame).dtor_func = gquic_frame_ack_dtor;
