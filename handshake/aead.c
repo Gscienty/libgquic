@@ -587,7 +587,7 @@ int gquic_common_long_header_opener_open(gquic_str_t *const plain_text,
     }
 }
 
-int gquic_common_long_header_opener_get_header_sealer(gquic_header_protector_t **const protector,
+int gquic_common_long_header_opener_get_header_opener(gquic_header_protector_t **const protector,
                                                       gquic_common_long_header_opener_t *const opener) {
     if (protector == NULL || opener == NULL) {
         return -1;
