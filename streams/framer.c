@@ -16,8 +16,7 @@ int gquic_framer_init(gquic_framer_t *const framer) {
     return 0;
 }
 
-int gquic_framer_ctor(gquic_framer_t *const framer,
-                      gquic_stream_map_t *const stream_getter) {
+int gquic_framer_ctor(gquic_framer_t *const framer, gquic_stream_map_t *const stream_getter) {
     if (framer == NULL || stream_getter == NULL) {
         return -1;
     }
@@ -26,8 +25,7 @@ int gquic_framer_ctor(gquic_framer_t *const framer,
     return 0;
 }
 
-int gquic_framer_queue_ctrl_frame(gquic_framer_t *const framer,
-                                  void *const frame) {
+int gquic_framer_queue_ctrl_frame(gquic_framer_t *const framer, void *const frame) {
     void **frame_storage = NULL;
     if (framer == NULL || frame == NULL) {
         return -1;
@@ -42,10 +40,7 @@ int gquic_framer_queue_ctrl_frame(gquic_framer_t *const framer,
     return 0;
 }
 
-int gquic_framer_append_ctrl_frame(gquic_list_t *const frames,
-                                   u_int64_t *const length,
-                                   gquic_framer_t *const framer,
-                                   const u_int64_t max_len) {
+int gquic_framer_append_ctrl_frame(gquic_list_t *const frames, u_int64_t *const length, gquic_framer_t *const framer, const u_int64_t max_len) {
     void **ctrl_frame_storage = NULL;
     void **frame_storage = NULL;
     u_int64_t frame_size = 0;
@@ -73,8 +68,7 @@ int gquic_framer_append_ctrl_frame(gquic_list_t *const frames,
     return 0;
 }
 
-int gquic_framer_add_active_stream(gquic_framer_t *const framer,
-                                   const u_int64_t id) {
+int gquic_framer_add_active_stream(gquic_framer_t *const framer, const u_int64_t id) {
     gquic_rbtree_t *rb_id = NULL;
     u_int64_t *id_storage = NULL;
     if (framer == NULL) {
@@ -102,10 +96,7 @@ int gquic_framer_add_active_stream(gquic_framer_t *const framer,
     return 0;
 }
 
-int gquic_framer_append_stream_frames(gquic_list_t *const frames,
-                                      u_int64_t *const length,
-                                      gquic_framer_t *const framer,
-                                      const u_int64_t max_len) {
+int gquic_framer_append_stream_frames(gquic_list_t *const frames, u_int64_t *const length, gquic_framer_t *const framer, const u_int64_t max_len) {
     int i = 0;
     int active_streams_count = 0;
     gquic_stream_t *str = NULL;

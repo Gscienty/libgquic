@@ -42,7 +42,7 @@ int gquic_recv_stream_ctor(gquic_recv_stream_t *const str,
                            gquic_stream_sender_t *sender,
                            gquic_flowcontrol_stream_flow_ctrl_t *flow_ctrl);
 int gquic_recv_stream_dtor(gquic_recv_stream_t *const str);
-int gquic_recv_stream_read(int *const read, gquic_recv_stream_t *const str, gquic_str_t *const data);
+int gquic_recv_stream_read(int *const readed, gquic_recv_stream_t *const str, gquic_str_t *const data);
 int gquic_recv_stream_read_cancel(gquic_recv_stream_t *const str, const int err_code);
 int gquic_recv_stream_handle_stream_frame(gquic_recv_stream_t *const str, gquic_frame_stream_t *const stream);
 int gquic_recv_stream_handle_reset_stream_frame(gquic_recv_stream_t *const str, const gquic_frame_reset_stream_t *const reset_stream);
