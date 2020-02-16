@@ -15,5 +15,8 @@ struct gquic_packet_header_s {
 
 int gquic_packet_header_init(gquic_packet_header_t *const header);
 u_int64_t gquic_packet_header_get_pn(gquic_packet_header_t *const header);
+int gquic_packet_header_set_pn(gquic_packet_header_t *const header, const u_int64_t pn);
+int gquic_packet_header_set_len(gquic_packet_header_t *const header, const u_int64_t len);
+size_t gquic_packet_header_size(gquic_packet_header_t *const header);
 
 #endif

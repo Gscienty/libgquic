@@ -406,8 +406,15 @@ int gquic_packet_packer_pack(gquic_packed_packet_t *const packed_packet,
         pn_len = (0x03 & payload->hdr.hdr.s_hdr->flag) + 1;
     }
 
-    if (payload->enc_lv != GQUIC_ENC_LV_1RTT && packer->is_client && header_type == 0x00) {
-        padding_len = 1200 - 16 - gquic_packet_long_header_size(payload->hdr.hdr.l_hdr) - payload->len;
+    if (payload->enc_lv != GQUIC_ENC_LV_1RTT) {
+        if (packer->is_client && header_type == 0x00) {
+            size_t header_len = gquic_packet_header_size(&payload->hdr);
+            padding_len = 1200 - 16 - header_len - payload->len;
+            gquic_packet_header_set_len(&payload->hdr, pn_len + 1200 - header_len);
+        }
+        else {
+            gquic_packet_header_set_len(&payload->hdr, pn_len + 16 + payload->len);
+        }
     }
     else if ((int) payload->len < 4 - pn_len) {
         padding_len = 4 - pn_len - payload->len;

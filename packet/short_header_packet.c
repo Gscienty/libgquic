@@ -75,3 +75,38 @@ int gquic_packet_short_header_deserialize(gquic_packet_short_header_t *const hea
     }
     return 0;
 }
+
+int gquic_packet_short_header_deserialize_unseal_part(gquic_packet_short_header_t *const header, gquic_reader_str_t *const reader) {
+    if (header == NULL || reader == NULL) {
+        return -1;
+    }
+    header->flag = gquic_reader_str_read_byte(reader);
+    gquic_str_t dcid = { header->dcid_len, header->dcid };
+    gquic_reader_str_read(&dcid, reader);
+    header->pn = 0;
+
+    return 0;
+}
+
+int gquic_packet_short_header_deserialize_seal_part(gquic_packet_short_header_t *const header, gquic_reader_str_t *const reader) {
+    if (header == NULL || reader == NULL) {
+        return -1;
+    }
+
+    switch ((header->flag & 0x03) + 1) {
+    case 1:
+        gquic_big_endian_reader_1byte((u_int8_t *) &header->pn, reader);
+        break;
+    case 2:
+        gquic_big_endian_reader_2byte((u_int16_t *) &header->pn, reader);
+        break;
+    case 3:
+        gquic_big_endian_reader_3byte((u_int32_t *) &header->pn, reader);
+        break;
+    case 4:
+        gquic_big_endian_reader_4byte((u_int32_t *) &header->pn, reader);
+        break;
+    }
+    return 0;
+}
+

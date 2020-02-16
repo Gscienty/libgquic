@@ -16,6 +16,8 @@ gquic_packet_short_header_t *gquic_packet_short_header_alloc();
 ssize_t gquic_packet_short_header_size(const gquic_packet_short_header_t *const header);
 int gquic_packet_short_header_serialize(const gquic_packet_short_header_t *const header, gquic_writer_str_t *const writer);
 int gquic_packet_short_header_deserialize(gquic_packet_short_header_t *const header, gquic_reader_str_t *const reader);
+int gquic_packet_short_header_deserialize_unseal_part(gquic_packet_short_header_t *const header, gquic_reader_str_t *const reader);
+int gquic_packet_short_header_deserialize_seal_part(gquic_packet_short_header_t *const header, gquic_reader_str_t *const reader);
 
 
 #endif

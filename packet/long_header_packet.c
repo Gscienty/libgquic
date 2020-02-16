@@ -20,6 +20,11 @@ static int gquic_packet_0rtt_header_deserialize(gquic_packet_0rtt_header_t *, gq
 static int gquic_packet_handshake_header_deserialize(gquic_packet_handshake_header_t *, gquic_reader_str_t *const);
 static int gquic_packet_retry_header_deserialize(gquic_packet_retry_header_t *, gquic_reader_str_t *const);
 
+static int gquic_packet_initial_header_deserialize_unseal_part(gquic_packet_initial_header_t *, gquic_reader_str_t *const);
+static int gquic_packet_handshake_header_deserialize_unseal_part(gquic_packet_handshake_header_t *, gquic_reader_str_t *const);
+static int gquic_packet_initial_header_deserialize_seal_part(gquic_packet_initial_header_t *, gquic_reader_str_t *const);
+static int gquic_packet_handshake_header_deserialize_seal_part(gquic_packet_handshake_header_t *, gquic_reader_str_t *const);
+
 const static size_t SUB_MAX_SIZE = __Max(
                                          __Max(sizeof(gquic_packet_0rtt_header_t),
                                                sizeof(gquic_packet_retry_header_t)),
@@ -107,6 +112,7 @@ int gquic_packet_long_header_serialize(const gquic_packet_long_header_t *const h
     if (ret != 0) {
         return -4;
     }
+
     return 0;
 }
 
@@ -143,6 +149,39 @@ int gquic_packet_long_header_deserialize(gquic_packet_long_header_t *const heade
     }
     if (ret != 0) {
         return -4;
+    }
+    return 0;
+}
+
+int gquic_packet_long_header_deserialize_unseal_part(gquic_packet_long_header_t *const header, gquic_reader_str_t *const reader) {
+    int ret = 0;
+    if (header == NULL) {
+        return -1;
+    }
+    header->flag = gquic_reader_str_read_byte(reader);
+
+    gquic_big_endian_reader_4byte(&header->version, reader);
+
+    header->dcid_len = gquic_reader_str_read_byte(reader);
+    gquic_str_t dcid = { header->dcid_len, header->dcid };
+    gquic_reader_str_read(&dcid, reader);
+
+    header->scid_len = gquic_reader_str_read_byte(reader);
+    gquic_str_t scid = { header->scid_len, header->scid };
+    gquic_reader_str_read(&scid, reader);
+
+    switch ((header->flag & 0x30) >> 4) {
+    case 0x00:
+        ret = gquic_packet_initial_header_deserialize_unseal_part(GQUIC_LONG_HEADER_SPEC(header), reader);
+        break;
+    case 0x02:
+        ret = gquic_packet_handshake_header_deserialize_unseal_part(GQUIC_LONG_HEADER_SPEC(header), reader);
+        break;
+    default:
+        return -2;
+    }
+    if (ret != 0) {
+        return -3;
     }
     return 0;
 }
@@ -389,6 +428,103 @@ u_int8_t gquic_packet_long_header_type(const gquic_packet_long_header_t *const h
         return GQUIC_LONG_HEADER_HANDSHAKE;
     case 0x03:
         return GQUIC_LONG_HEADER_RETRY;
+    }
+    return 0;
+}
+
+static int gquic_packet_initial_header_deserialize_unseal_part(gquic_packet_initial_header_t *header, gquic_reader_str_t *const reader) {
+    if (header == NULL || reader == NULL) {
+        return -1;
+    }
+    if (gquic_varint_deserialize(&header->token_len, reader) != 0) {
+        return -2;
+    }
+    if (header->token_len > GQUIC_STR_SIZE(reader)) {
+        return -3;
+    }
+    header->token = malloc(header->token_len);
+    if (header->token == NULL) {
+        return -4;
+    }
+    gquic_str_t token = { header->token_len, header->token };
+    if (gquic_reader_str_read(&token, reader) != 0) {
+        return -5;
+    }
+    if (gquic_varint_deserialize(&header->len, reader) != 0) {
+        return -6;
+    }
+    header->pn = 0;
+    return 0;
+}
+
+static int gquic_packet_handshake_header_deserialize_unseal_part(gquic_packet_handshake_header_t *header, gquic_reader_str_t *const reader) {
+    if (header == NULL || reader == NULL) {
+        return -1;
+    }
+    if (gquic_varint_deserialize(&header->len, reader) != 0) {
+        return -2;
+    }
+    header->pn = 0;
+    return 0;
+}
+
+int gquic_packet_long_header_deserialize_seal_part(gquic_packet_long_header_t *const header, gquic_reader_str_t *const reader) {
+    int ret = 0;
+    if (header == NULL || reader == NULL) {
+        return -1;
+    }
+    switch ((header->flag & 0x30) >> 4) {
+    case 0x00:
+        ret = gquic_packet_initial_header_deserialize_seal_part(GQUIC_LONG_HEADER_SPEC(header), reader);
+        break;
+    case 0x02:
+        ret = gquic_packet_handshake_header_deserialize_seal_part(GQUIC_LONG_HEADER_SPEC(header), reader);
+        break;
+    default:
+        return -2;
+    }
+
+    return ret;
+}
+
+static int gquic_packet_initial_header_deserialize_seal_part(gquic_packet_initial_header_t *header, gquic_reader_str_t *const reader) {
+    if (header == NULL || reader == NULL) {
+        return -1;
+    }
+    switch (gquic_packet_number_flag_to_size(GQUIC_LONG_HEADER_COMMON(header).flag)) {
+    case 1:
+        gquic_big_endian_reader_1byte((u_int8_t *) &header->pn, reader);
+        break;
+    case 2:
+        gquic_big_endian_reader_2byte((u_int16_t *) &header->pn, reader);
+        break;
+    case 3:
+        gquic_big_endian_reader_3byte((u_int32_t *) &header->pn, reader);
+        break;
+    case 4:
+        gquic_big_endian_reader_4byte((u_int32_t *) &header->pn, reader);
+        break;
+    }
+    return 0;
+}
+
+static int gquic_packet_handshake_header_deserialize_seal_part(gquic_packet_handshake_header_t *header, gquic_reader_str_t *const reader) {
+    if (header == NULL || reader == NULL) {
+        return -1;
+    }
+    switch (gquic_packet_number_flag_to_size(GQUIC_LONG_HEADER_COMMON(header).flag)) {
+    case 1:
+        gquic_big_endian_reader_1byte((u_int8_t *) &header->pn, reader);
+        break;
+    case 2:
+        gquic_big_endian_reader_2byte((u_int16_t *) &header->pn, reader);
+        break;
+    case 3:
+        gquic_big_endian_reader_3byte((u_int32_t *) &header->pn, reader);
+        break;
+    case 4:
+        gquic_big_endian_reader_4byte((u_int32_t *) &header->pn, reader);
+        break;
     }
     return 0;
 }
