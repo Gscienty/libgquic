@@ -26,6 +26,7 @@ struct gquic_packed_packet_s {
 };
 
 int gquic_packed_packet_init(gquic_packed_packet_t *packed_packet);
+int gquic_packed_packet_dtor(gquic_packed_packet_t *packed_packet);
 u_int8_t gquic_packed_packet_enc_lv(const gquic_packed_packet_t *const packed_packet);
 int gquic_packed_packet_is_ack_eliciting(gquic_packed_packet_t *const packed_packet);
 int gquic_packed_packet_get_ack_packet(gquic_packet_t *const packet,

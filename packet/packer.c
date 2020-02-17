@@ -37,6 +37,35 @@ int gquic_packed_packet_init(gquic_packed_packet_t *packed_packet) {
     return 0;
 }
 
+int gquic_packed_packet_dtor(gquic_packed_packet_t *packed_packet) {
+    if (packed_packet == NULL) {
+        return -1;
+    }
+    if (packed_packet->hdr.is_long) {
+        if (packed_packet->hdr.hdr.l_hdr != NULL) {
+            gquic_packet_long_header_release(packed_packet->hdr.hdr.l_hdr);
+        }
+    }
+    else {
+        if (packed_packet->hdr.hdr.s_hdr != NULL) {
+            free(packed_packet->hdr.hdr.s_hdr);
+        }
+    }
+    if (packed_packet->ack != NULL) {
+        gquic_frame_release(packed_packet->ack);
+    }
+    if (packed_packet->frames != NULL) {
+        while (!gquic_list_head_empty(packed_packet->frames)) {
+            gquic_frame_release(*(void **) GQUIC_LIST_FIRST(packed_packet->frames));
+            gquic_list_release(GQUIC_LIST_FIRST(packed_packet->frames));
+        }
+        free(packed_packet->frames);
+    }
+    gquic_packet_buffer_put(packed_packet->buffer);
+
+    return 0;
+}
+
 u_int8_t gquic_packed_packet_enc_lv(const gquic_packed_packet_t *const packed_packet) {
     if (packed_packet == NULL) {
         return 0;
@@ -529,7 +558,7 @@ int gquic_packet_packer_pack_with_padding(gquic_packed_packet_t *const packed_pa
     packed_packet->hdr = payload->hdr;
     packed_packet->frames = payload->frames;
     gquic_str_t cnt = { GQUIC_STR_VAL(&buffer->writer) - GQUIC_STR_VAL(&buffer->slice), GQUIC_STR_VAL(&buffer->slice) };
-    gquic_str_copy(&packed_packet->raw, &cnt);
+    packed_packet->raw = cnt;
 
     gquic_str_reset(&tag);
     gquic_str_reset(&cipher_text);
