@@ -111,9 +111,9 @@ int gquic_handshake_establish_ctor(gquic_handshake_establish_t *const est,
     gquic_common_long_header_opener_init(&est->initial_opener);
     gquic_handshake_initial_aead_init(&est->initial_sealer, &est->initial_opener, conn_id, is_client);
 
-    gquic_io_implement(&est->init_output, initial_stream_self, initial_stream_cb);
-    gquic_io_implement(&est->handshake_output, handshake_stream_self, handshake_stream_cb);
-    gquic_io_implement(&est->one_rtt_output, one_rtt_self, one_rtt_cb);
+    gquic_io_writer_implement(&est->init_output, initial_stream_self, initial_stream_cb);
+    gquic_io_writer_implement(&est->handshake_output, handshake_stream_self, handshake_stream_cb);
+    gquic_io_writer_implement(&est->one_rtt_output, one_rtt_self, one_rtt_cb);
 
     est->aead.rtt = rtt;
     est->cfg = cfg;
