@@ -570,6 +570,7 @@ int gquic_tls_conn_read_handshake(void **const msg, gquic_tls_conn_t *const conn
         return -23;
     }
 
+    gquic_str_reset(&data);
     return 0;
 failure:
     gquic_str_reset(&data);

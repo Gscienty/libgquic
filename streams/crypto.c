@@ -1,4 +1,5 @@
 #include "streams/crypto.h"
+#include "tls/common.h"
 #include <malloc.h>
 
 static int gquic_crypto_stream_calc_readed_bytes(u_int64_t *const, gquic_crypto_stream_t *const);
@@ -215,4 +216,81 @@ int gquic_crypto_stream_pop_crypto_frame(gquic_frame_crypto_t **frame_storage, g
     }
 
     return gquic_crypto_stream_calc_writed_bytes(&write_size, str);
+}
+
+int gquic_crypto_stream_manager_init(gquic_crypto_stream_manager_t *const manager) {
+    if (manager == NULL) {
+        return -1;
+    }
+    manager->handle_msg.cb = NULL;
+    manager->handle_msg.self = NULL;
+    manager->handshake_stream = NULL;
+    manager->initial_stream = NULL;
+    manager->one_rtt_stream = NULL;
+
+    return 0;
+}
+
+int gquic_crypto_stream_manager_ctor(gquic_crypto_stream_manager_t *const manager,
+                                     void *handle_msg_self,
+                                     int (*handle_msg_cb) (void *const, const gquic_str_t *const, const u_int8_t),
+                                     gquic_crypto_stream_t *const initial_stream,
+                                     gquic_crypto_stream_t *const handshake_stream,
+                                     gquic_crypto_stream_t *const one_rtt_stream) {
+    if (manager == NULL || handle_msg_self == NULL || handle_msg_cb == NULL || initial_stream == NULL || handshake_stream == NULL || one_rtt_stream == NULL) {
+        return -1;
+    }
+    manager->handle_msg.cb = handle_msg_cb;
+    manager->handle_msg.self = handle_msg_self;
+    manager->initial_stream = initial_stream;
+    manager->handshake_stream = handshake_stream;
+    manager->one_rtt_stream = one_rtt_stream;
+
+    return 0;
+}
+
+int gquic_crypto_stream_manager_handle_crypto_frame(int *const changed,
+                                                    gquic_crypto_stream_manager_t *const manager,
+                                                    gquic_frame_crypto_t *const frame,
+                                                    const u_int8_t enc_lv) {
+    int ret = 0;
+    gquic_crypto_stream_t *str = NULL;
+    gquic_str_t data = { 0, NULL };
+    if (changed == NULL || manager == NULL || frame == NULL) {
+        return -1;
+    }
+    *changed = 0;
+    switch (enc_lv) {
+    case GQUIC_ENC_LV_INITIAL:
+        str = manager->initial_stream;
+        break;
+    case GQUIC_ENC_LV_HANDSHAKE:
+        str = manager->handshake_stream;
+        break;
+    case GQUIC_ENC_LV_1RTT:
+        str = manager->one_rtt_stream;
+        break;
+    default:
+        return -2;
+    }
+    if (gquic_crypto_stream_handle_crypto_frame(str, frame) != 0) {
+        return -3;
+    }
+
+    for ( ;; ) {
+        gquic_str_init(&data);
+        gquic_crypto_stream_get_data(&data, str);
+        if (GQUIC_STR_SIZE(&data) == 0) {
+            return 0;
+        }
+        if ((ret = GQUIC_CRYPTO_STREAM_MANAGER_HANDLE_MSG(manager, &data, enc_lv)) < 0) {
+            return -4;
+        }
+        else if (ret) {
+            *changed = 1;
+            return gquic_crypto_stream_finish(str);
+        }
+    }
+
+    return 0;
 }

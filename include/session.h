@@ -3,10 +3,13 @@
 
 #include "net/conn.h"
 #include "util/str.h"
+#include "util/rtt.h"
 #include "config.h"
 #include "streams/stream_map.h"
+#include "streams/crypto.h"
 #include "packet/send_queue.h"
 #include "packet/conn_id_gen.h"
+#include "packet/conn_id_manager.h"
 
 typedef struct gquic_session_s gquic_session_t;
 struct gquic_session_s {
@@ -23,6 +26,11 @@ struct gquic_session_s {
 
     gquic_stream_map_t streams_map;
     gquic_conn_id_gen_t conn_id_gen;
+    gquic_conn_id_manager_t conn_id_manager;
+
+    gquic_rtt_t rtt;
+
+
 };
 
 #endif

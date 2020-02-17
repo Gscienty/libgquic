@@ -302,9 +302,7 @@ int gquic_handshake_establish_handle_msg(gquic_handshake_establish_t *const est,
     if ((msg = gquic_list_alloc(sizeof(gquic_str_t))) == NULL) {
         return -4;
     }
-    if (gquic_str_copy(msg, data) != 0) {
-        return -5;
-    }
+    *msg = *data;
     gquic_sem_list_push(&est->msg_events_queue, msg);
     if (enc_level == GQUIC_ENC_LV_1RTT) {
         gquic_establish_handle_post_handshake_msg(est);
@@ -620,8 +618,7 @@ int gquic_handshake_establish_read_handshake_msg(gquic_str_t *const msg, gquic_h
     if (gquic_sem_list_pop((void **) &tmp, &est->msg_events_queue) != 0) {
         return -2;
     }
-    msg->size = tmp->size;
-    msg->val = tmp->val;
+    *msg = *tmp;
     gquic_list_release(tmp);
     return 0;
 }
