@@ -20,7 +20,7 @@ struct gquic_sem_list_s {
 };
 
 int gquic_sem_list_init(gquic_sem_list_t *const list);
-int gquic_sem_list_sem_release(gquic_sem_list_t *const list);
+int gquic_sem_list_sem_dtor(gquic_sem_list_t *const list);
 
 int gquic_sem_list_pop(void **const event, gquic_sem_list_t *const list);
 int gquic_sem_list_waiting_pop(void **const event, gquic_sem_list_t *const list, int (*cmp)(const void *const, const void *const), const void *const arg);

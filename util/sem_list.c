@@ -11,7 +11,7 @@ int gquic_sem_list_init(gquic_sem_list_t *const list) {
     return 0;
 }
 
-int gquic_sem_list_sem_release(gquic_sem_list_t *const list) {
+int gquic_sem_list_sem_dtor(gquic_sem_list_t *const list) {
     if (list == NULL) {
         return -1;
     }
