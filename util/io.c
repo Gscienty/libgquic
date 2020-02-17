@@ -10,9 +10,9 @@ int gquic_io_init(gquic_io_t *const io) {
     return 0;
 }
 
-int gquic_io_implement(gquic_io_t *const output,
-                       void *const self,
-                       int (*cb) (void *const, gquic_writer_str_t *const)) {
+int gquic_io_writer_implement(gquic_io_t *const output,
+                              void *const self,
+                              int (*cb) (void *const, gquic_writer_str_t *const)) {
     if (output == NULL || self == NULL || cb == NULL) {
         return -1;
     }

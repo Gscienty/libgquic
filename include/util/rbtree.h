@@ -20,6 +20,24 @@ struct gquic_rbtree_s {
 #define GQUIC_RBTREE_KEY(r) (((void *) (r)) + sizeof(gquic_rbtree_t))
 #define GQUIC_RBTREE_VALUE(r) (((void *) (r)) + sizeof(gquic_rbtree_t) + (r)->key_len) 
 
+#define GQUIC_RBTREE_EACHOR_BEGIN(payload, queue) \
+    gquic_list_insert_after((queue), gquic_list_alloc(sizeof(gquic_rbtree_t *))); \
+    *(gquic_rbtree_t **) gquic_list_next(GQUIC_LIST_PAYLOAD(queue)) = gen->active_src_conn_ids; \
+    while (!gquic_list_head_empty(queue)) { \
+        (payload) = *(gquic_rbtree_t **) gquic_list_prev(GQUIC_LIST_PAYLOAD(queue));
+
+#define GQUIC_RBTREE_EACHOR_END(payload, queue) \
+        if (!gquic_rbtree_is_nil((payload)->left)) { \
+            gquic_list_insert_after((queue), gquic_list_alloc(sizeof(gquic_rbtree_t *))); \
+            *(gquic_rbtree_t **) gquic_list_next(GQUIC_LIST_PAYLOAD(queue)) = (payload)->left; \
+        } \
+        if (!gquic_rbtree_is_nil((payload)->right)) { \
+            gquic_list_insert_after((queue), gquic_list_alloc(sizeof(gquic_rbtree_t *))); \
+            *(gquic_rbtree_t **) gquic_list_next(GQUIC_LIST_PAYLOAD(queue)) = (payload)->right; \
+        } \
+        gquic_list_remove(gquic_list_prev(GQUIC_LIST_PAYLOAD(queue))); \
+    }
+
 int gquic_rbtree_root_init(gquic_rbtree_t **const root);
 int gquic_rbtree_alloc(gquic_rbtree_t **const rb, const size_t key_len, const size_t val_len);
 int gquic_rbtree_release(gquic_rbtree_t *const rb, int (*release_val)(void *const));
