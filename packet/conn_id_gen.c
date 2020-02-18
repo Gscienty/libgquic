@@ -197,7 +197,7 @@ int gquic_conn_id_gen_remove_all(gquic_conn_id_gen_t *const gen) {
         GQUIC_CONN_ID_GEN_REMOVE_CONN_ID(gen, &gen->initial_cli_dst_conn_id);
     }
 
-    GQUIC_RBTREE_EACHOR_BEGIN(payload, &queue)
+    GQUIC_RBTREE_EACHOR_BEGIN(payload, &queue, gen->active_src_conn_ids)
         GQUIC_CONN_ID_GEN_REMOVE_CONN_ID(gen, GQUIC_RBTREE_VALUE(payload));
     GQUIC_RBTREE_EACHOR_END(payload, &queue)
     return 0;
@@ -214,7 +214,7 @@ int gquic_conn_id_gen_replace_with_closed(gquic_conn_id_gen_t *const gen, gquic_
         GQUIC_CONN_ID_GEN_REPLACE_WITH_CLOSED(gen, &gen->initial_cli_dst_conn_id, handler);
     }
 
-    GQUIC_RBTREE_EACHOR_BEGIN(payload, &queue)
+    GQUIC_RBTREE_EACHOR_BEGIN(payload, &queue, gen->active_src_conn_ids)
         GQUIC_CONN_ID_GEN_REPLACE_WITH_CLOSED(gen, GQUIC_RBTREE_VALUE(payload), handler);
     GQUIC_RBTREE_EACHOR_END(payload, &queue)
     return 0;
