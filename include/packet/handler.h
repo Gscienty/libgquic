@@ -21,6 +21,11 @@ struct gquic_packet_handler_s {
         int (*cb) (void *const);
     } is_client;
 };
+
+#define GQUIC_PACKET_HANDLER_HANDLE_PACKET(handler, packet) \
+    (((gquic_packet_handler_t *) (handler))->handle_packet.cb(((gquic_packet_handler_t *) (handler))->handle_packet.self, (packet)))
+#define GQUIC_PACKET_HANDLER_DESTORY(handler, err) \
+    (((gquic_packet_handler_t *) (handler))->destory.cb(((gquic_packet_handler_t *) (handler))->destory.self, err))
 int gquic_packet_handler_init(gquic_packet_handler_t *const handler);
 
 #endif
