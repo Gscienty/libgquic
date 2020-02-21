@@ -45,9 +45,11 @@ int gquic_rbtree_root_init(gquic_rbtree_t **const root);
 int gquic_rbtree_alloc(gquic_rbtree_t **const rb, const size_t key_len, const size_t val_len);
 int gquic_rbtree_release(gquic_rbtree_t *const rb, int (*release_val)(void *const));
 int gquic_rbtree_insert(gquic_rbtree_t **const root, gquic_rbtree_t *const node);
+int gquic_rbtree_insert_cmp(gquic_rbtree_t **const root, gquic_rbtree_t *const node, int (*key_cmp) (void *const, void *const));
 int gquic_rbtree_remove(gquic_rbtree_t **const root, gquic_rbtree_t **const node);
 int gquic_rbtree_is_nil(gquic_rbtree_t *const node);
 int gquic_rbtree_find(const gquic_rbtree_t **const ret, const gquic_rbtree_t *const root, const void *key, const size_t key_len);
+int gquic_rbtree_find_cmp(const gquic_rbtree_t **const ret, const gquic_rbtree_t *const root, void *key, int (key_cmp) (void *const, void *const));
 
 
 #endif
