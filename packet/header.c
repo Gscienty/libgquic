@@ -1,4 +1,5 @@
 #include "packet/header.h"
+#include <malloc.h>
 
 int gquic_packet_header_init(gquic_packet_header_t *const header) {
     if (header == NULL) {
@@ -88,4 +89,31 @@ size_t gquic_packet_header_size(gquic_packet_header_t *const header) {
     else {
         return gquic_packet_short_header_size(header->hdr.s_hdr);
     }
+}
+
+int gquic_packet_header_deserialize_conn_id(gquic_str_t *const conn_id, const gquic_str_t *const data, const int conn_id_len) {
+    int dst_conn_id_len = 0;
+    if (conn_id == NULL || data == NULL) {
+        return -1;
+    }
+    if ((GQUIC_STR_FIRST_BYTE(data) & 0x80) != 0) {
+        if (GQUIC_STR_SIZE(data) < 6) {
+            return -2;
+        }
+        dst_conn_id_len = ((u_int8_t *) GQUIC_STR_VAL(data))[5];
+        if (GQUIC_STR_SIZE(data) < (u_int64_t) 6 + dst_conn_id_len) {
+            return -3;
+        }
+        conn_id->size = dst_conn_id_len;
+        conn_id->val = GQUIC_STR_VAL(data) + 6;
+    }
+    else {
+        if (GQUIC_STR_SIZE(data) < (u_int64_t) 1 + conn_id_len) {
+            return -4;
+        }
+        conn_id->size = conn_id_len;
+        conn_id->val = GQUIC_STR_VAL(data) + 1;
+    }
+
+    return 0;
 }

@@ -19,4 +19,6 @@ int gquic_packet_header_set_pn(gquic_packet_header_t *const header, const u_int6
 int gquic_packet_header_set_len(gquic_packet_header_t *const header, const u_int64_t len);
 size_t gquic_packet_header_size(gquic_packet_header_t *const header);
 
+int gquic_packet_header_deserialize_conn_id(gquic_str_t *const conn_id, const gquic_str_t *const data, const int conn_id_len);
+
 #endif
