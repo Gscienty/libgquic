@@ -8,6 +8,7 @@ int gquic_received_packet_init(gquic_received_packet_t *const recv_packet) {
     recv_packet->recv_time = 0;
     gquic_str_init(&recv_packet->data);
     recv_packet->buffer = NULL;
+    gquic_packet_header_init(&recv_packet->header);
 
     return 0;
 }
