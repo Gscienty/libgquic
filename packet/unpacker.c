@@ -155,7 +155,7 @@ static int gquic_packet_unpacker_unpack_header_packet(gquic_unpacked_packet_t *c
     }
     reader = *payload->data;
     if (unpacked_packet->hdr.is_long) {
-        if ((unpacked_packet->hdr.hdr.l_hdr = malloc(sizeof(gquic_packet_long_header_t))) == NULL) {
+        if ((unpacked_packet->hdr.hdr.l_hdr = gquic_packet_long_header_alloc()) == NULL) {
             return -2;
         }
         if (gquic_packet_long_header_deserialize_unseal_part(unpacked_packet->hdr.hdr.l_hdr, &reader) != 0) {
