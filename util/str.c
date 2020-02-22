@@ -87,21 +87,13 @@ int gquic_str_test_echo(const gquic_str_t *const str) {
 }
 
 int gquic_str_cmp(const gquic_str_t *const str_a, const gquic_str_t *const str_b) {
-    if (str_a == NULL || str_b == NULL) {
-        return -1;
+    if (str_a == NULL && str_b == NULL) {
+        return 0;
     }
     if (GQUIC_STR_SIZE(str_a) != GQUIC_STR_SIZE(str_b)) {
-        return GQUIC_STR_SIZE(str_a) - GQUIC_STR_SIZE(str_b);
+        return (int) GQUIC_STR_SIZE(str_a) - (int) GQUIC_STR_SIZE(str_b);
     }
-    size_t i;
-    for (i = 0; i < GQUIC_STR_SIZE(str_a); i++) {
-        int cmpret = (int16_t) ((u_int8_t *) GQUIC_STR_VAL(str_a))[i] - (int16_t) ((u_int8_t *) GQUIC_STR_VAL(str_b))[i];
-        if (cmpret != 0) {
-            return cmpret;
-        }
-    }
-
-    return 0;
+    return memcmp(GQUIC_STR_VAL(str_a), GQUIC_STR_VAL(str_b), GQUIC_STR_SIZE(str_a));
 }
 
 int gquic_str_concat(gquic_str_t *const ret, const gquic_str_t *const a, const gquic_str_t *const b) {
