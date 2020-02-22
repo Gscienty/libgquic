@@ -24,6 +24,9 @@ struct gquic_io_s {
 #define GQUIC_IO_WRITE(p, w) (((p) == NULL || (p)->writer.self == NULL || (p)->writer.self == NULL) \
                               ? -1 \
                               : ((p)->writer.cb((p)->writer.self, (w))))
+#define GQUIC_IO_CLOSE(p) (((p) == NULL || (p)->closer.self == NULL || (p)->closer.self == NULL) \
+                           ? -1 \
+                           : ((p)->closer.cb((p)->closer.self)))
 
 int gquic_io_init(gquic_io_t *const output);
 int gquic_io_writer_implement(gquic_io_t *const output,
