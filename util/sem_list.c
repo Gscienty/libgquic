@@ -21,6 +21,53 @@ int gquic_sem_list_sem_dtor(gquic_sem_list_t *const list) {
     return 0;
 }
 
+int gquic_sem_list_time_pop(void **const event, gquic_sem_list_t *const list, const u_int64_t deadline) {
+    struct timespec spec;
+    if (event == NULL || list == NULL) {
+        return -1;
+    }
+    spec.tv_sec = deadline / (1000 * 1000);
+    spec.tv_nsec = deadline % (1000 * 1000);
+    if (GQUIC_SEM_LIST_TIME_WAIT(list, &spec) != 0) {
+        return 0;
+    }
+    GQUIC_SEM_LIST_LOCK(list);
+    if (list->closed) {
+        GQUIC_SEM_LIST_UNLOCK(list);
+        return -2;
+    }
+    if (gquic_list_head_empty(GQUIC_SEM_LIST(list))) {
+        GQUIC_SEM_LIST_UNLOCK(list);
+        return -3;
+    }
+    *event = GQUIC_SEM_LIST_FIRST(list);
+    gquic_list_remove(*event);
+    GQUIC_SEM_LIST_UNLOCK(list);
+    return 0;
+}
+
+int gquic_sem_list_try_pop(void **const event, gquic_sem_list_t *const list) {
+    if (event == NULL || list == NULL) {
+        return -1;
+    }
+    if (GQUIC_SEM_LIST_TRY_WAIT(list) != 0) {
+        return 0;
+    }
+    GQUIC_SEM_LIST_LOCK(list);
+    if (list->closed) {
+        GQUIC_SEM_LIST_UNLOCK(list);
+        return -2;
+    }
+    if (gquic_list_head_empty(GQUIC_SEM_LIST(list))) {
+        GQUIC_SEM_LIST_UNLOCK(list);
+        return -3;
+    }
+    *event = GQUIC_SEM_LIST_FIRST(list);
+    gquic_list_remove(*event);
+    GQUIC_SEM_LIST_UNLOCK(list);
+    return 0;
+}
+
 int gquic_sem_list_pop(void **const event, gquic_sem_list_t *const list) {
     if (event == NULL || list == NULL) {
         return -1;
