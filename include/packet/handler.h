@@ -15,7 +15,7 @@ struct gquic_packet_handler_s {
     struct {
         void *self;
         int (*cb) (void *const, const int);
-    } destory;
+    } destroy;
     struct {
         void *self;
         int (*cb) (void *const);
@@ -24,10 +24,11 @@ struct gquic_packet_handler_s {
 
 #define GQUIC_PACKET_HANDLER_HANDLE_PACKET(handler, packet) \
     (((gquic_packet_handler_t *) (handler))->handle_packet.cb(((gquic_packet_handler_t *) (handler))->handle_packet.self, (packet)))
-#define GQUIC_PACKET_HANDLER_DESTORY(handler, err) \
-    (((gquic_packet_handler_t *) (handler))->destory.cb(((gquic_packet_handler_t *) (handler))->destory.self, err))
+#define GQUIC_PACKET_HANDLER_DESTROY(handler, err) \
+    (((gquic_packet_handler_t *) (handler))->destroy.cb(((gquic_packet_handler_t *) (handler))->destroy.self, err))
 #define GQUIC_PACKET_HANDLER_IS_CLIENT(handler) \
-    (((gquic_packet_handler_t *) (handler))->is_client.cb(((gquic_packet_handler_t *) (handler))->destory.self))
+    (((gquic_packet_handler_t *) (handler))->is_client.cb(((gquic_packet_handler_t *) (handler))->is_client.self))
+
 int gquic_packet_handler_init(gquic_packet_handler_t *const handler);
 
 #endif
