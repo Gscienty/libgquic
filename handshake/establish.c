@@ -93,6 +93,8 @@ int gquic_handshake_establish_ctor(gquic_handshake_establish_t *const est,
                                    int (*handshake_stream_cb) (void *const, gquic_writer_str_t *const),
                                    void *one_rtt_self,
                                    int (*one_rtt_cb) (void *const, gquic_writer_str_t *const),
+                                   void *chello_written_self,
+                                   int (*chello_written_cb) (void *const),
                                    gquic_tls_config_t *const cfg,
                                    const gquic_str_t *const conn_id,
                                    const gquic_transport_parameters_t *const params,
@@ -122,6 +124,9 @@ int gquic_handshake_establish_ctor(gquic_handshake_establish_t *const est,
     est->conn.cfg = cfg;
     est->conn.is_client = is_client;
     est->conn.ver = GQUIC_TLS_VERSION_13;
+
+    est->chello_written.cb = chello_written_cb;
+    est->chello_written.self = chello_written_self;
     return 0;
 }
 
@@ -724,10 +729,28 @@ int gquic_handshake_establish_drop_initial_keys(gquic_handshake_establish_t *con
         return -1;
     }
     sem_wait(&est->mtx);
-    gquic_common_long_header_opener_dtor(&est->handshake_opener);
-    gquic_common_long_header_sealer_dtor(&est->handshake_sealer);
+    gquic_common_long_header_opener_dtor(&est->initial_opener);
+    gquic_common_long_header_sealer_dtor(&est->initial_sealer);
     sem_post(&est->mtx);
     GQUIC_HANDSHAKE_EVENT_DROP_KEYS(&est->events, GQUIC_ENC_LV_INITIAL);
+    return 0;
+}
+
+int gquic_handshake_establish_drop_handshake_keys(gquic_handshake_establish_t *const est) {
+    int dropped = 0;
+    if (est == NULL) {
+        return -1;
+    }
+    sem_wait(&est->mtx);
+    if (est->handshake_opener.available) {
+        gquic_common_long_header_opener_dtor(&est->handshake_opener);
+        gquic_common_long_header_sealer_dtor(&est->handshake_sealer);
+        dropped = 1;
+    }
+    sem_post(&est->mtx);
+    if (dropped) {
+        GQUIC_HANDSHAKE_EVENT_DROP_KEYS(&est->events, GQUIC_ENC_LV_HANDSHAKE);
+    }
     return 0;
 }
 
@@ -751,7 +774,12 @@ int gquic_handshake_establish_write_record(size_t *const size, gquic_handshake_e
         }
         if (!est->cli_hello_written && est->is_client) {
             est->cli_hello_written = 1;
-            sem_post(&est->client_written_sem);
+            if (est->chello_written.self == NULL) {
+                sem_post(&est->client_written_sem);
+            }
+            else {
+                GQUIC_HANDSHAKE_ESTABLISH_CHELLO_WRITTEN(est);
+            }
         }
         else {
             if ((process_event = gquic_list_alloc(sizeof(gquic_establish_process_event_t))) == NULL) {
