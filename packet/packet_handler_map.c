@@ -40,7 +40,7 @@ struct __replace_with_closed_timeout_param_s {
     gquic_str_t conn_id;
 };
 
-static void *__packet_hander_map_listen(void *const);
+static void *__packet_handler_map_listen(void *const);
 static int gquic_packet_handler_map_handle_packet(gquic_packet_handler_map_t *const, gquic_received_packet_t *const);
 static void *__packet_handler_map_try_send_stateless_reset(void *const);
 static int gquic_packet_handler_map_try_handle_stateless_reset(gquic_packet_handler_map_t *const, const gquic_str_t *const);
@@ -104,7 +104,7 @@ int gquic_packet_handler_map_ctor(gquic_packet_handler_map_t *const handler,
     }
     gquic_str_copy(&handler->stateless_reset_key, stateless_reset_token);
 
-    if (pthread_create(&handler->run_thread, NULL, __packet_hander_map_listen, handler) != 0) {
+    if (pthread_create(&handler->run_thread, NULL, __packet_handler_map_listen, handler) != 0) {
         return -3;
     }
 
@@ -130,21 +130,21 @@ int gquic_packet_handler_map_dtor(gquic_packet_handler_map_t *const handler) {
         rbt = handler->handlers;
         gquic_rbtree_remove(&handler->handlers, &rbt);
         gquic_str_reset(GQUIC_RBTREE_KEY(rbt));
-        // TODO release packet handler
+        free(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt));
         gquic_rbtree_release(rbt, NULL);
     }
     while (!gquic_rbtree_is_nil(handler->reset_tokens)) {
         rbt = handler->reset_tokens;
         gquic_rbtree_remove(&handler->reset_tokens, &rbt);
         gquic_str_reset(GQUIC_RBTREE_KEY(rbt));
-        // TODO release packet handler
+        free(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt));
         gquic_rbtree_release(rbt, NULL);
     }
 
     return 0;
 }
 
-static void *__packet_hander_map_listen(void *const handler_) {
+static void *__packet_handler_map_listen(void *const handler_) {
     gquic_packet_buffer_t *buffer = NULL;
     gquic_packet_handler_map_t *handler = handler_;
     ssize_t recv_len = 0;
@@ -329,7 +329,7 @@ static void *__packet_handler_map_reset_token_destory(void *const param_) {
     if (param == NULL) {
         return NULL;
     }
-    GQUIC_PACKET_HANDLER_DESTORY(param->handler, param->err);
+    GQUIC_PACKET_HANDLER_DESTROY(param->handler, param->err);
     free(param);
     return NULL;
 }
@@ -437,7 +437,7 @@ int gquic_packet_handler_map_remove(gquic_packet_handler_map_t *const handler, c
         gquic_rbtree_remove(&handler->handlers, &rbt);
 
         gquic_str_reset(GQUIC_RBTREE_KEY(rbt));                                    
-        // TODO release handler
+        free(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt));
         gquic_rbtree_release(rbt, NULL);
     }
     sem_post(&handler->mtx);
@@ -476,7 +476,7 @@ static int __retire_timeout_cb(void *const param_) {
     if (gquic_rbtree_find_cmp((const gquic_rbtree_t **) &rbt, param->handler->handlers, &param->conn_id, gquic_packet_handler_rb_str_cmp) == 0) {
         gquic_rbtree_remove(&rbt, &param->handler->handlers);
         gquic_str_reset(GQUIC_RBTREE_KEY(rbt));
-        // TODO release handler
+        free(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt));
         gquic_rbtree_release(rbt, NULL);
     }
     sem_post(&param->handler->mtx);
@@ -540,7 +540,7 @@ static int __replace_with_closed_timeout_cb(void *const param_) {
     if (gquic_rbtree_find_cmp((const gquic_rbtree_t **) &rbt, param->handler->handlers, &param->conn_id, gquic_packet_handler_rb_str_cmp) == 0) {
         gquic_rbtree_remove(&param->handler->handlers, &rbt);
         gquic_str_reset(GQUIC_RBTREE_KEY(rbt));
-        // TODO release handler
+        free(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt));
         gquic_rbtree_release(rbt, NULL);
     }
     sem_post(&param->handler->mtx);
@@ -584,7 +584,7 @@ int gquic_packet_handler_map_remove_reset_token(gquic_packet_handler_map_t *cons
         gquic_rbtree_remove(&handler->reset_tokens, &rbt);
 
         gquic_str_reset(GQUIC_RBTREE_KEY(rbt));                                    
-        // TODO release handler
+        free(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt));
         gquic_rbtree_release(rbt, NULL);
     }
     sem_post(&handler->mtx);
@@ -623,7 +623,7 @@ static int __retire_reset_token_timeout_cb(void *const param_) {
     if (gquic_rbtree_find_cmp((const gquic_rbtree_t **) &rbt, param->handler->reset_tokens, &param->token, gquic_packet_handler_rb_str_cmp) == 0) {
         gquic_rbtree_remove(&rbt, &param->handler->reset_tokens);
         gquic_str_reset(GQUIC_RBTREE_KEY(rbt));
-        // TODO release handler
+        free(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt));
         gquic_rbtree_release(rbt, NULL);
     }
     sem_post(&param->handler->mtx);
@@ -683,7 +683,7 @@ static int gquic_packet_handler_map_listen_close(gquic_packet_handler_map_t *con
     sem_wait(&handler->mtx);
     
     GQUIC_RBTREE_EACHOR_BEGIN(rbt, &queue, handler->handlers)
-        GQUIC_PACKET_HANDLER_DESTORY(GQUIC_RBTREE_VALUE(rbt), err);
+        GQUIC_PACKET_HANDLER_DESTROY(GQUIC_RBTREE_VALUE(rbt), err);
     GQUIC_RBTREE_EACHOR_END(rbt, &queue)
     handler->closed = 1;
     sem_post(&handler->mtx);
