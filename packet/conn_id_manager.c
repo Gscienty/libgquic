@@ -6,7 +6,7 @@
 static int gquic_conn_id_update_conn_id(gquic_conn_id_manager_t *const manager);
 static int gquic_conn_id_manager_should_update_conn_id(gquic_conn_id_manager_t *const manager);
 
-int guqic_conn_id_manager_init(gquic_conn_id_manager_t *const manager) {
+int gquic_conn_id_manager_init(gquic_conn_id_manager_t *const manager) {
     if (manager == NULL) {
         return -1;
     }

@@ -53,7 +53,7 @@ struct gquic_conn_id_manager_s {
 #define GQUIC_CONN_ID_MANAGER_QUEUE_CTRL_FRAME(manager, frame) \
     ((manager)->queue_ctrl_frame.cb((manager)->queue_ctrl_frame.self, (frame)))
 
-int guqic_conn_id_manager_init(gquic_conn_id_manager_t *const manager);
+int gquic_conn_id_manager_init(gquic_conn_id_manager_t *const manager);
 int gquic_conn_id_manager_ctor(gquic_conn_id_manager_t *const manager,
                                const gquic_str_t *const initial_dst_conn_id,
                                void *const add_self,
