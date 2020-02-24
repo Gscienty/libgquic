@@ -167,22 +167,25 @@ int gquic_crypto_stream_finish(gquic_crypto_stream_t *const str) {
     return 0;
 }
 
-int gquic_crypto_stream_write(gquic_crypto_stream_t *const str, const gquic_str_t *const data) {
+int gquic_crypto_stream_write(gquic_crypto_stream_t *const str, gquic_writer_str_t *const writer) {
     u_int64_t writed_size = 0;
     gquic_str_t concated = { 0, NULL };
-    if (str == NULL || data == NULL) {
+    if (str == NULL || writer == NULL) {
         return -1;
     }
     if (gquic_crypto_stream_calc_writed_bytes(&writed_size, str) != 0) {
         return -2;
     }
-    if (gquic_str_concat(&concated, &str->write_buf, data) != 0) {
+    if (gquic_str_concat(&concated, &str->write_buf, writer) != 0) {
         return -3;
     }
     str->write_buf = concated;
     str->writer = str->write_buf;
     if (gquic_writer_str_writed_size(&str->writer, writed_size) != 0) {
         return -4;
+    }
+    if (gquic_writer_str_writed_size(writer, GQUIC_STR_SIZE(writer)) != 0) {
+        return -5;
     }
     return 0;
 }
@@ -191,7 +194,7 @@ int gquic_crypto_stream_has_data(gquic_crypto_stream_t *const str) {
     if (str == NULL) {
         return 0;
     }
-    return GQUIC_STR_SIZE(&str->writer);
+    return GQUIC_STR_SIZE(&str->writer) != 0;
 }
 
 int gquic_crypto_stream_pop_crypto_frame(gquic_frame_crypto_t **frame_storage, gquic_crypto_stream_t *const str, const u_int64_t max_len) {
@@ -218,6 +221,40 @@ int gquic_crypto_stream_pop_crypto_frame(gquic_frame_crypto_t **frame_storage, g
     return gquic_crypto_stream_calc_writed_bytes(&write_size, str);
 }
 
+int gquic_post_handshake_crypto_stream_init(gquic_post_handshake_crypto_stream_t *const str) {
+    if (str == NULL) {
+        return -1;
+    }
+    gquic_crypto_stream_init(&str->stream);
+    str->framer = NULL;
+    return 0;
+}
+
+int gquic_post_handshake_crypto_ctor(gquic_post_handshake_crypto_stream_t *const str, gquic_framer_t *const framer) {
+    if (str == NULL || framer == NULL) {
+        return -1;
+    }
+    gquic_crypto_stream_ctor(&str->stream);
+    str->framer = framer;
+    return 0;
+}
+
+int gquic_post_handshake_crypto_write(gquic_post_handshake_crypto_stream_t *const str, gquic_writer_str_t *const writer) {
+    gquic_frame_crypto_t *frame = NULL;
+    if (str == NULL || writer == NULL) {
+        return -1;
+    }
+    if (gquic_crypto_stream_write(&str->stream, writer) != 0) {
+        return -2;
+    }
+    while (gquic_crypto_stream_has_data(&str->stream)) {
+        gquic_crypto_stream_pop_crypto_frame(&frame, &str->stream, 1000);
+        gquic_framer_queue_ctrl_frame(str->framer, frame);
+    }
+
+    return 0;
+}
+
 int gquic_crypto_stream_manager_init(gquic_crypto_stream_manager_t *const manager) {
     if (manager == NULL) {
         return -1;
@@ -236,7 +273,7 @@ int gquic_crypto_stream_manager_ctor(gquic_crypto_stream_manager_t *const manage
                                      int (*handle_msg_cb) (void *const, const gquic_str_t *const, const u_int8_t),
                                      gquic_crypto_stream_t *const initial_stream,
                                      gquic_crypto_stream_t *const handshake_stream,
-                                     gquic_crypto_stream_t *const one_rtt_stream) {
+                                     gquic_post_handshake_crypto_stream_t *const one_rtt_stream) {
     if (manager == NULL || handle_msg_self == NULL || handle_msg_cb == NULL || initial_stream == NULL || handshake_stream == NULL || one_rtt_stream == NULL) {
         return -1;
     }
@@ -268,7 +305,7 @@ int gquic_crypto_stream_manager_handle_crypto_frame(int *const changed,
         str = manager->handshake_stream;
         break;
     case GQUIC_ENC_LV_1RTT:
-        str = manager->one_rtt_stream;
+        str = &manager->one_rtt_stream->stream;
         break;
     default:
         return -2;
