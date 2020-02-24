@@ -13,7 +13,7 @@ int gquic_stream_map_init(gquic_stream_map_t *const str_map) {
     }
 
     str_map->is_client = 0;
-    str_map->sender = NULL;
+    gquic_stream_sender_init(&str_map->sender);
     str_map->flow_ctrl_ctor.cb = NULL;
     str_map->flow_ctrl_ctor.self = NULL;
     gquic_inuni_stream_map_init(&str_map->inuni);
@@ -25,38 +25,39 @@ int gquic_stream_map_init(gquic_stream_map_t *const str_map) {
 }
 
 int gquic_stream_map_ctor(gquic_stream_map_t *const str_map,
-                          gquic_stream_sender_t *const sender,
+                          void *const sender_ctor_self,
+                          int (*sender_ctor_cb) (gquic_stream_sender_t *const, void *const),
                           void *const flow_ctrl_ctor_self,
                           int (*flow_ctrl_ctor_cb) (gquic_flowcontrol_stream_flow_ctrl_t *const, void *const, const u_int64_t),
                           const u_int64_t max_inbidi_stream_count,
                           const u_int64_t max_inuni_stream_count,
                           const int is_client) {
-    if (str_map == NULL || sender == NULL || flow_ctrl_ctor_self == NULL || flow_ctrl_ctor_cb == NULL) {
+    if (str_map == NULL || sender_ctor_self == NULL || sender_ctor_cb == NULL || flow_ctrl_ctor_self == NULL || flow_ctrl_ctor_cb == NULL) {
         return -1;
     }
 
     str_map->is_client = is_client;
     str_map->flow_ctrl_ctor.cb = flow_ctrl_ctor_cb;
     str_map->flow_ctrl_ctor.self = flow_ctrl_ctor_self;
-    str_map->sender = sender;
+    sender_ctor_cb(&str_map->sender, sender_ctor_self);
 
     gquic_outbidi_stream_map_ctor(&str_map->outbidi,
                                   str_map, gquic_stream_map_outbidi_stream_ctor,
-                                  sender->queue_ctrl_frame.self, sender->queue_ctrl_frame.cb);
+                                  str_map->sender.queue_ctrl_frame.self, str_map->sender.queue_ctrl_frame.cb);
 
     gquic_inbidi_stream_map_ctor(&str_map->inbidi,
                                  str_map, gquic_stream_map_inbidi_stream_ctor,
                                  max_inbidi_stream_count,
-                                 sender->queue_ctrl_frame.self, sender->queue_ctrl_frame.cb);
+                                 str_map->sender.queue_ctrl_frame.self, str_map->sender.queue_ctrl_frame.cb);
 
     gquic_outuni_stream_map_ctor(&str_map->outuni,
                                  str_map, gquic_stream_map_outuni_stream_ctor,
-                                 sender->queue_ctrl_frame.self, sender->queue_ctrl_frame.cb);
+                                 str_map->sender.queue_ctrl_frame.self, str_map->sender.queue_ctrl_frame.cb);
 
     gquic_inuni_stream_map_ctor(&str_map->inuni,
                                 str_map, gquic_stream_map_inuni_stream_ctor,
                                 max_inuni_stream_count,
-                                sender->queue_ctrl_frame.self, sender->queue_ctrl_frame.cb);
+                                str_map->sender.queue_ctrl_frame.self, str_map->sender.queue_ctrl_frame.cb);
 
     return 0;
 }
@@ -68,7 +69,7 @@ static int gquic_stream_map_outbidi_stream_ctor(gquic_stream_t *const str, void 
         return -1;
     }
     id = gquic_stream_num_to_stream_id(1, str_map->is_client, num);
-    gquic_stream_ctor(str, id, str_map->sender, str_map->flow_ctrl_ctor.self, str_map->flow_ctrl_ctor.cb);
+    gquic_stream_ctor(str, id, &str_map->sender, str_map->flow_ctrl_ctor.self, str_map->flow_ctrl_ctor.cb);
     return 0;
 }
 
@@ -79,7 +80,7 @@ static int gquic_stream_map_inbidi_stream_ctor(gquic_stream_t *const str, void *
         return -1;
     }
     id = gquic_stream_num_to_stream_id(1, !str_map->is_client, num);
-    gquic_stream_ctor(str, id, str_map->sender, str_map->flow_ctrl_ctor.self, str_map->flow_ctrl_ctor.cb);
+    gquic_stream_ctor(str, id, &str_map->sender, str_map->flow_ctrl_ctor.self, str_map->flow_ctrl_ctor.cb);
     return 0;
 }
 
@@ -90,7 +91,7 @@ static int gquic_stream_map_outuni_stream_ctor(gquic_stream_t *const str, void *
         return -1;
     }
     id = gquic_stream_num_to_stream_id(0, str_map->is_client, num);
-    gquic_stream_ctor(str, id, str_map->sender, str_map->flow_ctrl_ctor.self, str_map->flow_ctrl_ctor.cb);
+    gquic_stream_ctor(str, id, &str_map->sender, str_map->flow_ctrl_ctor.self, str_map->flow_ctrl_ctor.cb);
     return 0;
 }
 
@@ -101,7 +102,7 @@ static int gquic_stream_map_inuni_stream_ctor(gquic_stream_t *const str, void *c
         return -1;
     }
     id = gquic_stream_num_to_stream_id(0, !str_map->is_client, num);
-    gquic_stream_ctor(str, id, str_map->sender, str_map->flow_ctrl_ctor.self, str_map->flow_ctrl_ctor.cb);
+    gquic_stream_ctor(str, id, &str_map->sender, str_map->flow_ctrl_ctor.self, str_map->flow_ctrl_ctor.cb);
     return 0;
 }
 

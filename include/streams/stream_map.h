@@ -13,7 +13,7 @@
 typedef struct gquic_stream_map_s gquic_stream_map_t;
 struct gquic_stream_map_s {
     int is_client;
-    gquic_stream_sender_t *sender;
+    gquic_stream_sender_t sender;
     struct {
         void *self;
         int (*cb) (gquic_flowcontrol_stream_flow_ctrl_t *const, void *const, const u_int64_t);
@@ -29,7 +29,8 @@ struct gquic_stream_map_s {
 
 int gquic_stream_map_init(gquic_stream_map_t *const str_map);
 int gquic_stream_map_ctor(gquic_stream_map_t *const str_map,
-                          gquic_stream_sender_t *const sender,
+                          void *const sender_ctor_self,
+                          int (*sender_ctor_cb) (gquic_stream_sender_t *const, void *const),
                           void *const flow_ctrl_ctor_self,
                           int (*flow_ctrl_ctor_cb) (gquic_flowcontrol_stream_flow_ctrl_t *const, void *const, const u_int64_t),
                           const u_int64_t max_inbidi_stream_count,
