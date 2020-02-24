@@ -48,8 +48,8 @@ struct gquic_conn_id_gen_s {
 
 int gquic_conn_id_gen_init(gquic_conn_id_gen_t *const gen);
 int gquic_conn_id_gen_ctor(gquic_conn_id_gen_t *const gen,
-                           gquic_str_t *const initial_conn_id,
-                           gquic_str_t *const initial_cli_dst_conn_id,
+                           const gquic_str_t *const initial_conn_id,
+                           const gquic_str_t *const initial_cli_dst_conn_id,
                            void *const add_conn_id_self,
                            int (*add_conn_id_cb) (gquic_str_t *const, void *const, const gquic_str_t *const),
                            void *const remove_conn_id_self,
