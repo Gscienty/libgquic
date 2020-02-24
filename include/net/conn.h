@@ -1,10 +1,12 @@
 #ifndef _LIBGQUIC_NET_CONN_H
 #define _LIBGQUIC_NET_CONN_H
 
+#include "net/addr.h"
 #include "util/str.h"
 
 typedef struct gquic_net_conn_s gquic_net_conn_t;
 struct gquic_net_conn_s {
+    gquic_net_addr_t addr;
     int fd;
 };
 
