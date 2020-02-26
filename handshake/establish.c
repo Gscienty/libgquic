@@ -917,3 +917,51 @@ static int gquic_establish_try_send_sess_ticket(gquic_handshake_establish_t *con
     }
     return 0;
 }
+
+int gquic_handshake_establish_get_initial_opener(gquic_header_protector_t **const protector, gquic_handshake_establish_t *const est) {
+    int ret = 0;
+    if (protector == NULL || est == NULL) {
+        return -1;
+    }
+    sem_wait(&est->mtx);
+    if (!est->initial_opener.available) {
+        ret = -2;
+    }
+    else if (gquic_common_long_header_opener_get_header_opener(protector, &est->initial_opener) != 0) {
+        ret = -3;
+    }
+    sem_post(&est->mtx);
+    return ret;
+}
+
+int gquic_handshake_establish_get_handshake_opener(gquic_header_protector_t **const protector, gquic_handshake_establish_t *const est) {
+    int ret = 0;
+    if (protector == NULL || est == NULL) {
+        return -1;
+    }
+    sem_wait(&est->mtx);
+    if (!est->handshake_opener.available) {
+        ret = -2;
+    }
+    else if (gquic_common_long_header_opener_get_header_opener(protector, &est->handshake_opener) != 0) {
+        ret = -3;
+    }
+    sem_post(&est->mtx);
+    return ret;
+}
+
+int gquic_handshake_establish_get_1rtt_opener(gquic_header_protector_t **const protector, gquic_handshake_establish_t *const est) {
+    int ret = 0;
+    if (protector == NULL || est == NULL) {
+        return -1;
+    }
+    sem_wait(&est->mtx);
+    if (!est->has_1rtt_opener) {
+        ret = -2;
+    }
+    else {
+        *protector = &est->aead.header_dec;
+    }
+    sem_post(&est->mtx);
+    return ret;
+}
