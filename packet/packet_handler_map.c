@@ -489,6 +489,7 @@ int gquic_packet_handler_map_replace_with_closed(gquic_packet_handler_map_t *con
     }
     sem_wait(&handler->mtx);
     if (gquic_rbtree_find_cmp((const gquic_rbtree_t **) &rbt, handler->handlers, (void *) conn_id, gquic_packet_handler_rb_str_cmp) == 0) {
+        free(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt));
         *(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt) = ph;
     }
     else if (gquic_rbtree_alloc(&rbt, sizeof(gquic_str_t), sizeof(gquic_packet_handler_t *)) == 0) {
