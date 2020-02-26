@@ -37,6 +37,7 @@ struct gquic_unpacked_packet_s {
 };
 
 int gquic_unpacked_packet_init(gquic_unpacked_packet_t *const unpacked_packet);
+int gquic_unpacked_packet_dtor(gquic_unpacked_packet_t *const unpacked_packet);
 
 typedef struct gquic_packet_unpacker_s gquic_packet_unpacker_t;
 struct gquic_packet_unpacker_s {

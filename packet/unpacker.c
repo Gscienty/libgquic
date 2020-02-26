@@ -51,6 +51,16 @@ int gquic_unpacked_packet_init(gquic_unpacked_packet_t *const unpacked_packet) {
     return 0;
 }
 
+int gquic_unpacked_packet_dtor(gquic_unpacked_packet_t *const unpacked_packet) {
+    if (unpacked_packet == NULL) {
+        return -1;
+    }
+    gquic_packet_header_dtor(&unpacked_packet->hdr);
+    gquic_str_reset(&unpacked_packet->data);
+
+    return 0;
+}
+
 int gquic_packet_unpacker_init(gquic_packet_unpacker_t *const unpacker) {
     if (unpacker == NULL) {
         return -1;
@@ -74,6 +84,7 @@ int gquic_packet_unpacker_unpack(gquic_unpacked_packet_t *const unpacked_packet,
                                  gquic_packet_unpacker_t *const unpacker,
                                  const gquic_str_t *const data,
                                  const u_int64_t recv_time) {
+    int ret = 0;
     gquic_unpacked_packet_payload_t payload;
     if (unpacked_packet == NULL || unpacker == NULL || data == NULL) {
         return -1;
@@ -89,17 +100,27 @@ int gquic_packet_unpacker_unpack(gquic_unpacked_packet_t *const unpacked_packet,
             payload.opener.is_1rtt = 0;
             payload.opener.self = &unpacker->est->initial_opener;
             payload.opener.cb.cb = gquic_common_long_header_opener_open_wrapper;
-            gquic_common_long_header_opener_get_header_opener(&payload.header_opener, &unpacker->est->initial_opener);
+            if ((ret = gquic_handshake_establish_get_initial_opener(&payload.header_opener, unpacker->est)) != 0) {
+                if (ret == -2) {
+                    return -2; // key dropped
+                }
+                return -3;
+            }
             break;
         case 0x02:
             unpacked_packet->enc_lv = GQUIC_ENC_LV_HANDSHAKE;
             payload.opener.is_1rtt = 0;
             payload.opener.self = &unpacker->est->handshake_opener;
             payload.opener.cb.cb = gquic_common_long_header_opener_open_wrapper;
-            gquic_common_long_header_opener_get_header_opener(&payload.header_opener, &unpacker->est->handshake_opener);
+            if ((ret = gquic_handshake_establish_get_handshake_opener(&payload.header_opener, unpacker->est)) != 0) {
+                if (ret == -2) {
+                    return -4; // key dropped
+                }
+                return -5;
+            }
             break;
         default:
-            return -2;
+            return -6;
         }
         unpacked_packet->hdr.is_long = 1;
     }
@@ -109,14 +130,23 @@ int gquic_packet_unpacker_unpack(gquic_unpacked_packet_t *const unpacked_packet,
         payload.opener.self = &unpacker->est->aead;
         payload.opener.cb.one_rtt_cb = gquic_1rtt_opener_open_wrapper;
         payload.header_opener = &unpacker->est->aead.header_dec;
+        if ((ret = gquic_handshake_establish_get_1rtt_opener(&payload.header_opener, unpacker->est)) != 0) {
+            if (ret == -2) {
+                return -7; // key not available
+            }
+            return -8;
+        }
         unpacked_packet->hdr.is_long = 0;
     }
     else {
-        return -3;
+        return -9;
     }
 
-    if (gquic_packet_unpacker_unpack_header_packet(unpacked_packet, unpacker, &payload) != 0) {
-        return -4;
+    if ((ret = gquic_packet_unpacker_unpack_header_packet(unpacked_packet, unpacker, &payload)) != 0) {
+        if (ret == -6) {
+            return -10; // unpack header error
+        }
+        return -11;
     }
 
     u_int64_t tmp_pn = gquic_packet_header_get_pn(&unpacked_packet->hdr);
