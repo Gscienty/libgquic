@@ -21,7 +21,21 @@ int gquic_packet_buffer_put(gquic_packet_buffer_t *const buffer) {
     if (buffer == NULL) {
         return -1;
     }
-    gquic_str_reset(&buffer->slice);
-    free(buffer);
+    buffer->ref--;
+    if (buffer->ref == 0) {
+        gquic_str_reset(&buffer->slice);
+        free(buffer);
+    }
+    return 0;
+}
+
+int gquic_packet_buffer_try_put(gquic_packet_buffer_t *const buffer) {
+    if (buffer == NULL) {
+        return -1;
+    }
+    if (buffer->ref == 0) {
+        gquic_str_reset(&buffer->slice);
+        free(buffer);
+    }
     return 0;
 }

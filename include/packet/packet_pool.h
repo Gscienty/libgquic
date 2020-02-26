@@ -11,6 +11,7 @@ struct gquic_packet_buffer_s {
 };
 
 int gquic_packet_buffer_get(gquic_packet_buffer_t **const buffer_storage);
-int gquic_packet_buffer_put(gquic_packet_buffer_t *const buffer_storage);
+int gquic_packet_buffer_put(gquic_packet_buffer_t *const buffer);
+int gquic_packet_buffer_try_put(gquic_packet_buffer_t *const buffer);
 
 #endif
