@@ -1,4 +1,5 @@
 #include "packet/short_header_packet.h"
+#include "packet/packet_number.h"
 #include "util/big_endian.h"
 #include <malloc.h>
 #include <string.h>
@@ -34,7 +35,7 @@ int gquic_packet_short_header_serialize(const gquic_packet_short_header_t *const
     gquic_str_t dcid = { header->dcid_len, (void *) header->dcid };
     gquic_writer_str_write(writer, &dcid);
 
-    switch ((header->flag & 0x03) + 1) {
+    switch (gquic_packet_number_flag_to_size(header->flag)) {
     case 1:
         gquic_big_endian_writer_1byte(writer, header->pn);
         break;
@@ -59,7 +60,7 @@ int gquic_packet_short_header_deserialize(gquic_packet_short_header_t *const hea
     gquic_str_t dcid = { header->dcid_len, header->dcid };
     gquic_reader_str_read(&dcid, reader);
     header->pn = 0;
-    switch ((header->flag & 0x03) + 1) {
+    switch (gquic_packet_number_flag_to_size(header->flag)) {
     case 1:
         gquic_big_endian_reader_1byte((u_int8_t *) &header->pn, reader);
         break;
