@@ -61,7 +61,8 @@ struct gquic_session_s {
     gquic_handshake_establish_t est;
     gquic_sem_list_t run_event_list;
 
-    gquic_list_t undecryptable_packets; /* received_packet */
+    int undecryptable_packets_count;
+    gquic_list_t undecryptable_packets; /* received_packet * */
 
     int handshake_completed;
 
