@@ -19,5 +19,6 @@ int gquic_packet_short_header_deserialize(gquic_packet_short_header_t *const hea
 int gquic_packet_short_header_deserialize_unseal_part(gquic_packet_short_header_t *const header, gquic_reader_str_t *const reader);
 int gquic_packet_short_header_deserialize_seal_part(gquic_packet_short_header_t *const header, gquic_reader_str_t *const reader);
 
+#define GQUIC_SHORT_HEADER 0x05
 
 #endif
