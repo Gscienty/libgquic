@@ -11,7 +11,6 @@ struct __send_stateless_reset_param_s {
     pthread_t thread;
     gquic_packet_handler_map_t *handler;
     gquic_received_packet_t *recv_packet;
-    gquic_str_t conn_id;
 };
 
 typedef struct __reset_token_param_s __reset_token_param_t;
@@ -196,12 +195,11 @@ static void *__packet_handler_map_listen(void *const handler_) {
 static int gquic_packet_handler_map_handle_packet(gquic_packet_handler_map_t *const handler, gquic_received_packet_t *const recv_packet) {
     int ret = 0;
     const gquic_rbtree_t *rbt = NULL;
-    gquic_str_t conn_id = { 0, NULL };
     __send_stateless_reset_param_t *param = NULL;
     if (handler == NULL || recv_packet == NULL) {
         return -1;
     }
-    if (gquic_packet_header_deserialize_conn_id(&conn_id, &recv_packet->data, handler->conn_id_len) != 0) {
+    if (gquic_packet_header_deserialize_conn_id(&recv_packet->dst_conn_id, &recv_packet->data, handler->conn_id_len) != 0) {
         gquic_packet_buffer_put(recv_packet->buffer);
         free(recv_packet);
         return -2;
@@ -213,10 +211,8 @@ static int gquic_packet_handler_map_handle_packet(gquic_packet_handler_map_t *co
             free(recv_packet);
             break;
         }
-        if (gquic_rbtree_find_cmp(&rbt, handler->handlers, &conn_id, gquic_packet_handler_rb_str_cmp) == 0) {
+        if (gquic_rbtree_find_cmp(&rbt, handler->handlers, &recv_packet->dst_conn_id, gquic_packet_handler_rb_str_cmp) == 0) {
             GQUIC_PACKET_HANDLER_HANDLE_PACKET(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt), recv_packet);
-            gquic_packet_buffer_put(recv_packet->buffer);
-            free(recv_packet);
             break;
         }
         if ((GQUIC_STR_FIRST_BYTE(&recv_packet->data) & 0x80) == 0x00) {
@@ -226,7 +222,6 @@ static int gquic_packet_handler_map_handle_packet(gquic_packet_handler_map_t *co
                 ret = -3;
                 break;
             }
-            param->conn_id = conn_id;
             param->handler = handler;
             param->recv_packet = recv_packet;
             if (pthread_create(&param->thread, NULL, __packet_handler_map_try_send_stateless_reset, param) != 0) {
@@ -239,8 +234,6 @@ static int gquic_packet_handler_map_handle_packet(gquic_packet_handler_map_t *co
         }
         if (handler->server != NULL) {
             GQUIC_PACKET_UNKNOW_PACKET_HANDLER_HANDLE_PACKET(handler->server, recv_packet);
-            gquic_packet_buffer_put(recv_packet->buffer);
-            free(recv_packet);
         }
     } while (0);
     sem_post(&handler->mtx);
@@ -287,7 +280,7 @@ static void *__packet_handler_map_try_send_stateless_reset(void *const param_) {
     if (GQUIC_STR_SIZE(&param->recv_packet->data) <= (1 + 20 + 4 + 1 + 16)) {
         goto finished;
     }
-    if (gquic_packet_handler_map_get_stateless_reset_token(&token, param->handler, &param->conn_id) != 0) {
+    if (gquic_packet_handler_map_get_stateless_reset_token(&token, param->handler, &param->recv_packet->dst_conn_id) != 0) {
         goto finished;
     }
     if (gquic_str_alloc(&data, 1 + 20 + 4 + 1 + 16) != 0) {
@@ -685,6 +678,9 @@ static int gquic_packet_handler_map_listen_close(gquic_packet_handler_map_t *con
     GQUIC_RBTREE_EACHOR_BEGIN(rbt, &queue, handler->handlers)
         GQUIC_PACKET_HANDLER_DESTROY(GQUIC_RBTREE_VALUE(rbt), err);
     GQUIC_RBTREE_EACHOR_END(rbt, &queue)
+    if (handler->server != NULL) {
+        GQUIC_PACKET_UNKNOW_PACKET_HANDLER_SET_CLOSE_ERR(handler->server, err);
+    }
     handler->closed = 1;
     sem_post(&handler->mtx);
 

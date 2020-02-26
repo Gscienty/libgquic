@@ -22,6 +22,8 @@ int gquic_packet_unknow_packet_handler_init(gquic_packet_unknow_packet_handler_t
 
 #define GQUIC_PACKET_UNKNOW_PACKET_HANDLER_HANDLE_PACKET(handler, packet) \
     ((handler)->handle_packet.cb((handler)->handle_packet.self, (packet)))
+#define GQUIC_PACKET_UNKNOW_PACKET_HANDLER_SET_CLOSE_ERR(handler, err) \
+    ((handler)->set_close_err.cb((handler)->set_close_err.self, (err)))
 
 typedef struct gquic_packet_handler_map_s gquic_packet_handler_map_t;
 struct gquic_packet_handler_map_s {
