@@ -25,8 +25,9 @@ struct gquic_packed_packet_s {
     gquic_packet_buffer_t *buffer;
 };
 
-int gquic_packed_packet_init(gquic_packed_packet_t *packed_packet);
-int gquic_packed_packet_dtor(gquic_packed_packet_t *packed_packet);
+int gquic_packed_packet_init(gquic_packed_packet_t *const packed_packet);
+int gquic_packed_packet_dtor(gquic_packed_packet_t *const packed_packet);
+int gquic_packed_packet_dtor_without_frames(gquic_packed_packet_t *const packed_packet);
 u_int8_t gquic_packed_packet_enc_lv(const gquic_packed_packet_t *const packed_packet);
 int gquic_packed_packet_is_ack_eliciting(gquic_packed_packet_t *const packed_packet);
 int gquic_packed_packet_get_ack_packet(gquic_packet_t *const packet,
@@ -129,6 +130,9 @@ int gquic_packet_packer_try_pack_crypto_packet(gquic_packed_packet_t *const pack
 int gquic_packet_packer_try_pack_packet(gquic_packed_packet_t *const packed_packet,
                                         gquic_packet_packer_t *const packer,
                                         const u_int8_t enc_lv);
+int gquic_packet_packer_try_pack_probe_packet(gquic_packed_packet_t *const packed_packet,
+                                              gquic_packet_packer_t *const packer,
+                                              const u_int8_t enc_lv);
 int gquic_packet_packer_pack_packet(gquic_packed_packet_t *const packed_packet,
                                     gquic_packet_packer_t *const packer);
 int gquic_packet_packer_pack_crypto_packet(gquic_packed_packet_t *const packed_packet,

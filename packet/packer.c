@@ -23,7 +23,7 @@ static int gquic_1rtt_sealer_seal_wrapper(gquic_str_t *const,
 
 static int gquic_packet_packer_get_sealer_and_header(gquic_packed_packet_payload_t *const, gquic_packet_packer_t *const);
 
-int gquic_packed_packet_init(gquic_packed_packet_t *packed_packet) {
+int gquic_packed_packet_init(gquic_packed_packet_t *const packed_packet) {
     if (packed_packet == NULL) {
         return -1;
     }
@@ -37,7 +37,7 @@ int gquic_packed_packet_init(gquic_packed_packet_t *packed_packet) {
     return 0;
 }
 
-int gquic_packed_packet_dtor(gquic_packed_packet_t *packed_packet) {
+int gquic_packed_packet_dtor(gquic_packed_packet_t *const packed_packet) {
     if (packed_packet == NULL) {
         return -1;
     }
@@ -60,6 +60,25 @@ int gquic_packed_packet_dtor(gquic_packed_packet_t *packed_packet) {
             gquic_list_release(GQUIC_LIST_FIRST(packed_packet->frames));
         }
         free(packed_packet->frames);
+    }
+    gquic_packet_buffer_put(packed_packet->buffer);
+
+    return 0;
+}
+
+int gquic_packed_packet_dtor_without_frames(gquic_packed_packet_t *const packed_packet) {
+    if (packed_packet == NULL) {
+        return -1;
+    }
+    if (packed_packet->hdr.is_long) {
+        if (packed_packet->hdr.hdr.l_hdr != NULL) {
+            gquic_packet_long_header_release(packed_packet->hdr.hdr.l_hdr);
+        }
+    }
+    else {
+        if (packed_packet->hdr.hdr.s_hdr != NULL) {
+            free(packed_packet->hdr.hdr.s_hdr);
+        }
     }
     gquic_packet_buffer_put(packed_packet->buffer);
 
@@ -977,4 +996,23 @@ int gquic_packet_packer_pack_packet(gquic_packed_packet_t *const packed_packet,
     }
 
     return gquic_packet_packer_try_pack_app_packet(packed_packet, packer);
+}
+
+int gquic_packet_packer_try_pack_probe_packet(gquic_packed_packet_t *const packed_packet,
+                                              gquic_packet_packer_t *const packer,
+                                              const u_int8_t enc_lv) {
+    if (packed_packet == NULL || packer == NULL) {
+        return -1;
+    }
+
+    switch (enc_lv) {
+    case GQUIC_ENC_LV_INITIAL:
+        return gquic_packet_packer_try_pack_initial_packet(packed_packet, packer);
+    case GQUIC_ENC_LV_HANDSHAKE:
+        return gquic_packet_packer_try_pack_handshake_packet(packed_packet, packer);
+    case GQUIC_ENC_LV_1RTT:
+        return gquic_packet_packer_try_pack_app_packet(packed_packet, packer);
+    default:
+        return -2;
+    }
 }
