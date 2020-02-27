@@ -7,6 +7,7 @@
 #include "frame/new_token.h"
 #include "frame/retire_connection_id.h"
 #include "util/stream_id.h"
+#include "packet/send_mode.h"
 
 static int gquic_session_add_reset_token_wrapper(void *const, const gquic_str_t *const);
 static int gquic_session_add_wrapper(gquic_str_t *const, void *const, const gquic_str_t *const);
@@ -62,6 +63,9 @@ static int gquic_session_send_packets(gquic_session_t *const); // TODO
 static int gquic_session_send_connection_close(gquic_str_t *const,
                                                gquic_session_t *const,
                                                const int, const u_int64_t, const u_int64_t, const gquic_str_t *const);
+static int gquic_session_try_send_only_ack_packet(gquic_session_t *const); // TODO
+static int gquic_session_send_probe_packet(gquic_session_t *const, const u_int8_t); // TODO
+static int gquic_session_send_packet(int *const, gquic_session_t *const); // TODO
 static int gquic_session_handle_close_err(gquic_session_t *const, const int, const int, const int);
 static inline u_int64_t gquic_session_idle_timeout_start_time(gquic_session_t *const);
 
@@ -667,7 +671,7 @@ int gquic_session_run(gquic_session_t *const sess) {
         switch (event->type) {
         case GQUIC_SESSION_EVENT_CHELLO_WRITTEN:
             gquic_session_schedule_sending(sess);
-            free(event);
+            gquic_list_release(event);
             break;
         case GQUIC_SESSION_EVENT_CLOSE:
             gquic_sem_list_push(&sess->run_event_list, event);
@@ -687,11 +691,11 @@ int gquic_session_run(gquic_session_t *const sess) {
                 err_msg.err = event->payload.err.err;
                 err_msg.immediate = event->payload.err.immediate;
                 err_msg.remote = event->payload.err.remote;
-                free(event);
+                gquic_list_release(event);
                 goto closed;
             case GQUIC_SESSION_EVENT_HANDSHAKE_COMPLETED:
                 gquic_session_handle_handshake_completed(sess);
-                free(event);
+                gquic_list_release(event);
                 break;
             default:
                 gquic_sem_list_rpush(&sess->run_event_list, event);
@@ -707,20 +711,20 @@ int gquic_session_run(gquic_session_t *const sess) {
                 err_msg.err = event->payload.err.err;
                 err_msg.immediate = event->payload.err.immediate;
                 err_msg.remote = event->payload.err.remote;
-                free(event);
+                gquic_list_release(event);
                 goto closed;
             case GQUIC_SESSION_EVENT_SENDING_SCHEDULED:
-                free(event);
+                gquic_list_release(event);
                 break;
             case GQUIC_SESSION_EVENT_RECEIVED_PACKAET:
                 if (!gquic_session_handle_packet_inner(sess, event->payload.rp)) {
                     continue;
                 }
-                free(event);
+                gquic_list_release(event);
                 break;
             case GQUIC_SESSION_EVENT_HANDSHAKE_COMPLETED:
                 gquic_session_handle_handshake_completed(sess);
-                free(event);
+                gquic_list_release(event);
                 break;
             }
         }
@@ -1533,5 +1537,71 @@ static int gquic_session_send_connection_close(gquic_str_t *const data,
     gquic_str_copy(data, &packet.raw);
     gquic_packed_packet_dtor(&packet);
     gquic_net_conn_write(sess->conn, data);
+    return 0;
+}
+
+static int gquic_session_send_packets(gquic_session_t *const sess) {
+    u_int8_t send_mode = 0x00;
+    u_int64_t packets_count = 0;
+    u_int64_t packets_sent_count = 0;
+    int sended = 0;
+    if (sess == NULL) {
+        return -1;
+    }
+    sess->pacing_deadline = 0;
+    send_mode = gquic_packet_sent_packet_handler_send_mode(&sess->sent_packet_handler);
+    if (send_mode == GQUIC_SEND_MODE_NONE) {
+        return 0;
+    }
+    packets_count = gquic_packet_sent_packet_handler_should_send_packets_count(&sess->sent_packet_handler);
+    for ( ;; ) {
+        sended = 0;
+        switch (send_mode) {
+        case GQUIC_SEND_MODE_NONE:
+            goto loop_end;
+        case GQUIC_SEND_MODE_ACK:
+            if (packets_sent_count > 0) {
+                return 0;
+            }
+            return gquic_session_try_send_only_ack_packet(sess);
+        case GQUIC_SEND_MODE_PTO_INITIAL:
+            if (gquic_session_send_probe_packet(sess, GQUIC_ENC_LV_INITIAL) != 0) {
+                return -2;
+            }
+            packets_sent_count++;
+            break;
+        case GQUIC_SEND_MODE_PTO_HANDSHAKE:
+            if (gquic_session_send_probe_packet(sess, GQUIC_ENC_LV_HANDSHAKE) != 0) {
+                return -3;
+            }
+            packets_sent_count++;
+            break;
+        case GQUIC_SEND_MODE_PTO_APP:
+            if (gquic_session_send_probe_packet(sess, GQUIC_ENC_LV_1RTT) != 0) {
+                return -4;
+            }
+            packets_sent_count++;
+            break;
+        case GQUIC_SEND_MODE_ANY:
+            if (gquic_session_send_packet(&sended, sess) != 0) {
+                return -5;
+            }
+            if (!sended) {
+                goto loop_end;
+            }
+            packets_sent_count++;
+            break;
+        default:
+            return -6;
+        }
+        if (packets_sent_count >= packets_count) {
+            break;
+        }
+        send_mode = gquic_packet_sent_packet_handler_send_mode(&sess->sent_packet_handler);
+    }
+loop_end:
+    if (packets_sent_count == packets_count) {
+        sess->pacing_deadline = sess->sent_packet_handler.next_send_time;
+    }
     return 0;
 }
