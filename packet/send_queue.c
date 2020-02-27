@@ -72,7 +72,7 @@ int gquic_packet_send_queue_run(gquic_packet_send_queue_t *const queue) {
             if (gquic_net_conn_write(queue->conn, &event->packed_packet->raw) != 0) {
                 return -3;
             }
-            gquic_packed_packet_dtor(event->packed_packet);
+            gquic_packed_packet_dtor_without_frames(event->packed_packet);
             free(event->packed_packet);
             gquic_list_release(event);
             break;
