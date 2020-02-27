@@ -6,6 +6,7 @@
 #include "frame/path_challenge.h"
 #include "frame/new_token.h"
 #include "frame/retire_connection_id.h"
+#include "frame/data_blocked.h"
 #include "util/stream_id.h"
 #include "packet/send_mode.h"
 
@@ -59,13 +60,14 @@ static int gquic_session_handle_path_challenge_frame(gquic_session_t *const, gqu
 static int gquic_session_handle_new_token_frame(gquic_session_t *const, gquic_frame_new_token_t *const);
 static int gquic_session_handle_new_conn_id_frame(gquic_session_t *const, gquic_frame_new_connection_id_t *const);
 static int gquic_session_handle_retire_conn_id_frame(gquic_session_t *const, gquic_frame_retire_connection_id_t *const);
-static int gquic_session_send_packets(gquic_session_t *const); // TODO
+static int gquic_session_send_packets(gquic_session_t *const);
 static int gquic_session_send_connection_close(gquic_str_t *const,
                                                gquic_session_t *const,
                                                const int, const u_int64_t, const u_int64_t, const gquic_str_t *const);
-static int gquic_session_try_send_only_ack_packet(gquic_session_t *const); // TODO
-static int gquic_session_send_probe_packet(gquic_session_t *const, const u_int8_t); // TODO
-static int gquic_session_send_packet(int *const, gquic_session_t *const); // TODO
+static int gquic_session_try_send_only_ack_packet(gquic_session_t *const);
+static int gquic_session_send_probe_packet(gquic_session_t *const, const u_int8_t);
+static int gquic_session_send_packed_packet(gquic_session_t *const, gquic_packed_packet_t *const);
+static int gquic_session_send_packet(int *const, gquic_session_t *const);
 static int gquic_session_handle_close_err(gquic_session_t *const, const int, const int, const int);
 static inline u_int64_t gquic_session_idle_timeout_start_time(gquic_session_t *const);
 
@@ -1603,5 +1605,183 @@ loop_end:
     if (packets_sent_count == packets_count) {
         sess->pacing_deadline = sess->sent_packet_handler.next_send_time;
     }
+    return 0;
+}
+
+static int gquic_session_try_send_only_ack_packet(gquic_session_t *const sess) {
+    gquic_packet_t *packet = NULL;
+    gquic_packed_packet_t *packed_packet = NULL;
+    if (sess == NULL) {
+        return -1;
+    }
+    if ((packet = malloc(sizeof(gquic_packet_t))) == NULL) {
+        return -2;
+    }
+    if ((packed_packet = malloc(sizeof(gquic_packed_packet_t))) == NULL) {
+        free(packet);
+        return -3;
+    }
+    gquic_packed_packet_init(packed_packet);
+    if (gquic_packet_packer_try_pack_ack_packet(packed_packet, &sess->packer) != 0) {
+        free(packet);
+        free(packed_packet);
+        return -4;
+    }
+    if (!packed_packet->valid) {
+        free(packet);
+        gquic_packed_packet_dtor(packed_packet);
+        free(packed_packet);
+        return 0;
+    }
+    if (gquic_packed_packet_get_ack_packet(packet, packed_packet, &sess->retransmission) != 0) {
+        free(packet);
+        gquic_packed_packet_dtor(packed_packet);
+        free(packed_packet);
+        return -5;
+    }
+    if (gquic_packet_sent_packet_handler_sent_packet(&sess->sent_packet_handler, packet) != 0) {
+        gquic_packet_dtor(packet);
+        free(packet);
+        gquic_packed_packet_dtor(packed_packet);
+        free(packed_packet);
+        return -6;
+    }
+    gquic_session_send_packed_packet(sess, packed_packet);
+    return 0;
+}
+
+static int gquic_session_send_packed_packet(gquic_session_t *const sess, gquic_packed_packet_t *const packed_packet) {
+    if (sess == NULL || packed_packet == NULL) {
+        return -1;
+    }
+    if (sess->first_ack_eliciting_packet == 0 && gquic_packed_packet_is_ack_eliciting(packed_packet)) {
+        struct timeval tv;
+        struct timezone tz;
+        gettimeofday(&tv, &tz);
+        sess->first_ack_eliciting_packet = tv.tv_sec * 1000 * 1000 + tv.tv_usec;
+    }
+    sess->conn_id_manager.packets_since_last_change++;
+    gquic_packet_send_queue_send(&sess->send_queue, packed_packet);
+    return 0;
+}
+
+static int gquic_session_send_packet(int *const sent_packet, gquic_session_t *const sess) {
+    u_int64_t swnd = 0;
+    gquic_frame_data_blocked_t *blocked = NULL;
+    gquic_packed_packet_t *packed_packet = NULL;
+    gquic_packet_t *packet = NULL;
+    if (sent_packet == NULL || sess == NULL) {
+        return -1;
+    }
+    *sent_packet = 0;
+    if (gquic_flowcontrol_base_is_newly_blocked(&swnd, &sess->conn_flow_ctrl.base)) {
+        if ((blocked = gquic_frame_data_blocked_alloc()) == NULL) {
+            return -2;
+        }
+        blocked->limit = swnd;
+        gquic_framer_queue_ctrl_frame(&sess->framer, blocked);
+    }
+
+    gquic_wnd_update_queue_queue_all(&sess->wnd_update_queue);
+
+    if ((packet = malloc(sizeof(gquic_packet_t))) == NULL) {
+        return -3;
+    }
+    if ((packed_packet = malloc(sizeof(gquic_packed_packet_t))) == NULL) {
+        free(packet);
+        return -4;
+    }
+    gquic_packet_init(packet);
+    gquic_packed_packet_init(packed_packet);
+    if (gquic_packet_packer_pack_packet(packed_packet, &sess->packer) != 0) {
+        free(packet);
+        free(packed_packet);
+        return -5;
+    }
+    if (!packed_packet->valid) {
+        gquic_packed_packet_dtor(packed_packet);
+        free(packed_packet);
+        free(packet);
+        return -5;
+    }
+
+    gquic_packed_packet_get_ack_packet(packet, packed_packet, &sess->retransmission);
+    gquic_packet_sent_packet_handler_sent_packet(&sess->sent_packet_handler, packet);
+    gquic_session_send_packed_packet(sess, packed_packet);
+
+    *sent_packet = 1;
+    return 0;
+}
+
+static int gquic_session_send_probe_packet(gquic_session_t *const sess, const u_int8_t enc_lv) {
+    gquic_packed_packet_t *packed_packet = NULL;
+    gquic_packet_t *packet = NULL;
+    gquic_frame_ping_t *ping = NULL;
+    if (sess == NULL) {
+        return -1;
+    }
+    if ((packed_packet = malloc(sizeof(gquic_packed_packet_t))) == NULL) {
+        return -2;
+    }
+    for ( ;; ) {
+        gquic_packed_packet_init(packed_packet);
+        if (!gquic_packet_sent_packet_handler_queue_probe_packet(&sess->sent_packet_handler, enc_lv)) {
+            break;
+        }
+        if (gquic_packet_packer_try_pack_probe_packet(packed_packet, &sess->packer, enc_lv) != 0) {
+            free(packed_packet);
+            return -3;
+        }
+        if (packed_packet->valid) {
+            break;
+        }
+        gquic_packed_packet_dtor(packed_packet);
+    }
+
+    if (!packed_packet->valid) {
+        gquic_packed_packet_dtor(packed_packet);
+        gquic_packed_packet_init(packed_packet);
+        if ((ping = gquic_frame_ping_alloc()) == NULL) {
+            free(packed_packet);
+            return -4;
+        }
+        switch (enc_lv) {
+        case GQUIC_ENC_LV_INITIAL:
+            gquic_retransmission_queue_add_initial(&sess->retransmission, ping);
+            break;
+        case GQUIC_ENC_LV_HANDSHAKE:
+            gquic_retransmission_queue_add_handshake(&sess->retransmission, ping);
+            break;
+        case GQUIC_ENC_LV_1RTT:
+            gquic_retransmission_queue_add_app(&sess->retransmission, ping);
+            break;
+        default:
+            free(packed_packet);
+            gquic_frame_release(ping);
+            return -5;
+        }
+        if (gquic_packet_packer_try_pack_probe_packet(packed_packet, &sess->packer, enc_lv) != 0) {
+            gquic_packed_packet_dtor(packed_packet);
+            free(packed_packet);
+            gquic_frame_release(ping);
+            return -6;
+        }
+    }
+    if (!packed_packet->valid) {
+        gquic_packed_packet_dtor(packed_packet);
+        free(packed_packet);
+        gquic_frame_release(ping);
+        return -7;
+    }
+
+    if ((packet = malloc(sizeof(gquic_packet_t))) == NULL) {
+        gquic_packed_packet_dtor(packed_packet);
+        free(packed_packet);
+        gquic_frame_release(ping);
+        return -8;
+    }
+    gquic_packed_packet_get_ack_packet(packet, packed_packet, &sess->retransmission);
+    gquic_packet_sent_packet_handler_sent_packet(&sess->sent_packet_handler, packet);
+    gquic_session_send_packed_packet(sess, packed_packet);
     return 0;
 }
