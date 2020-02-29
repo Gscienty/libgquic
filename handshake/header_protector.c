@@ -16,12 +16,12 @@ static int gquic_aes_header_protector_ctor(gquic_aes_header_protector_t *const,
                                            const gquic_tls_cipher_suite_t *const,
                                            const gquic_str_t *const,
                                            int);
-static int gquic_aes_header_protector_encrypt(gquic_str_t *const, u_int8_t *const, void *const, gquic_str_t *const);
-static int gquic_aes_header_protector_decrypt(gquic_str_t *const, u_int8_t *const, void *const, gquic_str_t *const);
+static int gquic_aes_header_protector_set_key(void *const, gquic_str_t *const);
+static int gquic_aes_header_protector_encrypt(gquic_str_t *const, u_int8_t *const, void *const);
+static int gquic_aes_header_protector_decrypt(gquic_str_t *const, u_int8_t *const, void *const);
 static int gquic_aes_header_protector_apply(gquic_str_t *const,
-                                                      u_int8_t *const,
-                                                      gquic_aes_header_protector_t *const,
-                                                      gquic_str_t *const);
+                                            u_int8_t *const,
+                                            gquic_aes_header_protector_t *const);
 static int gquic_aes_header_protector_dtor(void *const);
 
 int gquic_header_protector_init(gquic_header_protector_t *const protector) {
@@ -53,6 +53,7 @@ int gquic_header_protector_ctor(gquic_header_protector_t *const protector,
         if (gquic_aes_header_protector_ctor(protector->self, suite, traffic_sec, is_long_header) != 0) {
             return -3;
         }
+        protector->set_key = gquic_aes_header_protector_set_key;
         protector->encrypt = gquic_aes_header_protector_encrypt;
         protector->decrypt = gquic_aes_header_protector_decrypt;
         protector->dtor = gquic_aes_header_protector_dtor;
@@ -102,40 +103,49 @@ static int gquic_aes_header_protector_ctor(gquic_aes_header_protector_t *const p
     return 0;
 }
 
-static int gquic_aes_header_protector_encrypt(gquic_str_t *const header,
-                                              u_int8_t *const first_byte,
-                                              void *const self,
-                                              gquic_str_t *const sample) {
-    return gquic_aes_header_protector_apply(header, first_byte, self, sample);
-}
-
-static int gquic_aes_header_protector_decrypt(gquic_str_t *const header,
-                                              u_int8_t *const first_byte,
-                                              void *const self,
-                                              gquic_str_t *const sample) {
-    return gquic_aes_header_protector_apply(header, first_byte, self, sample);
-}
-
-static int gquic_aes_header_protector_apply(gquic_str_t *const header,
-                                            u_int8_t *const first_byte,
-                                            gquic_aes_header_protector_t *const self,
-                                            gquic_str_t *const sample) {
-    size_t i;
-    if (header == NULL || first_byte == NULL || self == NULL || sample == NULL) {
+static int gquic_aes_header_protector_set_key(void *const self_, gquic_str_t *const sample) {
+    gquic_aes_header_protector_t *const self = self_;
+    if (self == NULL || sample == NULL) {
         return -1;
     }
     if (GQUIC_STR_SIZE(sample) != GQUIC_STR_SIZE(&self->mask)) {
         return -2;
     }
     AES_encrypt(GQUIC_STR_VAL(sample), GQUIC_STR_VAL(&self->mask), &self->key);
-    if (self->is_long_header) {
-        *first_byte ^= ((u_int8_t *) GQUIC_STR_VAL(&self->mask))[0] & 0x0f;
+    return 0;
+}
+
+static int gquic_aes_header_protector_encrypt(gquic_str_t *const header,
+                                              u_int8_t *const first_byte,
+                                              void *const self) {
+    return gquic_aes_header_protector_apply(header, first_byte, self);
+}
+
+static int gquic_aes_header_protector_decrypt(gquic_str_t *const header,
+                                              u_int8_t *const first_byte,
+                                              void *const self) {
+    return gquic_aes_header_protector_apply(header, first_byte, self);
+}
+
+static int gquic_aes_header_protector_apply(gquic_str_t *const header,
+                                            u_int8_t *const first_byte,
+                                            gquic_aes_header_protector_t *const self) {
+    size_t i;
+    if (self == NULL || (header == NULL && first_byte == NULL)) {
+        return -1;
     }
-    else {
-        *first_byte ^= ((u_int8_t *) GQUIC_STR_VAL(&self->mask))[0] & 0x1f;
+    if (first_byte != NULL) {
+        if (self->is_long_header) {
+            *first_byte ^= GQUIC_STR_FIRST_BYTE(&self->mask) & 0x0f;
+        }
+        else {
+            *first_byte ^= GQUIC_STR_FIRST_BYTE(&self->mask) & 0x1f;
+        }
     }
-    for (i = 0; i < GQUIC_STR_SIZE(header); i++) {
-        ((u_int8_t *) GQUIC_STR_VAL(header))[i] ^= ((u_int8_t *) GQUIC_STR_VAL(&self->mask))[i % GQUIC_STR_SIZE(&self->mask)];
+    if (header != NULL) {
+        for (i = 0; i < GQUIC_STR_SIZE(header); i++) {
+            ((u_int8_t *) GQUIC_STR_VAL(header))[i] ^= ((u_int8_t *) GQUIC_STR_VAL(&self->mask))[i % GQUIC_STR_SIZE(&self->mask)];
+        }
     }
 
     return 0;
