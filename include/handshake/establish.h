@@ -159,10 +159,23 @@ int gquic_handshake_establish_drop_handshake_keys(gquic_handshake_establish_t *c
 int gquic_handshake_establish_write_record(size_t *const size, gquic_handshake_establish_t *const est, const gquic_str_t *const data);
 int gquic_handshake_establish_send_alert(gquic_handshake_establish_t *const est, const u_int8_t alert);
 int gquic_handshake_establish_set_record_layer(gquic_tls_record_layer_t *const record_layer, gquic_handshake_establish_t *const est);
-int gquic_handshake_establish_get_initial_opener(gquic_header_protector_t **const protector, gquic_handshake_establish_t *const est);
-int gquic_handshake_establish_get_handshake_opener(gquic_header_protector_t **const protector, gquic_handshake_establish_t *const est);
-int gquic_handshake_establish_get_1rtt_opener(gquic_header_protector_t **const protector, gquic_handshake_establish_t *const est);
-
-// TODO get_XXX_sealer
+int gquic_handshake_establish_get_initial_opener(gquic_header_protector_t **const protector,
+                                                 gquic_common_long_header_opener_t **const opener,
+                                                 gquic_handshake_establish_t *const est);
+int gquic_handshake_establish_get_handshake_opener(gquic_header_protector_t **const protector,
+                                                   gquic_common_long_header_opener_t **const opener,
+                                                   gquic_handshake_establish_t *const est);
+int gquic_handshake_establish_get_1rtt_opener(gquic_header_protector_t **const protector,
+                                              gquic_auto_update_aead_t **const opener,
+                                              gquic_handshake_establish_t *const est);
+int gquic_handshake_establish_get_initial_sealer(gquic_header_protector_t **const protector,
+                                                 gquic_common_long_header_sealer_t **const sealer,
+                                                 gquic_handshake_establish_t *const est);
+int gquic_handshake_establish_get_handshake_sealer(gquic_header_protector_t **const protector,
+                                                   gquic_common_long_header_sealer_t **const sealer,
+                                                   gquic_handshake_establish_t *const est);
+int gquic_handshake_establish_get_1rtt_sealer(gquic_header_protector_t **const protector,
+                                              gquic_auto_update_aead_t **const sealer,
+                                              gquic_handshake_establish_t *const est);
 
 #endif
