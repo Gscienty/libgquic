@@ -27,7 +27,7 @@ int gquic_sem_list_time_pop(void **const event, gquic_sem_list_t *const list, co
         return -1;
     }
     spec.tv_sec = deadline / (1000 * 1000);
-    spec.tv_nsec = deadline % (1000 * 1000);
+    spec.tv_nsec = deadline % (1000 * 1000) * 1000;
     if (GQUIC_SEM_LIST_TIME_WAIT(list, &spec) != 0) {
         return 0;
     }
