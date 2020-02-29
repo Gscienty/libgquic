@@ -52,7 +52,7 @@ size_t gquic_packet_long_header_size(const gquic_packet_long_header_t *const hea
     case 0x02:
         return common + gquic_packet_handshake_header_size(GQUIC_LONG_HEADER_SPEC(header));
     case 0x03:
-        return common + gquic_packet_handshake_header_size(GQUIC_LONG_HEADER_SPEC(header));
+        return common + gquic_packet_retry_header_size(GQUIC_LONG_HEADER_SPEC(header));
     }
     return 0;
 }
@@ -193,17 +193,17 @@ static size_t gquic_packet_initial_header_size(const gquic_packet_initial_header
     return gquic_varint_size(&header->len)
         + gquic_varint_size(&header->token_len)
         + header->token_len
-        + gquic_packet_number_size(header->pn);
+        + gquic_packet_number_flag_to_size(GQUIC_LONG_HEADER_COMMON(header).flag);
 }
 
 static size_t gquic_packet_0rtt_header_size(const gquic_packet_0rtt_header_t *header) {
     return gquic_varint_size(&header->len)
-        + gquic_packet_number_size(header->pn);
+        + gquic_packet_number_flag_to_size(GQUIC_LONG_HEADER_COMMON(header).flag);
 }
 
 static size_t gquic_packet_handshake_header_size(const gquic_packet_handshake_header_t *header) {
     return gquic_varint_size(&header->len)
-        + gquic_packet_number_size(header->pn);
+        + gquic_packet_number_flag_to_size(GQUIC_LONG_HEADER_COMMON(header).flag);
 }
 
 static size_t gquic_packet_retry_header_size(const gquic_packet_retry_header_t *header) {
@@ -227,7 +227,7 @@ static int gquic_packet_initial_header_serialize(const gquic_packet_initial_head
     if (gquic_varint_serialize(&header->len, writer) != 0) {
         return -5;
     }
-    switch (gquic_packet_number_size(header->pn)) {
+    switch (gquic_packet_number_flag_to_size(GQUIC_LONG_HEADER_COMMON(header).flag)) {
     case 1:
         gquic_big_endian_writer_1byte(writer, header->pn);
         break;
@@ -255,7 +255,7 @@ static int gquic_packet_0rtt_header_serialize(const gquic_packet_0rtt_header_t *
     if (gquic_varint_serialize(&header->len, writer) != 0) {
         return -3;
     }
-    switch (gquic_packet_number_size(header->pn)) {
+    switch (gquic_packet_number_flag_to_size(GQUIC_LONG_HEADER_COMMON(header).flag)) {
     case 1:
         gquic_big_endian_writer_1byte(writer, header->pn);
         break;
@@ -282,7 +282,7 @@ static int gquic_packet_handshake_header_serialize(const gquic_packet_handshake_
     if (gquic_varint_serialize(&header->len, writer) != 0) {
         return -3;
     }
-    switch (gquic_packet_number_size(header->pn)) {
+    switch (gquic_packet_number_flag_to_size(GQUIC_LONG_HEADER_COMMON(header).flag)) {
     case 1:
         gquic_big_endian_writer_1byte(writer, header->pn);
         break;
