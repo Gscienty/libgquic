@@ -448,7 +448,8 @@ static inline int gquic_sent_packet_handler_set_loss_detection_timer(gquic_packe
     if (handler == NULL) {
         return -1;
     }
-    if (gquic_sent_packet_handler_get_earliest_loss_time_space(&loss_time, &enc_lv, handler) != 0 || loss_time != 0) {
+    gquic_sent_packet_handler_get_earliest_loss_time_space(&loss_time, &enc_lv, handler);
+    if (loss_time != 0) {
         handler->alarm = loss_time;
     }
     if (!gquic_sent_packet_handler_has_outstanding_packets(handler)) {
@@ -456,7 +457,7 @@ static inline int gquic_sent_packet_handler_set_loss_detection_timer(gquic_packe
         return 0;
     }
     gquic_sent_packet_handler_get_earliest_sent_time_space(&sent_time, &enc_lv, handler);
-    handler->alarm = sent_time + gquic_time_pto(handler->rtt, (enc_lv == GQUIC_ENC_LV_1RTT) << handler->pto_count);
+    handler->alarm = sent_time + (gquic_time_pto(handler->rtt, enc_lv == GQUIC_ENC_LV_1RTT) << handler->pto_count);
     return 0;
 }
 
@@ -716,7 +717,7 @@ static int gquic_packet_sent_packet_handler_on_verified_loss_detection_timeout(g
         struct timezone tz;
         gettimeofday(&tv, &tz);
         if (gquic_packet_sent_packet_handler_detect_lost_packets(handler,
-                                                                 tv.tv_sec * 1000 * 1000 + tv.tv_usec + tv.tv_usec,
+                                                                 tv.tv_sec * 1000 * 1000 + tv.tv_usec,
                                                                  enc_lv,
                                                                  handler->infly_bytes) != 0) {
             return -2;
