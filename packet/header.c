@@ -184,24 +184,15 @@ int gquic_packet_header_deserialize_packet_len(u_int64_t *const packet_len,
             if (gquic_varint_deserialize(&payload_len, &reader) != 0) {
                 return -7;
             }
-            if (gquic_reader_str_readed_size(&reader, gquic_packet_number_flag_to_size(GQUIC_STR_FIRST_BYTE(data))) != 0) {
-                return -8;
-            }
             break;
         case 0x01:
             if (gquic_varint_deserialize(&payload_len, &reader) != 0) {
                 return -9;
             }
-            if (gquic_reader_str_readed_size(&reader, gquic_packet_number_flag_to_size(GQUIC_STR_FIRST_BYTE(data))) != 0) {
-                return -10;
-            }
             break;
         case 0x02:
             if (gquic_varint_deserialize(&payload_len, &reader) != 0) {
                 return -11;
-            }
-            if (gquic_reader_str_readed_size(&reader, gquic_packet_number_flag_to_size(GQUIC_STR_FIRST_BYTE(data))) != 0) {
-                return -12;
             }
             break;
         case 0x03:
@@ -212,7 +203,7 @@ int gquic_packet_header_deserialize_packet_len(u_int64_t *const packet_len,
         }
     }
     else {
-        if (gquic_reader_str_readed_size(&reader, 1 + conn_id_len + gquic_packet_number_flag_to_size(GQUIC_STR_FIRST_BYTE(data))) != 0) {
+        if (gquic_reader_str_readed_size(&reader, 1 + conn_id_len) != 0) {
             return -14;
         }
         payload_len = GQUIC_STR_SIZE(&reader);
