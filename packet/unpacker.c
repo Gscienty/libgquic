@@ -98,9 +98,10 @@ int gquic_packet_unpacker_unpack(gquic_unpacked_packet_t *const unpacked_packet,
         case 0x00:
             unpacked_packet->enc_lv = GQUIC_ENC_LV_INITIAL;
             payload.opener.is_1rtt = 0;
-            payload.opener.self = &unpacker->est->initial_opener;
             payload.opener.cb.cb = gquic_common_long_header_opener_open_wrapper;
-            if ((ret = gquic_handshake_establish_get_initial_opener(&payload.header_opener, unpacker->est)) != 0) {
+            if ((ret = gquic_handshake_establish_get_initial_opener(&payload.header_opener,
+                                                                    (gquic_common_long_header_opener_t **) &payload.opener.self,
+                                                                    unpacker->est)) != 0) {
                 if (ret == -2) {
                     return -2; // key dropped
                 }
@@ -110,9 +111,10 @@ int gquic_packet_unpacker_unpack(gquic_unpacked_packet_t *const unpacked_packet,
         case 0x02:
             unpacked_packet->enc_lv = GQUIC_ENC_LV_HANDSHAKE;
             payload.opener.is_1rtt = 0;
-            payload.opener.self = &unpacker->est->handshake_opener;
             payload.opener.cb.cb = gquic_common_long_header_opener_open_wrapper;
-            if ((ret = gquic_handshake_establish_get_handshake_opener(&payload.header_opener, unpacker->est)) != 0) {
+            if ((ret = gquic_handshake_establish_get_handshake_opener(&payload.header_opener,
+                                                                    (gquic_common_long_header_opener_t **) &payload.opener.self,
+                                                                      unpacker->est)) != 0) {
                 if (ret == -2) {
                     return -4; // key dropped
                 }
@@ -127,10 +129,11 @@ int gquic_packet_unpacker_unpack(gquic_unpacked_packet_t *const unpacked_packet,
     else if ((GQUIC_STR_FIRST_BYTE(data) & 0xc0) == 0x40) {
         unpacked_packet->enc_lv = GQUIC_ENC_LV_1RTT;
         payload.opener.is_1rtt = 1;
-        payload.opener.self = &unpacker->est->aead;
         payload.opener.cb.one_rtt_cb = gquic_1rtt_opener_open_wrapper;
         payload.header_opener = &unpacker->est->aead.header_dec;
-        if ((ret = gquic_handshake_establish_get_1rtt_opener(&payload.header_opener, unpacker->est)) != 0) {
+        if ((ret = gquic_handshake_establish_get_1rtt_opener(&payload.header_opener,
+                                                             (gquic_auto_update_aead_t **) &payload.opener.self,
+                                                             unpacker->est)) != 0) {
             if (ret == -2) {
                 return -7; // key not available
             }
