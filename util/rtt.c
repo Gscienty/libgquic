@@ -1,6 +1,7 @@
 #include "util/rtt.h"
 #include <math.h>
 #include <unistd.h>
+#include <stdio.h>
 
 int gquic_rtt_init(gquic_rtt_t *rtt) {
     rtt->latest = 0;
@@ -11,14 +12,17 @@ int gquic_rtt_init(gquic_rtt_t *rtt) {
     return 0;
 }
 
-int gquic_rtt_update(gquic_rtt_t *rtt, const suseconds_t send, const suseconds_t ack) {
-    if (send <= 0) {
+int gquic_rtt_update(gquic_rtt_t *rtt, const u_int64_t send, const u_int64_t ack) {
+    if (rtt == NULL) {
         return -1;
+    }
+    if (send <= 0) {
+        return -2;
     }
     if (rtt->min == 0 || rtt->min > send) {
         rtt->min = send;
     }
-    suseconds_t sample = send;
+    u_int64_t sample = send;
     if (sample - rtt->min >= ack) {
         sample -= ack;
     }
@@ -34,17 +38,18 @@ int gquic_rtt_update(gquic_rtt_t *rtt, const suseconds_t send, const suseconds_t
     return 0;
 }
 
-suseconds_t gquic_time_since(const struct timeval *time) {
-    struct timeval now;
-    if (gettimeofday(&now, NULL) != 0) {
+u_int64_t gquic_time_since(const struct timeval *time) {
+    struct timeval tv;
+    struct timezone tz;
+    if (gettimeofday(&tv, &tz) != 0) {
         return -1;
     }
-    return (now.tv_sec - time->tv_sec) * 1000000 + now.tv_usec - time->tv_usec;
+    return tv.tv_sec * 1000 * 1000 + tv.tv_usec - time->tv_sec * 1000 * 1000 - time->tv_usec;
 }
 
 #define __MAX(a, b) ((a) > (b) ? (a) : (b))
 
-suseconds_t gquic_time_pto(const gquic_rtt_t *const rtt, int inc_max_ack_delay) {
+u_int64_t gquic_time_pto(const gquic_rtt_t *const rtt, int inc_max_ack_delay) {
     suseconds_t pto = 0;
     if (rtt == NULL) {
         return -1;

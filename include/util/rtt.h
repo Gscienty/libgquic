@@ -6,17 +6,17 @@
 
 typedef struct gquic_rtt_s gquic_rtt_t;
 struct gquic_rtt_s {
-    suseconds_t min;
-    suseconds_t latest;
-    suseconds_t smooth;
-    suseconds_t mean_dev;
+    u_int64_t min;
+    u_int64_t latest;
+    u_int64_t smooth;
+    u_int64_t mean_dev;
 
-    suseconds_t max_delay;
+    u_int64_t max_delay;
 };
 
 int gquic_rtt_init(gquic_rtt_t *rtt);
-int gquic_rtt_update(gquic_rtt_t *const rtt, const suseconds_t send, const suseconds_t ack);
-suseconds_t gquic_time_since(const struct timeval *time);
-suseconds_t gquic_time_pto(const gquic_rtt_t *const rtt, int inc_max_ack_delay);
+int gquic_rtt_update(gquic_rtt_t *const rtt, const u_int64_t send, const u_int64_t ack);
+u_int64_t gquic_time_since(const struct timeval *time);
+u_int64_t gquic_time_pto(const gquic_rtt_t *const rtt, int inc_max_ack_delay);
 
 #endif
