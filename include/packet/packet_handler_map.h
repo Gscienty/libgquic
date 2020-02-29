@@ -58,6 +58,7 @@ int gquic_packet_handler_map_add(gquic_str_t *const token,
                                  gquic_packet_handler_map_t *const handler,
                                  const gquic_str_t *const conn_id,
                                  gquic_packet_handler_t *const ph);
+int gquic_packet_handler_map_handle_packet(gquic_packet_handler_map_t *const handle_map, gquic_received_packet_t *const rp);
 int gquic_packet_handler_map_add_if_not_taken(gquic_packet_handler_map_t *handler,
                                               const gquic_str_t *const conn_id,
                                               gquic_packet_handler_t *const ph);

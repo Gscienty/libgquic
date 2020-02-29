@@ -40,7 +40,6 @@ struct __replace_with_closed_timeout_param_s {
 };
 
 static void *__packet_handler_map_listen(void *const);
-static int gquic_packet_handler_map_handle_packet(gquic_packet_handler_map_t *const, gquic_received_packet_t *const);
 static void *__packet_handler_map_try_send_stateless_reset(void *const);
 static int gquic_packet_handler_map_try_handle_stateless_reset(gquic_packet_handler_map_t *const, const gquic_str_t *const);
 static int gquic_packet_handler_rb_str_cmp(void *const, void *const);
@@ -192,7 +191,7 @@ static void *__packet_handler_map_listen(void *const handler_) {
     return NULL;
 }
 
-static int gquic_packet_handler_map_handle_packet(gquic_packet_handler_map_t *const handler, gquic_received_packet_t *const recv_packet) {
+int gquic_packet_handler_map_handle_packet(gquic_packet_handler_map_t *const handler, gquic_received_packet_t *const recv_packet) {
     int ret = 0;
     const gquic_rbtree_t *rbt = NULL;
     __send_stateless_reset_param_t *param = NULL;
