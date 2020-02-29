@@ -1,5 +1,6 @@
 #include "util/varint.h"
 #include "util/big_endian.h"
+#include <stdio.h>
 
 ssize_t gquic_varint_size(const u_int64_t *const val) {
     if (val == NULL) {
@@ -78,7 +79,7 @@ int gquic_varint_deserialize(u_int64_t *const val, gquic_reader_str_t *const rea
             return -3;
         }
         gquic_big_endian_reader_2byte((u_int16_t *) val, reader);
-        ((unsigned char *) val)[1] &= 0x3f;
+        ((u_int8_t *) val)[1] &= 0x3f;
         break;
 
     case 0x80:
@@ -86,7 +87,7 @@ int gquic_varint_deserialize(u_int64_t *const val, gquic_reader_str_t *const rea
             return -3;
         }
         gquic_big_endian_reader_4byte((u_int32_t *) val, reader);
-        ((unsigned char *) val)[3] &= 0x3f;
+        ((u_int8_t *) val)[3] &= 0x3f;
         break;
 
     case 0xc0:
@@ -94,7 +95,7 @@ int gquic_varint_deserialize(u_int64_t *const val, gquic_reader_str_t *const rea
             return -3;
         }
         gquic_big_endian_reader_8byte((u_int64_t *) val, reader);
-        ((unsigned char *) val)[7] &= 0x3f;
+        ((u_int8_t *) val)[7] &= 0x3f;
         break;
 
     default:
