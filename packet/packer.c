@@ -501,14 +501,14 @@ int gquic_packet_packer_pack_with_padding(gquic_packed_packet_t *const packed_pa
     }
     gquic_writer_str_t writer = buffer->slice;
     if (payload->hdr.is_long) {
-        pn_len = (payload->hdr.hdr.l_hdr->flag & 0x03) + 1;
+        pn_len = gquic_packet_number_flag_to_size(payload->hdr.hdr.l_hdr->flag);
         if (gquic_packet_long_header_serialize(payload->hdr.hdr.l_hdr, &writer) != 0) {
             ret = -3;
             goto failure;
         }
     }
     else {
-        pn_len = (payload->hdr.hdr.s_hdr->flag & 0x03) + 1;
+        pn_len = gquic_packet_number_flag_to_size(payload->hdr.hdr.s_hdr->flag);
         if (gquic_packet_short_header_serialize(payload->hdr.hdr.s_hdr, &writer) != 0) {
             ret = -4;
             goto failure;
@@ -558,18 +558,20 @@ int gquic_packet_packer_pack_with_padding(gquic_packed_packet_t *const packed_pa
         ret = -11;
         goto failure;
     }
-    
-    // seal header (pn)
+
+    // set payload
+    memcpy(GQUIC_STR_VAL(&buffer->slice) + header_size, GQUIC_STR_VAL(&tag), GQUIC_STR_SIZE(&tag));
+    memcpy(GQUIC_STR_VAL(&buffer->slice) + header_size + GQUIC_STR_SIZE(&tag), GQUIC_STR_VAL(&cipher_text), GQUIC_STR_SIZE(&cipher_text));
+    buffer->writer.size = GQUIC_STR_SIZE(&buffer->slice) - header_size - GQUIC_STR_SIZE(&cipher_text) - GQUIC_STR_SIZE(&tag);
+    buffer->writer.val = GQUIC_STR_VAL(&buffer->slice) + header_size + GQUIC_STR_SIZE(&cipher_text) + GQUIC_STR_SIZE(&tag);
+
+    // seal header
     gquic_str_t header = { pn_len, GQUIC_STR_VAL(&buffer->slice) + header_size - pn_len };
     gquic_str_t sample = { 16, GQUIC_STR_VAL(&buffer->slice) + header_size - pn_len + 4 };
     u_int8_t first = GQUIC_STR_FIRST_BYTE(&buffer->slice);
-    GQUIC_HEADER_PROTECTOR_ENCRYPT(&header, &first, payload->header_sealer, &sample);
-
-    // seal body (tag & frames)
-    memcpy(GQUIC_STR_VAL(&buffer->slice) + header_size, GQUIC_STR_VAL(&cipher_text), GQUIC_STR_SIZE(&cipher_text));
-    memcpy(GQUIC_STR_VAL(&buffer->slice) + header_size + GQUIC_STR_SIZE(&cipher_text), GQUIC_STR_VAL(&tag), GQUIC_STR_SIZE(&tag));
-    buffer->writer.size = GQUIC_STR_SIZE(&buffer->slice) - header_size - GQUIC_STR_SIZE(&cipher_text) - GQUIC_STR_SIZE(&tag);
-    buffer->writer.val = GQUIC_STR_VAL(&buffer->slice) + header_size + GQUIC_STR_SIZE(&cipher_text) + GQUIC_STR_SIZE(&tag);
+    GQUIC_HEADER_PROTECTOR_SET_KEY(payload->header_sealer, &sample);
+    GQUIC_HEADER_PROTECTOR_ENCRYPT(&header, &first, payload->header_sealer);
+    *(u_int8_t *) GQUIC_STR_VAL(&buffer->slice) = first;
 
     u_int64_t pn;
     if (gquic_packet_sent_packet_handler_pop_pn(&pn, packer->pn_gen, payload->enc_lv) != 0 || hdr_pn != pn) {
