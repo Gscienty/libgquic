@@ -28,6 +28,7 @@ int gquic_long_header_sealer_ctor(gquic_long_header_sealer_t *const sealer,
     if (gquic_str_alloc(&sealer->nonce_buf, 12) != 0) {
         return -3;
     }
+    gquic_str_clear(&sealer->nonce_buf);
 
     return 0;
 }
@@ -45,6 +46,7 @@ int gquic_long_header_sealer_traffic_ctor(gquic_long_header_sealer_t *const seal
     if (gquic_str_alloc(&sealer->nonce_buf, 12) != 0) {
         return -3;
     }
+    gquic_str_clear(&sealer->nonce_buf);
 
     return 0;
 }
@@ -69,7 +71,7 @@ int gquic_long_header_sealer_seal(gquic_str_t *const tag,
     if (cipher_text == NULL || tag == NULL || sealer == NULL || plain_text == NULL || addata == NULL) {
         return -1;
     }
-    if (gquic_big_endian_transfer(GQUIC_STR_VAL(&sealer->nonce_buf) - 8, &pn, 8) != 0) {
+    if (gquic_big_endian_transfer(GQUIC_STR_VAL(&sealer->nonce_buf) + GQUIC_STR_SIZE(&sealer->nonce_buf) - 8, &pn, 8) != 0) {
         return -2;
     }
     if (GQUIC_TLS_AEAD_SEAL(tag, cipher_text, &sealer->aead, &sealer->nonce_buf, plain_text, addata) != 0) {
@@ -105,6 +107,7 @@ int gquic_long_header_opener_ctor(gquic_long_header_opener_t *const opener,
     if (gquic_str_alloc(&opener->nonce_buf, 12) != 0) {
         return -3;
     }
+    gquic_str_clear(&opener->nonce_buf);
     return 0;
 }
 
@@ -121,6 +124,7 @@ int gquic_long_header_opener_traffic_ctor(gquic_long_header_opener_t *const open
     if (gquic_str_alloc(&opener->nonce_buf, 12) != 0) {
         return -3;
     }
+    gquic_str_clear(&opener->nonce_buf);
     return 0;
 }
 
@@ -144,7 +148,7 @@ int gquic_long_header_opener_open(gquic_str_t *const plain_text,
     if (plain_text == NULL || opener == NULL || tag == NULL || cipher_text == NULL || addata == NULL) {
         return -1;
     }
-    if (gquic_big_endian_transfer(GQUIC_STR_VAL(&opener->nonce_buf) - 8, &pn, 8) != 0) {
+    if (gquic_big_endian_transfer(GQUIC_STR_VAL(&opener->nonce_buf) + GQUIC_STR_SIZE(&opener->nonce_buf) - 8, &pn, 8) != 0) {
         return -2;
     }
     if (GQUIC_TLS_AEAD_OPEN(plain_text, &opener->aead, &opener->nonce_buf, tag, cipher_text, addata) != 0) {
