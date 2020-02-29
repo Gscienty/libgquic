@@ -182,6 +182,7 @@ static int gquic_1rtt_opener_open_wrapper(gquic_str_t *const plain_text,
 static int gquic_packet_unpacker_unpack_header_packet(gquic_unpacked_packet_t *const unpacked_packet,
                                                       gquic_packet_unpacker_t *const unpacker,
                                                       gquic_unpacked_packet_payload_t *const payload) {
+    int ret = 0;
     gquic_reader_str_t reader = { 0, NULL };
     if (unpacked_packet == NULL || unpacker == NULL || payload == NULL) {
         return -1;
@@ -211,14 +212,14 @@ static int gquic_packet_unpacker_unpack_header_packet(gquic_unpacked_packet_t *c
     gquic_str_t tag = { 16, GQUIC_STR_VAL(payload->data) + header_len };
     gquic_str_t cipher_text = { GQUIC_STR_SIZE(payload->data) - header_len - 16, GQUIC_STR_VAL(payload->data) + header_len + 16 };
     gquic_str_t addata = { header_len, GQUIC_STR_VAL(payload->data) };
-    if (GQUIC_UNPACKED_PACKET_PAYLOAD_OPEN(&unpacked_packet->data,
-                                       payload,
-                                       payload->recv_time,
-                                       gquic_packet_header_get_pn(&unpacked_packet->hdr),
-                                       unpacked_packet->hdr.is_long == 0 && ((GQUIC_STR_FIRST_BYTE(payload->data) & 0x04) != 0),
-                                       &tag,
-                                       &cipher_text,
-                                       &addata) != 0) {
+    if ((ret = GQUIC_UNPACKED_PACKET_PAYLOAD_OPEN(&unpacked_packet->data,
+                                                  payload,
+                                                  payload->recv_time,
+                                                  gquic_packet_header_get_pn(&unpacked_packet->hdr),
+                                                  unpacked_packet->hdr.is_long == 0 && ((GQUIC_STR_FIRST_BYTE(payload->data) & 0x04) != 0),
+                                                  &tag,
+                                                  &cipher_text,
+                                                  &addata)) != 0) {
         return -7;
     }
 
@@ -242,25 +243,25 @@ static int gquic_packet_unpacker_unpack_header(gquic_unpacked_packet_t *const un
     memcpy(origin_pn, GQUIC_STR_VAL(payload->data) + deserialized_hdr_size, 4);
     gquic_str_t header = { 4, GQUIC_STR_VAL(payload->data) + deserialized_hdr_size };
     gquic_str_t sample = { 16, GQUIC_STR_VAL(payload->data) + deserialized_hdr_size + 4 };
+    GQUIC_HEADER_PROTECTOR_SET_KEY(payload->header_opener, &sample);
     if (unpacked_packet->hdr.is_long) {
-        GQUIC_HEADER_PROTECTOR_DECRYPT(&header, &unpacked_packet->hdr.hdr.l_hdr->flag, payload->header_opener, &sample);
-        pn_len = (0x03 & unpacked_packet->hdr.hdr.l_hdr->flag) + 1;
-        if (pn_len != 4) {
-            memcpy(GQUIC_STR_VAL(payload->data) + deserialized_hdr_size, origin_pn, 4);
-        }
+        GQUIC_HEADER_PROTECTOR_DECRYPT(&header, &unpacked_packet->hdr.hdr.l_hdr->flag, payload->header_opener);
+        pn_len = gquic_packet_number_flag_to_size(unpacked_packet->hdr.hdr.l_hdr->flag);
         if (gquic_packet_long_header_deserialize_seal_part(unpacked_packet->hdr.hdr.l_hdr, reader) != 0) {
             return -3;
         }
+        *(u_int8_t *) GQUIC_STR_VAL(payload->data) = unpacked_packet->hdr.hdr.l_hdr->flag;
     }
     else {
-        GQUIC_HEADER_PROTECTOR_DECRYPT(&header, &unpacked_packet->hdr.hdr.s_hdr->flag, payload->header_opener, &sample);
-        pn_len = (0x03 & unpacked_packet->hdr.hdr.l_hdr->flag) + 1;
-        if (pn_len != 4) {
-            memcpy(GQUIC_STR_VAL(payload->data) + deserialized_hdr_size, origin_pn, 4);
-        }
+        GQUIC_HEADER_PROTECTOR_DECRYPT(&header, &unpacked_packet->hdr.hdr.s_hdr->flag, payload->header_opener);
+        pn_len = gquic_packet_number_flag_to_size(unpacked_packet->hdr.hdr.s_hdr->flag);
         if (gquic_packet_short_header_deserialize_seal_part(unpacked_packet->hdr.hdr.s_hdr, reader) != 0) {
             return -4;
         }
+        *(u_int8_t *) GQUIC_STR_VAL(payload->data) = unpacked_packet->hdr.hdr.s_hdr->flag;
+    }
+    if (pn_len != 4) {
+        memcpy(GQUIC_STR_VAL(payload->data) + deserialized_hdr_size + pn_len, origin_pn + pn_len, 4 - pn_len);
     }
 
     gquic_packet_header_set_pn(&unpacked_packet->hdr,
