@@ -113,6 +113,14 @@ int gquic_str_concat(gquic_str_t *const ret, const gquic_str_t *const a, const g
     return 0;
 }
 
+int gquic_str_clear(gquic_str_t *const str) {
+    if (str == NULL) {
+        return -1;
+    }
+    memset(GQUIC_STR_VAL(str), 0, GQUIC_STR_SIZE(str));
+    return 0;
+}
+
 int gquic_reader_str_readed_size(gquic_reader_str_t *const reader, const size_t n) {
     if (reader == NULL) {
         return -1;

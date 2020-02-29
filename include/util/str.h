@@ -39,6 +39,7 @@ int gquic_str_set(gquic_str_t *const str, const char *const val);
 int gquic_str_test_echo(const gquic_str_t *const str);
 int gquic_str_cmp(const gquic_str_t *const str_a, const gquic_str_t *const str_b);
 int gquic_str_concat(gquic_str_t *const ret, const gquic_str_t *const a, const gquic_str_t *const b);
+int gquic_str_clear(gquic_str_t *const str);
 
 typedef gquic_str_t gquic_reader_str_t;
 int gquic_reader_str_readed_size(gquic_reader_str_t *const reader, const size_t n);
