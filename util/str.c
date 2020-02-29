@@ -163,14 +163,16 @@ int gquic_writer_str_writed_size(gquic_writer_str_t *const writer, const size_t 
 }
 
 int gquic_writer_str_write(gquic_writer_str_t *const writer, const gquic_str_t *const buf) {
+    u_int64_t writer_size = 0;
     if (writer == NULL || buf == NULL) {
         return -1;
     }
-    if (GQUIC_STR_SIZE(writer) < GQUIC_STR_SIZE(buf)) {
-        return -2;
+    writer_size = GQUIC_STR_SIZE(buf);
+    if (GQUIC_STR_SIZE(writer) < writer_size) {
+        writer_size = GQUIC_STR_SIZE(writer);
     }
-    memcpy(GQUIC_STR_VAL(writer), GQUIC_STR_VAL(buf), GQUIC_STR_SIZE(buf));
-    gquic_writer_str_writed_size(writer, GQUIC_STR_SIZE(buf));
+    memcpy(GQUIC_STR_VAL(writer), GQUIC_STR_VAL(buf), writer_size);
+    gquic_writer_str_writed_size(writer, writer_size);
     return 0;
 }
 
