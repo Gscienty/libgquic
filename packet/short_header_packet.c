@@ -21,7 +21,7 @@ ssize_t gquic_packet_short_header_size(const gquic_packet_short_header_t *const 
     if (header == NULL) {
         return -1;
     }
-    return 1 + header->dcid_len + (header->flag & 0x03) + 1;
+    return 1 + header->dcid_len + gquic_packet_number_flag_to_size(header->flag);
 }
 
 int gquic_packet_short_header_serialize(const gquic_packet_short_header_t *const header, gquic_writer_str_t *const writer) {
@@ -94,7 +94,7 @@ int gquic_packet_short_header_deserialize_seal_part(gquic_packet_short_header_t 
         return -1;
     }
 
-    switch ((header->flag & 0x03) + 1) {
+    switch (gquic_packet_number_flag_to_size(header->flag)) {
     case 1:
         gquic_big_endian_reader_1byte((u_int8_t *) &header->pn, reader);
         break;
