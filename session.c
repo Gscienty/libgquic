@@ -206,11 +206,11 @@ int gquic_session_ctor(gquic_session_t *const sess,
     }
     if (!is_client &&
         (
-            origin_dst_conn_id == NULL
-            || cli_dst_conn_id == NULL
-            || stateless_reset_token == NULL
-            
-         )) {
+         origin_dst_conn_id == NULL
+         || cli_dst_conn_id == NULL
+         || stateless_reset_token == NULL
+
+        )) {
         return -2;
     }
     gquic_str_copy(&sess->cli_dst_conn_id, cli_dst_conn_id);
@@ -219,27 +219,41 @@ int gquic_session_ctor(gquic_session_t *const sess,
     sess->cfg = cfg;
     gquic_str_copy(&sess->handshake_dst_conn_id, dst_conn_id);
     sess->src_conn_id_len = GQUIC_STR_SIZE(src_conn_id);
-    sess->is_client = 0;
+    sess->is_client = is_client;
     sess->runner = runner;
-    gquic_conn_id_manager_ctor(&sess->conn_id_manager,
-                               dst_conn_id,
-                               sess, gquic_session_add_reset_token_wrapper,
-                               runner, gquic_packet_handler_map_remove_reset_token_wrapper,
-                               runner, gquic_packet_handler_map_retire_reset_token_wrapper,
-                               sess, gquic_session_queue_control_frame_wrapper);
-    gquic_conn_id_gen_ctor(&sess->conn_id_gen,
-                           src_conn_id,
-                           cli_dst_conn_id,
-                           sess, gquic_session_add_wrapper,
-                           runner, gquic_packet_handler_map_remove_wrapper,
-                           runner, gquic_packet_handler_map_retire_wrapper,
-                           runner, gquic_packet_handler_map_replace_with_closed_wrapper,
-                           sess, gquic_session_queue_control_frame_wrapper);
-    gquic_session_pre_setup(sess);
-    gquic_packet_sent_packet_handler_ctor(&sess->sent_packet_handler, initial_pn, &sess->rtt, NULL, NULL);
-    gquic_crypto_stream_ctor(&sess->initial_stream);
-    gquic_crypto_stream_ctor(&sess->handshake_stream);
-    gquic_post_handshake_crypto_ctor(&sess->one_rtt_stream, &sess->framer);
+    if (gquic_conn_id_manager_ctor(&sess->conn_id_manager,
+                                   dst_conn_id,
+                                   sess, gquic_session_add_reset_token_wrapper,
+                                   runner, gquic_packet_handler_map_remove_reset_token_wrapper,
+                                   runner, gquic_packet_handler_map_retire_reset_token_wrapper,
+                                   sess, gquic_session_queue_control_frame_wrapper) != 0) {
+        return -3;
+    }
+    if (gquic_conn_id_gen_ctor(&sess->conn_id_gen,
+                               src_conn_id,
+                               cli_dst_conn_id,
+                               sess, gquic_session_add_wrapper,
+                               runner, gquic_packet_handler_map_remove_wrapper,
+                               runner, gquic_packet_handler_map_retire_wrapper,
+                               runner, gquic_packet_handler_map_replace_with_closed_wrapper,
+                               sess, gquic_session_queue_control_frame_wrapper) != 0) {
+        return -4;
+    }
+    if (gquic_session_pre_setup(sess) != 0) {
+        return -5;
+    }
+    if (gquic_packet_sent_packet_handler_ctor(&sess->sent_packet_handler, initial_pn, &sess->rtt, NULL, NULL) != 0) {
+        return -6;
+    }
+    if (gquic_crypto_stream_ctor(&sess->initial_stream) != 0) {
+        return -7;
+    }
+    if (gquic_crypto_stream_ctor(&sess->handshake_stream) != 0) {
+        return -8;
+    }
+    if (gquic_post_handshake_crypto_ctor(&sess->one_rtt_stream, &sess->framer) != 0) {
+        return -9;
+    }
 
     gquic_transport_parameters_t params;
     gquic_transport_parameters_init(&params);
@@ -259,18 +273,20 @@ int gquic_session_ctor(gquic_session_t *const sess,
         gquic_str_copy(&params.original_conn_id, origin_dst_conn_id);
     }
 
-    gquic_handshake_establish_ctor(&sess->est,
-                                   &sess->initial_stream, gquic_initial_stream_write_wrapper,
-                                   &sess->handshake_stream, gquic_handshake_stream_write_wrapper,
-                                   &sess->one_rtt_stream, gquic_one_rtt_stream_write_wrapper,
-                                   is_client ? sess : NULL,
-                                   is_client ? gquic_session_client_written_callback : NULL,
-                                   &cfg->tls_config,
-                                   dst_conn_id,
-                                   &params,
-                                   &sess->rtt,
-                                   &conn->addr,
-                                   sess->is_client);
+    if (gquic_handshake_establish_ctor(&sess->est,
+                                       &sess->initial_stream, gquic_initial_stream_write_wrapper,
+                                       &sess->handshake_stream, gquic_handshake_stream_write_wrapper,
+                                       &sess->one_rtt_stream, gquic_one_rtt_stream_write_wrapper,
+                                       is_client ? sess : NULL,
+                                       is_client ? gquic_session_client_written_callback : NULL,
+                                       &cfg->tls_config,
+                                       dst_conn_id,
+                                       &params,
+                                       &sess->rtt,
+                                       &conn->addr,
+                                       sess->is_client) != 0) {
+        return -10;
+    }
     sess->est.events.on_recv_params.cb = gquic_session_handshake_event_on_received_params_wrapper;
     sess->est.events.on_recv_params.self = sess;
     sess->est.events.on_err.cb = gquic_session_handshake_event_on_error_wrapper;
@@ -282,25 +298,31 @@ int gquic_session_ctor(gquic_session_t *const sess,
         : gquic_session_on_handshake_complete_server_wrapper;
     sess->est.events.on_handshake_complete.self = sess;
 
-    gquic_crypto_stream_manager_ctor(&sess->crypto_stream_manager,
-                                     &sess->est, gquic_handshake_establish_handle_msg_wrapper,
-                                     &sess->initial_stream,
-                                     &sess->handshake_stream,
-                                     &sess->one_rtt_stream);
+    if (gquic_crypto_stream_manager_ctor(&sess->crypto_stream_manager,
+                                         &sess->est, gquic_handshake_establish_handle_msg_wrapper,
+                                         &sess->initial_stream,
+                                         &sess->handshake_stream,
+                                         &sess->one_rtt_stream) != 0) {
+        return -11;
+    }
 
-    gquic_packet_unpacker_ctor(&sess->unpacker, &sess->est);
-    gquic_packet_packer_ctor(&sess->packer,
-                             src_conn_id,
-                             &sess->conn_id_manager, gquic_conn_id_manager_get_wrapper,
-                             &sess->initial_stream,
-                             &sess->handshake_stream,
-                             &sess->sent_packet_handler,
-                             &sess->retransmission,
-                             conn->addr.type == AF_INET ? 1252 : 1232,
-                             &sess->est,
-                             &sess->framer,
-                             &sess->recv_packet_handler,
-                             sess->is_client);
+    if (gquic_packet_unpacker_ctor(&sess->unpacker, &sess->est) != 0) {
+        return -12;
+    }
+    if (gquic_packet_packer_ctor(&sess->packer,
+                                 src_conn_id,
+                                 &sess->conn_id_manager, gquic_conn_id_manager_get_wrapper,
+                                 &sess->initial_stream,
+                                 &sess->handshake_stream,
+                                 &sess->sent_packet_handler,
+                                 &sess->retransmission,
+                                 conn->addr.type == AF_INET ? 1252 : 1232,
+                                 &sess->est,
+                                 &sess->framer,
+                                 &sess->recv_packet_handler,
+                                 sess->is_client) != 0) {
+        return -13;
+    }
 
     if (is_client && GQUIC_STR_SIZE(&cfg->tls_config.ser_name) != 0) {
         gquic_str_copy(&sess->token_store_key, &cfg->tls_config.ser_name);
@@ -360,7 +382,7 @@ static int gquic_session_close_wrapper(void *const sess) {
 }
 
 static int gquic_session_destroy_wrapper(void *const sess, const int err) {
-    return gquic_session_destroy(sess, err);
+    return gquic_session_destroy(sess, 10 * err - 1);
 }
 
 static int gquic_session_is_client_wrapper(void *const sess_) {
@@ -382,7 +404,7 @@ static int gquic_session_handshake_event_on_received_params_wrapper(void *const 
 
 static int gquic_session_handshake_event_on_error_wrapper(void *const sess, const u_int16_t errcode, const int err) {
     (void) errcode;
-    return gquic_session_close_local(sess, err);
+    return gquic_session_close_local(sess, 10 * err - 1);
 }
 
 static int gquic_session_handshake_event_drop_keys_wrapper(void *const sess, const u_int8_t enc_lv) {
@@ -538,7 +560,7 @@ static int gquic_session_on_stream_completed_wrapper(void *const sess_, const u_
         return -1;
     }
     if ((ret = gquic_stream_map_release_stream(&sess->streams_map, stream_id)) != 0) {
-        gquic_session_close_local(sess, ret);
+        gquic_session_close_local(sess, 100 * ret - 10);
     }
     
     return 0;
@@ -664,7 +686,7 @@ int gquic_session_run(gquic_session_t *const sess) {
         ret = -2;
         goto finished;
     }
-    if (pthread_create(&sess->send_queue_thread, NULL, gquic_session_run_send_queue_thread, sess) != 0) {
+    if ((ret = pthread_create(&sess->send_queue_thread, NULL, gquic_session_run_send_queue_thread, sess)) != 0) {
         ret = -3;
         goto finished;
     }
@@ -737,7 +759,7 @@ int gquic_session_run(gquic_session_t *const sess) {
         u_int64_t now = tv.tv_sec * 1000 * 1000 + tv.tv_usec;
         if (sess->sent_packet_handler.alarm != 0 && sess->sent_packet_handler.alarm < now) {
             if ((ret = gquic_packet_sent_packet_handler_on_loss_detection_timeout(&sess->sent_packet_handler)) != 0) {
-                gquic_session_close_local(sess, ret);
+                gquic_session_close_local(sess, 10 * ret - 9);
                 ret = 0;
             }
         }
@@ -761,16 +783,16 @@ int gquic_session_run(gquic_session_t *const sess) {
         }
 
         if (!sess->handshake_completed && now - sess->session_creation_time >= sess->cfg->handshake_timeout) {
-            gquic_session_destroy_inner(sess, -3);
+            gquic_session_destroy_inner(sess, -3 * 10 - 2);
             continue;
         }
         if (sess->handshake_completed && now - gquic_session_idle_timeout_start_time(sess) >= sess->idle_timeout) {
-            gquic_session_destroy_inner(sess, -4);
+            gquic_session_destroy_inner(sess, -4 * 10 - 3);
             continue;
         }
 
         if ((ret = gquic_session_send_packets(sess)) != 0) {
-            gquic_session_close_local(sess, ret);
+            gquic_session_close_local(sess, 10 * ret - 8);
             ret = 0;
         }
     }
@@ -800,7 +822,7 @@ static void *gquic_session_run_send_queue_thread(void *const sess_) {
         return NULL;
     }
     if ((ret = gquic_packet_send_queue_run(&sess->send_queue)) != 0) {
-        gquic_session_close_local(sess, ret);
+        gquic_session_close_local(sess, 10 * ret - 7);
     }
 
     return NULL;
@@ -904,7 +926,7 @@ static int gquic_session_process_transport_parameters(gquic_session_t *const ses
         ret = gquic_session_server_process_transport_parameters(&sess->peer_params, sess, data);
     }
     if (ret != 0) {
-        gquic_session_close_local(sess, ret);
+        gquic_session_close_local(sess, 10 * ret - 6);
         return 0;
     }
     sess->idle_timeout = sess->cfg->max_idle_timeout;
@@ -916,7 +938,7 @@ static int gquic_session_process_transport_parameters(gquic_session_t *const ses
     }
     sess->keep_alive_interval = sess->idle_timeout / 2 < 20 * 1000 * 1000 ? sess->idle_timeout / 2 : 20 * 1000 * 1000;
     if ((ret = gquic_stream_map_handle_update_limits(&sess->streams_map, &sess->peer_params)) != 0) {
-        gquic_session_close_local(sess, ret);
+        gquic_session_close_local(sess, 10 * ret - 5);
         return 0;
     }
     if (sess->peer_params.max_packet_size != 0) {
@@ -1082,7 +1104,7 @@ static int gquic_session_handle_single_packet(gquic_session_t *const sess, gquic
             gquic_session_try_queue_undecryptable_packet(sess, rp);
             goto finished;
         case -10:
-            gquic_session_close_local(sess, -10);
+            gquic_session_close_local(sess, -10 * 10 - 4);
             break;
         }
         ret = 0;
@@ -1090,7 +1112,7 @@ static int gquic_session_handle_single_packet(gquic_session_t *const sess, gquic
     }
 
     if ((ret = gquic_session_handle_unpacked_packet(sess, &packet, rp->recv_time) != 0)) {
-        gquic_session_close_local(sess, ret);
+        gquic_session_close_local(sess, 10 * ret - 3);
         ret = 0;
         goto free_rp_finished;
     }
@@ -1146,7 +1168,7 @@ static int gquic_session_handle_retry_packet(gquic_session_t *const sess, const 
     gquic_str_copy(&new_dst_conn_id, &sid);
     sess->received_retry = 1;
     if ((ret = gquic_packet_sent_packet_handler_reset_for_retry(&sess->sent_packet_handler)) != 0) {
-        gquic_session_close_local(sess, ret);
+        gquic_session_close_local(sess, 10 * ret - 2);
         ret = 0;
         goto finished;
     }
@@ -1543,6 +1565,7 @@ static int gquic_session_send_connection_close(gquic_str_t *const data,
 }
 
 static int gquic_session_send_packets(gquic_session_t *const sess) {
+    int ret = 0;
     u_int8_t send_mode = 0x00;
     u_int64_t packets_count = 0;
     u_int64_t packets_sent_count = 0;
@@ -1567,26 +1590,26 @@ static int gquic_session_send_packets(gquic_session_t *const sess) {
             }
             return gquic_session_try_send_only_ack_packet(sess);
         case GQUIC_SEND_MODE_PTO_INITIAL:
-            if (gquic_session_send_probe_packet(sess, GQUIC_ENC_LV_INITIAL) != 0) {
-                return -2;
+            if ((ret = gquic_session_send_probe_packet(sess, GQUIC_ENC_LV_INITIAL)) != 0) {
+                return -2 + 10 * ret;
             }
             packets_sent_count++;
             break;
         case GQUIC_SEND_MODE_PTO_HANDSHAKE:
-            if (gquic_session_send_probe_packet(sess, GQUIC_ENC_LV_HANDSHAKE) != 0) {
-                return -3;
+            if ((ret = gquic_session_send_probe_packet(sess, GQUIC_ENC_LV_HANDSHAKE)) != 0) {
+                return -3 + 10 * ret;
             }
             packets_sent_count++;
             break;
         case GQUIC_SEND_MODE_PTO_APP:
-            if (gquic_session_send_probe_packet(sess, GQUIC_ENC_LV_1RTT) != 0) {
-                return -4;
+            if ((ret = gquic_session_send_probe_packet(sess, GQUIC_ENC_LV_1RTT)) != 0) {
+                return -4 * 10 * ret;
             }
             packets_sent_count++;
             break;
         case GQUIC_SEND_MODE_ANY:
-            if (gquic_session_send_packet(&sended, sess) != 0) {
-                return -5;
+            if ((ret = gquic_session_send_packet(&sended, sess)) != 0) {
+                return -5 + 10 * ret;
             }
             if (!sended) {
                 goto loop_end;
@@ -1666,6 +1689,7 @@ static int gquic_session_send_packed_packet(gquic_session_t *const sess, gquic_p
 }
 
 static int gquic_session_send_packet(int *const sent_packet, gquic_session_t *const sess) {
+    int ret = 0;
     u_int64_t swnd = 0;
     gquic_frame_data_blocked_t *blocked = NULL;
     gquic_packed_packet_t *packed_packet = NULL;
@@ -1693,16 +1717,16 @@ static int gquic_session_send_packet(int *const sent_packet, gquic_session_t *co
     }
     gquic_packet_init(packet);
     gquic_packed_packet_init(packed_packet);
-    if (gquic_packet_packer_pack_packet(packed_packet, &sess->packer) != 0) {
+    if ((ret = gquic_packet_packer_pack_packet(packed_packet, &sess->packer)) != 0) {
         free(packet);
         free(packed_packet);
-        return -5;
+        return -5 + ret * 10;
     }
     if (!packed_packet->valid) {
         gquic_packed_packet_dtor(packed_packet);
         free(packed_packet);
         free(packet);
-        return -5;
+        return 0;
     }
 
     gquic_packed_packet_get_ack_packet(packet, packed_packet, &sess->retransmission);
@@ -1714,6 +1738,7 @@ static int gquic_session_send_packet(int *const sent_packet, gquic_session_t *co
 }
 
 static int gquic_session_send_probe_packet(gquic_session_t *const sess, const u_int8_t enc_lv) {
+    int ret = 0;
     gquic_packed_packet_t *packed_packet = NULL;
     gquic_packet_t *packet = NULL;
     gquic_frame_ping_t *ping = NULL;
@@ -1760,11 +1785,11 @@ static int gquic_session_send_probe_packet(gquic_session_t *const sess, const u_
             gquic_frame_release(ping);
             return -5;
         }
-        if (gquic_packet_packer_try_pack_probe_packet(packed_packet, &sess->packer, enc_lv) != 0) {
+        if ((ret = gquic_packet_packer_try_pack_probe_packet(packed_packet, &sess->packer, enc_lv)) != 0) {
             gquic_packed_packet_dtor(packed_packet);
             free(packed_packet);
             gquic_frame_release(ping);
-            return -6;
+            return -6 + ret * 10;
         }
     }
     if (!packed_packet->valid) {
