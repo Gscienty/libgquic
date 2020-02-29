@@ -156,6 +156,7 @@ int gquic_packet_unpacker_unpack(gquic_unpacked_packet_t *const unpacked_packet,
     if (unpacker->largest_recv_pn < tmp_pn) {
         unpacker->largest_recv_pn = tmp_pn;
     }
+    unpacked_packet->valid = 1;
     return 0;
 }
 
