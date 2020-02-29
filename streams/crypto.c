@@ -206,7 +206,7 @@ int gquic_crypto_stream_pop_crypto_frame(gquic_frame_crypto_t **frame_storage, g
         return -2;
     }
     (*frame_storage)->off = str->write_off;
-    if (write_size < GQUIC_STR_SIZE(&str->writer)) {
+    if (write_size > GQUIC_STR_SIZE(&str->writer)) {
         write_size = GQUIC_STR_SIZE(&str->writer);
     }
     if (((*frame_storage)->data = malloc(sizeof(write_size))) == NULL) {
@@ -217,7 +217,6 @@ int gquic_crypto_stream_pop_crypto_frame(gquic_frame_crypto_t **frame_storage, g
     if (gquic_writer_str_write(&str->writer, &tmp) != 0) {
         return -4;
     }
-
     return gquic_crypto_stream_calc_writed_bytes(&write_size, str);
 }
 
