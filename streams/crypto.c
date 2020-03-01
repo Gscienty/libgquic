@@ -9,14 +9,14 @@ int gquic_crypto_stream_init(gquic_crypto_stream_t *const str) {
     if (str == NULL) {
         return -1;
     }
-    gquic_frame_sorter_init(&str->queue);
-    gquic_str_init(&str->reader);
-    gquic_str_init(&str->msg_buf);
+    gquic_frame_sorter_init(&str->sorter);
+    gquic_str_init(&str->in_reader);
+    gquic_str_init(&str->in_buf);
     str->highest_off = 0;
-    str->write_off = 0;
+    str->out_off = 0;
     str->finished = 0;
-    gquic_str_init(&str->writer);
-    gquic_str_init(&str->write_buf);
+    gquic_str_init(&str->out_reader);
+    gquic_str_init(&str->out_buf);
 
     return 0;
 }
@@ -25,7 +25,7 @@ int gquic_crypto_stream_ctor(gquic_crypto_stream_t *const str) {
     if (str == NULL) {
         return -1;
     }
-    gquic_frame_sorter_ctor(&str->queue);
+    gquic_frame_sorter_ctor(&str->sorter);
 
     return 0;
 }
@@ -49,7 +49,7 @@ int gquic_crypto_stream_handle_crypto_frame(gquic_crypto_stream_t *const str, gq
         str->highest_off = highest_off;
     }
     gquic_str_t data = { frame->len, frame->data };
-    if (gquic_frame_sorter_push(&str->queue, &data, frame->off, NULL, NULL) != 0) {
+    if (gquic_frame_sorter_push(&str->sorter, &data, frame->off, NULL, NULL) != 0) {
         return -4;
     }
     for ( ;; ) {
@@ -64,21 +64,21 @@ int gquic_crypto_stream_handle_crypto_frame(gquic_crypto_stream_t *const str, gq
             return -5;
         }
 
-        if (gquic_frame_sorter_pop(&off_useless, &data, &fptr_useless, &fptr_self_useless, &str->queue) != 0) {
+        if (gquic_frame_sorter_pop(&off_useless, &data, &fptr_useless, &fptr_self_useless, &str->sorter) != 0) {
             return -6;
         }
         if (GQUIC_STR_SIZE(&data) == 0) {
             return 0;
         }
-        if (gquic_str_concat(&concated, &str->msg_buf, &data) != 0) {
+        if (gquic_str_concat(&concated, &str->in_buf, &data) != 0) {
             return -7;
         }
         gquic_str_reset(&data);
-        gquic_str_reset(&str->msg_buf);
+        gquic_str_reset(&str->in_buf);
 
-        str->msg_buf = concated;
-        str->reader = str->msg_buf;
-        if (gquic_reader_str_readed_size(&str->reader, readed_size) != 0) {
+        str->in_buf = concated;
+        str->in_reader = str->in_buf;
+        if (gquic_reader_str_readed_size(&str->in_reader, readed_size) != 0) {
             return -8;
         }
     }
@@ -91,18 +91,18 @@ static int gquic_crypto_stream_calc_readed_bytes(u_int64_t *const ret, gquic_cry
     if (ret == NULL || str == NULL) {
         return -1;
     }
-    *ret = GQUIC_STR_VAL(&str->reader) - GQUIC_STR_VAL(&str->msg_buf);
+    *ret = GQUIC_STR_VAL(&str->in_reader) - GQUIC_STR_VAL(&str->in_buf);
     if (*ret > 2048) {
         *ret = 0;
-        if (gquic_str_alloc(&tmp, GQUIC_STR_SIZE(&str->reader)) != 0) {
+        if (gquic_str_alloc(&tmp, GQUIC_STR_SIZE(&str->in_reader)) != 0) {
             return -2;
         }
-        if (gquic_reader_str_read(&tmp, &str->reader) != 0) {
+        if (gquic_reader_str_read(&tmp, &str->in_reader) != 0) {
             return -3;
         }
-        gquic_str_reset(&str->msg_buf);
-        str->msg_buf = tmp;
-        str->reader = str->msg_buf;
+        gquic_str_reset(&str->in_buf);
+        str->in_buf = tmp;
+        str->in_reader = str->in_buf;
     }
     return 0;
 }
@@ -112,19 +112,18 @@ static int gquic_crypto_stream_calc_writed_bytes(u_int64_t *const ret, gquic_cry
     if (ret == NULL || str == NULL) {
         return -1;
     }
-    *ret = GQUIC_STR_VAL(&str->writer) - GQUIC_STR_VAL(&str->write_buf);
+    *ret = GQUIC_STR_VAL(&str->out_reader) - GQUIC_STR_VAL(&str->out_buf);
     if (*ret > 2048) {
         *ret = 0;
-        if (gquic_str_alloc(&tmp, GQUIC_STR_SIZE(&str->writer)) != 0) {
+        if (gquic_str_alloc(&tmp, GQUIC_STR_SIZE(&str->out_reader)) != 0) {
             return -2;
         }
-        gquic_reader_str_t reader = str->writer;
-        if (gquic_reader_str_read(&tmp, &reader) != 0) {
+        if (gquic_reader_str_read(&tmp, &str->out_reader) != 0) {
             return -3;
         }
-        gquic_str_reset(&str->write_buf);
-        str->write_buf = tmp;
-        str->writer = str->write_buf;
+        gquic_str_reset(&str->out_buf);
+        str->out_buf = tmp;
+        str->out_reader = str->out_buf;
     }
     return 0;
 }
@@ -134,20 +133,20 @@ int gquic_crypto_stream_get_data(gquic_str_t *const data, gquic_crypto_stream_t 
     if (data == NULL || str == NULL) {
         return -1;
     }
-    if (GQUIC_STR_SIZE(&str->reader) < 4) {
+    if (GQUIC_STR_SIZE(&str->in_reader) < 4) {
         return 0;
     }
     slice_len = 4
-        + (((u_int64_t) ((u_int8_t *) GQUIC_STR_VAL(&str->reader))[1]) << 16)
-        + (((u_int64_t) ((u_int8_t *) GQUIC_STR_VAL(&str->reader))[2]) << 8)
-        + (((u_int64_t) ((u_int8_t *) GQUIC_STR_VAL(&str->reader))[3]));
-    if (GQUIC_STR_SIZE(&str->reader) < slice_len) {
+        + (((u_int64_t) ((u_int8_t *) GQUIC_STR_VAL(&str->in_reader))[1]) << 16)
+        + (((u_int64_t) ((u_int8_t *) GQUIC_STR_VAL(&str->in_reader))[2]) << 8)
+        + (((u_int64_t) ((u_int8_t *) GQUIC_STR_VAL(&str->in_reader))[3]));
+    if (GQUIC_STR_SIZE(&str->in_reader) < slice_len) {
         return 0;
     }
     if (gquic_str_alloc(data, slice_len) != 0) {
         return -2;
     }
-    gquic_reader_str_read(data, &str->reader);
+    gquic_reader_str_read(data, &str->in_reader);
     if (gquic_crypto_stream_calc_readed_bytes(&slice_len, str) != 0) {
         return -3;
     }
@@ -159,7 +158,7 @@ int gquic_crypto_stream_finish(gquic_crypto_stream_t *const str) {
     if (str == NULL) {
         return -1;
     }
-    if (!gquic_rbtree_is_nil(str->queue.root)) {
+    if (!gquic_rbtree_is_nil(str->sorter.root)) {
         return -2;
     }
     str->finished = 1;
@@ -168,20 +167,20 @@ int gquic_crypto_stream_finish(gquic_crypto_stream_t *const str) {
 }
 
 int gquic_crypto_stream_write(gquic_crypto_stream_t *const str, gquic_writer_str_t *const writer) {
-    u_int64_t writed_size = 0;
+    u_int64_t out_readed_size = 0;
     gquic_str_t concated = { 0, NULL };
     if (str == NULL || writer == NULL) {
         return -1;
     }
-    if (gquic_crypto_stream_calc_writed_bytes(&writed_size, str) != 0) {
+    if (gquic_crypto_stream_calc_writed_bytes(&out_readed_size, str) != 0) {
         return -2;
     }
-    if (gquic_str_concat(&concated, &str->write_buf, writer) != 0) {
+    if (gquic_str_concat(&concated, &str->out_buf, writer) != 0) {
         return -3;
     }
-    str->write_buf = concated;
-    str->writer = str->write_buf;
-    if (gquic_writer_str_writed_size(&str->writer, writed_size) != 0) {
+    str->out_buf = concated;
+    str->out_reader = str->out_buf;
+    if (gquic_writer_str_writed_size(&str->out_reader, out_readed_size) != 0) {
         return -4;
     }
     if (gquic_writer_str_writed_size(writer, GQUIC_STR_SIZE(writer)) != 0) {
@@ -194,7 +193,7 @@ int gquic_crypto_stream_has_data(gquic_crypto_stream_t *const str) {
     if (str == NULL) {
         return 0;
     }
-    return GQUIC_STR_SIZE(&str->writer) != 0;
+    return GQUIC_STR_SIZE(&str->out_reader) != 0;
 }
 
 int gquic_crypto_stream_pop_crypto_frame(gquic_frame_crypto_t **frame_storage, gquic_crypto_stream_t *const str, const u_int64_t max_len) {
@@ -205,16 +204,16 @@ int gquic_crypto_stream_pop_crypto_frame(gquic_frame_crypto_t **frame_storage, g
     if ((*frame_storage = gquic_frame_crypto_alloc()) == NULL) {
         return -2;
     }
-    (*frame_storage)->off = str->write_off;
-    if (write_size > GQUIC_STR_SIZE(&str->writer)) {
-        write_size = GQUIC_STR_SIZE(&str->writer);
+    (*frame_storage)->off = str->out_off;
+    if (write_size > GQUIC_STR_SIZE(&str->out_reader)) {
+        write_size = GQUIC_STR_SIZE(&str->out_reader);
     }
-    if (((*frame_storage)->data = malloc(sizeof(write_size))) == NULL) {
+    if (((*frame_storage)->data = malloc(write_size)) == NULL) {
         return -3;
     }
     (*frame_storage)->len = write_size;
     gquic_str_t tmp = { write_size, (*frame_storage)->data };
-    if (gquic_writer_str_write(&str->writer, &tmp) != 0) {
+    if (gquic_reader_str_read(&tmp, &str->out_reader) != 0) {
         return -4;
     }
     return gquic_crypto_stream_calc_writed_bytes(&write_size, str);

@@ -8,16 +8,16 @@
 
 typedef struct gquic_crypto_stream_s gquic_crypto_stream_t;
 struct gquic_crypto_stream_s {
-    gquic_frame_sorter_t queue;
-    gquic_reader_str_t reader;
-    gquic_str_t msg_buf;
+    gquic_frame_sorter_t sorter;
+    gquic_reader_str_t in_reader;
+    gquic_str_t in_buf;
 
     u_int64_t highest_off;
     int finished;
 
-    u_int64_t write_off;
-    gquic_writer_str_t writer;
-    gquic_str_t write_buf;
+    u_int64_t out_off;
+    gquic_reader_str_t out_reader;
+    gquic_str_t out_buf;
 };
 
 int gquic_crypto_stream_init(gquic_crypto_stream_t *const str);
