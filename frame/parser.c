@@ -33,6 +33,7 @@ int gquic_frame_parser_init(gquic_frame_parser_t *const parser) {
     return 0;
 }
 
+#include <stdio.h>
 int gquic_frame_parser_next(void **const frame_storage, gquic_frame_parser_t *const parser, gquic_reader_str_t *const reader, const u_int8_t enc_lv) {
     if (frame_storage == NULL || parser == NULL || reader == NULL) {
         return -1;
@@ -40,8 +41,8 @@ int gquic_frame_parser_next(void **const frame_storage, gquic_frame_parser_t *co
     while (GQUIC_STR_SIZE(reader) != 0) {
         if (GQUIC_STR_FIRST_BYTE(reader) == 0x00) {
             gquic_reader_str_read_byte(reader);
+            continue;
         }
-
         if (gquic_frame_parser_parse(frame_storage, parser, reader, enc_lv) != 0) {
             return -2;
         }
