@@ -113,7 +113,7 @@ int gquic_packet_unpacker_unpack(gquic_unpacked_packet_t *const unpacked_packet,
             payload.opener.is_1rtt = 0;
             payload.opener.cb.cb = gquic_common_long_header_opener_open_wrapper;
             if ((ret = gquic_handshake_establish_get_handshake_opener(&payload.header_opener,
-                                                                    (gquic_common_long_header_opener_t **) &payload.opener.self,
+                                                                      (gquic_common_long_header_opener_t **) &payload.opener.self,
                                                                       unpacker->est)) != 0) {
                 if (ret == -2) {
                     return -4; // key dropped
@@ -223,7 +223,6 @@ static int gquic_packet_unpacker_unpack_header_packet(gquic_unpacked_packet_t *c
                                                   &addata)) != 0) {
         return -7;
     }
-
     return 0;
 }
 
