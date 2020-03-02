@@ -695,7 +695,7 @@ static int gquic_tls_handshake_server_state_pick_cert(gquic_tls_handshake_server
         return 0;
     }
     gquic_list_head_init(&supported_algs);
-    if (ser_state->conn->cfg->get_ser_cert(&ser_state->cert, ser_state->c_hello) != 0) {
+    if (GQUIC_TLS_CONFIG_GET_SER_CERT(&ser_state->cert, ser_state->conn->cfg, ser_state->c_hello) != 0) {
         gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
         ret = -2;
         goto failure;
