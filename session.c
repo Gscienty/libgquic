@@ -1104,6 +1104,7 @@ static int gquic_session_handle_single_packet(gquic_session_t *const sess, gquic
             gquic_session_try_queue_undecryptable_packet(sess, rp);
             goto finished;
         case -10:
+            // unpack header err
             gquic_session_close_local(sess, -10 * 10 - 4);
             break;
         }
@@ -1311,7 +1312,6 @@ static int gquic_session_handle_frame(gquic_session_t *const sess, void *const f
     default:
         return -2;
     }
-    GQUIC_FRAME_DTOR(frame);
     gquic_frame_release(frame);
 pass_release_frame:
     return ret;
