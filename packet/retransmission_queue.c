@@ -140,25 +140,21 @@ int gquic_retransmission_queue_drop_packets(gquic_retransmission_queue_t *const 
     }
     if (enc_lv == GQUIC_ENC_LV_INITIAL) {
         while (!gquic_list_head_empty(&queue->initial)) {
-            GQUIC_FRAME_DTOR(*(void **) GQUIC_LIST_FIRST(&queue->initial));
-            free(*(void **) GQUIC_LIST_FIRST(&queue->initial));
+            gquic_frame_release(*(void **) GQUIC_LIST_FIRST(&queue->initial));
             gquic_list_release(GQUIC_LIST_FIRST(&queue->initial));
         }
         while (!gquic_list_head_empty(&queue->initial_crypto)) {
-            GQUIC_FRAME_DTOR(*(void **) GQUIC_LIST_FIRST(&queue->initial_crypto));
-            free(*(void **) GQUIC_LIST_FIRST(&queue->initial_crypto));
+            gquic_frame_release(*(void **) GQUIC_LIST_FIRST(&queue->initial_crypto));
             gquic_list_release(GQUIC_LIST_FIRST(&queue->initial_crypto));
         }
     }
     else if (enc_lv == GQUIC_ENC_LV_HANDSHAKE) {
         while (!gquic_list_head_empty(&queue->handshake)) {
-            GQUIC_FRAME_DTOR(*(void **) GQUIC_LIST_FIRST(&queue->handshake));
-            free(*(void **) GQUIC_LIST_FIRST(&queue->handshake));
+            gquic_frame_release(*(void **) GQUIC_LIST_FIRST(&queue->handshake));
             gquic_list_release(GQUIC_LIST_FIRST(&queue->handshake));
         }
         while (!gquic_list_head_empty(&queue->handshake_crypto)) {
-            GQUIC_FRAME_DTOR(*(void **) GQUIC_LIST_FIRST(&queue->handshake_crypto));
-            free(*(void **) GQUIC_LIST_FIRST(&queue->handshake_crypto));
+            gquic_frame_release(*(void **) GQUIC_LIST_FIRST(&queue->handshake_crypto));
             gquic_list_release(GQUIC_LIST_FIRST(&queue->handshake_crypto));
         }
     }
