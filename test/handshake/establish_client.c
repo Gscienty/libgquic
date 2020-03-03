@@ -208,14 +208,13 @@ static void *server_thread(void *const _) {
     return NULL;
 }
 
-static int init_write(size_t *const size, void *const self, const gquic_str_t *const data) {
-    (void) size;
+static int init_write(void *const self, gquic_writer_str_t *const writer) {
     pthread_attr_t attr;
     pthread_t thread;
     pthread_attr_init(&attr);
     switch (*(int *) self) {
     case 0:
-        client_hello_process(data);
+        client_hello_process(writer);
         pthread_create(&thread, &attr, server_thread, NULL);
         break;
     }
@@ -223,11 +222,17 @@ static int init_write(size_t *const size, void *const self, const gquic_str_t *c
     return 0;
 }
 
-static int handshake_write(size_t *const size, void *const self, const gquic_str_t *const data) {
-    (void) size;
+static int handshake_write(void *const self, gquic_writer_str_t *const writer) {
     (void) self;
     printf("cli say: FIN\n");
-    gquic_str_test_echo(data);
+    gquic_str_test_echo(writer);
+    return 0;
+}
+
+static int one_rtt_write(void *const self, gquic_writer_str_t *const writer) {
+    (void) self;
+    printf("cli say: FIN\n");
+    gquic_str_test_echo(writer);
     return 0;
 }
 
@@ -250,13 +255,15 @@ int main() {
     gquic_handshake_establish_init(&est);
     cfg.insecure_skiy_verify = 1;
 
-    gquic_handshake_establish_assign(&est, &cfg, &conn_id, &params, &rtt, &addr, 1);
-    int init_output_step = 0;
-    est.init_output.self = &init_output_step;
-    est.init_output.write = init_write;
-    int handshake_output_step = 0;
-    est.handshake_output.self = &handshake_output_step;
-    est.handshake_output.write = handshake_write;
+    int init = 0;
+    int handshake = 0;
+
+    gquic_handshake_establish_ctor(&est,
+                                   &init, init_write,
+                                   &handshake, handshake_write,
+                                   main, one_rtt_write,
+                                   NULL, NULL,
+                                   &cfg, &conn_id, &params, &rtt, &addr, 1);
 
 
     int ret = gquic_handshake_establish_run(&est);

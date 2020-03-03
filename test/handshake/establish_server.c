@@ -21,8 +21,7 @@ gquic_str_t server_pubkey = { 0, NULL };
 gquic_str_t shared_key = { 0, NULL };
 gquic_str_t scli_sec = { 0, NULL };
 
-static int init_write(size_t *const size, void *const self, const gquic_str_t *const buf) {
-    (void) size;
+static int init_write(void *const self, gquic_writer_str_t *const buf) {
     gquic_tls_mac_md_update(&transport, buf);
     switch (*(int *) self) {
     case 0: {
@@ -71,9 +70,7 @@ static int read_cli_finished(gquic_str_t *const msg) {
     return 0;
 }
 
-static int handshake_write(size_t *const size, void *const self, const gquic_str_t *const data) {
-    (void) size;
-    (void) self;
+static int handshake_write(void *const self, gquic_writer_str_t *const data) {
 
     gquic_tls_mac_md_update(&transport, data);
     switch (*(int *) self) {
@@ -193,6 +190,13 @@ static void *server_thread(void *const _) {
     return NULL;
 }
 
+static int one_rtt_write(void *const self, gquic_writer_str_t *const writer) {
+    (void) self;
+    printf("ser say: FIN\n");
+    gquic_str_test_echo(writer);
+    return 0;
+}
+
 int main() {
     const gquic_tls_cipher_suite_t *cipher_suite = NULL;
     gquic_tls_get_cipher_suite(&cipher_suite, GQUIC_TLS_CIPHER_SUITE_AES_128_GCM_SHA256);
@@ -213,13 +217,14 @@ int main() {
     cfg.insecure_skiy_verify = 1;
     cfg.get_ser_cert = get_cert;
 
-    gquic_handshake_establish_assign(&est, &cfg, &conn_id, &params, &rtt, &addr, 0);
-    int init_output_step = 0;
-    est.init_output.self = &init_output_step;
-    est.init_output.write = init_write;
-    int handshake_output_step = 0;
-    est.handshake_output.self = &handshake_output_step;
-    est.handshake_output.write = handshake_write;
+    int init = 0;
+    int handshake = 0;
+    gquic_handshake_establish_ctor(&est,
+                                   &init, init_write,
+                                   &handshake, handshake_write,
+                                   main, one_rtt_write,
+                                   NULL, NULL,
+                                   &cfg, &conn_id, &params, &rtt, &addr, 0);
 
     pthread_attr_t attr;
     pthread_t thread;
