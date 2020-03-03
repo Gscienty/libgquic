@@ -127,9 +127,6 @@ int gquic_packet_packer_try_pack_app_packet(gquic_packed_packet_t *const packed_
                                             gquic_packet_packer_t *const packer);
 int gquic_packet_packer_try_pack_crypto_packet(gquic_packed_packet_t *const packed_packet,
                                                gquic_packet_packer_t *const packer);
-int gquic_packet_packer_try_pack_packet(gquic_packed_packet_t *const packed_packet,
-                                        gquic_packet_packer_t *const packer,
-                                        const u_int8_t enc_lv);
 int gquic_packet_packer_try_pack_probe_packet(gquic_packed_packet_t *const packed_packet,
                                               gquic_packet_packer_t *const packer,
                                               const u_int8_t enc_lv);

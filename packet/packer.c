@@ -562,8 +562,6 @@ int gquic_packet_packer_pack_with_padding(gquic_packed_packet_t *const packed_pa
     // set payload
     memcpy(GQUIC_STR_VAL(&buffer->slice) + header_size, GQUIC_STR_VAL(&tag), GQUIC_STR_SIZE(&tag));
     memcpy(GQUIC_STR_VAL(&buffer->slice) + header_size + GQUIC_STR_SIZE(&tag), GQUIC_STR_VAL(&cipher_text), GQUIC_STR_SIZE(&cipher_text));
-    buffer->writer.size = GQUIC_STR_SIZE(&buffer->slice) - header_size - GQUIC_STR_SIZE(&cipher_text) - GQUIC_STR_SIZE(&tag);
-    buffer->writer.val = GQUIC_STR_VAL(&buffer->slice) + header_size + GQUIC_STR_SIZE(&cipher_text) + GQUIC_STR_SIZE(&tag);
 
     // seal header
     gquic_str_t header = { pn_len, GQUIC_STR_VAL(&buffer->slice) + header_size - pn_len };
@@ -578,6 +576,9 @@ int gquic_packet_packer_pack_with_padding(gquic_packed_packet_t *const packed_pa
         ret = -12;
         goto failure;
     }
+    
+    buffer->writer.size = GQUIC_STR_SIZE(&buffer->slice) - header_size - GQUIC_STR_SIZE(&cipher_text) - GQUIC_STR_SIZE(&tag);
+    buffer->writer.val = GQUIC_STR_VAL(&buffer->slice) + header_size + GQUIC_STR_SIZE(&cipher_text) + GQUIC_STR_SIZE(&tag);
 
     packed_packet->valid = 1;
     packed_packet->ack = payload->ack;
@@ -977,24 +978,6 @@ int gquic_packet_packer_pack_crypto_packet(gquic_packed_packet_t *const packed_p
     }
 
     return 0;
-}
-
-int gquic_packet_packer_try_pack_packet(gquic_packed_packet_t *const packed_packet,
-                                        gquic_packet_packer_t *const packer,
-                                        const u_int8_t enc_lv) {
-    if (packed_packet == NULL || packer == NULL) {
-        return -1;
-    }
-    switch (enc_lv) {
-    case GQUIC_ENC_LV_INITIAL:
-        return gquic_packet_packer_try_pack_initial_packet(packed_packet, packer);
-    case GQUIC_ENC_LV_HANDSHAKE:
-        return gquic_packet_packer_try_pack_handshake_packet(packed_packet, packer);
-    case GQUIC_ENC_LV_1RTT:
-        return gquic_packet_packer_try_pack_app_packet(packed_packet, packer);
-    default:
-        return -2;
-    }
 }
 
 int gquic_packet_packer_pack_packet(gquic_packed_packet_t *const packed_packet,
