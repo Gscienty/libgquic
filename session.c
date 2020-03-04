@@ -69,6 +69,15 @@ static int gquic_session_send_probe_packet(gquic_session_t *const, const u_int8_
 static int gquic_session_send_packed_packet(gquic_session_t *const, gquic_packed_packet_t *const);
 static int gquic_session_send_packet(int *const, gquic_session_t *const);
 static int gquic_session_handle_close_err(gquic_session_t *const, const int, const int, const int);
+static int gquic_session_handle_close_err_remote_alloc_closed_session(gquic_packet_handler_t **const, void *const);
+static int gquic_session_handle_close_err_local_alloc_closed_session(gquic_packet_handler_t **const, void *const);
+
+typedef struct __gquic_session_handle_close_err_local_params_s __gquic_session_handle_close_err_local_params_t;
+struct __gquic_session_handle_close_err_local_params_s {
+    gquic_session_t *sess;
+    gquic_str_t close_packet;
+};
+
 static inline u_int64_t gquic_session_idle_timeout_start_time(gquic_session_t *const);
 
 static int gquic_packet_handler_map_remove_reset_token_wrapper(void *const, const gquic_str_t *const);
@@ -1518,24 +1527,29 @@ static int gquic_session_close_remote(gquic_session_t *const sess, const int err
 }
 
 static int gquic_session_handle_close_err(gquic_session_t *const sess, const int err, const int immediate, const int remote) {
-    gquic_str_t close_packet = { 0, NULL };
+    __gquic_session_handle_close_err_local_params_t params;
     if (sess == NULL) {
         return -1;
     }
+    printf("HERE\n");
 
     if (remote) {
         gquic_conn_id_gen_replace_with_closed(&sess->conn_id_gen,
-                                              sess->is_client
-                                              ? gquic_closed_remote_session_client_alloc()
-                                              : gquic_closed_remote_session_server_alloc());
+                                              gquic_session_handle_close_err_remote_alloc_closed_session,
+                                              sess);
         return 0;
     }
     if (immediate) {
         gquic_conn_id_gen_remove_all(&sess->conn_id_gen);
         return 0;
     }
-    gquic_session_send_connection_close(&close_packet, sess, err, 0, 0, NULL);
-    gquic_conn_id_gen_replace_with_closed(&sess->conn_id_gen, gquic_closed_local_session_alloc(sess->conn, &close_packet, sess->is_client));
+    params.sess = sess;
+    gquic_str_init(&params.close_packet);
+    gquic_session_send_connection_close(&params.close_packet, sess, err, 0, 0, NULL);
+    gquic_conn_id_gen_replace_with_closed(&sess->conn_id_gen,
+                                          gquic_session_handle_close_err_local_alloc_closed_session,
+                                          &params);
+    gquic_str_reset(&params.close_packet);
     return 0;
 }
 
@@ -1788,25 +1802,44 @@ static int gquic_session_send_probe_packet(gquic_session_t *const sess, const u_
         if ((ret = gquic_packet_packer_try_pack_probe_packet(packed_packet, &sess->packer, enc_lv)) != 0) {
             gquic_packed_packet_dtor(packed_packet);
             free(packed_packet);
-            gquic_frame_release(ping);
             return -6 + ret * 10;
         }
     }
     if (!packed_packet->valid) {
         gquic_packed_packet_dtor(packed_packet);
         free(packed_packet);
-        gquic_frame_release(ping);
         return -7;
     }
 
     if ((packet = malloc(sizeof(gquic_packet_t))) == NULL) {
         gquic_packed_packet_dtor(packed_packet);
         free(packed_packet);
-        gquic_frame_release(ping);
         return -8;
     }
     gquic_packed_packet_get_ack_packet(packet, packed_packet, &sess->retransmission);
     gquic_packet_sent_packet_handler_sent_packet(&sess->sent_packet_handler, packet);
     gquic_session_send_packed_packet(sess, packed_packet);
+    return 0;
+}
+
+static int gquic_session_handle_close_err_remote_alloc_closed_session(gquic_packet_handler_t **const handler_storage, void *const sess_) {
+    gquic_session_t *const sess = sess_;
+    if (handler_storage == NULL || sess == NULL) {
+        return -1;
+    }
+
+    *handler_storage = sess->is_client
+        ? gquic_closed_remote_session_client_alloc()
+        : gquic_closed_remote_session_server_alloc();
+
+    return 0;
+}
+
+static int gquic_session_handle_close_err_local_alloc_closed_session(gquic_packet_handler_t **const handler_storage, void *const params_) {
+    __gquic_session_handle_close_err_local_params_t *const params = params_;
+    if (params == NULL || handler_storage == NULL) {
+        return -1;
+    }
+    *handler_storage = gquic_closed_local_session_alloc(params->sess->conn, &params->close_packet, params->sess->is_client);
     return 0;
 }

@@ -203,18 +203,27 @@ int gquic_conn_id_gen_remove_all(gquic_conn_id_gen_t *const gen) {
     return 0;
 }
 
-int gquic_conn_id_gen_replace_with_closed(gquic_conn_id_gen_t *const gen, gquic_packet_handler_t *const handler) {
+int gquic_conn_id_gen_replace_with_closed(gquic_conn_id_gen_t *const gen,
+                                          int (*closed_handler_alloc) (gquic_packet_handler_t **const handler, void *const self),
+                                          void *const self) {
     gquic_list_t queue;
     gquic_rbtree_t *payload = NULL;
-    if (gen == NULL || handler == NULL) {
+    gquic_packet_handler_t *handler = NULL;
+    if (gen == NULL || closed_handler_alloc == NULL || self == NULL) {
         return -1;
     }
     gquic_list_head_init(&queue);
     if (GQUIC_STR_SIZE(&gen->initial_cli_dst_conn_id) != 0) {
+        if (closed_handler_alloc(&handler, self) != 0) {
+            return -2;
+        }
         GQUIC_CONN_ID_GEN_REPLACE_WITH_CLOSED(gen, &gen->initial_cli_dst_conn_id, handler);
     }
 
     GQUIC_RBTREE_EACHOR_BEGIN(payload, &queue, gen->active_src_conn_ids)
+        if (closed_handler_alloc(&handler, self) != 0) {
+            return -3;
+        }
         GQUIC_CONN_ID_GEN_REPLACE_WITH_CLOSED(gen, GQUIC_RBTREE_VALUE(payload), handler);
     GQUIC_RBTREE_EACHOR_END(payload, &queue)
     return 0;

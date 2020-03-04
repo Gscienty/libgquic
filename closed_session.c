@@ -109,7 +109,7 @@ gquic_packet_handler_t *gquic_closed_local_session_alloc(gquic_net_conn_t *const
     }
     sess->conn = conn;
     sess->close_flag = 0;
-    sess->data = *conn_close_packet;
+    gquic_str_copy(&sess->data, conn_close_packet);
     sem_init(&sess->close_mtx, 0, 1);
     sess->counter = 0;
     sess->is_client = is_client;

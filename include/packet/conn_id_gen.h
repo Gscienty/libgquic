@@ -64,6 +64,8 @@ int gquic_conn_id_gen_set_max_active_conn_ids(gquic_conn_id_gen_t *const gen, co
 int gquic_conn_id_gen_retire(gquic_conn_id_gen_t *const gen, const u_int64_t seq);
 int gquic_conn_id_gen_set_handshake_complete(gquic_conn_id_gen_t *const gen);
 int gquic_conn_id_gen_remove_all(gquic_conn_id_gen_t *const gen);
-int gquic_conn_id_gen_replace_with_closed(gquic_conn_id_gen_t *const gen, gquic_packet_handler_t *const handler);
+int gquic_conn_id_gen_replace_with_closed(gquic_conn_id_gen_t *const gen,
+                                          int (*closed_handler_alloc) (gquic_packet_handler_t **const handler, void *const self),
+                                          void *const self);
 
 #endif
