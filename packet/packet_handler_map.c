@@ -5,6 +5,7 @@
 #include "util/timeout.h"
 #include <sys/time.h>
 #include <openssl/rand.h>
+#include <openssl/hmac.h>
 
 typedef struct __send_stateless_reset_param_s __send_stateless_reset_param_t;
 struct __send_stateless_reset_param_s {
@@ -78,9 +79,7 @@ int gquic_packet_handler_map_init(gquic_packet_handler_map_t *const handler) {
     handler->delete_retired_session_after = 0;
 
     handler->stateless_reset_enabled = 0;
-    sem_init(&handler->stateless_reset_mtx, 0, 1);
     gquic_str_init(&handler->stateless_reset_key);
-    handler->hasher = NULL;
 
     return 0;
 }
@@ -96,10 +95,6 @@ int gquic_packet_handler_map_ctor(gquic_packet_handler_map_t *const handler,
     handler->conn_id_len = conn_id_len;
     handler->delete_retired_session_after = 5 * 1000 * 1000;
     handler->stateless_reset_enabled = GQUIC_STR_SIZE(stateless_reset_token) > 0;
-    handler->hasher = HMAC_CTX_new();
-    if (HMAC_Init_ex(handler->hasher, GQUIC_STR_VAL(stateless_reset_token), GQUIC_STR_SIZE(stateless_reset_token), EVP_sha256(), NULL) < 0) {
-        return -2;
-    }
     gquic_str_copy(&handler->stateless_reset_key, stateless_reset_token);
 
     if (pthread_create(&handler->run_thread, NULL, __packet_handler_map_listen, handler) != 0) {
@@ -115,14 +110,11 @@ int gquic_packet_handler_map_dtor(gquic_packet_handler_map_t *const handler) {
         return -1;
     }
     sem_destroy(&handler->mtx);
-    sem_destroy(&handler->stateless_reset_mtx);
     sem_destroy(&handler->listening);
 
     gquic_str_reset(&handler->stateless_reset_key);
 
     // TODO release unknow packet handler
-
-    HMAC_CTX_free(handler->hasher);
 
     while (!gquic_rbtree_is_nil(handler->handlers)) {
         rbt = handler->handlers;
@@ -331,41 +323,25 @@ int gquic_packet_handler_map_get_stateless_reset_token(gquic_str_t *const token,
                                                        const gquic_str_t *const conn_id) {
     int ret = 0;
     unsigned int size;
-    HMAC_CTX *output_ctx = NULL;
     if (token == NULL || handler == NULL || conn_id == NULL) {
         return -1;
     }
-    if (gquic_str_alloc(token, 16) != 0) {
+    if (gquic_str_alloc(token, EVP_MD_size(EVP_sha256())) != 0) {
         return -2;
     }
     if (!handler->stateless_reset_enabled) {
         RAND_bytes(GQUIC_STR_VAL(token), 16);
         return 0;
     }
-    if ((output_ctx = HMAC_CTX_new()) == NULL) {
-        gquic_str_reset(token);
-        return -3;
+    if (HMAC(EVP_sha256(),
+             GQUIC_STR_VAL(&handler->stateless_reset_key), GQUIC_STR_SIZE(&handler->stateless_reset_key),
+             GQUIC_STR_VAL(conn_id), GQUIC_STR_SIZE(conn_id),
+             GQUIC_STR_VAL(token), &size) <= 0) {
+        return -4;
     }
-    sem_wait(&handler->stateless_reset_mtx);
-    if (HMAC_Update(handler->hasher, GQUIC_STR_VAL(conn_id), GQUIC_STR_SIZE(conn_id)) <= 0) {
-        gquic_str_reset(token);
-        ret = -4;
-        goto finished;
+    if (GQUIC_STR_SIZE(token) > 16) {
+        token->size = 16;
     }
-    if (HMAC_CTX_copy(output_ctx, handler->hasher) <= 0) {
-        gquic_str_reset(token);
-        ret = -5;
-        goto finished;
-    }
-    if (HMAC_Final(output_ctx, GQUIC_STR_VAL(token), &size) <= 0) {
-        gquic_str_reset(token);
-        ret = -6;
-        goto finished;
-    }
-
-finished:
-    HMAC_CTX_free(output_ctx);
-    sem_post(&handler->stateless_reset_mtx);
     return ret;
 }
 
@@ -379,6 +355,7 @@ int gquic_packet_handler_map_add(gquic_str_t *const token,
     }
     sem_wait(&handler->mtx);
     if (gquic_rbtree_find_cmp((const gquic_rbtree_t **)&rbt, handler->handlers, (void *) conn_id, gquic_packet_handler_rb_str_cmp) == 0) {
+        free(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt));
         *(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt) = ph;
         sem_post(&handler->mtx);
         return gquic_packet_handler_map_get_stateless_reset_token(token, handler, conn_id);

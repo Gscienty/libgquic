@@ -42,9 +42,7 @@ struct gquic_packet_handler_map_s {
     u_int64_t delete_retired_session_after;
 
     int stateless_reset_enabled;
-    sem_t stateless_reset_mtx;
     gquic_str_t stateless_reset_key;
-    HMAC_CTX *hasher;
 
     pthread_t run_thread;
 };
