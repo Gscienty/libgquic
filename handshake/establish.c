@@ -271,7 +271,6 @@ finish:
 
 int gquic_handshake_establish_close(gquic_handshake_establish_t *const est) {
     gquic_establish_ending_event_t *event = NULL;
-    gquic_establish_process_event_t *process_event = NULL;
     if (est == NULL) {
         return -1;
     }
@@ -280,11 +279,6 @@ int gquic_handshake_establish_close(gquic_handshake_establish_t *const est) {
     }
     event->type = GQUIC_ESTABLISH_ENDING_EVENT_CLOSE;
     gquic_sem_list_push(&est->handshake_ending_events_queue, event);
-    gquic_sem_list_waiting_pop((void **) &process_event,
-                               &est->handshake_process_events_queue,
-                               gquic_establish_waiting_handshake_done_cmp,
-                               NULL);
-    gquic_list_release(process_event);
     return 0;
 }
 
