@@ -12,6 +12,7 @@ int gquic_packet_buffer_get(gquic_packet_buffer_t **const buffer_storage) {
     if (gquic_str_alloc(&(*buffer_storage)->slice, 1452) != 0) {
         return -3;
     }
+    gquic_str_clear(&(*buffer_storage)->slice);
     (*buffer_storage)->writer = (*buffer_storage)->slice;
     (*buffer_storage)->ref = 1;
     return 0;
