@@ -1121,7 +1121,7 @@ static int gquic_session_handle_single_packet(gquic_session_t *const sess, gquic
         goto free_rp_finished;
     }
 
-    if ((ret = gquic_session_handle_unpacked_packet(sess, &packet, rp->recv_time) != 0)) {
+    if ((ret = gquic_session_handle_unpacked_packet(sess, &packet, rp->recv_time)) != 0) {
         gquic_session_close_local(sess, 10 * ret - 3);
         ret = 0;
         goto free_rp_finished;
@@ -1250,7 +1250,7 @@ static int gquic_session_handle_unpacked_packet(gquic_session_t *const sess, gqu
             return -3;
         }
         if (frame == NULL) {
-            return -4;
+            break;
         }
         if (GQUIC_FRAME_META(frame).type != 0x02 && GQUIC_FRAME_META(frame).type != 0x03) {
             is_ack_eliciting = 1;
@@ -1531,7 +1531,6 @@ static int gquic_session_handle_close_err(gquic_session_t *const sess, const int
     if (sess == NULL) {
         return -1;
     }
-    printf("HERE\n");
 
     if (remote) {
         gquic_conn_id_gen_replace_with_closed(&sess->conn_id_gen,
