@@ -750,7 +750,7 @@ int gquic_session_run(gquic_session_t *const sess) {
                 gquic_list_release(event);
                 break;
             case GQUIC_SESSION_EVENT_RECEIVED_PACKAET:
-                if (!gquic_session_handle_packet_inner(sess, event->payload.rp)) {
+                if (gquic_session_handle_packet_inner(sess, event->payload.rp) != 0) {
                     continue;
                 }
                 gquic_list_release(event);

@@ -726,7 +726,7 @@ static int gquic_tls_client_handshake_state_process_server_hello(gquic_tls_hands
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_UNEXPECTED_MESSAGE);
         return -2;
     }
-    if (GQUIC_STR_SIZE(&cli_state->s_hello->cookie) == 0) {
+    if (GQUIC_STR_SIZE(&cli_state->s_hello->cookie) != 0) {
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_UNSUPPORTED_EXTENSION);
         return -3;
     }
