@@ -2,7 +2,6 @@
 #include "frame/meta.h"
 #include "tls/common.h"
 #include <time.h>
-#include <malloc.h>
 
 static int gquic_packet_received_mem_add(gquic_packet_received_mem_t *const, const u_int64_t);
 
@@ -53,7 +52,7 @@ static int gquic_packet_received_mem_add(gquic_packet_received_mem_t *const mem,
         return -1;
     }
     if (gquic_list_head_empty(&mem->ranges)) {
-        if ((interval = malloc(sizeof(gquic_packet_interval_t))) == NULL) {
+        if ((interval = gquic_list_alloc(sizeof(gquic_packet_interval_t))) == NULL) {
             return -1;
         }
         interval->end = pn;
