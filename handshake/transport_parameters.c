@@ -111,7 +111,10 @@ int gquic_transport_parameters_serialize(const gquic_transport_parameters_t *con
     __serialize_var(writer, &prefix_len_stack,
                     GQUIC_TRANSPORT_PARAM_ACTIVE_CONN_ID_LIMIT, params->active_conn_id_limit);
 
-    __gquic_fill_prefix_len(&prefix_len_stack, writer);
+    gquic_str_t tmp_writer = *writer;
+    tmp_writer.val -= 2;
+    tmp_writer.size += 2;
+    __gquic_fill_prefix_len(&prefix_len_stack, &tmp_writer);
     return 0;
 }
 
