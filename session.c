@@ -874,10 +874,9 @@ static int gquic_session_try_reset_deadline(gquic_session_t *const sess) {
     if ((tmp = sess->sent_packet_handler.alarm) != 0) {
         sess->deadline = tmp < sess->deadline ? tmp : sess->deadline;
     }
-    // TODO pacing_deadline
-    /*if ((tmp = sess->pacing_deadline) != 0) {*/
-        /*sess->deadline = tmp < sess->deadline ? tmp : sess->deadline;*/
-    /*}*/
+    if (sess->handshake_completed && (tmp = sess->pacing_deadline) != 0) {
+        sess->deadline = tmp < sess->deadline ? tmp : sess->deadline;
+    }
     return 0;
 }
 
