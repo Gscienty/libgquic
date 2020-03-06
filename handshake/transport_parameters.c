@@ -118,6 +118,7 @@ int gquic_transport_parameters_serialize(const gquic_transport_parameters_t *con
     return 0;
 }
 
+#include <stdio.h>
 int gquic_transport_parameters_deserialize(gquic_transport_parameters_t *const params, gquic_reader_str_t *const reader) {
     size_t len = 0;
     u_int16_t id = 0;
@@ -130,7 +131,7 @@ int gquic_transport_parameters_deserialize(gquic_transport_parameters_t *const p
         return -2;
     }
     gquic_reader_str_t inner_reader = { len, GQUIC_STR_VAL(reader) };
-    while (GQUIC_STR_SIZE(&inner_reader) > 0) {
+    while (GQUIC_STR_SIZE(&inner_reader) >= 4) {
         id = 0;
         param_len = 0;
         __gquic_recovery_bytes(&id, 2, &inner_reader);
