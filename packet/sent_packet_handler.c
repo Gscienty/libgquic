@@ -58,7 +58,7 @@ int gquic_packet_sent_mem_dtor(gquic_packet_sent_mem_t *const mem) {
         gquic_rbtree_release(del, NULL);
     }
     while (!gquic_list_head_empty(&mem->list)) {
-        gquic_packet_dtor(GQUIC_LIST_FIRST(&mem->list));
+        gquic_packet_dtor(*(void **) GQUIC_LIST_FIRST(&mem->list));
         gquic_list_release(GQUIC_LIST_FIRST(&mem->list));
     }
     return 0;
