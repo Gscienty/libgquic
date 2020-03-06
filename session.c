@@ -874,9 +874,10 @@ static int gquic_session_try_reset_deadline(gquic_session_t *const sess) {
     if ((tmp = sess->sent_packet_handler.alarm) != 0) {
         sess->deadline = tmp < sess->deadline ? tmp : sess->deadline;
     }
-    if ((tmp = sess->pacing_deadline) != 0) {
-        sess->deadline = tmp < sess->deadline ? tmp : sess->deadline;
-    }
+    // TODO pacing_deadline
+    /*if ((tmp = sess->pacing_deadline) != 0) {*/
+        /*sess->deadline = tmp < sess->deadline ? tmp : sess->deadline;*/
+    /*}*/
     return 0;
 }
 
@@ -1245,6 +1246,9 @@ static int gquic_session_handle_unpacked_packet(gquic_session_t *const sess, gqu
 
     reader = up->data;
     for ( ;; ) {
+        if (GQUIC_STR_SIZE(&reader) == 0) {
+            break;
+        }
         frame = NULL;
         if (gquic_frame_parser_next(&frame, &sess->frame_parser, &reader, up->enc_lv) != 0) {
             return -3;
