@@ -118,7 +118,6 @@ int gquic_transport_parameters_serialize(const gquic_transport_parameters_t *con
     return 0;
 }
 
-#include <stdio.h>
 int gquic_transport_parameters_deserialize(gquic_transport_parameters_t *const params, gquic_reader_str_t *const reader) {
     size_t len = 0;
     u_int16_t id = 0;
