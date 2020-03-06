@@ -17,6 +17,7 @@ gquic_config_t ser_cfg;
 gquic_transport_parameters_t server_params;
 gquic_crypto_stream_t initial;
 gquic_crypto_stream_t handshake;
+gquic_crypto_stream_t onertt;
 gquic_handshake_establish_t server_establish;
 gquic_crypto_stream_manager_t server_crypto_stream_manager;
 gquic_packet_unpacker_t server_unpacker;
@@ -37,7 +38,7 @@ static void *__server_run(void *const _) {
 
 static int init_write(void *const _, gquic_writer_str_t *const writer) {
     (void) _;
-    printf("init write\n");
+    /*printf("init write\n");*/
     gquic_crypto_stream_write(&initial, writer);
 
     gquic_packet_long_header_t *hdr = gquic_packet_long_header_alloc();
@@ -95,7 +96,7 @@ static int init_write(void *const _, gquic_writer_str_t *const writer) {
     buffer->writer.val = GQUIC_STR_VAL(&buffer->slice) + header_size + GQUIC_STR_SIZE(&cipher_text) + GQUIC_STR_SIZE(&tag);
 
     gquic_str_t cnt = { GQUIC_STR_VAL(&buffer->writer) - GQUIC_STR_VAL(&buffer->slice), GQUIC_STR_VAL(&buffer->slice) };
-    gquic_str_test_echo(&cnt);
+    /*gquic_str_test_echo(&cnt);*/
 
     gquic_received_packet_t *rp = malloc(sizeof(gquic_received_packet_t));
 
@@ -109,11 +110,13 @@ static int init_write(void *const _, gquic_writer_str_t *const writer) {
     rp->recv_time = tv.tv_sec * 1000 * 1000 + tv.tv_usec;
     rp->remote_addr.type = AF_INET;
 
+    printf("send shello\n");
     ret = gquic_packet_handler_map_handle_packet(&handler_map, rp);
     return 0;
 }
 
 static void handshake_packet() {
+    static int pn = 12;
     gquic_packet_long_header_t *hdr = gquic_packet_long_header_alloc();
     
     memcpy(hdr->dcid, GQUIC_STR_VAL(&sci), GQUIC_STR_SIZE(&sci));
@@ -122,7 +125,7 @@ static void handshake_packet() {
     hdr->scid_len = GQUIC_STR_SIZE(&server_sci);
 
     hdr->flag = 0xc0 | 0x20 | (0x03 & (2 - 1));
-    ((gquic_packet_handshake_header_t *) GQUIC_LONG_HEADER_SPEC(hdr))->pn = 12;
+    ((gquic_packet_handshake_header_t *) GQUIC_LONG_HEADER_SPEC(hdr))->pn = pn++;
 
     gquic_frame_crypto_t *frame = NULL;
     gquic_crypto_stream_pop_crypto_frame(&frame, &handshake, 1252);
@@ -136,6 +139,10 @@ static void handshake_packet() {
     gquic_packet_long_header_serialize(hdr, &w);
     size_t header_size = GQUIC_STR_VAL(&w) - GQUIC_STR_VAL(&buffer->slice);
     GQUIC_FRAME_SERIALIZE(frame, &w);
+
+    /*printf("\nsend Ex Ca Ver Fn\n");*/
+    /*gquic_str_t tmp = { GQUIC_STR_VAL(&w) - GQUIC_STR_VAL(&buffer->slice), GQUIC_STR_VAL(&buffer->slice) };*/
+    /*gquic_str_test_echo(&tmp);*/
 
     const gquic_str_t plain_text = {
         GQUIC_STR_VAL(&w) - GQUIC_STR_VAL(&buffer->slice) - header_size,
@@ -165,7 +172,7 @@ static void handshake_packet() {
     buffer->writer.val = GQUIC_STR_VAL(&buffer->slice) + header_size + GQUIC_STR_SIZE(&cipher_text) + GQUIC_STR_SIZE(&tag);
 
     gquic_str_t cnt = { GQUIC_STR_VAL(&buffer->writer) - GQUIC_STR_VAL(&buffer->slice), GQUIC_STR_VAL(&buffer->slice) };
-    gquic_str_test_echo(&cnt);
+    /*gquic_str_test_echo(&cnt);*/
 
     gquic_received_packet_t *rp = malloc(sizeof(gquic_received_packet_t));
 
@@ -179,6 +186,7 @@ static void handshake_packet() {
     rp->recv_time = tv.tv_sec * 1000 * 1000 + tv.tv_usec;
     rp->remote_addr.type = AF_INET;
 
+    printf("send\n");
     ret = gquic_packet_handler_map_handle_packet(&handler_map, rp);
 }
 
@@ -186,8 +194,8 @@ static int handshake_write(void *const _, gquic_writer_str_t *const writer) {
     static int times = 0;
     times++;
     (void) _;
-    printf("handshake write\n");
-    gquic_str_test_echo(writer);
+    /*printf("handshake write\n");*/
+    /*gquic_str_test_echo(writer);*/
     gquic_crypto_stream_write(&handshake, writer);
     if (times == 4) {
         handshake_packet();
@@ -231,11 +239,13 @@ void server_process_client_hello_package(const gquic_str_t *const raw) {
     gquic_crypto_stream_ctor(&initial);
     gquic_crypto_stream_init(&handshake);
     gquic_crypto_stream_ctor(&handshake);
+    gquic_crypto_stream_init(&onertt);
+    gquic_crypto_stream_ctor(&onertt);
 
     gquic_handshake_establish_ctor(&server_establish,
                                    &initial, init_write,
                                    &handshake, handshake_write,
-                                   server_process_client_hello_package, one_rtt_write,
+                                   &onertt, one_rtt_write,
                                    NULL, NULL,
                                    &ser_cfg.tls_config, &conn_id, &server_params, &server_rtt, &server_addr, 0);
     ser_cfg.tls_config.get_ser_cert = get_cert;
@@ -293,6 +303,41 @@ static int gquic_session_handle_packet_wrapper(void *const sess, gquic_received_
     return gquic_session_handle_packet(sess, rp);
 }
 
+static void server_process_client_fin(const gquic_str_t *const raw) {
+    int ret;
+    gquic_str_t conn_id = { 0, NULL };
+    gquic_packet_header_deserialize_conn_id(&conn_id, raw, 0);
+    u_int64_t packet_length = 0;
+    gquic_packet_header_deserialize_packet_len(&packet_length, raw, 0);
+    /*gquic_str_test_echo(raw);*/
+    
+    gquic_unpacked_packet_t packet;
+    gquic_unpacked_packet_init(&packet);
+    struct timeval tv;
+    struct timezone tz;
+    gettimeofday(&tv, &tz);
+    u_int64_t now = tv.tv_sec * 1000 * 1000 + tv.tv_usec;
+    ret = gquic_packet_unpacker_unpack(&packet, &server_unpacker, raw, now);
+
+    gquic_frame_parser_t parser;
+    gquic_frame_parser_init(&parser);
+
+    void *frame = NULL;
+    gquic_reader_str_t reader = packet.data;
+    gquic_str_test_echo(&reader);
+    ret = gquic_frame_parser_next(&frame, &parser, &reader, packet.enc_lv);
+
+    ret = gquic_crypto_stream_handle_crypto_frame(&handshake, frame);
+    gquic_frame_release(frame);
+
+    gquic_str_t recv_data = { 0, NULL };
+    gquic_crypto_stream_get_data(&recv_data, &handshake);
+
+
+    // TODO empty recv_data segmentation fault
+    /*gquic_handshake_establish_handle_msg(&server_establish, &recv_data, packet.enc_lv);*/
+}
+
 int conn_write(void *const _, const gquic_str_t *const raw) {
     (void) _;
     (void) raw;
@@ -303,8 +348,10 @@ int conn_write(void *const _, const gquic_str_t *const raw) {
         // Client Hello Package
         server_process_client_hello_package(raw);
         break;
-    case 2:
-        printf("handshake FIN\n");
+    /*case 2:*/
+        /*server_process_client_fin(raw);*/
+    /*default:*/
+        /*printf("write times %d\n", client_write_times);*/
     }
 
     return 0;
