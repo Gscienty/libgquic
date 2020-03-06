@@ -754,10 +754,13 @@ int gquic_packet_packer_try_pack_handshake_packet(gquic_packed_packet_t *const p
     if ((ret = gquic_handshake_establish_get_handshake_sealer(&payload.header_sealer,
                                                               (gquic_common_long_header_sealer_t **) &payload.sealer.self,
                                                               packer->est)) != 0) {
-        return ret;
+        if (ret == -2 || ret == -3) {
+            return ret;
+        }
+        return -4;
     }
     if (gquic_packet_received_packet_handlers_get_ack_frame(&payload.ack, packer->acks, GQUIC_ENC_LV_INITIAL) != 0) {
-        return -4;
+        return -5;
     }
     if (payload.ack != NULL) {
         payload.len = GQUIC_FRAME_SIZE(payload.ack);
@@ -769,13 +772,13 @@ int gquic_packet_packer_try_pack_handshake_packet(gquic_packed_packet_t *const p
     }
     if ((payload.frames = malloc(sizeof(gquic_list_t))) == NULL) {
         gquic_packed_packet_payload_dtor(&payload);
-        return -5;
+        return -6;
     }
     gquic_list_head_init(payload.frames);
     payload.enc_lv = GQUIC_ENC_LV_HANDSHAKE;
     if (gquic_packet_packer_pack_crypto_packet(packed_packet, packer, &payload, has_retransmission) != 0) {
         gquic_packed_packet_payload_dtor(&payload);
-        return -6;
+        return -7;
     }
 
     return 0;
