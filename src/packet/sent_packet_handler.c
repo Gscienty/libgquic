@@ -585,7 +585,7 @@ static int gquic_packet_sent_packet_handler_on_packet_acked(gquic_packet_sent_pa
     if (mem_packet == NULL) {
         return -4;
     }
-    GQUIC_LIST_FOREACH(frame, &packet->frames) {
+    GQUIC_LIST_FOREACH(frame, packet->frames) {
         if (GQUIC_FRAME_META(*frame).on_acked.self != NULL) {
             GQUIC_FRAME_ON_ACKED(*frame);
         }
@@ -684,7 +684,7 @@ static int gquic_packet_sent_packet_handler_queue_frames_for_retrans(gquic_packe
     if (packet == NULL) {
         return -1;
     }
-    GQUIC_LIST_FOREACH(frame_storage, &packet->frames) {
+    GQUIC_LIST_FOREACH(frame_storage, packet->frames) {
         GQUIC_FRAME_ON_LOST(*frame_storage);
     }
 
