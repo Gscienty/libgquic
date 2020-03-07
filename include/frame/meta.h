@@ -35,7 +35,9 @@ struct gquic_frame_meta_s {
 #define GQUIC_FRAME_DESRIALIZE(ptr, reader) (GQUIC_FRAME_META((ptr)).deserialize_func((ptr), (reader)))
 #define GQUIC_FRAME_DTOR(ptr) (GQUIC_FRAME_META((ptr)).dtor_func((ptr)))
 #define GQUIC_FRAME_ON_ACKED(ptr) (GQUIC_FRAME_META((ptr)).on_acked.cb((GQUIC_FRAME_META((ptr)).on_acked.self), (ptr)))
-#define GQUIC_FRAME_ON_LOST(ptr) (GQUIC_FRAME_META((ptr)).on_lost.cb((GQUIC_FRAME_META((ptr)).on_lost.self), (ptr)))
+#define GQUIC_FRAME_ON_LOST(ptr) (GQUIC_FRAME_META((ptr)).on_lost.cb == NULL \
+                                  ? -1 \
+                                  : (GQUIC_FRAME_META((ptr)).on_lost.cb((GQUIC_FRAME_META((ptr)).on_lost.self), (ptr))))
 
 void *gquic_frame_alloc(size_t size);
 int gquic_frame_release(void *const frame);
