@@ -778,35 +778,35 @@ int gquic_tls_conn_get_sess_ticket(gquic_str_t *const msg, gquic_tls_conn_t *con
     gquic_tls_sess_state_init(&state);
     GQUIC_LIST_FOREACH(peer_cert, &conn->peer_certs) {
         if ((cert = gquic_list_alloc(sizeof(gquic_str_t *))) == NULL) {
-            return -3;
+            return -4;
         }
         gquic_str_init(cert);
         if (gquic_str_copy(cert, peer_cert) != 0) {
-            return -4;
+            return -5;
         }
         if (gquic_list_insert_before(&state.cert.certs, cert) != 0) {
-            return -5;
+            return -6;
         }
     }
     // TODO copy ocsp and scts
     state.cipher_suite = conn->cipher_suite;
     if (gquic_str_copy(&state.resumption_sec, &conn->resumption_sec) != 0) {
-        return -6;
+        return -7;
     }
     state.create_at = time(NULL);
 
     if (gquic_str_alloc(&ticket->label, gquic_tls_sess_state_size(&state)) != 0) {
-        ret = -7;
+        ret = -8;
         goto failure;
     }
     gquic_writer_str_t writer = ticket->label;
-    if (gquic_tls_sess_state_serialize(&state, &writer) <= 0) {
-        ret = -8;
+    if (gquic_tls_sess_state_serialize(&state, &writer) != 0) {
+        ret = -9;
         goto failure;
     }
     ticket->lifetime = 7 * 24 * 60;
     if (gquic_tls_msg_combine_serialize(msg, ticket) != 0) {
-        ret = -9;
+        ret = -10;
         goto failure;
     }
     gquic_tls_msg_release(ticket);

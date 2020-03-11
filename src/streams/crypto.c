@@ -326,6 +326,5 @@ int gquic_crypto_stream_manager_handle_crypto_frame(int *const changed,
             return gquic_crypto_stream_finish(str);
         }
     }
-
     return 0;
 }
