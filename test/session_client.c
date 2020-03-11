@@ -408,6 +408,6 @@ int main() {
     gquic_str_t ignore = { 0, NULL };
     gquic_packet_handler_map_add(&ignore, &handler_map, &sci, abs_sess);
     ret = gquic_session_run(&sess);
-    printf("server run: %d\n", ret);
+    printf("session run: %d\n", ret);
     return 0;
 }
