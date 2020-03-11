@@ -286,7 +286,7 @@ int gquic_handshake_establish_handle_msg(gquic_handshake_establish_t *const est,
     int ret = 0;
     u_int8_t type = 0;
     gquic_str_t *msg = NULL;
-    if (est == NULL || data == NULL) {
+    if (est == NULL || GQUIC_STR_SIZE(data) == 0) {
         return -1;
     }
     type = GQUIC_STR_FIRST_BYTE(data);
