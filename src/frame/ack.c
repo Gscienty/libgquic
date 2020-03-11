@@ -105,17 +105,19 @@ static int gquic_frame_ack_deserialize(void *const frame, gquic_reader_str_t *co
             return -3;
         }
     }
-    for (i = 0; i < spec->count - 1; i++) {
-        gquic_frame_ack_range_t *range = gquic_list_alloc(sizeof(gquic_frame_ack_range_t));
-        gquic_frame_ack_range_init(range);
-        if (gquic_list_insert_before(&spec->ranges, range) != 0) {
-            return -4;
-        }
-        u_int64_t *range_vars[] = { &range->gap, &range->range };
-        int j = 0;
-        for (j = 0; j < 2; j++) {
-            if (gquic_varint_deserialize(range_vars[i], reader) != 0) {
-                return -5;
+    if (spec->count != 0) {
+        for (i = 0; i < spec->count - 1; i++) {
+            gquic_frame_ack_range_t *range = gquic_list_alloc(sizeof(gquic_frame_ack_range_t));
+            gquic_frame_ack_range_init(range);
+            if (gquic_list_insert_before(&spec->ranges, range) != 0) {
+                return -4;
+            }
+            u_int64_t *range_vars[] = { &range->gap, &range->range };
+            int j = 0;
+            for (j = 0; j < 2; j++) {
+                if (gquic_varint_deserialize(range_vars[i], reader) != 0) {
+                    return -5;
+                }
             }
         }
     }
