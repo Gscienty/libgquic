@@ -553,6 +553,21 @@ ignore_ext:
             return -1;
         }
 
+        gquic_sem_list_waiting_pop((void **) &process_event,
+                                   &est->handshake_process_events_queue,
+                                   gquic_establish_waiting_ser_handle_cmp,
+                                   &msg_type);
+        type = process_event->type;
+        gquic_list_release(process_event);
+        switch (type) {
+        case GQUIC_ESTABLISH_PROCESS_EVENT_RECV_WKEY:
+            break;
+        case GQUIC_ESTABLISH_PROCESS_EVENT_DONE:
+            return 0;
+        default:
+            return -1;
+        }
+
         return 1;
 
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT:
@@ -895,11 +910,13 @@ finished:
 }
 
 static int gquic_establish_try_send_sess_ticket(gquic_handshake_establish_t *const est) {
+    int ret = 0;
     gquic_str_t ticket = { 0, NULL };
     if (est == NULL) {
         return -1;
     }
-    if (gquic_tls_conn_get_sess_ticket(&ticket, &est->conn) != 0) {
+    if ((ret = gquic_tls_conn_get_sess_ticket(&ticket, &est->conn)) != 0) {
+        printf("%d\n", ret);
         GQUIC_HANDSHAKE_EVENT_ON_ERR(&est->events, GQUIC_TLS_ALERT_INTERNAL_ERROR, -3);
         return 0;
     }
