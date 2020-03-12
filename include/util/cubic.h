@@ -16,6 +16,7 @@ struct gquic_cubic_s {
 };
 
 int gquic_cubic_init(gquic_cubic_t *const cubic);
+int gquic_cubic_ctor(gquic_cubic_t *const cubic);
 u_int64_t gquic_cubic_cwnd_after_packet_loss(gquic_cubic_t *const cubic, const u_int64_t cwnd);
 u_int64_t gquic_cubic_cwnd_after_packet_ack(gquic_cubic_t *const cubic,
                                             const u_int64_t acked_bytes,
