@@ -44,6 +44,7 @@ int gquic_cong_cubic_ctor(gquic_cong_cubic_t *const cubic, const gquic_rtt_t *co
     cubic->max_cwnd = initial_cwnd;
     cubic->conn_count = 1;
     cubic->rtt = rtt;
+    gquic_cubic_ctor(&cubic->cubic);
 
     return 0;
 }

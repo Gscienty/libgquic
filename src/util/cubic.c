@@ -1,4 +1,5 @@
 #include "util/cubic.h"
+#include "exception.h"
 #include <stddef.h>
 #include <math.h>
 
@@ -8,7 +9,7 @@ static float gquic_cubic_bata_last_max(const gquic_cubic_t *const);
 
 int gquic_cubic_init(gquic_cubic_t *const cubic) {
     if (cubic == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     cubic->conn_count = 1;
     cubic->epoch = 0;
@@ -19,7 +20,15 @@ int gquic_cubic_init(gquic_cubic_t *const cubic) {
     cubic->origin_point_time = 0;
     cubic->last_target_cwnd = 0;
 
-    return 0;
+    return GQUIC_SUCCESS;
+}
+
+int gquic_cubic_ctor(gquic_cubic_t *const cubic) {
+    if (cubic == NULL) {
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+    }
+    cubic->conn_count = 1;
+    return GQUIC_SUCCESS;
 }
 
 static float gquic_cubic_beta(const gquic_cubic_t *const cubic) {
@@ -85,8 +94,8 @@ u_int64_t gquic_cubic_cwnd_after_packet_ack(gquic_cubic_t *const cubic,
             cubic->origin_point_cwnd = cubic->last_max_cwnd;
         }
     }
-    elapsed_time = ((event_time + delay_min - cubic->epoch) << 10) / 1000;
-    offset = cubic->origin_point_time - elapsed_time;
+    elapsed_time = ((event_time + delay_min - cubic->epoch) << 10) / (1000 * 1000);
+    offset = (int64_t) cubic->origin_point_time - elapsed_time;
     if (offset < 0) {
         offset = -offset;
     }
