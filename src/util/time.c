@@ -18,3 +18,4 @@ int gquic_time_since_milli(int64_t *ret, const struct timeval *const t) {
     *ret = sec * 1000 + micro_sec / 1000;
     return 0;
 }
+
