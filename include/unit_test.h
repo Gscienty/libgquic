@@ -23,5 +23,6 @@ struct gquic_unit_test_s {
         .magic = GQUIC_UNIT_TEST_MAGIC \
     }; \
     int GQUIC_UNIT_TEST_FUNCTION_NAME(n)() 
+#define GQUIC_UNIT_TEST_EXPECT(x) if (!(x)) { return -1; }
 
 #endif
