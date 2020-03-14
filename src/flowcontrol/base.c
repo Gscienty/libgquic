@@ -6,7 +6,7 @@ static inline int gquic_flowcontrol_base_try_adjust_wnd_size(gquic_flowcontrol_b
 
 int gquic_flowcontrol_base_init(gquic_flowcontrol_base_t *const base) {
     if (base == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     base->sent_bytes = 0;
     base->swnd = 0;
@@ -21,15 +21,15 @@ int gquic_flowcontrol_base_init(gquic_flowcontrol_base_t *const base) {
     base->epoch_off = 0;
     base->rtt = NULL;
 
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 int gquic_flowcontrol_base_dtor(gquic_flowcontrol_base_t *const base) {
     if (base == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     sem_destroy(&base->mtx);
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 int gquic_flowcontrol_base_is_newly_blocked(u_int64_t *const swnd, gquic_flowcontrol_base_t *const base) {
@@ -51,7 +51,7 @@ int gquic_flowcontrol_base_is_newly_blocked(u_int64_t *const swnd, gquic_flowcon
 
 int gquic_flowcontrol_base_read_add_bytes(gquic_flowcontrol_base_t *const base, const u_int64_t n) {
     if (base == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     sem_wait(&base->mtx);
     if (base->read_bytes == 0) {
@@ -63,7 +63,7 @@ int gquic_flowcontrol_base_read_add_bytes(gquic_flowcontrol_base_t *const base, 
     }
     base->read_bytes += n;
     sem_post(&base->mtx);
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 u_int64_t gquic_flowcontrol_base_swnd_size(const gquic_flowcontrol_base_t *const base) {
@@ -100,14 +100,14 @@ static inline int gquic_flowcontrol_base_try_adjust_wnd_size(gquic_flowcontrol_b
     u_int64_t now;
     double frac = 0;
     if (base == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     in_epoch_read_bytes = base->read_bytes - base->epoch_off;
     if (in_epoch_read_bytes <= base->rwnd_size / 2) {
-        return 0;
+        return GQUIC_SUCCESS;
     }
     if (base->rtt->smooth == 0) {
-        return 0;
+        return GQUIC_SUCCESS;
     }
     frac = ((double) in_epoch_read_bytes) / base->rwnd_size;
     struct timeval tv;
@@ -119,6 +119,6 @@ static inline int gquic_flowcontrol_base_try_adjust_wnd_size(gquic_flowcontrol_b
     }
     base->epoch_time = now;
     base->epoch_off = base->read_bytes;
-    return 0;
+    return GQUIC_SUCCESS;
 }
 

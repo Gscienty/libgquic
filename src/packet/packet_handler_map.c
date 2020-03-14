@@ -601,21 +601,19 @@ int gquic_packet_handler_map_set_server(gquic_packet_handler_map_t *const handle
 }
 
 int gquic_packet_handler_map_close_server(gquic_packet_handler_map_t *const handler) {
-    gquic_list_t queue;
     gquic_rbtree_t *rbt = NULL;
     if (handler == NULL) {
         return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
-    gquic_list_head_init(&queue);
     sem_wait(&handler->mtx);
     handler->server = NULL;
     // TODO handler->server release ?
     
-    GQUIC_RBTREE_EACHOR_BEGIN(rbt, &queue, handler->handlers)
+    GQUIC_RBTREE_EACHOR_BEGIN(rbt, handler->handlers)
         if (!GQUIC_PACKET_HANDLER_IS_CLIENT(GQUIC_RBTREE_VALUE(rbt))) {
             GQUIC_IO_CLOSE(&(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt))->closer);
         }
-    GQUIC_RBTREE_EACHOR_END(rbt, &queue)
+    GQUIC_RBTREE_EACHOR_END(rbt)
 
     sem_post(&handler->mtx);
     return GQUIC_SUCCESS;
@@ -632,17 +630,15 @@ int gquic_packet_handler_map_close(gquic_packet_handler_map_t *const handler) {
 }
 
 static int gquic_packet_handler_map_listen_close(gquic_packet_handler_map_t *const handler, const int err) {
-    gquic_list_t queue;
     gquic_rbtree_t *rbt = NULL;
     if (handler == NULL) {
         return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
-    gquic_list_head_init(&queue);
     sem_wait(&handler->mtx);
     
-    GQUIC_RBTREE_EACHOR_BEGIN(rbt, &queue, handler->handlers)
+    GQUIC_RBTREE_EACHOR_BEGIN(rbt, handler->handlers)
         GQUIC_PACKET_HANDLER_DESTROY(GQUIC_RBTREE_VALUE(rbt), err);
-    GQUIC_RBTREE_EACHOR_END(rbt, &queue)
+    GQUIC_RBTREE_EACHOR_END(rbt)
     if (handler->server != NULL) {
         GQUIC_PACKET_UNKNOW_PACKET_HANDLER_SET_CLOSE_ERR(handler->server, err);
     }

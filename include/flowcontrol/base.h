@@ -2,6 +2,7 @@
 #define _LIBGQUIC_FLOWCONTROL_BASE_H
 
 #include "util/rtt.h"
+#include "exception.h"
 #include <sys/types.h>
 #include <semaphore.h>
 #include <stddef.h>
@@ -31,12 +32,12 @@ int gquic_flowcontrol_base_has_wnd_update(const gquic_flowcontrol_base_t *const 
 u_int64_t gquic_flowcontrol_base_get_wnd_update(gquic_flowcontrol_base_t *const base);
 static inline int gquic_flowcontrol_base_update_swnd(gquic_flowcontrol_base_t *const base, const u_int64_t off) {
     if (base == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if (off > base->swnd) {
         base->swnd = off;
     }
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 #endif

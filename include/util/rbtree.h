@@ -20,26 +20,30 @@ struct gquic_rbtree_s {
 #define GQUIC_RBTREE_KEY(r) (((void *) (r)) + sizeof(gquic_rbtree_t))
 #define GQUIC_RBTREE_VALUE(r) (((void *) (r)) + sizeof(gquic_rbtree_t) + (r)->key_len) 
 
-#define GQUIC_RBTREE_EACHOR_BEGIN(payload, queue, root) \
-    gquic_list_insert_after((queue), gquic_list_alloc(sizeof(gquic_rbtree_t *))); \
-    *(gquic_rbtree_t **) gquic_list_next(GQUIC_LIST_PAYLOAD(queue)) = (root); \
-    while (!gquic_list_head_empty(queue)) { \
+#define GQUIC_RBTREE_EACHOR_BEGIN(payload, root) \
+{ \
+    gquic_list_t __$rbt_queue; \
+    gquic_list_head_init(&__$rbt_queue); \
+    gquic_list_insert_after((&__$rbt_queue), gquic_list_alloc(sizeof(gquic_rbtree_t *))); \
+    *(gquic_rbtree_t **) gquic_list_next(GQUIC_LIST_PAYLOAD(&__$rbt_queue)) = (root); \
+    while (!gquic_list_head_empty(&__$rbt_queue)) { \
         do { \
-            (payload) = *(gquic_rbtree_t **) gquic_list_prev(GQUIC_LIST_PAYLOAD(queue));
+            (payload) = *(gquic_rbtree_t **) gquic_list_prev(GQUIC_LIST_PAYLOAD(&__$rbt_queue));
 
 
-#define GQUIC_RBTREE_EACHOR_END(payload, queue) \
+#define GQUIC_RBTREE_EACHOR_END(payload) \
         } while (0);    \
         if (!gquic_rbtree_is_nil((payload)->left)) { \
-            gquic_list_insert_after((queue), gquic_list_alloc(sizeof(gquic_rbtree_t *))); \
-            *(gquic_rbtree_t **) gquic_list_next(GQUIC_LIST_PAYLOAD(queue)) = (payload)->left; \
+            gquic_list_insert_after((&__$rbt_queue), gquic_list_alloc(sizeof(gquic_rbtree_t *))); \
+            *(gquic_rbtree_t **) gquic_list_next(GQUIC_LIST_PAYLOAD(&__$rbt_queue)) = (payload)->left; \
         } \
         if (!gquic_rbtree_is_nil((payload)->right)) { \
-            gquic_list_insert_after((queue), gquic_list_alloc(sizeof(gquic_rbtree_t *))); \
-            *(gquic_rbtree_t **) gquic_list_next(GQUIC_LIST_PAYLOAD(queue)) = (payload)->right; \
+            gquic_list_insert_after((&__$rbt_queue), gquic_list_alloc(sizeof(gquic_rbtree_t *))); \
+            *(gquic_rbtree_t **) gquic_list_next(GQUIC_LIST_PAYLOAD(&__$rbt_queue)) = (payload)->right; \
         } \
-        gquic_list_remove(gquic_list_prev(GQUIC_LIST_PAYLOAD(queue))); \
-    }
+        gquic_list_remove(gquic_list_prev(GQUIC_LIST_PAYLOAD(&__$rbt_queue))); \
+    } \
+}
 
 int gquic_rbtree_root_init(gquic_rbtree_t **const root);
 int gquic_rbtree_alloc(gquic_rbtree_t **const rb, const size_t key_len, const size_t val_len);
