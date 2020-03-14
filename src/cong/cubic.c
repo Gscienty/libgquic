@@ -1,11 +1,12 @@
 #include "cong/cubic.h"
+#include "exception.h"
 
 static int gquic_cong_cubic_try_increase_cwnd(gquic_cong_cubic_t *const, const u_int64_t, const u_int64_t, const u_int64_t);
 static int gquic_cong_cubic_is_cwnd_limited(gquic_cong_cubic_t *const, const u_int64_t);
 
 int gquic_cong_cubic_init(gquic_cong_cubic_t *const cubic) {
     if (cubic == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     gquic_cong_hybrid_slow_start_init(&cubic->hybrid_slow_start);
     gquic_prr_init(&cubic->prr);
@@ -29,12 +30,12 @@ int gquic_cong_cubic_init(gquic_cong_cubic_t *const cubic) {
     cubic->initial_max_cwnd = 0;
     cubic->min_slow_start_exit_wnd = 0;
 
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 int gquic_cong_cubic_ctor(gquic_cong_cubic_t *const cubic, const gquic_rtt_t *const rtt, const u_int64_t initial_cwnd, const u_int64_t initial_max_cwnd) {
     if (cubic == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     cubic->initial_cwnd = initial_cwnd;
     cubic->initial_max_cwnd = initial_max_cwnd;
@@ -46,12 +47,12 @@ int gquic_cong_cubic_ctor(gquic_cong_cubic_t *const cubic, const gquic_rtt_t *co
     cubic->rtt = rtt;
     gquic_cubic_ctor(&cubic->cubic);
 
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 u_int64_t gquic_cong_cubic_time_util_send(gquic_cong_cubic_t *const cubic, const u_int64_t infly_bytes) {
     if (cubic == NULL) {
-        return -1;
+        return 0;
     }
     if (!cubic->disable_prr && gquic_cong_cubic_in_recovery(cubic)) {
         if (gquic_prr_allowable_send(&cubic->prr, cubic->cwnd, infly_bytes, cubic->slow_start_threshold)) {
@@ -66,23 +67,23 @@ int gquic_cong_cubic_on_packet_sent(gquic_cong_cubic_t *const cubic,
                                     const u_int64_t bytes,
                                     int is_retrans) {
     if (cubic == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if (!is_retrans) {
-        return 0;
+        return GQUIC_SUCCESS;
     }
     if (gquic_cong_cubic_in_recovery(cubic)) {
         cubic->prr.sent_bytes += bytes;
     }
     cubic->largest_sent_pn = pn;
     cubic->hybrid_slow_start.last_sent_pn = pn;
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 int gquic_cong_cubic_allowable_send(gquic_cong_cubic_t *const cubic,
                                     const u_int64_t infly_bytes) {
     if (cubic == NULL) {
-        return -1;
+        return 0;
     }
     if (!cubic->disable_prr && gquic_cong_cubic_in_recovery(cubic)) {
         return gquic_prr_allowable_send(&cubic->prr, cubic->cwnd, infly_bytes, cubic->slow_start_threshold);
@@ -96,7 +97,7 @@ int gquic_cong_cubic_on_packet_acked(gquic_cong_cubic_t *const cubic,
                                      const u_int64_t infly,
                                      const u_int64_t event_time) {
     if (cubic == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     cubic->largest_acked_pn = pn > cubic->largest_acked_pn ? pn : cubic->largest_acked_pn;
     if (gquic_cong_cubic_in_recovery(cubic)) {
@@ -104,7 +105,7 @@ int gquic_cong_cubic_on_packet_acked(gquic_cong_cubic_t *const cubic,
             cubic->prr.delivered_bytes += acked_bytes;
             cubic->prr.ack_count++;
         }
-        return 0;
+        return GQUIC_SUCCESS;
     }
     gquic_cong_cubic_try_increase_cwnd(cubic, acked_bytes, infly, event_time);
     if (gquic_cong_cubic_in_slow_start(cubic)) {
@@ -112,7 +113,7 @@ int gquic_cong_cubic_on_packet_acked(gquic_cong_cubic_t *const cubic,
             cubic->hybrid_slow_start.started = 0;
         }
     }
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 static int gquic_cong_cubic_try_increase_cwnd(gquic_cong_cubic_t *const cubic,
@@ -120,22 +121,22 @@ static int gquic_cong_cubic_try_increase_cwnd(gquic_cong_cubic_t *const cubic,
                                               const u_int64_t infly,
                                               const u_int64_t event_time) {
     if (cubic == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if (!gquic_cong_cubic_is_cwnd_limited(cubic, infly)) {
         cubic->cubic.epoch = 0;
-        return 0;
+        return GQUIC_SUCCESS;
     }
     if (cubic->cwnd >= cubic->max_cwnd) {
-        return 0;
+        return GQUIC_SUCCESS;
     }
     if (gquic_cong_cubic_in_slow_start(cubic)) {
         cubic->cwnd += 1460;
-        return 0;
+        return GQUIC_SUCCESS;
     }
     cubic->cwnd = gquic_cubic_cwnd_after_packet_ack(&cubic->cubic, ack_bytes, cubic->cwnd, cubic->rtt->min, event_time);
     cubic->cwnd = cubic->cwnd < cubic->max_cwnd ? cubic->cwnd : cubic->max_cwnd;
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 static int gquic_cong_cubic_is_cwnd_limited(gquic_cong_cubic_t *const cubic, const u_int64_t infly_bytes) {
@@ -157,7 +158,7 @@ int gquic_cong_cubic_on_packet_lost(gquic_cong_cubic_t *const cubic,
                                     const u_int64_t lost_bytes,
                                     const u_int64_t infly) {
     if (cubic == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if (pn <= cubic->largest_sent_last_cut) {
         if (cubic->last_cut_slow_start_exited) {
@@ -169,7 +170,7 @@ int gquic_cong_cubic_on_packet_lost(gquic_cong_cubic_t *const cubic,
                 cubic->slow_start_threshold = cubic->cwnd;
             }
         }
-        return 0;
+        return GQUIC_SUCCESS;
     }
     cubic->last_cut_slow_start_exited = gquic_cong_cubic_in_slow_start(cubic);
     if (gquic_cong_cubic_in_slow_start(cubic)) {
@@ -194,5 +195,5 @@ int gquic_cong_cubic_on_packet_lost(gquic_cong_cubic_t *const cubic,
     cubic->largest_sent_last_cut = cubic->largest_sent_pn;
     cubic->acked_packets_count = 0;
 
-    return 0;
+    return GQUIC_SUCCESS;
 }

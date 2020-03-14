@@ -1,9 +1,10 @@
 #include "cong/hybrid_slow_start.h"
+#include "exception.h"
 #include <stddef.h>
 
 int gquic_cong_hybrid_slow_start_init(gquic_cong_bybrid_slow_start_t *const slowstart) {
     if (slowstart == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     slowstart->current_min_rtt = 0;
     slowstart->end_pn = 0;
@@ -12,18 +13,18 @@ int gquic_cong_hybrid_slow_start_init(gquic_cong_bybrid_slow_start_t *const slow
     slowstart->rtt_sample_count = 0;
     slowstart->started = 0;
 
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 int gquic_hybrid_slow_start_start_recv_round(gquic_cong_bybrid_slow_start_t *const slowstart, const u_int64_t last_sent) {
     if (slowstart == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     slowstart->end_pn = last_sent;
     slowstart->current_min_rtt = 0;
     slowstart->rtt_sample_count = 0;
     slowstart->started = 1;
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 int gquic_hybrid_slow_start_should_exit(gquic_cong_bybrid_slow_start_t *const slowstart,
