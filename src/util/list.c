@@ -104,7 +104,7 @@ int gquic_list_copy(gquic_list_t *list, const gquic_list_t *ref, int (*fptr) (vo
         if (fptr == NULL) {
             memcpy(field, ref_field, GQUIC_LIST_META(ref_field).payload_size);
         }
-        else if (GQUIC_ASSERT(ret, fptr(field, ref_field))) {
+        else if (GQUIC_ASSERT_CAUSE(ret, fptr(field, ref_field))) {
             return ret;
         }
         gquic_list_insert_before(list, field);

@@ -3,7 +3,7 @@
 
 int gquic_big_endian_transfer(void *out, const void *in, const size_t size) {
     if (out == NULL || in == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     size_t i = 0;
     for (i = 0; i < size; i++) {
