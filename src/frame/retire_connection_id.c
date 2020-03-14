@@ -1,5 +1,6 @@
 #include "frame/retire_connection_id.h"
 #include "frame/meta.h"
+#include "exception.h"
 #include <stddef.h>
 
 static size_t gquic_frame_retire_connection_id_size(const void *const);
@@ -19,6 +20,7 @@ gquic_frame_retire_connection_id_t *gquic_frame_retire_connection_id_alloc() {
     GQUIC_FRAME_META(frame).dtor_func = gquic_frame_retire_connection_id_dtor;
     GQUIC_FRAME_META(frame).serialize_func = gquic_frame_retire_connection_id_serialize;
     GQUIC_FRAME_META(frame).size_func = gquic_frame_retire_connection_id_size;
+
     return frame;
 }
 
@@ -33,46 +35,42 @@ static size_t gquic_frame_retire_connection_id_size(const void *const frame) {
 static int gquic_frame_retire_connection_id_serialize(const void *const frame, gquic_writer_str_t *const writer) {
     const gquic_frame_retire_connection_id_t *spec = frame;
     if (spec == NULL || writer == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if (GQUIC_FRAME_SIZE(spec) > GQUIC_STR_SIZE(writer)) {
-        return -2;
+        return GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY;
     }
-    if (gquic_writer_str_write_byte(writer, GQUIC_FRAME_META(spec).type) != 0) {
-        return -3;
-    }
-    if (gquic_varint_serialize(&spec->seq, writer) != 0) {
-        return -4;
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_writer_str_write_byte(writer, GQUIC_FRAME_META(spec).type));
+    GQUIC_ASSERT_FAST_RETURN(gquic_varint_serialize(&spec->seq, writer));
     return 0;
 }
 
 static int gquic_frame_retire_connection_id_deserialize(void *const frame, gquic_reader_str_t *const reader) {
     gquic_frame_retire_connection_id_t *spec = frame;
     if (spec == NULL || reader == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if (gquic_reader_str_read_byte(reader) != GQUIC_FRAME_META(spec).type) {
-        return -2;
+        return GQUIC_EXCEPTION_FRAME_TYPE_UNEXCEPTED;
     }
-    if (gquic_varint_deserialize(&spec->seq, reader) != 0) {
-        return -3;
-    }
-    return 0;
+    GQUIC_ASSERT_FAST_RETURN(gquic_varint_deserialize(&spec->seq, reader));
+
+    return GQUIC_SUCCESS;
 }
 
 static int gquic_frame_retire_connection_id_init(void *const frame) {
     gquic_frame_retire_connection_id_t *spec = frame;
     if (spec == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     spec->seq = 0;
-    return 0;
+
+    return GQUIC_SUCCESS;
 }
 
 static int gquic_frame_retire_connection_id_dtor(void *const frame) {
     if (frame == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
-    return 0;
+    return GQUIC_SUCCESS;
 }

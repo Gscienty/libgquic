@@ -1,4 +1,5 @@
 #include "frame/meta.h"
+#include "exception.h"
 #include <malloc.h>
 
 void *gquic_frame_alloc(size_t size) {
@@ -22,10 +23,10 @@ void *gquic_frame_alloc(size_t size) {
 
 int gquic_frame_release(void *const frame) {
     if (frame == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     GQUIC_FRAME_DTOR(frame);
     free(&GQUIC_FRAME_META(frame));
 
-    return 0;
+    return GQUIC_SUCCESS;
 }

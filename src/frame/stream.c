@@ -1,7 +1,7 @@
 #include "frame/stream.h"
 #include "frame/meta.h"
 #include <string.h>
-#include <malloc.h>
+#include "exception.h"
 #include "frame/stream_pool.h"
 
 static size_t gquic_frame_stream_size(const void *const);
@@ -21,6 +21,7 @@ gquic_frame_stream_t *gquic_frame_stream_alloc() {
     GQUIC_FRAME_META(frame).dtor_func = gquic_frame_stream_dtor;
     GQUIC_FRAME_META(frame).serialize_func = gquic_frame_stream_serialize;
     GQUIC_FRAME_META(frame).size_func = gquic_frame_stream_size;
+
     return frame;
 }
 
@@ -31,40 +32,36 @@ static size_t gquic_frame_stream_size(const void *const frame) {
         return 0;
     }
     len = GQUIC_STR_SIZE(&spec->data);
+
     return 1 + gquic_varint_size(&spec->id) + gquic_varint_size(&len) + gquic_varint_size(&spec->off) + len;
 }
 
 static int gquic_frame_stream_serialize(const void *const frame, gquic_writer_str_t *const writer) {
+    int i;
     u_int64_t len = 0;
     const gquic_frame_stream_t *spec = frame;
     if (spec == NULL || writer == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if (GQUIC_FRAME_SIZE(spec) > GQUIC_STR_SIZE(writer)) {
-        return -2;
+        return GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY;
     }
-    if (gquic_writer_str_write_byte(writer, GQUIC_FRAME_META(spec).type) != 0) {
-        return -3;
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_writer_str_write_byte(writer, GQUIC_FRAME_META(spec).type));
     len = GQUIC_STR_SIZE(&spec->data);
     const u_int64_t *vars[] = {
         &spec->id,
         ((GQUIC_FRAME_META(spec).type & 0x04) == 0x04 ? &spec->off : NULL),
         ((GQUIC_FRAME_META(spec).type & 0x02) == 0x02 ? &len : NULL)
     };
-    int i = 0;
     for (i = 0; i < 3; i++) {
         if (vars[i] == NULL) {
             continue;
         }
-        if (gquic_varint_serialize(vars[i], writer) != 0) {
-            return -4;
-        }
+        GQUIC_ASSERT_FAST_RETURN(gquic_varint_serialize(vars[i], writer));
     }
-    if (gquic_writer_str_write(writer, &spec->data) != 0) {
-        return -5;
-    }
-    return 0;
+    GQUIC_ASSERT_FAST_RETURN(gquic_writer_str_write(writer, &spec->data));
+
+    return GQUIC_SUCCESS;
 }
 
 static int gquic_frame_stream_deserialize(void *const frame, gquic_reader_str_t *const reader) {
@@ -72,11 +69,11 @@ static int gquic_frame_stream_deserialize(void *const frame, gquic_reader_str_t 
     u_int8_t type;
     gquic_frame_stream_t *spec = frame;
     if (spec == NULL || reader == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     type = gquic_reader_str_read_byte(reader);
     if ((type & 0x08) != 0x08) {
-        return -2;
+        return GQUIC_EXCEPTION_FRAME_TYPE_UNEXCEPTED;
     }
     GQUIC_FRAME_META(spec).type = type;
     u_int64_t *vars[] = {
@@ -89,37 +86,34 @@ static int gquic_frame_stream_deserialize(void *const frame, gquic_reader_str_t 
         if (vars[i] == NULL) {
             continue;
         }
-        if (gquic_varint_deserialize(vars[i], reader) != 0) {
-            return -3;
-        }
+        GQUIC_ASSERT_FAST_RETURN(gquic_varint_deserialize(vars[i], reader));
     }
-    if (gquic_str_alloc(&spec->data, len) != 0) {
-        return -4;
-    }
-    if (gquic_reader_str_read(&spec->data, reader) != 0) {
-        return -5;
-    }
-    return 0;
+    GQUIC_ASSERT_FAST_RETURN(gquic_str_alloc(&spec->data, len));
+    GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_read(&spec->data, reader));
+
+    return GQUIC_SUCCESS;
 }
 
 static int gquic_frame_stream_init(void *const frame) {
     gquic_frame_stream_t *spec = frame;
     if (spec == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     gquic_str_init(&spec->data);
     spec->id = 0;
     spec->off = 0;
-    return 0;
+
+    return GQUIC_SUCCESS;
 }
 
 static int gquic_frame_stream_dtor(void *const frame) {
     gquic_frame_stream_t *spec = frame;
     if (spec == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     gquic_str_reset(&spec->data);
-    return 0;
+
+    return GQUIC_SUCCESS;
 }
 
 u_int64_t gquic_frame_stream_data_capacity(const u_int64_t size, const gquic_frame_stream_t *const frame) {

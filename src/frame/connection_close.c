@@ -1,5 +1,6 @@
 #include "frame/connection_close.h"
 #include "frame/meta.h"
+#include "exception.h"
 #include <string.h>
 #include <malloc.h>
 
@@ -20,6 +21,7 @@ gquic_frame_connection_close_t *gquic_frame_connection_close_alloc() {
     GQUIC_FRAME_META(frame).dtor_func = gquic_frame_connection_close_dtor;
     GQUIC_FRAME_META(frame).serialize_func = gquic_frame_connection_close_serialize;
     GQUIC_FRAME_META(frame).size_func = gquic_frame_connection_close_size;
+
     return frame;
 }
 
@@ -37,14 +39,12 @@ static size_t gquic_frame_connection_close_size(const void *const frame) {
 static int gquic_frame_connection_close_serialize(const void *const frame, gquic_writer_str_t *const writer) {
     const gquic_frame_connection_close_t *spec = frame;
     if (spec == NULL || writer == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if (GQUIC_FRAME_SIZE(spec) > GQUIC_STR_SIZE(writer)) {
-        return -2;
+        return GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY;
     }
-    if (gquic_writer_str_write_byte(writer, GQUIC_FRAME_META(spec).type) != 0) {
-        return -3;
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_writer_str_write_byte(writer, GQUIC_FRAME_META(spec).type));
 
     const u_int64_t *vars[] = { &spec->errcode, (GQUIC_FRAME_META(spec).type == 0x1d ? &spec->type : NULL), &spec->phase_len };
     int i;
@@ -52,68 +52,63 @@ static int gquic_frame_connection_close_serialize(const void *const frame, gquic
         if (vars[i] == NULL) {
             continue;
         }
-        if (gquic_varint_serialize(vars[i], writer) != 0) {
-            return -4;
-        }
+        GQUIC_ASSERT_FAST_RETURN(gquic_varint_serialize(vars[i], writer));
     }
     gquic_str_t phase = { spec->phase_len, spec->phase };
-    if (gquic_writer_str_write(writer, &phase) != 0) {
-        return -5;
-    }
-    return 0;
+    GQUIC_ASSERT_FAST_RETURN(gquic_writer_str_write(writer, &phase));
+
+    return GQUIC_SUCCESS;
 }
 
 static int gquic_frame_connection_close_deserialize(void *const frame, gquic_reader_str_t *const reader) {
     u_int8_t type;
+    int i = 0;
     gquic_frame_connection_close_t *spec = frame;
     if (spec == NULL || reader == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     type = gquic_reader_str_read_byte(reader);
     if (type != 0x1c && type != 0x1d) {
-        return -2;
+        return GQUIC_EXCEPTION_FRAME_TYPE_UNEXCEPTED;
     }
     GQUIC_FRAME_META(spec).type = type;
     u_int64_t *vars[] = { &spec->errcode, (type == 0x1d ? &spec->type : NULL), &spec->phase_len };
-    int i = 0;
     for (i = 0; i < 3; i++) {
         if (vars[i] == NULL) {
             continue;
         }
-        if (gquic_varint_deserialize(vars[i], reader) != 0) {
-            return -3;
-        }
+        GQUIC_ASSERT_FAST_RETURN(gquic_varint_deserialize(vars[i], reader));
     }
-    spec->phase = malloc(spec->phase_len);
-    if (spec->phase == NULL) {
-        return -4;
+    if ((spec->phase = malloc(spec->phase_len)) == NULL) {
+        return GQUIC_EXCEPTION_ALLOCATION_FAILED;
     }
     gquic_str_t phase = { spec->phase_len, spec->phase };
-    if (gquic_reader_str_read(&phase, reader) != 0) {
-        return -5;
-    }
-    return 0;
+    GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_read(&phase, reader));
+
+    return GQUIC_SUCCESS;
 }
 
 static int gquic_frame_connection_close_init(void *const frame) {
     gquic_frame_connection_close_t *spec = frame;
     if (spec == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     spec->errcode = 0;
     spec->phase_len = 0;
     spec->type = 0;
     spec->phase = NULL;
-    return 0;
+
+    return GQUIC_SUCCESS;
 }
 
 static int gquic_frame_connection_close_dtor(void *const frame) {
     gquic_frame_connection_close_t *spec = frame;
     if (spec == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if (spec->phase != NULL) {
         free(spec->phase);
     }
-    return 0;
+
+    return GQUIC_SUCCESS;
 }

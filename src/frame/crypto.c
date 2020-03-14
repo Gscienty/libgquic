@@ -1,5 +1,6 @@
 #include "frame/crypto.h"
 #include "frame/meta.h"
+#include "exception.h"
 #include <string.h>
 #include <malloc.h>
 
@@ -32,77 +33,69 @@ static size_t gquic_frame_crypto_size(const void *const frame) {
 }
 
 static int gquic_frame_crypto_serialize(const void *const frame, gquic_writer_str_t *const writer) {
+    int i;
     const gquic_frame_crypto_t *spec = frame;
     if (spec == NULL || writer == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if (GQUIC_FRAME_SIZE(spec) > GQUIC_STR_SIZE(writer)) {
-        return -2;
+        return GQUIC_EXCEPTION_ALLOCATION_FAILED;
     }
-    if (gquic_writer_str_write_byte(writer, GQUIC_FRAME_META(frame).type) != 0) {
-        return -3;
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_writer_str_write_byte(writer, GQUIC_FRAME_META(frame).type));
     const u_int64_t *vars[] = { &spec->off, &spec->len };
-    int i;
     for (i = 0; i < 2; i++) {
-        if (gquic_varint_serialize(vars[i], writer) != 0) {
-            return -4;
-        }
+        GQUIC_ASSERT_FAST_RETURN(gquic_varint_serialize(vars[i], writer));
     }
     gquic_str_t data = { spec->len, spec->data };
-    if (gquic_writer_str_write(writer, &data) != 0) {
-        return -5;
-    }
-    return 0;
+    GQUIC_ASSERT_FAST_RETURN(gquic_writer_str_write(writer, &data));
+    
+    return GQUIC_SUCCESS;
  }
 
 static int gquic_frame_crypto_deserialize(void *const frame, gquic_reader_str_t *const reader) {
+    int i;
     gquic_frame_crypto_t *spec = frame;
     if (frame == NULL || reader == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if (gquic_reader_str_read_byte(reader) != GQUIC_FRAME_META(frame).type) {
-        return -2;
+        return GQUIC_EXCEPTION_FRAME_TYPE_UNEXCEPTED;
     }
     u_int64_t *vars[] = { &spec->off, &spec->len };
-    int i;
     for (i = 0; i < 2; i++) {
-        if (gquic_varint_deserialize(vars[i], reader) != 0) {
-            return -3;
-        }
+        GQUIC_ASSERT_FAST_RETURN(gquic_varint_deserialize(vars[i], reader));
     }
     if (spec->len > GQUIC_STR_SIZE(reader)) {
-        return -4;
+        return GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY;
     }
-    spec->data = malloc(spec->len);
-    if (spec->data == NULL) {
-        return -5;
+    if ((spec->data = malloc(spec->len)) == NULL) {
+        return GQUIC_EXCEPTION_ALLOCATION_FAILED;
     }
     gquic_str_t data = { spec->len, spec->data };
-    if (gquic_reader_str_read(&data, reader) != 0) {
-        return -6;
-    }
-    return 0;
+    GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_read(&data, reader));
+
+    return GQUIC_SUCCESS;
 }
 
 static int gquic_frame_crypto_init(void *const frame) {
     gquic_frame_crypto_t *spec = frame;
     if (spec == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     spec->off = 0;
     spec->len = 0;
     spec->data = NULL;
-    return 0;
+
+    return GQUIC_SUCCESS;
 }
 
 static int gquic_frame_crypto_dtor(void *const frame) {
     gquic_frame_crypto_t *spec = frame;
     if (spec == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if (spec->data != NULL) {
         free(spec->data);
     }
-    return 0;
+    return GQUIC_SUCCESS;
 }

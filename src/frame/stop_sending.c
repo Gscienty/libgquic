@@ -1,6 +1,7 @@
 #include "frame/stop_sending.h"
 #include "frame/meta.h"
-#include <malloc.h>
+#include "exception.h"
+#include <stddef.h>
 
 static size_t gquic_frame_stop_sending_size(const void *const);
 static int gquic_frame_stop_sending_serialize(const void *const, gquic_writer_str_t *const);
@@ -19,6 +20,7 @@ gquic_frame_stop_sending_t *gquic_frame_stop_sending_alloc() {
     GQUIC_FRAME_META(frame).dtor_func = gquic_frame_stop_sending_dtor;
     GQUIC_FRAME_META(frame).serialize_func = gquic_frame_stop_sending_serialize;
     GQUIC_FRAME_META(frame).size_func = gquic_frame_stop_sending_size;
+
     return frame;
 }
 
@@ -27,62 +29,61 @@ static size_t gquic_frame_stop_sending_size(const void *const frame) {
     if (spec == NULL) {
         return 0;
     }
+
     return 1 + gquic_varint_size(&spec->id) + gquic_varint_size(&spec->errcode);
 }
 
 static int gquic_frame_stop_sending_serialize(const void *const frame, gquic_writer_str_t *const writer) {
+    int i;
     const gquic_frame_stop_sending_t *spec = frame;
     if (spec == NULL || writer == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if (GQUIC_FRAME_SIZE(spec) > GQUIC_STR_SIZE(writer)) {
-        return -2;
+        return GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY;
     }
-    if (gquic_writer_str_write_byte(writer, GQUIC_FRAME_META(spec).type) != 0) {
-        return -3;
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_writer_str_write_byte(writer, GQUIC_FRAME_META(spec).type));
     const u_int64_t *vars[] = { &spec->id, &spec->errcode };
-    int i;
     for (i = 0; i < 2; i++) {
-        if (gquic_varint_serialize(vars[i], writer) != 0) {
-            return -4;
-        }
+        GQUIC_ASSERT_FAST_RETURN(gquic_varint_serialize(vars[i], writer) != 0);
     }
-    return 0;
+
+    return GQUIC_SUCCESS;
 }
 
 static int gquic_frame_stop_sending_deserialize(void *const frame, gquic_reader_str_t *const reader) {
     gquic_frame_stop_sending_t *spec = frame;
     if (frame == NULL || reader == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if (gquic_reader_str_read_byte(reader) != GQUIC_FRAME_META(frame).type) {
-        return -2;
+        return GQUIC_EXCEPTION_FRAME_TYPE_UNEXCEPTED;
     }
     u_int64_t *vars[] = { &spec->id, &spec->errcode };
     int i;
     for (i = 0; i < 2; i++) {
-        if (gquic_varint_deserialize(vars[i], reader) != 0) {
-            return -3;
-        }
+        GQUIC_ASSERT_FAST_RETURN(gquic_varint_deserialize(vars[i], reader));
     }
-    return 0;
+
+    return GQUIC_SUCCESS;
 }
 
 static int gquic_frame_stop_sending_init(void *const frame) {
     gquic_frame_stop_sending_t *spec = frame;
     if (spec == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     spec->errcode = 0;
     spec->id = 0;
-    return 0;
+
+    return GQUIC_SUCCESS;
 }
 
 static int gquic_frame_stop_sending_dtor(void *const frame) {
     if (frame == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
-    return 0;
+
+    return GQUIC_SUCCESS;
 }
 

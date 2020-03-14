@@ -1,5 +1,6 @@
 #include "frame/meta.h"
 #include "frame/ping.h"
+#include "exception.h"
 #include <stddef.h>
 
 static size_t gquic_frame_ping_size(const void *const);
@@ -34,27 +35,27 @@ static size_t gquic_frame_ping_size(const void *const frame) {
 static int gquic_frame_ping_serialize(const void *const frame, gquic_writer_str_t *const writer) {
     size_t used_size = GQUIC_FRAME_META(frame).size_func(frame);
     if (used_size > GQUIC_STR_SIZE(writer)) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
-    if (gquic_writer_str_write_byte(writer, 0x01) != 0) {
-        return -2;
-    }
-    return 0;
+    GQUIC_ASSERT_FAST_RETURN(gquic_writer_str_write_byte(writer, 0x01));
+
+    return GQUIC_SUCCESS;
 }
 
 static int gquic_frame_ping_deserialize(void *const frame, gquic_reader_str_t *const reader) {
     (void) frame;
-    gquic_reader_str_readed_size(reader, 1);
-    return 0;
+    GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_readed_size(reader, 1));
+
+    return GQUIC_SUCCESS;
 }
 
 static int gquic_frame_ping_init(void *const frame) {
     (void) frame;
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 static int gquic_frame_ping_dtor(void *const frame) {
     (void) frame;
-    return 0;
+    return GQUIC_SUCCESS;
 }
 

@@ -19,9 +19,25 @@
 #define GQUIC_EXCEPTION_VARINT_SIZE_UNEXCEPTED  -10000016
 #define GQUIC_EXCEPTION_FLOW_CTRL_DISALLOW_RECV -10000017
 #define GQUIC_EXCEPTION_RECV_INCONSISTENT_FINAL -10000018
+#define GQUIC_EXCEPTION_FRAME_TYPE_UNEXCEPTED   -10000019
+#define GQUIC_EXCEPTION_DATA_EMPTY              -10000020
+#define GQUIC_EXCEPTION_DATA_DUPLICATE          -10000021
+#define GQUIC_EXCEPTION_INTERNAL_ERROR          -10000022
+#define GQUIC_EXCEPTION_TOO_MANY_GAPS           -10000023
+#define GQUIC_EXCEPTION_ENC_LV_FRAME_CONFLICT   -10000024
+#define GQUIC_EXCEPTION_INVALID_ENC_LV          -10000025
+#define GQUIC_EXCEPTION_INVALID_FRAME           -10000026
 #define GQUIC_SUCCESS 0
 
 #define GQUIC_ASSERT_CAUSE(exception, expression) (((exception) = (expression)) != GQUIC_SUCCESS)
 #define GQUIC_ASSERT(expression) ((expression) != GQUIC_SUCCESS)
+
+#define GQUIC_ASSERT_FAST_RETURN(expression) \
+{ \
+    int __$exception = GQUIC_SUCCESS; \
+    if (GQUIC_ASSERT_CAUSE(__$exception, expression)) { \
+        return __$exception; \
+    } \
+}
 
 #endif
