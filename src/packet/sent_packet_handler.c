@@ -1,7 +1,6 @@
 #include "packet/sent_packet_handler.h"
 #include "tls/common.h"
 #include "packet/send_mode.h"
-#include "util/st.h"
 #include "frame/meta.h"
 #include "event/event.h"
 #include <malloc.h>

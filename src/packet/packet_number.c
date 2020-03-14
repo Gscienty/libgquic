@@ -1,5 +1,4 @@
 #include "packet/packet_number.h"
-#include "util/st.h"
 #include <openssl/rand.h>
 
 size_t gquic_packet_number_size(const u_int64_t pn) {
