@@ -5,8 +5,13 @@
 #define GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED    -10000002
 #define GQUIC_EXCEPTION_ALLOCATION_FAILED       -10000003
 #define GQUIC_EXCEPTION_INITIAL_FAILED          -10000004
+#define GQUIC_EXCEPTION_CREATE_THREAD_FAILED    -10000005
+#define GQUIC_EXCEPTION_HEADER_TYPE_UNEXCEPTED  -10000006
+#define GQUIC_EXCEPTION_HMAC_FAILED             -10000007
+#define GQUIC_EXCEPTION_NOT_FOUND               -10000008
 #define GQUIC_SUCCESS 0
 
-#define GQUIC_ASSERT(exception, expression) ((exception = (expression)) != GQUIC_SUCCESS)
+#define GQUIC_ASSERT_CAUSE(exception, expression) (((exception) = (expression)) != GQUIC_SUCCESS)
+#define GQUIC_ASSERT(expression) ((expression) != GQUIC_SUCCESS)
 
 #endif
