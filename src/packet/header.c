@@ -1,20 +1,21 @@
 #include "packet/header.h"
+#include "exception.h"
 #include <malloc.h>
 
 int gquic_packet_header_init(gquic_packet_header_t *const header) {
     if (header == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     header->hdr.l_hdr = NULL;
     header->hdr.s_hdr = NULL;
     header->is_long = 0;
 
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 int gquic_packet_header_dtor(gquic_packet_header_t *const header) {
     if (header == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if (header->is_long) {
         if (header->hdr.l_hdr != NULL) {
@@ -27,7 +28,7 @@ int gquic_packet_header_dtor(gquic_packet_header_t *const header) {
         }
     }
 
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 u_int64_t gquic_packet_header_get_pn(gquic_packet_header_t *const header) {
@@ -52,7 +53,7 @@ u_int64_t gquic_packet_header_get_pn(gquic_packet_header_t *const header) {
 
 int gquic_packet_header_set_pn(gquic_packet_header_t *const header, const u_int64_t pn) {
     if (header == NULL || (header->hdr.l_hdr == NULL && header->hdr.s_hdr == NULL)) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if (header->is_long) {
         switch (gquic_packet_long_header_type(header->hdr.l_hdr)) {
@@ -66,19 +67,19 @@ int gquic_packet_header_set_pn(gquic_packet_header_t *const header, const u_int6
             ((gquic_packet_0rtt_header_t *) GQUIC_LONG_HEADER_SPEC(header->hdr.l_hdr))->pn = pn;
             break;
         default:
-            return -2;
+            return GQUIC_EXCEPTION_HEADER_TYPE_UNEXCEPTED;
         }
-        return 0;
+        return GQUIC_SUCCESS;
     }
     else {
         header->hdr.s_hdr->pn = pn;
-        return 0;
+        return GQUIC_SUCCESS;
     }
 }
 
 int gquic_packet_header_set_len(gquic_packet_header_t *const header, const u_int64_t len) {
     if (header == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if (header->is_long) {
         switch (gquic_packet_long_header_type(header->hdr.l_hdr)) {
@@ -94,7 +95,7 @@ int gquic_packet_header_set_len(gquic_packet_header_t *const header, const u_int
         }
     }
 
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 size_t gquic_packet_header_size(gquic_packet_header_t *const header) {
@@ -112,35 +113,35 @@ size_t gquic_packet_header_size(gquic_packet_header_t *const header) {
 int gquic_packet_header_deserialize_conn_id(gquic_str_t *const conn_id, const gquic_str_t *const data, const int conn_id_len) {
     int dst_conn_id_len = 0;
     if (conn_id == NULL || data == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if ((GQUIC_STR_FIRST_BYTE(data) & 0x80) != 0) {
         if (GQUIC_STR_SIZE(data) < 6) {
-            return -2;
+            return GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY;
         }
         dst_conn_id_len = ((u_int8_t *) GQUIC_STR_VAL(data))[5];
         if (GQUIC_STR_SIZE(data) < (u_int64_t) 6 + dst_conn_id_len) {
-            return -3;
+            return GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY;
         }
         conn_id->size = dst_conn_id_len;
         conn_id->val = GQUIC_STR_VAL(data) + 6;
     }
     else {
         if (GQUIC_STR_SIZE(data) < (u_int64_t) 1 + conn_id_len) {
-            return -4;
+            return GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY;
         }
         conn_id->size = conn_id_len;
         conn_id->val = GQUIC_STR_VAL(data) + 1;
     }
 
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 int gquic_packet_header_deserialize_src_conn_id(gquic_str_t *const conn_id, const gquic_str_t *const data) {
     gquic_reader_str_t reader = { 0, NULL };
     u_int8_t src_conn_id_len;
     if (conn_id == NULL || data == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     reader = *data;
     gquic_reader_str_readed_size(&reader, 1 + 4
@@ -148,7 +149,8 @@ int gquic_packet_header_deserialize_src_conn_id(gquic_str_t *const conn_id, cons
     src_conn_id_len = gquic_reader_str_read_byte(&reader);
     conn_id->size = src_conn_id_len;
     conn_id->val = GQUIC_STR_VAL(&reader);
-    return 0;
+
+    return GQUIC_SUCCESS;
 }
 
 int gquic_packet_header_deserialize_packet_len(u_int64_t *const packet_len,
@@ -159,52 +161,52 @@ int gquic_packet_header_deserialize_packet_len(u_int64_t *const packet_len,
     u_int64_t header_len = 0;
     u_int64_t payload_len = 0;
     if (packet_len == NULL || data == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     reader = *data;
 
     if ((GQUIC_STR_FIRST_BYTE(data) & 0x80) != 0) {
-        if (gquic_reader_str_readed_size(&reader, 1 + 4) != 0) {
-            return -2;
+        if (GQUIC_ASSERT(gquic_reader_str_readed_size(&reader, 1 + 4))) {
+            return GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY;
         }
-        if (gquic_reader_str_readed_size(&reader, gquic_reader_str_read_byte(&reader)) != 0) {
-            return -3;
+        if (GQUIC_ASSERT(gquic_reader_str_readed_size(&reader, gquic_reader_str_read_byte(&reader)))) {
+            return GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY;
         }
-        if (gquic_reader_str_readed_size(&reader, gquic_reader_str_read_byte(&reader)) != 0) {
-            return -4;
+        if (GQUIC_ASSERT(gquic_reader_str_readed_size(&reader, gquic_reader_str_read_byte(&reader)))) {
+            return GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY;
         }
         switch ((GQUIC_STR_FIRST_BYTE(data) & 0x30) >> 4) {
         case 0x00:
-            if (gquic_varint_deserialize(&tmp, &reader) != 0) {
-                return -5;
+            if (GQUIC_ASSERT(gquic_varint_deserialize(&tmp, &reader))) {
+                return GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY;
             }
-            if (gquic_reader_str_readed_size(&reader, tmp) != 0) {
-                return -6;
+            if (GQUIC_ASSERT(gquic_reader_str_readed_size(&reader, tmp))) {
+                return GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY;
             }
-            if (gquic_varint_deserialize(&payload_len, &reader) != 0) {
-                return -7;
+            if (GQUIC_ASSERT(gquic_varint_deserialize(&payload_len, &reader))) {
+                return GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY;
             }
             break;
         case 0x01:
-            if (gquic_varint_deserialize(&payload_len, &reader) != 0) {
-                return -9;
+            if (GQUIC_ASSERT(gquic_varint_deserialize(&payload_len, &reader))) {
+                return GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY;
             }
             break;
         case 0x02:
-            if (gquic_varint_deserialize(&payload_len, &reader) != 0) {
-                return -11;
+            if (GQUIC_ASSERT(gquic_varint_deserialize(&payload_len, &reader))) {
+                return GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY;
             }
             break;
         case 0x03:
             tmp = gquic_reader_str_read_byte(&reader);
-            if (gquic_reader_str_readed_size(&reader, tmp) != 0) {
-                return -13;
+            if (GQUIC_ASSERT(gquic_reader_str_readed_size(&reader, tmp))) {
+                return GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY;
             }
         }
     }
     else {
-        if (gquic_reader_str_readed_size(&reader, 1 + conn_id_len) != 0) {
-            return -14;
+        if (GQUIC_ASSERT(gquic_reader_str_readed_size(&reader, 1 + conn_id_len))) {
+            return GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY;
         }
         payload_len = GQUIC_STR_SIZE(&reader);
     }
