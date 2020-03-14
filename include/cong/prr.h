@@ -1,5 +1,5 @@
-#ifndef _LIBGQUIC_UTIL_PRR_H
-#define _LIBGQUIC_UTIL_PRR_H
+#ifndef _LIBGQUIC_CONG_PRR_H
+#define _LIBGQUIC_CONG_PRR_H
 
 #include <sys/types.h>
 #include <stddef.h>

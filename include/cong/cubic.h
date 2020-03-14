@@ -1,7 +1,7 @@
 #ifndef _LIBGQUIC_CONG_CUBIC_H
 #define _LIBGQUIC_CONG_CUBIC_H
 
-#include "util/prr.h"
+#include "cong/prr.h"
 #include "util/rtt.h"
 #include "util/cubic.h"
 #include "cong/hybrid_slow_start.h"
