@@ -1,5 +1,5 @@
 #include "packet/unpacker.h"
-#include "util/pn.h"
+#include "packet/packet_number.h"
 
 static int gquic_common_long_header_opener_open_wrapper(gquic_str_t *const,
                                                         void *const,
@@ -265,6 +265,6 @@ static int gquic_packet_unpacker_unpack_header(gquic_unpacked_packet_t *const un
     }
 
     gquic_packet_header_set_pn(&unpacked_packet->hdr,
-                               gquic_pn_decode(pn_len, unpacker->largest_recv_pn, gquic_packet_header_get_pn(&unpacked_packet->hdr)));
+                               gquic_packet_number_decode(pn_len, unpacker->largest_recv_pn, gquic_packet_header_get_pn(&unpacked_packet->hdr)));
     return 0;
 }
