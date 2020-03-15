@@ -319,7 +319,7 @@ int gquic_crypto_stream_manager_handle_crypto_frame(int *const changed,
             return 0;
         }
         if ((ret = GQUIC_CRYPTO_STREAM_MANAGER_HANDLE_MSG(manager, &data, enc_lv)) < 0) {
-            return -4;
+            return ret;
         }
         else if (ret) {
             *changed = 1;

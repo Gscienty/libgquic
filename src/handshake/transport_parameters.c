@@ -2,6 +2,7 @@
 #include "util/varint.h"
 #include "tls/_msg_serialize_util.h"
 #include "tls/_msg_deserialize_util.h"
+#include "exception.h"
 #include <stddef.h>
 #include <openssl/rand.h>
 
@@ -9,7 +10,7 @@ static inline int __serialize_var(gquic_writer_str_t *const, gquic_list_t *const
 
 int gquic_transport_parameters_init(gquic_transport_parameters_t *const params) {
     if (params == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     gquic_str_init(&params->original_conn_id);
     params->idle_timeout = 0;
@@ -26,7 +27,7 @@ int gquic_transport_parameters_init(gquic_transport_parameters_t *const params) 
     params->disable_migration = 1;
     params->active_conn_id_limit = 0;
 
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 size_t gquic_transport_parameters_size(const gquic_transport_parameters_t *const params) {
@@ -66,7 +67,7 @@ size_t gquic_transport_parameters_size(const gquic_transport_parameters_t *const
 int gquic_transport_parameters_serialize(const gquic_transport_parameters_t *const params, gquic_writer_str_t *const writer) {
     gquic_list_t prefix_len_stack;
     if (params == NULL || writer == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     
     gquic_list_head_init(&prefix_len_stack);
@@ -115,7 +116,8 @@ int gquic_transport_parameters_serialize(const gquic_transport_parameters_t *con
     tmp_writer.val -= 2;
     tmp_writer.size += 2;
     __gquic_fill_prefix_len(&prefix_len_stack, &tmp_writer);
-    return 0;
+
+    return GQUIC_SUCCESS;
 }
 
 int gquic_transport_parameters_deserialize(gquic_transport_parameters_t *const params, gquic_reader_str_t *const reader) {
@@ -123,11 +125,11 @@ int gquic_transport_parameters_deserialize(gquic_transport_parameters_t *const p
     u_int16_t id = 0;
     u_int16_t param_len = 0;
     if (params == NULL || reader == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     __gquic_recovery_bytes(&len, 2, reader);
     if (len > GQUIC_STR_SIZE(reader) - 2) {
-        return -2;
+        return GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY;
     }
     gquic_reader_str_t inner_reader = { len, GQUIC_STR_VAL(reader) };
     while (GQUIC_STR_SIZE(&inner_reader) >= 4) {
@@ -137,98 +139,66 @@ int gquic_transport_parameters_deserialize(gquic_transport_parameters_t *const p
         __gquic_recovery_bytes(&param_len, 2, &inner_reader);
         switch (id) {
         case GQUIC_TRANSPORT_PARAM_ACK_DELAY_EXPONENT:
-            if (gquic_varint_deserialize((u_int64_t *) &params->ack_delay_exponent, &inner_reader) != 0) {
-                return -3;
-            }
+            GQUIC_ASSERT_FAST_RETURN(gquic_varint_deserialize((u_int64_t *) &params->ack_delay_exponent, &inner_reader));
             break;
         case GQUIC_TRANSPORT_PARAM_MAX_ACK_DELAY:
-            if (gquic_varint_deserialize(&params->max_ack_delay, &inner_reader) != 0) {
-                return -3;
-            }
+            GQUIC_ASSERT_FAST_RETURN(gquic_varint_deserialize(&params->max_ack_delay, &inner_reader));
             break;
         case GQUIC_TRANSPORT_PARAM_INITIAL_MAX_DATA:
-            if (gquic_varint_deserialize(&params->init_max_data, &inner_reader) != 0) {
-                return -3;
-            }
+            GQUIC_ASSERT_FAST_RETURN(gquic_varint_deserialize(&params->init_max_data, &inner_reader));
             break;
         case GQUIC_TRANSPORT_PARAM_INITIAL_MAX_STREAMS_UNI:
-            if (gquic_varint_deserialize(&params->max_streams_uni, &inner_reader) != 0) {
-                return -3;
-            }
+            GQUIC_ASSERT_FAST_RETURN(gquic_varint_deserialize(&params->max_streams_uni, &inner_reader));
             break;
         case GQUIC_TRANSPORT_PARAM_INITIAL_MAX_STREAMS_BIDI:
-            if (gquic_varint_deserialize(&params->max_streams_bidi, &inner_reader) != 0) {
-                return -3;
-            }
+            GQUIC_ASSERT_FAST_RETURN(gquic_varint_deserialize(&params->max_streams_bidi, &inner_reader));
             break;
         case GQUIC_TRANSPORT_PARAM_INITIAL_MAX_STREAM_DATA_UNI:
-            if (gquic_varint_deserialize(&params->init_max_stream_data_uni, &inner_reader) != 0) {
-                return -3;
-            }
+            GQUIC_ASSERT_FAST_RETURN(gquic_varint_deserialize(&params->init_max_stream_data_uni, &inner_reader));
             break;
         case GQUIC_TRANSPORT_PARAM_INITIAL_MAX_STREAM_DATA_BIDI_LOCAL:
-            if (gquic_varint_deserialize(&params->init_max_stream_data_bidi_local, &inner_reader) != 0) {
-                return -3;
-            }
+            GQUIC_ASSERT_FAST_RETURN(gquic_varint_deserialize(&params->init_max_stream_data_bidi_local, &inner_reader));
             break;
         case GQUIC_TRANSPORT_PARAM_INITIAL_MAX_STREAM_DATA_BIDI_REMOTE:
-            if (gquic_varint_deserialize(&params->init_max_stream_data_bidi_remote, &inner_reader) != 0) {
-                return -3;
-            }
+            GQUIC_ASSERT_FAST_RETURN(gquic_varint_deserialize(&params->init_max_stream_data_bidi_remote, &inner_reader));
             break;
         case GQUIC_TRANSPORT_PARAM_IDLE_TIMEOUT:
-            if (gquic_varint_deserialize(&params->idle_timeout, &inner_reader) != 0) {
-                return -3;
-            }
+            GQUIC_ASSERT_FAST_RETURN(gquic_varint_deserialize(&params->idle_timeout, &inner_reader));
             break;
         case GQUIC_TRANSPORT_PARAM_MAX_PACKET_SIZE:
-            if (gquic_varint_deserialize(&params->max_packet_size, &inner_reader) != 0) {
-                return -3;
-            }
+            GQUIC_ASSERT_FAST_RETURN(gquic_varint_deserialize(&params->max_packet_size, &inner_reader));
             break;
         case GQUIC_TRANSPORT_PARAM_ACTIVE_CONN_ID_LIMIT:
-            if (gquic_varint_deserialize(&params->active_conn_id_limit, &inner_reader) != 0) {
-                return -3;
-            }
+            GQUIC_ASSERT_FAST_RETURN(gquic_varint_deserialize(&params->active_conn_id_limit, &inner_reader));
             break;
         case GQUIC_TRANSPORT_PARAM_DISABLE_MIGRATION:
             params->disable_migration = 1;
             break;
         case GQUIC_TRANSPORT_PARAM_STATELESS_RESET_TOKEN:
-            if (gquic_str_alloc(&params->stateless_reset_token, param_len) != 0) {
-                return -4;
-            }
-            if (gquic_reader_str_read(&params->stateless_reset_token, &inner_reader) != 0) {
-                return -5;
-            }
+            GQUIC_ASSERT_FAST_RETURN(gquic_str_alloc(&params->stateless_reset_token, param_len));
+            GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_read(&params->stateless_reset_token, &inner_reader));
             break;
         case GQUIC_TRANSPORT_PARAM_ORIGINAL_CONNID:
-            if (gquic_str_alloc(&params->original_conn_id, param_len) != 0) {
-                return -6;
-            }
-            if (gquic_reader_str_read(&params->original_conn_id, &inner_reader) != 0) {
-                return -7;
-            }
+            GQUIC_ASSERT_FAST_RETURN(gquic_str_alloc(&params->original_conn_id, param_len));
+            GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_read(&params->original_conn_id, &inner_reader));
             break;
         }
     }
 
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 static inline int __serialize_var(gquic_writer_str_t *const writer,
                                   gquic_list_t *const prefix_len_stack,
                                   const u_int16_t id,
                                   const u_int64_t val) {
-    ssize_t ret = 0;
     if (writer == NULL || prefix_len_stack == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     gquic_big_endian_writer_2byte(writer, id);
     __gquic_store_prefix_len(prefix_len_stack, writer, 2);
-    if ((ret = gquic_varint_serialize(&val, writer)) != 0) {
-        return -2;
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_varint_serialize(&val, writer));
     __gquic_fill_prefix_len(prefix_len_stack, writer);
-    return 0;
+
+    return GQUIC_SUCCESS;
 }

@@ -1,6 +1,7 @@
 #include "handshake/initial_aead.h"
 #include "tls/key_schedule.h"
 #include "tls/cipher_suite.h"
+#include "exception.h"
 
 static int gquic_handshake_generate_secs(gquic_str_t *const, gquic_str_t *const, const gquic_str_t *const);
 static int gquic_handshake_generate_key_iv(gquic_str_t *const, gquic_str_t *const, const gquic_str_t *const);
@@ -9,7 +10,7 @@ int gquic_handshake_initial_aead_init(gquic_common_long_header_sealer_t *const s
                                       gquic_common_long_header_opener_t *const opener,
                                       const gquic_str_t *const conn_id,
                                       int is_client) {
-    int ret = 0;
+    int exception = GQUIC_SUCCESS;
     gquic_str_t cli_sec = { 0, NULL };
     gquic_str_t ser_sec = { 0, NULL };
     gquic_str_t cli_key = { 0, NULL };
@@ -18,41 +19,31 @@ int gquic_handshake_initial_aead_init(gquic_common_long_header_sealer_t *const s
     gquic_str_t ser_iv = { 0, NULL };
     const gquic_tls_cipher_suite_t *suite = NULL;
     if (sealer == NULL || opener == NULL || conn_id == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
-    if (gquic_tls_get_cipher_suite(&suite, GQUIC_TLS_CIPHER_SUITE_AES_128_GCM_SHA256) != 0) {
-        return -2;
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_tls_get_cipher_suite(&suite, GQUIC_TLS_CIPHER_SUITE_AES_128_GCM_SHA256));
     gquic_common_long_header_sealer_init(sealer);
     gquic_common_long_header_opener_init(opener);
-    if (gquic_handshake_generate_secs(&cli_sec, &ser_sec, conn_id) != 0) {
-        return -3;
-    }
-    if (gquic_handshake_generate_key_iv(&cli_key, &cli_iv, &cli_sec) != 0) {
-        ret = -4;
+    GQUIC_ASSERT_FAST_RETURN(gquic_handshake_generate_secs(&cli_sec, &ser_sec, conn_id));
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_handshake_generate_key_iv(&cli_key, &cli_iv, &cli_sec))) {
         goto failure;
     }
-    if (gquic_handshake_generate_key_iv(&ser_key, &ser_iv, &ser_sec) != 0) {
-        ret = -5;
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_handshake_generate_key_iv(&ser_key, &ser_iv, &ser_sec))) {
         goto failure;
     }
     if (is_client) {
-        if (gquic_common_long_header_sealer_long_header_ctor(sealer, suite, &cli_key, &cli_iv, suite, &cli_sec) != 0) {
-            ret = -6;
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_common_long_header_sealer_long_header_ctor(sealer, suite, &cli_key, &cli_iv, suite, &cli_sec))) {
             goto failure;
         }
-        if (gquic_common_long_header_opener_long_header_ctor(opener, suite, &ser_key, &ser_iv, suite, &ser_sec) != 0) {
-            ret = -7;
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_common_long_header_opener_long_header_ctor(opener, suite, &ser_key, &ser_iv, suite, &ser_sec))) {
             goto failure;
         }
     }
     else {
-        if (gquic_common_long_header_sealer_long_header_ctor(sealer, suite, &ser_key, &ser_iv, suite, &ser_sec) != 0) {
-            ret = -7;
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_common_long_header_sealer_long_header_ctor(sealer, suite, &ser_key, &ser_iv, suite, &ser_sec))) {
             goto failure;
         }
-        if (gquic_common_long_header_opener_long_header_ctor(opener, suite, &cli_key, &cli_iv, suite, &cli_sec) != 0) {
-            ret = -6;
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_common_long_header_opener_long_header_ctor(opener, suite, &cli_key, &cli_iv, suite, &cli_sec))) {
             goto failure;
         }
     }
@@ -63,7 +54,7 @@ int gquic_handshake_initial_aead_init(gquic_common_long_header_sealer_t *const s
     gquic_str_reset(&cli_iv);
     gquic_str_reset(&ser_key);
     gquic_str_reset(&ser_iv);
-    return 0;
+    return GQUIC_SUCCESS;
 
 failure:
     gquic_str_reset(&cli_sec);
@@ -72,7 +63,7 @@ failure:
     gquic_str_reset(&cli_iv);
     gquic_str_reset(&ser_key);
     gquic_str_reset(&ser_iv);
-    return ret;
+    return exception;
 }
 
 static int gquic_handshake_generate_secs(gquic_str_t *const cli_sec, gquic_str_t *const ser_sec, const gquic_str_t *const conn_id) {
@@ -86,32 +77,25 @@ static int gquic_handshake_generate_secs(gquic_str_t *const cli_sec, gquic_str_t
     static const gquic_str_t salt = { sizeof(salt_cnt), (void *) salt_cnt };
     static const gquic_str_t cli_sec_label = { 9, "client in" };
     static const gquic_str_t ser_sec_label = { 9, "server in" };
-    int ret = 0;
+    int exception = GQUIC_SUCCESS;
     gquic_str_t initial_sec = { 0, NULL };
     const gquic_tls_cipher_suite_t *suite = NULL;
     gquic_tls_mac_t hash;
     if (cli_sec == NULL || ser_sec == NULL || conn_id == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     gquic_str_init(cli_sec);
     gquic_str_init(ser_sec);
     gquic_tls_mac_init(&hash);
-    if (gquic_tls_get_cipher_suite(&suite, GQUIC_TLS_CIPHER_SUITE_AES_128_GCM_SHA256) != 0) {
-        return -2;
-    }
-    if (suite->mac(&hash, GQUIC_TLS_VERSION_13, NULL) != 0) {
-        return -3;
-    }
-    if (gquic_tls_hkdf_extract(&initial_sec, &hash, conn_id, &salt) != 0) {
-        ret = -4;
+    GQUIC_ASSERT_FAST_RETURN(gquic_tls_get_cipher_suite(&suite, GQUIC_TLS_CIPHER_SUITE_AES_128_GCM_SHA256));
+    GQUIC_ASSERT_FAST_RETURN(suite->mac(&hash, GQUIC_TLS_VERSION_13, NULL));
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_hkdf_extract(&initial_sec, &hash, conn_id, &salt))) {
         goto failure;
     }
-    if (gquic_tls_hkdf_expand_label(cli_sec, &hash, &initial_sec, NULL, &cli_sec_label, EVP_MD_size(hash.md)) != 0) {
-        ret = -5;
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_hkdf_expand_label(cli_sec, &hash, &initial_sec, NULL, &cli_sec_label, EVP_MD_size(hash.md)))) {
         goto failure;
     }
-    if (gquic_tls_hkdf_expand_label(ser_sec, &hash, &initial_sec, NULL, &ser_sec_label, EVP_MD_size(hash.md)) != 0) {
-        ret = -6;
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_hkdf_expand_label(ser_sec, &hash, &initial_sec, NULL, &ser_sec_label, EVP_MD_size(hash.md)))) {
         goto failure;
     }
     
@@ -122,33 +106,30 @@ failure:
 
     gquic_str_reset(&initial_sec);
     gquic_tls_mac_dtor(&hash);
-    return ret;
+    return exception;
 }
 
 static int gquic_handshake_generate_key_iv(gquic_str_t *const key, gquic_str_t *const iv, const gquic_str_t *const sec) {
+    int exception = GQUIC_SUCCESS;
     static const gquic_str_t key_label = { 8, "quic key" };
     static const gquic_str_t iv_label = { 7, "quic iv" };
     const gquic_tls_cipher_suite_t *suite = NULL;
     gquic_tls_mac_t hash;
     if (key == NULL || iv == NULL || sec == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     gquic_tls_mac_init(&hash);
-    if (gquic_tls_get_cipher_suite(&suite, GQUIC_TLS_CIPHER_SUITE_AES_128_GCM_SHA256) != 0) {
-        return -2;
-    }
-    if (suite->mac(&hash, GQUIC_TLS_VERSION_13, NULL) != 0) {
-        return -3;
-    }
-    if (gquic_tls_hkdf_expand_label(key, &hash, sec, NULL, &key_label, 16) != 0) {
+    GQUIC_ASSERT_FAST_RETURN(gquic_tls_get_cipher_suite(&suite, GQUIC_TLS_CIPHER_SUITE_AES_128_GCM_SHA256));
+    GQUIC_ASSERT_FAST_RETURN(suite->mac(&hash, GQUIC_TLS_VERSION_13, NULL));
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_hkdf_expand_label(key, &hash, sec, NULL, &key_label, 16))) {
         gquic_tls_mac_dtor(&hash);
-        return -4;
+        return exception;
     }
-    if (gquic_tls_hkdf_expand_label(iv, &hash, sec, NULL, &iv_label, 16) != 0) {
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_hkdf_expand_label(iv, &hash, sec, NULL, &iv_label, 16))) {
         gquic_tls_mac_dtor(&hash);
-        return -5;
+        return exception;
     }
 
     gquic_tls_mac_dtor(&hash);
-    return 0;
+    return GQUIC_SUCCESS;
 }

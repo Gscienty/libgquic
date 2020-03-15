@@ -1103,17 +1103,13 @@ static int gquic_session_handle_single_packet(gquic_session_t *const sess, gquic
     }
     if ((ret = gquic_packet_unpacker_unpack(&packet, &sess->unpacker, &rp->data, rp->recv_time)) != 0) {
         switch (ret) {
-        case -2:
-        case -4:
-            // key dropped
+        case GQUIC_EXCEPTION_KEY_DROPPED:
             break;
-        case -7:
-            // key not available
+        case GQUIC_EXCEPTION_KEY_UNAVAILABLE:
             was_queued = 1;
             gquic_session_try_queue_undecryptable_packet(sess, rp);
             goto finished;
-        case -10:
-            // unpack header err
+        case GQUIC_EXCEPTION_INVALID_RESERVED_BITS:
             gquic_session_close_local(sess, -10 * 10 - 4);
             break;
         }
