@@ -1,10 +1,11 @@
 #include "packet/packet.h"
 #include "frame/meta.h"
+#include "exception.h"
 #include <malloc.h>
 
 int gquic_packet_init(gquic_packet_t *const packet) {
     if (packet == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     packet->pn = 0;
     packet->largest_ack = 0;
@@ -14,12 +15,12 @@ int gquic_packet_init(gquic_packet_t *const packet) {
     packet->included_infly = 0;
     packet->frames = NULL;
 
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 int gquic_packet_dtor(gquic_packet_t *const packet) {
     if (packet == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if (packet->frames != NULL) {
         while (!gquic_list_head_empty(packet->frames)) {
@@ -29,5 +30,5 @@ int gquic_packet_dtor(gquic_packet_t *const packet) {
         free(packet->frames);
     }
 
-    return 0;
+    return GQUIC_SUCCESS;
 }

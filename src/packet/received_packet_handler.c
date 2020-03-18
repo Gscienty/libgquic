@@ -1,6 +1,7 @@
 #include "packet/received_packet_handler.h"
 #include "frame/meta.h"
 #include "tls/common.h"
+#include "exception.h"
 #include <time.h>
 
 static int gquic_packet_received_mem_add(gquic_packet_received_mem_t *const, const u_int64_t);
@@ -10,31 +11,31 @@ static int gquic_packet_received_packet_handler_has_miss_packet(const gquic_pack
 
 int gquic_packet_received_mem_init(gquic_packet_received_mem_t *const mem) {
     if (mem == NULL) {
-         return -1;
+         return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     gquic_list_head_init(&mem->ranges);
     mem->deleted_below = 0;
     mem->ranges_count = 0;
 
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 int gquic_packet_received_mem_dtor(gquic_packet_received_mem_t *const mem) {
     if (mem == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     while (!gquic_list_head_empty(&mem->ranges)) {
         gquic_list_release(GQUIC_LIST_FIRST(&mem->ranges));
     }
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 int gquic_packet_reveived_mem_received(gquic_packet_received_mem_t *const mem, const u_int64_t pn) {
     if (mem == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if (pn < mem->deleted_below) {
-        return 0;
+        return GQUIC_SUCCESS;
     }
 
     gquic_packet_received_mem_add(mem, pn);
@@ -42,31 +43,31 @@ int gquic_packet_reveived_mem_received(gquic_packet_received_mem_t *const mem, c
         mem->ranges_count--;
         gquic_list_release(GQUIC_LIST_FIRST(&mem->ranges));
     }
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 static int gquic_packet_received_mem_add(gquic_packet_received_mem_t *const mem, const u_int64_t pn) {
     gquic_packet_interval_t *interval = NULL;
     gquic_packet_interval_t *prev_interval = NULL;
     if (mem == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if (gquic_list_head_empty(&mem->ranges)) {
         if ((interval = gquic_list_alloc(sizeof(gquic_packet_interval_t))) == NULL) {
-            return -1;
+            return GQUIC_EXCEPTION_ALLOCATION_FAILED;
         }
         interval->end = pn;
         interval->start = pn;
         mem->ranges_count++;
         if (gquic_list_insert_before(&mem->ranges, interval) != 0) {
-            return -2;
+            return GQUIC_EXCEPTION_INTERNAL_ERROR;
         }
-        return 0;
+        return GQUIC_SUCCESS;
     }
 
     GQUIC_LIST_RFOREACH(interval, &mem->ranges) {
         if (interval->start <= pn && pn <= interval->end) {
-            return 0;
+            return GQUIC_SUCCESS;
         }
 
         int extended = 0;
@@ -84,42 +85,42 @@ static int gquic_packet_received_mem_add(gquic_packet_received_mem_t *const mem,
             if (prev_interval != GQUIC_LIST_PAYLOAD(&mem->ranges) && prev_interval->end + 1 == interval->start) {
                 prev_interval->end = interval->end;
                 gquic_list_release(interval);
-                return 0;
+                return GQUIC_SUCCESS;
             }
-            return 0;
+            return GQUIC_SUCCESS;
         }
 
         if (pn > interval->end) {
             prev_interval = interval;
             if ((interval = gquic_list_alloc(sizeof(gquic_packet_interval_t))) == NULL) {
-                return -3;
+                return GQUIC_EXCEPTION_ALLOCATION_FAILED;
             }
             interval->start = pn;
             interval->end = pn;
             mem->ranges_count++;
             gquic_list_insert_after(&GQUIC_LIST_META(prev_interval), interval);
-            return 0;
+            return GQUIC_SUCCESS;
         }
     }
 
     if ((interval = gquic_list_alloc(sizeof(gquic_packet_interval_t))) == NULL) {
-        return -4;
+        return GQUIC_EXCEPTION_ALLOCATION_FAILED;
     }
     interval->end = pn;
     interval->start = pn;
     mem->ranges_count++;
     gquic_list_insert_after(&mem->ranges, interval);
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 int gquic_packet_received_mem_delete_below(gquic_packet_received_mem_t *const mem, const u_int64_t pn) {
     gquic_packet_interval_t *prev = NULL;
     gquic_packet_interval_t *cur = NULL;
     if (mem == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if (pn < mem->deleted_below) {
-        return 0;
+        return GQUIC_SUCCESS;
     }
     mem->deleted_below = pn;
     prev = GQUIC_LIST_FIRST(&mem->ranges);
@@ -132,19 +133,19 @@ int gquic_packet_received_mem_delete_below(gquic_packet_received_mem_t *const me
         }
         else if (cur->start < pn && pn <= cur->end) {
             cur->start = pn;
-            return 0;
+            return GQUIC_SUCCESS;
         }
         else {
-            return 0;
+            return GQUIC_SUCCESS;
         }
     }
 
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 int gquic_packet_received_packet_handler_init(gquic_packet_received_packet_handler_t *const handler) {
     if (handler == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
 
     handler->largest_observed = 0;
@@ -159,29 +160,28 @@ int gquic_packet_received_packet_handler_init(gquic_packet_received_packet_handl
     handler->ack_alarm = 0;
     handler->last_ack = NULL;
 
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
-int gquic_packet_received_packet_handler_ctor(gquic_packet_received_packet_handler_t *const handler,
-                                              gquic_rtt_t *const rtt) {
+int gquic_packet_received_packet_handler_ctor(gquic_packet_received_packet_handler_t *const handler, gquic_rtt_t *const rtt) {
     if (handler == NULL || rtt == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     handler->max_ack_delay = 25 * 1000;
     handler->rtt = rtt;
 
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 int gquic_packet_received_packet_handler_dtor(gquic_packet_received_packet_handler_t *const handler) {
     if (handler == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     gquic_packet_received_mem_dtor(&handler->mem);
     if (handler->last_ack != NULL) {
         gquic_frame_release(handler->last_ack);
     }
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 int gquic_packet_received_packet_handler_received_packet(gquic_packet_received_packet_handler_t *const handler,
@@ -189,23 +189,21 @@ int gquic_packet_received_packet_handler_received_packet(gquic_packet_received_p
                                                          const u_int64_t recv_time,
                                                          const int should_inst_ack) {
     if (handler == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if (pn < handler->ignore_below) {
-        return 0;
+        return GQUIC_SUCCESS;
     }
     if (pn >= handler->largest_observed) {
         handler->largest_observed = pn;
         handler->largest_obeserved_time = recv_time;
     }
-    if (gquic_packet_reveived_mem_received(&handler->mem, pn) != 0) {
-        return -2;
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_packet_reveived_mem_received(&handler->mem, pn));
 
     handler->since_last_ack.packets_count++;
     if (handler->last_ack == NULL) {
         handler->ack_queued = 1;
-        return 0;
+        return GQUIC_SUCCESS;
     }
     if (gquic_packet_received_packet_handler_miss(handler, pn)) {
         handler->ack_queued = 1;
@@ -241,50 +239,46 @@ int gquic_packet_received_packet_handler_received_packet(gquic_packet_received_p
     if (handler->ack_queued) {
         handler->ack_alarm = 0;
     }
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
-int gquic_packet_received_mem_get_blocks(gquic_list_t *const blocks,
-                                         const gquic_packet_received_mem_t *const mem) {
+int gquic_packet_received_mem_get_blocks(gquic_list_t *const blocks, const gquic_packet_received_mem_t *const mem) {
     gquic_packet_interval_t *interval = NULL;
     gquic_frame_ack_block_t *block = NULL;
     if (blocks == NULL || mem == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     gquic_list_head_init(blocks);
     if (mem->ranges_count == 0) {
-        return 0;
+        return GQUIC_SUCCESS;
     }
     GQUIC_LIST_RFOREACH(interval, &mem->ranges) {
         if ((block = gquic_list_alloc(sizeof(gquic_frame_ack_block_t))) == NULL) {
-            return -2;
+            return GQUIC_EXCEPTION_ALLOCATION_FAILED;
         }
         block->smallest = interval->start;
         block->largest = interval->end;
         gquic_list_insert_before(blocks, block);
     }
 
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
-int gquic_packet_received_packet_handler_get_ack_frame(gquic_frame_ack_t **const ack,
-                                                       gquic_packet_received_packet_handler_t *const handler) {
+int gquic_packet_received_packet_handler_get_ack_frame(gquic_frame_ack_t **const ack, gquic_packet_received_packet_handler_t *const handler) {
     gquic_list_t blocks;
     if (ack == NULL || handler == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     gquic_list_head_init(&blocks);
-    if (gquic_packet_received_mem_get_blocks(&blocks, &handler->mem) != 0) {
-        return -2;
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_packet_received_mem_get_blocks(&blocks, &handler->mem));
     if (gquic_list_head_empty(&blocks)) {
-        return 0;
+        return GQUIC_SUCCESS;
     }
     if ((*ack = gquic_frame_ack_alloc()) == NULL) {
         while (!gquic_list_head_empty(&blocks)) {
             gquic_list_release(GQUIC_LIST_FIRST(&blocks));
         }
-        return -3;
+        return GQUIC_EXCEPTION_ALLOCATION_FAILED;
     }
     GQUIC_FRAME_INIT(*ack);
     struct timeval tv;
@@ -302,22 +296,18 @@ int gquic_packet_received_packet_handler_get_ack_frame(gquic_frame_ack_t **const
     while (!gquic_list_head_empty(&blocks)) {
         gquic_list_release(GQUIC_LIST_FIRST(&blocks));
     }
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
-int gquic_packet_received_packet_handler_ignore_below(gquic_packet_received_packet_handler_t *const handler,
-                                                      const u_int64_t pn) {
+int gquic_packet_received_packet_handler_ignore_below(gquic_packet_received_packet_handler_t *const handler, const u_int64_t pn) {
     if (handler == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if (pn <= handler->ignore_below) {
-        return 0;
+        return GQUIC_SUCCESS;
     }
-    if (gquic_packet_received_mem_delete_below(&handler->mem, pn) != 0) {
-        return -2;
-    }
-
-    return 0;
+    GQUIC_ASSERT_FAST_RETURN(gquic_packet_received_mem_delete_below(&handler->mem, pn));
+    return GQUIC_SUCCESS;
 }
 
 static int gquic_packet_received_packet_handler_miss(const gquic_packet_received_packet_handler_t *const handler, const u_int64_t pn) {
@@ -354,7 +344,7 @@ static int gquic_packet_received_packet_handler_has_miss_packet(const gquic_pack
 
 int gquic_packet_received_packet_handlers_init(gquic_packet_received_packet_handlers_t *const handlers) {
     if (handlers == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     gquic_packet_received_packet_handler_init(&handlers->initial);
     gquic_packet_received_packet_handler_init(&handlers->handshake);
@@ -363,13 +353,12 @@ int gquic_packet_received_packet_handlers_init(gquic_packet_received_packet_hand
     handlers->initial_dropped = 1;
     handlers->one_rtt_dropped = 1;
 
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
-int gquic_packet_received_packet_handlers_ctor(gquic_packet_received_packet_handlers_t *const handlers,
-                                               gquic_rtt_t *const rtt) {
+int gquic_packet_received_packet_handlers_ctor(gquic_packet_received_packet_handlers_t *const handlers, gquic_rtt_t *const rtt) {
     if (handlers == NULL || rtt == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     gquic_packet_received_packet_handler_ctor(&handlers->initial, rtt);
     gquic_packet_received_packet_handler_ctor(&handlers->handshake, rtt);
@@ -378,12 +367,12 @@ int gquic_packet_received_packet_handlers_ctor(gquic_packet_received_packet_hand
     handlers->initial_dropped = 0;
     handlers->one_rtt_dropped = 0;
 
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 int gquic_packet_received_packet_handlers_dtor(gquic_packet_received_packet_handlers_t *const handlers) {
     if (handlers == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     gquic_packet_received_packet_handler_dtor(&handlers->initial);
     gquic_packet_received_packet_handler_dtor(&handlers->handshake);
@@ -392,7 +381,7 @@ int gquic_packet_received_packet_handlers_dtor(gquic_packet_received_packet_hand
     handlers->initial_dropped = 0;
     handlers->one_rtt_dropped = 0;
 
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 int gquic_packet_received_packet_handlers_received_packet(gquic_packet_received_packet_handlers_t *const handlers,
@@ -401,41 +390,39 @@ int gquic_packet_received_packet_handlers_received_packet(gquic_packet_received_
                                                           const int should_inst_ack,
                                                           const u_int8_t enc_lv) {
     if (handlers == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     switch (enc_lv) {
     case GQUIC_ENC_LV_INITIAL:
         if (handlers->initial_dropped) {
-            return -2;
+            return GQUIC_EXCEPTION_RECV_HANDLER_DROPPED;
         }
         return gquic_packet_received_packet_handler_received_packet(&handlers->initial, pn, recv_time, should_inst_ack);
     case GQUIC_ENC_LV_HANDSHAKE:
         if (handlers->handshake_dropped) {
-            return -3;
+            return GQUIC_EXCEPTION_RECV_HANDLER_DROPPED;
         }
         return gquic_packet_received_packet_handler_received_packet(&handlers->handshake, pn, recv_time, should_inst_ack);
     case GQUIC_ENC_LV_1RTT:
         if (handlers->one_rtt_dropped) {
-            return -4;
+            return GQUIC_EXCEPTION_RECV_HANDLER_DROPPED;
         }
         return gquic_packet_received_packet_handler_received_packet(&handlers->one_rtt, pn, recv_time, should_inst_ack);
     default:
-        return -5;
+        return GQUIC_EXCEPTION_INVALID_ENC_LV;
     }
 }
 
-int gquic_packet_received_packet_handlers_ignore_below(gquic_packet_received_packet_handlers_t *const handlers,
-                                                       const u_int64_t pn) {
+int gquic_packet_received_packet_handlers_ignore_below(gquic_packet_received_packet_handlers_t *const handlers, const u_int64_t pn) {
     if (handlers == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     return gquic_packet_received_packet_handler_ignore_below(&handlers->one_rtt, pn);
 }
 
-int gquic_packet_received_packet_handlers_drop_packets(gquic_packet_received_packet_handlers_t *const handlers,
-                                                       const u_int8_t enc_lv) {
+int gquic_packet_received_packet_handlers_drop_packets(gquic_packet_received_packet_handlers_t *const handlers, const u_int8_t enc_lv) {
     if (handlers == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     switch (enc_lv) {
     case GQUIC_ENC_LV_INITIAL:
@@ -447,9 +434,9 @@ int gquic_packet_received_packet_handlers_drop_packets(gquic_packet_received_pac
         handlers->handshake_dropped = 1;
         break;
     default:
-        return -2;
+        return GQUIC_EXCEPTION_INVALID_ENC_LV;
     }
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 u_int64_t gquic_packet_received_packet_handlers_get_alarm_timeout(gquic_packet_received_packet_handlers_t *const handlers) {
@@ -483,21 +470,17 @@ int gquic_packet_received_packet_handlers_get_ack_frame(gquic_frame_ack_t **cons
                                                         gquic_packet_received_packet_handlers_t *const handlers,
                                                         const u_int8_t enc_lv) {
     if (ack == NULL || handlers == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     switch (enc_lv) {
     case GQUIC_ENC_LV_INITIAL:
         if (!handlers->initial_dropped) {
-            if (gquic_packet_received_packet_handler_get_ack_frame(ack, &handlers->initial) != 0) {
-                return -2;
-            }
+            GQUIC_ASSERT_FAST_RETURN(gquic_packet_received_packet_handler_get_ack_frame(ack, &handlers->initial));
         }
         break;
     case GQUIC_ENC_LV_HANDSHAKE:
         if (!handlers->handshake_dropped) {
-            if (gquic_packet_received_packet_handler_get_ack_frame(ack, &handlers->handshake) != 0) {
-                return -3;
-            }
+            GQUIC_ASSERT_FAST_RETURN(gquic_packet_received_packet_handler_get_ack_frame(ack, &handlers->handshake));
         }
         break;
     case GQUIC_ENC_LV_1RTT:
@@ -509,5 +492,5 @@ int gquic_packet_received_packet_handlers_get_ack_frame(gquic_frame_ack_t **cons
     if (*ack != NULL) {
         (*ack)->delay = 0;
     }
-    return 0;
+    return GQUIC_SUCCESS;
 }

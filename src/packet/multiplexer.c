@@ -1,5 +1,6 @@
 #include "packet/multiplexer.h"
 #include "util/rbtree.h"
+#include "exception.h"
 #include <semaphore.h>
 
 typedef struct gquic_multiplexer_s gquic_multiplexer_t;
@@ -24,17 +25,16 @@ int gquic_multiplexer_add_conn(gquic_packet_handler_map_t **const handler_storag
                                const int conn_fd,
                                const int conn_id_len,
                                const gquic_str_t *const stateless_reset_token) {
-    int ret = 0;
+    int exception = GQUIC_SUCCESS;
     gquic_rbtree_t *rbt = NULL;
     if (handler_storage == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     gquic_init_multiplexer();
 
     sem_wait(&__ins.mtx);
     if (gquic_rbtree_find((const gquic_rbtree_t **) &rbt, __ins.conns, &conn_fd, sizeof(int)) != 0) {
-        if (gquic_rbtree_alloc(&rbt, sizeof(int), sizeof(gquic_packet_handler_map_t)) != 0) {
-            ret = -2;
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_rbtree_alloc(&rbt, sizeof(int), sizeof(gquic_packet_handler_map_t)))) {
             goto finished;
         }
         *(int *) GQUIC_RBTREE_KEY(rbt) = conn_fd;
@@ -43,29 +43,29 @@ int gquic_multiplexer_add_conn(gquic_packet_handler_map_t **const handler_storag
         gquic_rbtree_insert(&__ins.conns, rbt);
     }
     if (((gquic_packet_handler_map_t *) GQUIC_RBTREE_VALUE(rbt))->conn_id_len != conn_id_len) {
-        ret = -3;
+        exception = GQUIC_EXCEPTION_RECV_CONN_ID_CONFLICT;
         goto finished;
     }
     if (GQUIC_STR_SIZE(stateless_reset_token) != 0
         && gquic_str_cmp(stateless_reset_token, &((gquic_packet_handler_map_t *) GQUIC_RBTREE_VALUE(rbt))->stateless_reset_key) != 0) {
-        ret = -4;
+        exception = GQUIC_EXCEPTION_CONN_CANNOT_USE_DIFF_STATELESS_TOKEN;
         goto finished;
     }
     *handler_storage = GQUIC_RBTREE_VALUE(rbt);
 
 finished:
     sem_post(&__ins.mtx);
-    return ret;
+    return exception;
 }
 
 int gquic_multiplexer_remove_conn(const int conn_fd) {
-    int ret = 0;
+    int exception = GQUIC_SUCCESS;
     gquic_rbtree_t *rbt = NULL;
     gquic_init_multiplexer();
     sem_wait(&__ins.mtx);
     
     if (gquic_rbtree_find((const gquic_rbtree_t **) &rbt, __ins.conns, &conn_fd, sizeof(int)) != 0) {
-        ret = -1;
+        exception = GQUIC_EXCEPTION_CONN_UNKNOW;
         goto finished;
     }
     gquic_rbtree_remove(&__ins.conns, &rbt);
@@ -74,5 +74,5 @@ int gquic_multiplexer_remove_conn(const int conn_fd) {
 
 finished:
     sem_post(&__ins.mtx);
-    return ret;
+    return exception;
 }
