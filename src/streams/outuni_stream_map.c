@@ -8,7 +8,7 @@ static int gquic_outuni_stream_map_unblock_open_sync(gquic_outuni_stream_map_t *
 
 int gquic_outuni_stream_map_init(gquic_outuni_stream_map_t *const str_map) {
     if (str_map == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     sem_init(&str_map->mtx, 0, 1);
     gquic_rbtree_root_init(&str_map->streams_root);
@@ -25,7 +25,7 @@ int gquic_outuni_stream_map_init(gquic_outuni_stream_map_t *const str_map) {
     str_map->closed = 0;
     str_map->closed_reason = 0;
 
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 int gquic_outuni_stream_map_ctor(gquic_outuni_stream_map_t *const str_map,
@@ -34,7 +34,7 @@ int gquic_outuni_stream_map_ctor(gquic_outuni_stream_map_t *const str_map,
                                  void *const queue_stream_id_blocked_self,
                                  int (*queue_stream_id_blocked_cb) (void *const, void *const)) {
     if (str_map == NULL || stream_ctor_self == NULL || stream_ctor_cb == NULL || queue_stream_id_blocked_self == NULL || queue_stream_id_blocked_cb == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     str_map->max_stream = (u_int64_t) -1;
     str_map->next_stream = 1;
@@ -43,13 +43,13 @@ int gquic_outuni_stream_map_ctor(gquic_outuni_stream_map_t *const str_map,
     str_map->queue_stream_id_blocked.cb = queue_stream_id_blocked_cb;
     str_map->queue_stream_id_blocked.self = queue_stream_id_blocked_self;
 
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 int gquic_outuni_stream_map_open_stream(gquic_stream_t **const str, gquic_outuni_stream_map_t *const str_map) {
     int ret = 0;
     if (str == NULL || str_map == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     sem_wait(&str_map->mtx);
     if (str_map->closed) {
@@ -58,7 +58,7 @@ int gquic_outuni_stream_map_open_stream(gquic_stream_t **const str, gquic_outuni
     }
     if (!gquic_rbtree_is_nil(str_map->open_queue) || str_map->next_stream > str_map->max_stream) {
         gquic_outuni_stream_map_try_send_blocked_frame(str_map);
-        ret = -2;
+        ret = GQUIC_EXCEPTION_TOO_MANY_OPEN_STREAMS;
         goto finished;
     }
     ret = gquic_outuni_stream_map_open_stream_inner(str, str_map);
@@ -72,16 +72,16 @@ static int gquic_outuni_stream_map_try_send_blocked_frame(gquic_outuni_stream_ma
     u_int64_t str_num = 0;
     gquic_frame_streams_blocked_t *frame = NULL;
     if (str_map == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if (str_map->block_sent) {
-        return 0;
+        return GQUIC_SUCCESS;
     }
     if (str_map->max_stream != (u_int64_t) -1) {
         str_num = str_map->max_stream;
     }
     if ((frame = gquic_frame_streams_blocked_alloc()) == NULL) {
-        return -2;
+        return GQUIC_EXCEPTION_ALLOCATION_FAILED;
     }
     GQUIC_FRAME_INIT(frame);
     GQUIC_FRAME_META(frame).type = 0x17;
@@ -89,13 +89,13 @@ static int gquic_outuni_stream_map_try_send_blocked_frame(gquic_outuni_stream_ma
     GQUIC_OUTUNI_STREAM_MAP_QUEUE_STREAM_ID_BLOCKED(frame, str_map);
     str_map->block_sent = 1;
 
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 static int gquic_outuni_stream_map_open_stream_inner(gquic_stream_t **const str, gquic_outuni_stream_map_t *const str_map) {
     gquic_rbtree_t *rb_str = NULL;
     if (str == NULL || str_map == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if (gquic_rbtree_find((const gquic_rbtree_t **) &rb_str, str_map->streams_root, &str_map->next_stream, sizeof(u_int64_t)) == 0) {
         gquic_stream_dtor(GQUIC_RBTREE_VALUE(rb_str));
@@ -104,22 +104,22 @@ static int gquic_outuni_stream_map_open_stream_inner(gquic_stream_t **const str,
         *(u_int64_t *) GQUIC_RBTREE_KEY(rb_str) = str_map->next_stream;
     }
     else {
-        return -2;
+        return GQUIC_EXCEPTION_ALLOCATION_FAILED;
     }
 
     gquic_stream_init(GQUIC_RBTREE_VALUE(rb_str));
     GQUIC_OUTUNI_STREAM_MAP_STREAM_CTOR(GQUIC_RBTREE_VALUE(rb_str), str_map, str_map->next_stream);
     str_map->next_stream++;
 
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 int gquic_outuni_stream_map_open_stream_sync(gquic_stream_t **const str, gquic_outuni_stream_map_t *const str_map) {
-    int ret = 0;
+    int ret = GQUIC_SUCCESS;
     gquic_rbtree_t *queue_pos_rbt = NULL;
     sem_t sem;
     if (str == NULL || str_map == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     sem_init(&sem, 0, 0);
     sem_wait(&str_map->mtx);
@@ -131,8 +131,7 @@ int gquic_outuni_stream_map_open_stream_sync(gquic_stream_t **const str, gquic_o
         ret = gquic_outuni_stream_map_open_stream_inner(str, str_map);
         goto finished;
     }
-    if (gquic_rbtree_alloc(&queue_pos_rbt, sizeof(u_int64_t), sizeof(sem_t *)) != 0) {
-        ret = -2;
+    if (GQUIC_ASSERT_CAUSE(ret, gquic_rbtree_alloc(&queue_pos_rbt, sizeof(u_int64_t), sizeof(sem_t *)))) {
         goto finished;
     }
     *((u_int64_t *) GQUIC_RBTREE_KEY(queue_pos_rbt)) = str_map->highest_in_queue++;
@@ -171,10 +170,10 @@ static int gquic_outuni_stream_map_unblock_open_sync(gquic_outuni_stream_map_t *
     u_int64_t oq = 0;
     gquic_rbtree_t *rbt = NULL;
     if (str_map == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if (gquic_rbtree_is_nil(str_map->open_queue)) {
-        return 0;
+        return GQUIC_SUCCESS;
     }
     for (oq = str_map->lowest_in_queue; oq <= str_map->highest_in_queue; oq++) {
         if (gquic_rbtree_find((const gquic_rbtree_t **) &rbt, str_map->open_queue, &oq, sizeof(u_int64_t)) != 0) {
@@ -184,25 +183,25 @@ static int gquic_outuni_stream_map_unblock_open_sync(gquic_outuni_stream_map_t *
         sem_close(* (sem_t **) GQUIC_RBTREE_VALUE(rbt));
         *(sem_t **) GQUIC_RBTREE_VALUE(rbt) = NULL;
         str_map->lowest_in_queue = oq + 1;
-        return 0;
+        return GQUIC_SUCCESS;
     }
 
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 int gquic_outuni_stream_map_get_stream(gquic_stream_t **const str, gquic_outuni_stream_map_t *const str_map, const u_int64_t num) {
-    int ret = 0;
+    int ret = GQUIC_SUCCESS;
     const gquic_rbtree_t *rbt = NULL;
     if (str == NULL || str_map == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     sem_wait(&str_map->mtx);
     if (num >= str_map->next_stream) {
-        ret = - 2;
+        ret = GQUIC_EXCEPTION_GREATE_THAN_MAX_STREAM;
         goto finished;
     }
     if (gquic_rbtree_find(&rbt, str_map->streams_root, &num, sizeof(u_int64_t)) != 0) {
-        ret = -3;
+        ret = GQUIC_EXCEPTION_NOT_FOUND;
         goto finished;
     }
     *str = GQUIC_RBTREE_VALUE(rbt);
@@ -212,14 +211,14 @@ finished:
 }
 
 int gquic_outuni_stream_map_release_stream(gquic_outuni_stream_map_t *const str_map, const u_int64_t num) {
-    int ret = 0;
+    int ret = GQUIC_SUCCESS;
     gquic_rbtree_t *rbt = NULL;
     if (str_map == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     sem_wait(&str_map->mtx);
     if (gquic_rbtree_find((const gquic_rbtree_t **) &rbt, str_map->streams_root, &num, sizeof(u_int64_t)) != 0) {
-        ret = -3;
+        ret = GQUIC_EXCEPTION_NOT_FOUND;
         goto finished;
     }
     gquic_rbtree_remove(&str_map->streams_root, &rbt);
@@ -231,9 +230,8 @@ finished:
 }
 
 int gquic_outuni_stream_map_set_max_stream(gquic_outuni_stream_map_t *const str_map, const u_int64_t num) {
-    int ret = 0;
     if (str_map == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     sem_wait(&str_map->mtx);
     if (num <= str_map->max_stream) {
@@ -243,14 +241,14 @@ int gquic_outuni_stream_map_set_max_stream(gquic_outuni_stream_map_t *const str_
     str_map->block_sent = 0;
 finished:
     sem_post(&str_map->mtx);
-    return ret;
+    return GQUIC_SUCCESS;
 }
 
 int gquic_outuni_stream_map_close(gquic_outuni_stream_map_t *const str_map, const int err) {
     gquic_rbtree_t *rbt = NULL;
     gquic_list_t queue;
     if (str_map == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     gquic_list_head_init(&queue);
     sem_wait(&str_map->mtx);
@@ -301,5 +299,5 @@ int gquic_outuni_stream_map_close(gquic_outuni_stream_map_t *const str_map, cons
         gquic_list_release(GQUIC_LIST_FIRST(&queue));
     }
     sem_post(&str_map->mtx);
-    return 0;
+    return GQUIC_SUCCESS;
 }

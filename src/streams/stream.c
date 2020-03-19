@@ -6,7 +6,7 @@ static int gquic_stream_check_completed(gquic_stream_t *const);
 
 int gquic_stream_init(gquic_stream_t *const str) {
     if (str == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     gquic_recv_stream_init(&str->recv);
     gquic_send_stream_init(&str->send);
@@ -21,7 +21,7 @@ int gquic_stream_init(gquic_stream_t *const str) {
 
     gquic_flowcontrol_stream_flow_ctrl_init(&str->flow_ctrl);
 
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 int gquic_stream_ctor(gquic_stream_t *const str,
@@ -30,7 +30,7 @@ int gquic_stream_ctor(gquic_stream_t *const str,
                       void *const flow_ctrl_ctor_self,
                       int (*flow_ctrl_ctor_cb) (gquic_flowcontrol_stream_flow_ctrl_t *const, void *const, const u_int64_t)) {
     if (str == NULL || sender == NULL || flow_ctrl_ctor_self == NULL || flow_ctrl_ctor_cb == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     flow_ctrl_ctor_cb(&str->flow_ctrl, flow_ctrl_ctor_self, stream_id);
 
@@ -48,83 +48,80 @@ int gquic_stream_ctor(gquic_stream_t *const str,
     gquic_uni_stream_sender_prototype(&str->send_sender, &str->send_uni_sender);
     gquic_send_stream_ctor(&str->send, stream_id, &str->send_sender, &str->flow_ctrl);
 
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 int gquic_stream_dtor(gquic_stream_t *const str) {
     if (str == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     // TODO
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 static int gquic_stream_sender_for_recv_stream_on_completed(void *const str_inf) {
     gquic_stream_t *str = str_inf;
     if (str_inf == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     sem_wait(&str->completed_mtx);
     str->send_completed = 1;
     gquic_stream_check_completed(str);
     sem_post(&str->completed_mtx);
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 static int gquic_stream_sender_for_send_stream_on_completed(void *const str_inf) {
     gquic_stream_t *str = str_inf;
     if (str_inf == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     sem_wait(&str->completed_mtx);
     str->recv_completed = 1;
     gquic_stream_check_completed(str);
     sem_post(&str->completed_mtx);
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 static int gquic_stream_check_completed(gquic_stream_t *const str) {
     if (str == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if (str->send_completed && str->recv_completed) {
         GQUIC_SENDER_ON_STREAM_COMPLETED(str->sender, str->send.stream_id);
     }
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 int gquic_stream_close(gquic_stream_t *const str) {
     if (str == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
-    if (gquic_send_stream_close(&str->send) != 0) {
-        return -2;
-    }
-    return 0;
+    return gquic_send_stream_close(&str->send);
 }
 
 int gquic_stream_set_deadline(gquic_stream_t *const str, const u_int64_t deadline) {
     if (str == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     gquic_recv_stream_set_read_deadline(&str->recv, deadline);
     gquic_send_stream_set_write_deadline(&str->send, deadline);
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 int gquic_stream_close_for_shutdown(gquic_stream_t *const str, const int err) {
     if (str == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     gquic_send_stream_close_for_shutdown(&str->send, err);
     gquic_recv_stream_close_for_shutdown(&str->recv, err);
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 int gquic_stream_handle_reset_stream_frame(gquic_stream_t *const str, const gquic_frame_reset_stream_t *const frame) {
     if (str == NULL || frame == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     gquic_recv_stream_handle_reset_stream_frame(&str->recv, frame);
-    return 0;
+    return GQUIC_SUCCESS;
 }
