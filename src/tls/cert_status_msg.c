@@ -29,26 +29,27 @@ gquic_tls_cert_status_msg_t *gquic_tls_cert_status_msg_alloc() {
 static int gquic_tls_cert_status_msg_init(void *const msg) {
     gquic_tls_cert_status_msg_t *const spec = msg;
     if (msg == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     gquic_str_init(&spec->res);
-    return 0;
+    return GQUIC_SUCCESS;
 }
 
 static int gquic_tls_cert_status_msg_dtor(void *const msg) {
     gquic_tls_cert_status_msg_t *const spec = msg;
     if (msg == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     gquic_str_reset(&spec->res);
     gquic_tls_cert_status_msg_init(spec);
-    return 0;
+
+    return GQUIC_SUCCESS;
 }
 
 static ssize_t gquic_tls_cert_status_msg_size(const void *const msg) {
     const gquic_tls_cert_status_msg_t *const spec = msg;
     if (msg == NULL) {
-        return -1;
+        return 0;
     }
     return 1 + 3 + spec->res.size;
 }
@@ -58,28 +59,27 @@ static int gquic_tls_cert_status_msg_serialize(const void *const msg, gquic_writ
     size_t off = 0;
     gquic_list_t prefix_len_stack;
     if (msg == NULL || writer == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if ((size_t) gquic_tls_cert_status_msg_size(msg) > GQUIC_STR_SIZE(writer)) {
-        return -2;
+        return GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY;
     }
     gquic_list_head_init(&prefix_len_stack);
     gquic_big_endian_writer_1byte(writer, GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT_STATUS);
     __gquic_fill_str(writer, &spec->res, 3);
+
     return off;
 }
 
 static int gquic_tls_cert_status_msg_deserialize(void *const msg, gquic_reader_str_t *const reader) {
     gquic_tls_cert_status_msg_t *const spec = msg;
-    size_t off = 0;
     if (msg == NULL || reader == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if (gquic_reader_str_read_byte(reader) != GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT_STATUS) {
-        return -2;
+        return GQUIC_EXCEPTION_TLS_RECORD_TYPE_INVALID_UNEXCEPTED;
     }
-    if (__gquic_recovery_str(&spec->res, 3, reader) != 0) {
-        return -3;
-    }
-    return off;
+    GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_str(&spec->res, 3, reader));
+
+    return GQUIC_SUCCESS;
 }

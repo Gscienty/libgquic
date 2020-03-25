@@ -56,7 +56,7 @@ struct gquic_tls_conn_s {
     u_int16_t cipher_suite;
     gquic_str_t ocsp_resp;
     gquic_list_t scts;
-    gquic_list_t peer_certs;
+    gquic_list_t peer_certs; /* X509 * */
     gquic_list_t verified_chains;
     gquic_str_t ser_name;
     int sec_renegortiation;

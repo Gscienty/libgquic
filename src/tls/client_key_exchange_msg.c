@@ -29,26 +29,28 @@ gquic_tls_client_key_exchange_msg_t *gquic_tls_client_key_exchange_msg_alloc() {
 static int gquic_tls_client_key_exchange_msg_init(void *const msg) {
     gquic_tls_client_key_exchange_msg_t *const spec = msg;
     if (msg == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     gquic_str_init(&spec->cipher);
-    return 0;
+
+    return GQUIC_SUCCESS;
 }
 
 static int gquic_tls_client_key_exchange_msg_dtor(void *const msg) {
     gquic_tls_client_key_exchange_msg_t *const spec = msg;
     if (msg == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     gquic_str_reset(&spec->cipher);
     gquic_tls_client_key_exchange_msg_init(msg);
-    return 0;
+
+    return GQUIC_SUCCESS;
 }
 
 static ssize_t gquic_tls_client_key_exchange_msg_size(const void *const msg) {
     const gquic_tls_client_key_exchange_msg_t *const spec = msg;
     if (msg == NULL) {
-        return -1;
+        return 0;
     }
     return 1 + 3 + spec->cipher.size;
 }
@@ -57,27 +59,27 @@ static int gquic_tls_client_key_exchange_msg_serialize(const void *const msg, gq
     const gquic_tls_client_key_exchange_msg_t *const spec = msg;
     gquic_list_t prefix_len_stack;
     if (msg == NULL || writer == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if ((size_t) gquic_tls_client_key_exchange_msg_size(msg) > GQUIC_STR_SIZE(writer)) {
-        return -2;
+        return GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY;
     }
     gquic_list_head_init(&prefix_len_stack);
     gquic_big_endian_writer_1byte(writer, GQUIC_TLS_HANDSHAKE_MSG_TYPE_CLI_KEY_EXCHANGE);
     __gquic_fill_str(writer, &spec->cipher, 3);
-    return 0;
+
+    return GQUIC_SUCCESS;
 }
 
 static int gquic_tls_client_key_exchange_msg_deserialize(void *const msg, gquic_reader_str_t *const reader) {
     gquic_tls_client_key_exchange_msg_t *const spec = msg;
     if (msg == NULL || reader == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if (gquic_reader_str_read_byte(reader) != GQUIC_TLS_HANDSHAKE_MSG_TYPE_CLI_KEY_EXCHANGE) {
-        return -2;
+        return GQUIC_EXCEPTION_TLS_RECORD_TYPE_INVALID_UNEXCEPTED;
     }
-    if (__gquic_recovery_str(&spec->cipher, 3, reader) != 0) {
-        return -3;
-    }
-    return 0;
+    GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_str(&spec->cipher, 3, reader));
+
+    return GQUIC_SUCCESS;
 }

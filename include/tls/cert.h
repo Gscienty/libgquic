@@ -6,7 +6,7 @@
 
 typedef struct gquic_tls_cert_s gquic_tls_cert_t;
 struct gquic_tls_cert_s {
-    gquic_list_t certs;
+    gquic_list_t certs; /* X509 * */
     gquic_str_t ocsp_staple;
     gquic_list_t scts;
 };

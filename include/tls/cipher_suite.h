@@ -175,12 +175,12 @@ struct gquic_tls_suite_s {
 };
 
 int gquic_tls_suite_init(gquic_tls_suite_t *const suite);
-int gquic_tls_suite_assign(gquic_tls_suite_t *const suite,
-                           const gquic_tls_cipher_suite_t *const cipher_suite,
-                           const gquic_str_t *const iv,
-                           const gquic_str_t *const cipher_key,
-                           const gquic_str_t *const mac_key,
-                           const int is_read);
+int gquic_tls_suite_ctor(gquic_tls_suite_t *const suite,
+                         const gquic_tls_cipher_suite_t *const cipher_suite,
+                         const gquic_str_t *const iv,
+                         const gquic_str_t *const cipher_key,
+                         const gquic_str_t *const mac_key,
+                         const int is_read);
 int gquic_tls_suite_encrypt(gquic_str_t *const result, gquic_tls_suite_t *const suite, const gquic_str_t *const plain_text);
 int gquic_tls_suite_aead_encrypt(gquic_str_t *const tag,
                                  gquic_str_t *const cipher_text,

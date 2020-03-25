@@ -2,6 +2,7 @@
 #define _LIBGQUIC_UTIL_STR_H
 
 #include <sys/types.h>
+#include <openssl/x509.h>
 
 typedef struct gquic_str_s gquic_str_t;
 struct gquic_str_s {
@@ -51,5 +52,6 @@ int gquic_writer_str_writed_size(gquic_writer_str_t *const writer, const size_t 
 int gquic_writer_str_write(gquic_writer_str_t *const writer, const gquic_str_t *const buf);
 int gquic_writer_str_write_byte(gquic_writer_str_t *const writer, u_int8_t b);
 int gquic_writer_str_write_padding(gquic_writer_str_t *const writer, u_int8_t padding_cnt, const u_int64_t padding_len);
+int gquic_writer_str_write_x509(gquic_writer_str_t *const writer, X509 *const x509);
 
 #endif

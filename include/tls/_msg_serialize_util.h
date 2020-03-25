@@ -3,6 +3,7 @@
 #include "util/list.h"
 #include <sys/types.h>
 #include <string.h>
+#include <openssl/x509.h>
 
 typedef struct gquic_serialize_stack_s gquic_serialize_stack_t;
 struct gquic_serialize_stack_s {
@@ -16,6 +17,7 @@ static inline void __gquic_stack_pop(void **const, u_int8_t *const, gquic_list_t
 static inline void __gquic_fill_prefix_len(gquic_list_t *, gquic_writer_str_t *const);
 static inline void __gquic_store_prefix_len(gquic_list_t *, gquic_writer_str_t*const, const u_int8_t);
 static inline void __gquic_fill_str(gquic_writer_str_t *const, const gquic_str_t *, const u_int8_t);
+static inline void __gquic_fill_x509(gquic_writer_str_t *const, X509 *const, const u_int8_t);
 
 static inline void __gquic_stack_push(gquic_list_t *stack, gquic_writer_str_t *const writer, const u_int8_t size) {
     gquic_list_insert_after(stack, gquic_list_alloc(sizeof(gquic_serialize_stack_t)));
@@ -47,4 +49,10 @@ static inline void __gquic_fill_str(gquic_writer_str_t *const writer, const gqui
     gquic_big_endian_transfer(GQUIC_STR_VAL(writer), &str->size, prefix_len);
     gquic_writer_str_writed_size(writer, prefix_len);
     gquic_writer_str_write(writer, str);
+}
+
+static inline void __gquic_fill_x509(gquic_writer_str_t *const writer, X509 *const x509, const u_int8_t prefix_len) {
+    size_t size = i2d_X509(x509, NULL);
+    gquic_big_endian_transfer(GQUIC_STR_VAL(writer), &size, prefix_len);
+    gquic_writer_str_write_x509(writer, x509);
 }

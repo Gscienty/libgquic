@@ -205,3 +205,19 @@ int gquic_writer_str_write_padding(gquic_writer_str_t *const writer, u_int8_t pa
     gquic_writer_str_writed_size(writer, padding_len);
     return GQUIC_SUCCESS;
 }
+
+int gquic_writer_str_write_x509(gquic_writer_str_t *const writer, X509 *const x509) {
+    unsigned char *buf = NULL;
+    size_t size = 0;
+    if (writer == NULL || x509 == NULL) {
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+    }
+    size = i2d_X509(x509, NULL);
+    buf = GQUIC_STR_VAL(writer);
+    if (GQUIC_STR_SIZE(writer) < size) {
+        return GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY;
+    }
+    i2d_X509(x509, &buf);
+    gquic_writer_str_writed_size(writer, size);
+    return GQUIC_SUCCESS;
+}

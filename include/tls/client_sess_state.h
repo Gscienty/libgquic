@@ -12,7 +12,7 @@ struct gquic_tls_client_sess_state_s {
     u_int16_t ver;
     u_int16_t cipher_suite;
     gquic_str_t master_sec;
-    gquic_list_t ser_certs;
+    gquic_list_t ser_certs; /* X509 * */
     gquic_list_t verified_chains;
     struct timeval received_at;
 

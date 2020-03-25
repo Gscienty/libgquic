@@ -67,9 +67,6 @@ static int gquic_tls_client_handshake_state_send_cli_finished(gquic_tls_handshak
 
 static int mutual_protocol(const gquic_str_t *const, const gquic_list_t *const);
 
-static int copy_peer_cert(void *const, const void *const);
-static int copy_verify(void *const, const void *const);
-
 int gquic_tls_handshake_client_state_init(gquic_tls_handshake_client_state_t *const cli_state) {
     if (cli_state == NULL) {
         return -1;
@@ -769,8 +766,8 @@ static int gquic_tls_client_handshake_state_process_server_hello(gquic_tls_hands
     }
     cli_state->using_psk = 1;
     cli_state->conn->did_resume = 1;
-    gquic_list_copy(&cli_state->conn->peer_certs, &cli_state->sess->ser_certs, copy_peer_cert);
-    gquic_list_copy(&cli_state->conn->verified_chains, &cli_state->sess->verified_chains, copy_verify);
+    gquic_list_copy(&cli_state->conn->peer_certs, &cli_state->sess->ser_certs, NULL);
+    gquic_list_copy(&cli_state->conn->verified_chains, &cli_state->sess->verified_chains, NULL);
     return 0;
 }
 
@@ -1059,7 +1056,7 @@ static int gquic_tls_client_handshake_state_read_ser_cert(gquic_tls_handshake_cl
         ret = -21;
         goto failure;
     }
-    if (gquic_tls_sig_pubkey_from_x509(&pubkey, sig_type, GQUIC_LIST_FIRST(&cli_state->conn->peer_certs)) != 0) {
+    if (gquic_tls_sig_pubkey_from_x509(&pubkey, sig_type, *(X509 **) GQUIC_LIST_FIRST(&cli_state->conn->peer_certs)) != 0) {
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_DECRYPT_ERROR);
         ret = -22;
         goto failure;
@@ -1288,13 +1285,5 @@ static int mutual_protocol(const gquic_str_t *const proto, const gquic_list_t *c
     }
 
     return -2;
-}
-
-static int copy_peer_cert(void *const target, const void *const ref) {
-    return gquic_str_copy(target, ref);
-}
-
-static int copy_verify(void *const target, const void *const ref) {
-    return gquic_str_copy(target, ref);
 }
 

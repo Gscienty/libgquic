@@ -23,6 +23,7 @@
 #include "tls/meta.h"
 #include "util/time.h"
 #include "util/big_endian.h"
+#include "exception.h"
 #include <openssl/x509.h>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
@@ -191,7 +192,7 @@ int gquic_tls_half_conn_set_traffic_sec(gquic_tls_half_conn_t *const half_conn,
     if (gquic_tls_cipher_suite_traffic_key(&key, &iv, cipher_suite, secret) != 0) {
         return -3;
     }
-    if (gquic_tls_suite_assign(&half_conn->suite, cipher_suite, &iv, &key, NULL, is_read) != 0) {
+    if (gquic_tls_suite_ctor(&half_conn->suite, cipher_suite, &iv, &key, NULL, is_read) != 0) {
         return -4;
     }
     gquic_str_reset(&half_conn->seq);
@@ -364,24 +365,19 @@ int gquic_tls_conn_load_session(gquic_str_t *const cache_key,
         if (gquic_list_head_empty(&(*sess)->ser_certs)) {
             return -4;
         }
-        gquic_str_t *ser_cert = GQUIC_LIST_FIRST(&(*sess)->ser_certs);
-        X509 *x509_ser_cert = d2i_X509(NULL, (unsigned char const **) &ser_cert->val, GQUIC_STR_SIZE(ser_cert));
-        int cmp = gquic_compare_now_asn1_time(X509_get_notAfter(x509_ser_cert));
+        X509 *ser_cert = *(X509 **) GQUIC_LIST_FIRST(&(*sess)->ser_certs);
+        int cmp = gquic_compare_now_asn1_time(X509_get_notAfter(ser_cert));
         if (cmp == 1) {
-            X509_free(x509_ser_cert);
             conn->cfg->cli_sess_cache->put(conn->cfg->cli_sess_cache->self, cache_key, NULL);
             return 0;
         }
         else if (cmp == -2) {
-            X509_free(x509_ser_cert);
             return -5;
         }
 
-        if (!gquic_equal_common_name(&conn->cfg->ser_name,
-                                X509_get_subject_name(x509_ser_cert))) {
+        if (!gquic_equal_common_name(&conn->cfg->ser_name, X509_get_subject_name(ser_cert))) {
             return 0;
         }
-        X509_free(x509_ser_cert);
     }
 
     if ((*sess)->ver != GQUIC_TLS_VERSION_13) {
@@ -479,19 +475,19 @@ int gquic_tls_conn_read_handshake(void **const msg, gquic_tls_conn_t *const conn
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT:
         if (conn->ver == GQUIC_TLS_VERSION_13) {
             if ((*msg = gquic_tls_cert_msg_alloc()) == NULL) {
-                ret = -8;
+                ret = GQUIC_EXCEPTION_ALLOCATION_FAILED;
                 goto failure;
             }
         }
         else {
-            ret = -9;
+            ret = GQUIC_EXCEPTION_TLS_VERSION_TOO_OLD;
             goto failure;
         }
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT_REQ:
         if (conn->ver == GQUIC_TLS_VERSION_13) {
             if ((*msg = gquic_tls_cert_req_msg_alloc()) == NULL) {
-                ret = -10;
+                ret = GQUIC_EXCEPTION_ALLOCATION_FAILED;
                 goto failure;
             }
         }
@@ -502,7 +498,7 @@ int gquic_tls_conn_read_handshake(void **const msg, gquic_tls_conn_t *const conn
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT_STATUS:
         if ((*msg = gquic_tls_cert_status_msg_alloc()) == NULL) {
-            ret = -12;
+            ret = GQUIC_EXCEPTION_ALLOCATION_FAILED;
             goto failure;
         }
         break;
@@ -526,7 +522,7 @@ int gquic_tls_conn_read_handshake(void **const msg, gquic_tls_conn_t *const conn
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT_VERIFY:
         if ((*msg = gquic_tls_cert_verify_msg_alloc()) == NULL) {
-            ret = -16;
+            ret = GQUIC_EXCEPTION_ALLOCATION_FAILED;
             goto failure;
         }
         break;
@@ -684,7 +680,7 @@ static int gquic_tls_half_conn_inc_seq(gquic_tls_half_conn_t *const half_conn) {
 }
 
 int gquic_tls_conn_verify_ser_cert(gquic_tls_conn_t *const conn, const gquic_list_t *const certs) {
-    gquic_str_t *cert;
+    X509 **cert_storage = NULL;
     int first = 1;
     if (conn == NULL || certs == NULL) {
         return -1;
@@ -693,13 +689,8 @@ int gquic_tls_conn_verify_ser_cert(gquic_tls_conn_t *const conn, const gquic_lis
         return -2;
     }
 
-    GQUIC_LIST_FOREACH(cert, certs) {
-        const u_int8_t *cert_cnt = GQUIC_STR_VAL(cert);
-        X509 *x509 = d2i_X509(NULL, &cert_cnt, GQUIC_STR_SIZE(cert));
-        if (x509 == NULL) {
-            gquic_tls_conn_send_alert(conn, GQUIC_TLS_ALERT_BAD_CERT);
-            return -3;
-        }
+    GQUIC_LIST_FOREACH(cert_storage, certs) {
+        X509 *x509 = *cert_storage;
         if (first) {
             int pubkey_id = EVP_PKEY_id(X509_get_pubkey(x509));
             if (pubkey_id != EVP_PKEY_RSA
@@ -710,16 +701,12 @@ int gquic_tls_conn_verify_ser_cert(gquic_tls_conn_t *const conn, const gquic_lis
             }
             first = 0;
         }
-        X509_free(x509);
-        gquic_str_t *peer_cert = gquic_list_alloc(sizeof(gquic_str_t));
-        if (peer_cert == NULL) {
+        X509 **peer_cert = NULL;
+        if ((peer_cert = gquic_list_alloc(sizeof(X509 *))) == NULL) {
             gquic_tls_conn_send_alert(conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
-            return -5;
+            return GQUIC_EXCEPTION_ALLOCATION_FAILED;
         }
-        if (gquic_str_copy(peer_cert, cert) != 0) {
-            gquic_tls_conn_send_alert(conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
-            return -6;
-        }
+        *peer_cert = *cert_storage;
         if (gquic_list_insert_before(&conn->peer_certs, peer_cert) != 0) {
             gquic_tls_conn_send_alert(conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
             return -7;
@@ -757,63 +744,53 @@ int gquic_tls_conn_handshake(gquic_tls_conn_t *const conn) {
 }
 
 int gquic_tls_conn_get_sess_ticket(gquic_str_t *const msg, gquic_tls_conn_t *const conn) {
-    int ret = 0;
+    int exception = GQUIC_SUCCESS;
     gquic_tls_sess_state_t state;
-    gquic_str_t *peer_cert = NULL;
-    gquic_str_t *cert = NULL;
+    X509 **peer_cert = NULL;
+    X509 **cert = NULL;
     gquic_tls_new_sess_ticket_msg_t *ticket = NULL;
     if (msg == NULL || conn == NULL) {
-        return -1;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if (conn->is_client || conn->handshake_status != 1 || conn->cfg->alt_record.self == NULL) {
-        return -2;
+        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     if (conn->cfg->sess_ticket_disabled) {
-        return 0;
+        return GQUIC_SUCCESS;
     }
     if ((ticket = gquic_tls_new_sess_ticket_msg_alloc()) == NULL) {
-        return -3;
+        return GQUIC_EXCEPTION_ALLOCATION_FAILED;
     }
     GQUIC_TLS_MSG_INIT(ticket);
     gquic_tls_sess_state_init(&state);
     GQUIC_LIST_FOREACH(peer_cert, &conn->peer_certs) {
-        if ((cert = gquic_list_alloc(sizeof(gquic_str_t *))) == NULL) {
-            return -4;
+        if ((cert = gquic_list_alloc(sizeof(X509 *))) == NULL) {
+            return GQUIC_EXCEPTION_ALLOCATION_FAILED;
         }
-        gquic_str_init(cert);
-        if (gquic_str_copy(cert, peer_cert) != 0) {
-            return -5;
-        }
-        if (gquic_list_insert_before(&state.cert.certs, cert) != 0) {
-            return -6;
-        }
+        *cert = *(X509 **) peer_cert;
+        GQUIC_ASSERT_FAST_RETURN(gquic_list_insert_before(&state.cert.certs, cert));
     }
     // TODO copy ocsp and scts
     state.cipher_suite = conn->cipher_suite;
-    if (gquic_str_copy(&state.resumption_sec, &conn->resumption_sec) != 0) {
-        return -7;
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_str_copy(&state.resumption_sec, &conn->resumption_sec));
     state.create_at = time(NULL);
 
-    if (gquic_str_alloc(&ticket->label, gquic_tls_sess_state_size(&state)) != 0) {
-        ret = -8;
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_str_alloc(&ticket->label, gquic_tls_sess_state_size(&state)))) {
         goto failure;
     }
     gquic_writer_str_t writer = ticket->label;
-    if (gquic_tls_sess_state_serialize(&state, &writer) != 0) {
-        ret = -9;
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_sess_state_serialize(&state, &writer))) {
         goto failure;
     }
     ticket->lifetime = 7 * 24 * 60;
-    if (gquic_tls_msg_combine_serialize(msg, ticket) != 0) {
-        ret = -10;
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_msg_combine_serialize(msg, ticket))) {
         goto failure;
     }
     gquic_tls_msg_release(ticket);
-    return 0;
+    return GQUIC_SUCCESS;
 failure:
     gquic_tls_msg_release(ticket);
-    return ret;
+    return exception;
 }
 
 int gquic_tls_conn_encrypt_ticket(gquic_str_t *const encrypted, gquic_tls_conn_t *const conn, const gquic_str_t *const state) {
