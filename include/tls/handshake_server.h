@@ -5,6 +5,7 @@
 #include "tls/server_hello_msg.h"
 #include "tls/cipher_suite.h"
 #include "tls/conn.h"
+#include <openssl/pkcs12.h>
 
 typedef struct gquic_tls_handshake_server_state_s gquic_tls_handshake_server_state_t;
 struct gquic_tls_handshake_server_state_s {
@@ -14,7 +15,7 @@ struct gquic_tls_handshake_server_state_s {
     int sent_dummy_ccs;
     int using_psk;
     const gquic_tls_cipher_suite_t *suite;
-    gquic_str_t cert;
+    PKCS12 *cert;
     u_int16_t sigalg;
     gquic_str_t early_sec;
     gquic_str_t shared_key;

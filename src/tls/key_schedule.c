@@ -227,6 +227,9 @@ int gquic_tls_hkdf_expand_label(gquic_str_t *const ret,
     if (ret == NULL || hash == NULL || hash->md == NULL || secret == NULL || label == NULL) {
         return -1;
     }
+    if (length > (size_t) EVP_MD_size(hash->md)) {
+        return -1;
+    }
     if (gquic_str_init(ret) != 0) {
         return -2;
     }
@@ -265,6 +268,7 @@ int gquic_tls_hkdf_expand_label(gquic_str_t *const ret,
     if (EVP_PKEY_derive(ctx, GQUIC_STR_VAL(ret), &ret->size) <= 0) {
         return -11;
     }
+    ret->size = length;
     EVP_PKEY_CTX_free(ctx);
     gquic_str_reset(&info);
     return 0;

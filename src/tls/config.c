@@ -2,6 +2,7 @@
 #include <string.h>
 #include "tls/config.h"
 #include "tls/common.h"
+#include "exception.h"
 
 static u_int16_t __supported_versions[] = {
     /*GQUIC_TLS_VERSION_10,*/
@@ -12,7 +13,7 @@ static u_int16_t __supported_versions[] = {
 
 int gquic_tls_record_layer_init(gquic_tls_record_layer_t *const record_layer) {
     if (record_layer == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     record_layer->self = NULL;
     record_layer->set_rkey = NULL;
@@ -20,12 +21,12 @@ int gquic_tls_record_layer_init(gquic_tls_record_layer_t *const record_layer) {
     record_layer->read_handshake_msg = NULL;
     record_layer->write_record = NULL;
     record_layer->send_alert = NULL;
-    return 0;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_config_init(gquic_tls_config_t *const cfg) {
     if (cfg == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
 
     cfg->epoch = 0;
@@ -57,7 +58,7 @@ int gquic_tls_config_init(gquic_tls_config_t *const cfg) {
     cfg->enforce_next_proto_selection = 0;
     cfg->cli_auth = 0;
 
-    return 0;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int empty_config_inited = 0;
@@ -65,7 +66,7 @@ static gquic_tls_config_t empty_config;
 
 int gquic_tls_config_default(gquic_tls_config_t **const cfg) {
     if (cfg == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (!empty_config_inited) {
         gquic_tls_config_init(&empty_config);
@@ -73,15 +74,15 @@ int gquic_tls_config_default(gquic_tls_config_t **const cfg) {
     }
     *cfg = &empty_config;
 
-    return 0;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_ticket_key_deserialize(gquic_tls_ticket_key_t *ticket_key, const void *buf, const size_t size) {
     if (ticket_key == NULL || buf == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (size != 32) {
-        return -2;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INTERNAL_ERROR);
     }
     uint8_t hash[SHA256_DIGEST_LENGTH];
     SHA256_CTX sha;
@@ -91,12 +92,13 @@ int gquic_tls_ticket_key_deserialize(gquic_tls_ticket_key_t *ticket_key, const v
     memcpy(ticket_key->name, hash, 16);
     memcpy(ticket_key->aes_key, hash + 16, 16);
     memcpy(ticket_key->hmac_key, hash + 32, 16);
-    return 0;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_config_supported_versions(gquic_list_t *ret, const gquic_tls_config_t *cfg, int is_client) {
     if (ret == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_list_head_init(ret);
     size_t versions_count = sizeof(__supported_versions) / sizeof(u_int16_t);
@@ -110,13 +112,13 @@ int gquic_tls_config_supported_versions(gquic_list_t *ret, const gquic_tls_confi
         }
         u_int16_t *field = gquic_list_alloc(sizeof(u_int16_t));
         if (field == NULL) {
-            return -2;
+            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
         }
         gquic_list_insert_before(ret, field);
         *field = __supported_versions[i];
     }
 
-    return 0;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static u_int16_t __default_curve_preferences[] = {
@@ -128,28 +130,24 @@ static u_int16_t __default_curve_preferences[] = {
 
 int gquic_tls_config_curve_preferences(gquic_list_t *ret) {
     if (ret == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if (gquic_list_head_init(ret) != 0) {
-        return -2;
-    }
+    gquic_list_head_init(ret);
     size_t i;
     u_int16_t *payload;
     for (i = 0; i < sizeof(__default_curve_preferences) / sizeof(u_int16_t); i++) {
         if ((payload = gquic_list_alloc(sizeof(u_int16_t))) == NULL) {
-            return -3;
+            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
         }
         *payload = __default_curve_preferences[i];
-        if (gquic_list_insert_before(ret, payload) != 0) {
-            return -4;
-        }
+        GQUIC_ASSERT_FAST_RETURN(gquic_list_insert_before(ret, payload));
     }
-    return 0;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_sig_trans(u_int8_t *const sig, const u_int16_t sigsche) {
     if (sig == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     switch (sigsche) {
     case GQUIC_SIGALG_PKCS1_SHA1:
@@ -173,9 +171,10 @@ int gquic_tls_sig_trans(u_int8_t *const sig, const u_int16_t sigsche) {
         *sig = GQUIC_SIG_ED25519;
         break;
     default:
-        return -2;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INVALID_SIGALG);
     }
-    return 0;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static u_int16_t __supported_sigalgs_tls12[] = {
@@ -194,20 +193,16 @@ int gquic_tls_supported_sigalgs_tls12(gquic_list_t *const sigsches) {
     size_t i;
     u_int16_t *payload;
     if (sigsches == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if (gquic_list_head_init(sigsches) != 0) {
-        return -2;
-    }
+    gquic_list_head_init(sigsches);
     for (i = 0; i < sizeof(__supported_sigalgs_tls12) / sizeof(u_int16_t); i++) {
         if ((payload = gquic_list_alloc(sizeof(u_int16_t))) == NULL) {
-            return -3;
+            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
         }
         *payload = __supported_sigalgs_tls12[i];
-        if (gquic_list_insert_before(sigsches, payload) != 0) {
-            return -4;
-        }
+        GQUIC_ASSERT_FAST_RETURN(gquic_list_insert_before(sigsches, payload));
     }
 
-    return 0;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

@@ -105,29 +105,31 @@ static const int cipher_suites_count = sizeof(cipher_suites) / sizeof(gquic_tls_
 
 int gquic_tls_get_cipher_suite(const gquic_tls_cipher_suite_t **const cipher, const u_int16_t cipher_suite_id) {
     if (cipher == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     int i;
     for (i = 0; i < cipher_suites_count; i++) {
         if (cipher_suites[i].id == cipher_suite_id) {
            *cipher = &cipher_suites[i]; 
-           return GQUIC_SUCCESS;
+           GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
         }
     }
-    return GQUIC_EXCEPTION_NOT_FOUND;
+
+    GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_NOT_FOUND);
 }
 
 int gquic_tls_choose_cipher_suite(const gquic_tls_cipher_suite_t **const cipher_suite, const gquic_list_t *const have, const u_int16_t want) {
     u_int16_t *have_cipher_suite_id;
     if (cipher_suite == NULL || have == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     GQUIC_LIST_FOREACH(have_cipher_suite_id, have) {
         if (*have_cipher_suite_id == want) {
-            return gquic_tls_get_cipher_suite(cipher_suite, want);
+            GQUIC_ASSERT_FAST_RETURN(gquic_tls_get_cipher_suite(cipher_suite, want));
+            GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
         }
     }
-    return GQUIC_EXCEPTION_NOT_FOUND;
+    GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_NOT_FOUND);
 }
 
 int gquic_tls_create_aead(gquic_tls_aead_t *const aead, const gquic_tls_cipher_suite_t *const suite, const gquic_str_t *const traffic_sec) {
@@ -138,7 +140,7 @@ int gquic_tls_create_aead(gquic_tls_aead_t *const aead, const gquic_tls_cipher_s
     static const gquic_str_t key_label = { 8, "quic key" };
     static const gquic_str_t iv_label = { 7, "quic iv" };
     if (aead == NULL || suite == NULL || traffic_sec == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_tls_mac_init(&hash);
     GQUIC_ASSERT_FAST_RETURN(suite->mac(&hash, GQUIC_TLS_VERSION_13, NULL));
@@ -155,13 +157,13 @@ int gquic_tls_create_aead(gquic_tls_aead_t *const aead, const gquic_tls_cipher_s
     gquic_str_reset(&key);
     gquic_str_reset(&iv);
     gquic_tls_mac_dtor(&hash);
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 failure:
 
     gquic_str_reset(&key);
     gquic_str_reset(&iv);
     gquic_tls_mac_dtor(&hash);
-    return exception;
+    GQUIC_PROCESS_DONE(exception);
 }
 
 int gquic_tls_mac_hmac_hash(gquic_str_t *const ret,
@@ -173,23 +175,23 @@ int gquic_tls_mac_hmac_hash(gquic_str_t *const ret,
     unsigned int size;
     (void) extra;
     if (ret == NULL || mac == NULL || mac->mac == NULL || data == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_str_alloc(ret, HMAC_size(mac->mac)));
     if (seq != NULL && HMAC_Update(mac->mac, GQUIC_STR_VAL(seq), GQUIC_STR_SIZE(seq)) <= 0) {
-        return GQUIC_EXCEPTION_HMAC_FAILED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_HMAC_FAILED);
     }
     if (header != NULL && HMAC_Update(mac->mac, GQUIC_STR_VAL(header), GQUIC_STR_SIZE(header)) <= 0) {
-        return GQUIC_EXCEPTION_HMAC_FAILED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_HMAC_FAILED);
     }
     if (HMAC_Update(mac->mac, GQUIC_STR_VAL(data), GQUIC_STR_SIZE(data)) <= 0) {
-        return GQUIC_EXCEPTION_HMAC_FAILED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_HMAC_FAILED);
     }
     if (HMAC_Final(mac->mac, GQUIC_STR_VAL(ret), &size) <= 0) {
-        return GQUIC_EXCEPTION_HMAC_FAILED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_HMAC_FAILED);
     }
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_mac_md_hash(gquic_str_t *const ret,
@@ -197,40 +199,40 @@ int gquic_tls_mac_md_hash(gquic_str_t *const ret,
                           const gquic_str_t *const data) {
     unsigned int size;
     if (ret == NULL || mac == NULL || mac->md_ctx == NULL || data == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_str_alloc(ret, EVP_MD_CTX_size(mac->md_ctx)));
     EVP_DigestUpdate(mac->md_ctx, GQUIC_STR_VAL(data), GQUIC_STR_SIZE(data));
     EVP_DigestFinal_ex(mac->md_ctx, GQUIC_STR_VAL(ret), &size);
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_mac_md_update(gquic_tls_mac_t *const mac,
                             const gquic_str_t *const data) {
     if (mac == NULL || mac->md_ctx == NULL || data == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (EVP_DigestUpdate(mac->md_ctx, GQUIC_STR_VAL(data), GQUIC_STR_SIZE(data)) <= 0) {
-        return GQUIC_EXCEPTION_DIGEST_VERIFY_FAILED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_DIGEST_VERIFY_FAILED);
     }
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_mac_md_reset(gquic_tls_mac_t *const mac) {
     if (mac == NULL || mac->md_ctx == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
     const EVP_MD *md = EVP_MD_CTX_md(mac->md_ctx);
     if (EVP_MD_CTX_reset(mac->md_ctx) <= 0) {
-        return GQUIC_EXCEPTION_INTERNAL_ERROR;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INTERNAL_ERROR);
     }
     if (EVP_DigestInit_ex(mac->md_ctx, md, NULL) <= 0) {
-        return GQUIC_EXCEPTION_INTERNAL_ERROR;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INTERNAL_ERROR);
     }
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_mac_md_sum(gquic_str_t *const ret,
@@ -238,86 +240,87 @@ int gquic_tls_mac_md_sum(gquic_str_t *const ret,
     unsigned int size = 0;
     EVP_MD_CTX *output_ctx = NULL;
     if (ret == NULL || mac == NULL || mac->md_ctx == NULL) {
-        return GQUIC_SUCCESS;
+        GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
     if ((output_ctx = EVP_MD_CTX_new()) == NULL) {
-        return GQUIC_EXCEPTION_ALLOCATION_FAILED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
     }
     if (EVP_MD_CTX_copy_ex(output_ctx, mac->md_ctx) <= 0) {
-        return GQUIC_EXCEPTION_INTERNAL_ERROR;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INTERNAL_ERROR);
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_str_alloc(ret, EVP_MD_CTX_size(output_ctx)));
     if (EVP_DigestFinal_ex(output_ctx, GQUIC_STR_VAL(ret), &size) <= 0) {
-        return GQUIC_EXCEPTION_DIGEST_FAILED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_DIGEST_FAILED);
     }
     EVP_MD_CTX_free(output_ctx);
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_mac_md_copy(gquic_tls_mac_t *const ret,
                           gquic_tls_mac_t *const origin) {
     if (ret == NULL || origin == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     ret->md = origin->md;
     if ((ret->md_ctx = EVP_MD_CTX_new()) == NULL) {
-        return GQUIC_EXCEPTION_ALLOCATION_FAILED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
     }
     if (EVP_MD_CTX_copy_ex(ret->md_ctx, origin->md_ctx) <= 0) {
-        return GQUIC_EXCEPTION_INTERNAL_ERROR;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INTERNAL_ERROR);
     }
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_aead_dtor(gquic_tls_aead_t *const aead) {
     if (aead == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     GQUIC_TLS_AEAD_DTOR(aead);
     free(aead->self);
     aead->self = NULL;
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_aead_init(gquic_tls_aead_t *const aead) {
     if (aead == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     aead->self = NULL;
     aead->open = NULL;
     aead->seal = NULL;
     aead->dtor = NULL;
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_aead_copy(gquic_tls_aead_t *const aead, const gquic_tls_aead_t *const ref) {
     if (aead == NULL || ref == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     aead->self = ref->self;
     aead->open = ref->open;
     aead->seal = ref->seal;
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_cipher_init(gquic_tls_cipher_t *const cipher) {
     if (cipher == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     cipher->cipher = NULL;
     gquic_str_init(&cipher->iv);
     gquic_str_init(&cipher->key);
-    return GQUIC_SUCCESS;
+    
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_cipher_dtor(gquic_tls_cipher_t *const cipher) {
     if (cipher == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (cipher->cipher != NULL) {
         EVP_CIPHER_CTX_free(cipher->cipher);
@@ -325,82 +328,83 @@ int gquic_tls_cipher_dtor(gquic_tls_cipher_t *const cipher) {
     gquic_str_reset(&cipher->iv);
     gquic_str_reset(&cipher->key);
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_cipher_encrypt(gquic_str_t *const ret, gquic_tls_cipher_t *const cipher, const gquic_str_t *const plain_text) {
     if (ret == NULL || cipher == NULL || plain_text == NULL || cipher->cipher == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     int outlen = 0;
     gquic_str_init(ret);
     if (EVP_EncryptUpdate(cipher->cipher, NULL, &outlen, GQUIC_STR_VAL(plain_text), GQUIC_STR_SIZE(plain_text)) <= 0) {
-        return GQUIC_EXCEPTION_ENCRYPT_FAILED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ENCRYPT_FAILED);
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_str_alloc(ret, outlen + 32));
     if (EVP_EncryptUpdate(cipher->cipher, GQUIC_STR_VAL(ret), &outlen, GQUIC_STR_VAL(plain_text), GQUIC_STR_SIZE(plain_text)) <= 0) {
-        return GQUIC_EXCEPTION_ENCRYPT_FAILED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ENCRYPT_FAILED);
     }
     ret->size = outlen;
     if (EVP_EncryptFinal_ex(cipher->cipher, GQUIC_STR_VAL(ret), &outlen) <= 0) {
-        return GQUIC_EXCEPTION_ENCRYPT_FAILED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ENCRYPT_FAILED);
     }
-    return GQUIC_SUCCESS;
+    
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_cipher_decrypt(gquic_str_t *const ret, gquic_tls_cipher_t *const cipher, const gquic_str_t *const cipher_text) {
     if (ret == NULL || cipher == NULL || cipher_text == NULL || cipher->cipher == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     int outlen = 0;
     gquic_str_init(ret);
     if (EVP_DecryptUpdate(cipher->cipher, NULL, &outlen, GQUIC_STR_VAL(cipher_text), GQUIC_STR_SIZE(cipher_text)) != 0) {
-        return GQUIC_EXCEPTION_DECRYPT_FAILED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_DECRYPT_FAILED);
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_str_alloc(ret, outlen + 32));
     if (EVP_DecryptUpdate(cipher->cipher, GQUIC_STR_VAL(ret), &outlen, GQUIC_STR_VAL(cipher_text), GQUIC_STR_SIZE(cipher_text)) != 0) {
-        return GQUIC_EXCEPTION_DECRYPT_FAILED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_DECRYPT_FAILED);
     }
     ret->size = outlen;
     if (EVP_DecryptFinal_ex(cipher->cipher, GQUIC_STR_VAL(ret), &outlen) != 0) {
-        return GQUIC_EXCEPTION_DECRYPT_FAILED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_DECRYPT_FAILED);
     }
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_tls_aead_ctx_init(gquic_tls_aead_ctx_t *const ctx) {
     if (ctx == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     ctx->cipher = NULL;
     gquic_str_init(&ctx->nonce);
     gquic_str_init(&ctx->key);
     ctx->nonce_wrapper = NULL;
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_tls_aead_ctx_dtor(gquic_tls_aead_ctx_t *const ctx) {
     if (ctx == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_str_reset(&ctx->nonce);
     gquic_str_reset(&ctx->key);
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_suite_init(gquic_tls_suite_t *const suite) {
     if (suite == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_tls_aead_init(&suite->aead);
     gquic_tls_cipher_init(&suite->cipher);
     gquic_tls_mac_init(&suite->mac);
     suite->type = GQUIC_TLS_CIPHER_TYPE_UNKNOW;
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_suite_ctor(gquic_tls_suite_t *const suite,
@@ -410,37 +414,39 @@ int gquic_tls_suite_ctor(gquic_tls_suite_t *const suite,
                          const gquic_str_t *const mac_key,
                          const int is_read) {
     if (suite == NULL || cipher_suite == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (cipher_suite->aead != NULL && cipher_key != NULL && iv != NULL) {
         if (cipher_suite->key_len > GQUIC_STR_SIZE(cipher_key)) {
-            return GQUIC_EXCEPTION_KEY_OR_IV_LENGTH_UNEXCEPTED;
+            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_KEY_OR_IV_LENGTH_UNEXCEPTED);
         }
         GQUIC_ASSERT_FAST_RETURN(cipher_suite->aead(&suite->aead, cipher_key, iv));
         suite->type = GQUIC_TLS_CIPHER_TYPE_AEAD;
     }
     if (cipher_suite->cipher_encrypt != NULL && cipher_key != NULL && iv != NULL) {
         if (cipher_suite->key_len != GQUIC_STR_SIZE(cipher_key) || cipher_suite->iv_len != GQUIC_STR_SIZE(iv)) {
-            return GQUIC_EXCEPTION_KEY_OR_IV_LENGTH_UNEXCEPTED;
+            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_KEY_OR_IV_LENGTH_UNEXCEPTED);
         }
         GQUIC_ASSERT_FAST_RETURN(cipher_suite->cipher_encrypt(&suite->cipher, cipher_key, iv, is_read));
         suite->type = GQUIC_TLS_CIPHER_TYPE_STREAM;
     }
     if (cipher_suite->mac != NULL && mac_key != NULL) {
         if (cipher_suite->mac_len != GQUIC_STR_SIZE(mac_key)) {
-            return GQUIC_EXCEPTION_MAC_LENGTH_UNEXCEPTED;
+            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_MAC_LENGTH_UNEXCEPTED);
         }
         GQUIC_ASSERT_FAST_RETURN(cipher_suite->mac(&suite->mac, 0, mac_key));
     }
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_suite_encrypt(gquic_str_t *const result, gquic_tls_suite_t *const suite, const gquic_str_t *const plain_text) {
     if (result == NULL || suite == NULL || plain_text == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    return gquic_tls_cipher_encrypt(result, &suite->cipher, plain_text);
+    GQUIC_ASSERT_FAST_RETURN(gquic_tls_cipher_encrypt(result, &suite->cipher, plain_text));
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_suite_aead_encrypt(gquic_str_t *const tag,
@@ -450,16 +456,20 @@ int gquic_tls_suite_aead_encrypt(gquic_str_t *const tag,
                                  const gquic_str_t *const plain_text,
                                  const gquic_str_t *const addata) {
     if (tag == NULL || cipher_text == NULL || suite == NULL || nonce == NULL || plain_text == NULL || addata == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    return GQUIC_TLS_AEAD_SEAL(tag, cipher_text, &suite->aead, nonce, plain_text, addata);
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_TLS_AEAD_SEAL(tag, cipher_text, &suite->aead, nonce, plain_text, addata));
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_suite_decrypt(gquic_str_t *const result, gquic_tls_suite_t *const suite, const gquic_str_t *const cipher_text) {
     if (result == NULL || suite == NULL || cipher_text == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    return gquic_tls_cipher_decrypt(result, &suite->cipher, cipher_text);
+    GQUIC_ASSERT_FAST_RETURN(gquic_tls_cipher_decrypt(result, &suite->cipher, cipher_text));
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_suite_aead_decrypt(gquic_str_t *const plain_text,
@@ -469,26 +479,28 @@ int gquic_tls_suite_aead_decrypt(gquic_str_t *const plain_text,
                                  const gquic_str_t *const cipher_text,
                                  const gquic_str_t *const addata) {
     if (plain_text == NULL || suite == NULL || nonce == NULL || tag == NULL || cipher_text == NULL || addata == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    return GQUIC_TLS_AEAD_OPEN(plain_text, &suite->aead, nonce, tag, cipher_text, addata);
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_TLS_AEAD_OPEN(plain_text, &suite->aead, nonce, tag, cipher_text, addata));
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_mac_init(gquic_tls_mac_t *const mac) {
     if (mac == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     mac->mac = NULL;
     mac->md = NULL;
     mac->md_ctx = NULL;
     gquic_str_init(&mac->key);
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_mac_dtor(gquic_tls_mac_t *const mac) {
     if (mac == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (mac->mac != NULL) {
         HMAC_CTX_free(mac->mac);
@@ -498,7 +510,7 @@ int gquic_tls_mac_dtor(gquic_tls_mac_t *const mac) {
     }
     gquic_str_reset(&mac->key);
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_suite_hmac_hash(gquic_str_t *const hash,
@@ -508,9 +520,11 @@ int gquic_tls_suite_hmac_hash(gquic_str_t *const hash,
                               const gquic_str_t *const data,
                               const gquic_str_t *const extra) {
     if (hash == NULL || suite == NULL || data == NULL || suite->mac.mac == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    return gquic_tls_mac_hmac_hash(hash, &suite->mac, seq, header, data, extra);
+    GQUIC_ASSERT_FAST_RETURN(gquic_tls_mac_hmac_hash(hash, &suite->mac, seq, header, data, extra));
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 size_t gquic_tls_suite_nonce_size(const gquic_tls_suite_t *const suite) {
@@ -533,33 +547,33 @@ size_t gquic_tls_suite_mac_size(const gquic_tls_suite_t *const suite) {
 
 static int ecdhe_rsa_ka(gquic_tls_key_agreement_t *const ka, const u_int16_t ver) {
     if (ka == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_tls_key_agreement_ecdhe_init(ka);
     gquic_tls_key_agreement_ecdhe_set_version(ka, ver);
     gquic_tls_key_agreement_ecdhe_set_is_rsa(ka, 1);
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int ecdhe_ecdsa_ka(gquic_tls_key_agreement_t *const ka, const u_int16_t ver) {
     if (ka == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_tls_key_agreement_ecdhe_init(ka);
     gquic_tls_key_agreement_ecdhe_set_version(ka, ver);
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int rsa_ka(gquic_tls_key_agreement_t *const ka, const u_int16_t ver) {
     (void) ver;
     if (ka == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_tls_key_agreement_rsa_init(ka);
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_tls_aead_seal(gquic_str_t *const tag,
@@ -574,26 +588,26 @@ static int gquic_tls_aead_seal(gquic_str_t *const tag,
     gquic_tls_aead_ctx_t *aead_ctx = aead;
     int exception = GQUIC_SUCCESS;
     if (tag == NULL || cipher_text == NULL || aead == NULL || plain_text == NULL || addata == NULL || aead_ctx->nonce_wrapper == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_str_init(&iv);
     if (GQUIC_ASSERT_CAUSE(exception, aead_ctx->nonce_wrapper(&iv, &aead_ctx->nonce, nonce))) {
         goto failure;
     }
     if ((ctx = EVP_CIPHER_CTX_new()) == NULL) {
-        exception = GQUIC_EXCEPTION_ALLOCATION_FAILED;
+        GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
         goto failure;
     }
     if (EVP_EncryptInit_ex(ctx, aead_ctx->cipher, NULL, NULL, NULL) <= 0) {
-        exception = GQUIC_EXCEPTION_ENCRYPT_FAILED;
+        GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ENCRYPT_FAILED);
         goto failure;
     }
     if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_IVLEN, GQUIC_STR_SIZE(&iv), NULL) <= 0) {
-        exception = GQUIC_EXCEPTION_ENCRYPT_FAILED;
+        GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ENCRYPT_FAILED);
         goto failure;
     }
     if (EVP_EncryptInit_ex(ctx, NULL, NULL, GQUIC_STR_VAL(&aead_ctx->key), GQUIC_STR_VAL(&iv)) <= 0) {
-        exception = GQUIC_EXCEPTION_ENCRYPT_FAILED;
+        GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ENCRYPT_FAILED);
         goto failure;
     }
 
@@ -605,13 +619,13 @@ static int gquic_tls_aead_seal(gquic_str_t *const tag,
         EVP_CIPHER_CTX_free(ctx);
     }
     gquic_str_reset(&iv);
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 failure:
     if (ctx != NULL) {
         EVP_CIPHER_CTX_free(ctx);
     }
     gquic_str_reset(&iv);
-    return exception;
+    GQUIC_PROCESS_DONE(exception);
 }
 
 static int gquic_tls_aead_open(gquic_str_t *const plain_text,
@@ -631,26 +645,26 @@ static int gquic_tls_aead_open(gquic_str_t *const plain_text,
         || cipher_text == NULL
         || addata == NULL
         || aead_ctx->nonce_wrapper == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_str_init(&iv);
     if (GQUIC_ASSERT_CAUSE(exception, aead_ctx->nonce_wrapper(&iv, &aead_ctx->nonce, nonce))) {
         goto failure;
     }
     if ((ctx = EVP_CIPHER_CTX_new()) == NULL) {
-        exception = GQUIC_EXCEPTION_ALLOCATION_FAILED;
+        GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
         goto failure;
     }
     if (EVP_DecryptInit_ex(ctx, aead_ctx->cipher, NULL, NULL, NULL) <= 0) {
-        exception = GQUIC_EXCEPTION_DECRYPT_FAILED;
+        GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_DECRYPT_FAILED);
         goto failure;
     }
     if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_IVLEN, GQUIC_STR_SIZE(&iv), NULL) <= 0) {
-        exception = GQUIC_EXCEPTION_DECRYPT_FAILED;
+        GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_DECRYPT_FAILED);
         goto failure;
     }
     if (EVP_DecryptInit_ex(ctx, NULL, NULL, GQUIC_STR_VAL(&aead_ctx->key), GQUIC_STR_VAL(&iv)) <= 0) {
-        exception = GQUIC_EXCEPTION_DECRYPT_FAILED;
+        GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_DECRYPT_FAILED);
         goto failure;
     }
 
@@ -662,13 +676,13 @@ static int gquic_tls_aead_open(gquic_str_t *const plain_text,
         EVP_CIPHER_CTX_free(ctx);
     }
     gquic_str_reset(&iv);
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 failure:
     if (ctx != NULL) {
         EVP_CIPHER_CTX_free(ctx);
     }
     gquic_str_reset(&iv);
-    return exception;
+    GQUIC_PROCESS_DONE(exception);
 }
 
 static int cipher_common(gquic_tls_cipher_t *const ret,
@@ -677,13 +691,13 @@ static int cipher_common(gquic_tls_cipher_t *const ret,
                          const gquic_str_t *const iv,
                          const int is_read) {
     if (ret == NULL || cipher == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if ((size_t) EVP_CIPHER_key_length(cipher) != GQUIC_STR_SIZE(key)) {
-        return GQUIC_EXCEPTION_KEY_OR_IV_LENGTH_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_KEY_OR_IV_LENGTH_UNEXCEPTED);
     }
     if (iv != NULL && (size_t) EVP_CIPHER_iv_length(cipher) != GQUIC_STR_SIZE(iv)) {
-        return GQUIC_EXCEPTION_KEY_OR_IV_LENGTH_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_KEY_OR_IV_LENGTH_UNEXCEPTED);
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_str_copy(&ret->key, key));
     GQUIC_ASSERT_FAST_RETURN(gquic_str_copy(&ret->iv, iv));
@@ -694,25 +708,26 @@ static int cipher_common(gquic_tls_cipher_t *const ret,
     else {
         EVP_EncryptInit_ex(ret->cipher, cipher, NULL, GQUIC_STR_VAL(key), GQUIC_STR_VAL(iv));
     }
-    return GQUIC_SUCCESS;
+    
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int cipher_rc4(gquic_tls_cipher_t *const ret, const gquic_str_t *const key, const gquic_str_t *const iv, const int is_read) {
     if (ret == NULL || key == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     return cipher_common(ret, EVP_rc4(), key, iv, is_read);
 }
 
 static int cipher_3des(gquic_tls_cipher_t *const ret, const gquic_str_t *const key, const gquic_str_t *const iv, const int is_read) {
     if (ret == NULL || key == NULL || iv == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     return cipher_common(ret, EVP_des_ede3_cbc(), key, iv, is_read);
 }
 static int cipher_aes(gquic_tls_cipher_t *const ret, const gquic_str_t *const key, const gquic_str_t *const iv, const int is_read) {
     if (ret == NULL || key == NULL || iv == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     return cipher_common(ret, EVP_aes_256_cbc(), key, iv, is_read);
 }
@@ -720,23 +735,24 @@ static int cipher_aes(gquic_tls_cipher_t *const ret, const gquic_str_t *const ke
 static int mac_common_init(gquic_tls_mac_t *const mac, const u_int16_t ver, const EVP_MD *const md, const gquic_str_t *const key) {
     (void) ver;
     if (mac == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_tls_mac_init(mac);
     mac->md = md;
     if (GQUIC_STR_SIZE(key) == 0) {
         mac->md_ctx = EVP_MD_CTX_new();
         if (EVP_DigestInit_ex(mac->md_ctx, mac->md, NULL) <= 0) {
-            return GQUIC_EXCEPTION_DIGEST_FAILED;
+            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_DIGEST_FAILED);
         }
-        return GQUIC_SUCCESS;
+        GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_str_copy(&mac->key, key));
     mac->mac = HMAC_CTX_new();
     if (HMAC_Init_ex(mac->mac, GQUIC_STR_VAL(key), GQUIC_STR_SIZE(key), mac->md, NULL) <= 0) {
-        return GQUIC_EXCEPTION_HMAC_FAILED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_HMAC_FAILED);
     }
-    return GQUIC_SUCCESS;
+    
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int mac_sha1_init(gquic_tls_mac_t *const mac, const u_int16_t ver, const gquic_str_t *const key) {
@@ -758,7 +774,7 @@ static int aead_seal(gquic_str_t *const tag,
                      const gquic_str_t *const addata) {
     int outlen = 0;
     if (tag == NULL || cipher_text == NULL || ctx == NULL || plain_text == NULL || addata == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_str_alloc(tag, 16));
     EVP_EncryptUpdate(ctx, NULL, &outlen, GQUIC_STR_VAL(addata), GQUIC_STR_SIZE(addata));
@@ -768,7 +784,7 @@ static int aead_seal(gquic_str_t *const tag,
     EVP_EncryptFinal_ex(ctx, GQUIC_STR_VAL(cipher_text), &outlen);
     EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_GET_TAG, 16, GQUIC_STR_VAL(tag));
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int aead_open(gquic_str_t *const ret,
@@ -778,7 +794,7 @@ static int aead_open(gquic_str_t *const ret,
                      const gquic_str_t *const addata) {
     int outlen = 0;
     if (ret == NULL || tag == NULL || cipher_text == NULL || ctx == NULL || cipher_text == NULL || addata == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     EVP_DecryptUpdate(ctx, NULL, &outlen, GQUIC_STR_VAL(addata), GQUIC_STR_SIZE(addata));
     GQUIC_ASSERT_FAST_RETURN(gquic_str_alloc(ret, GQUIC_STR_SIZE(cipher_text) + GQUIC_STR_SIZE(addata)));
@@ -787,7 +803,7 @@ static int aead_open(gquic_str_t *const ret,
     EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_TAG, GQUIC_STR_SIZE(tag), GQUIC_STR_VAL(tag));
     EVP_DecryptFinal_ex(ctx, GQUIC_STR_VAL(ret), &outlen);
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int aead_ctx_dtor(void *self) {
@@ -797,10 +813,10 @@ static int aead_ctx_dtor(void *self) {
 static inline int aead_aes_gcm_init(gquic_tls_aead_t *const ret, const gquic_str_t *const key, const gquic_str_t *const nonce) {
     gquic_tls_aead_ctx_t *ctx = NULL;
     if (ret == NULL || key == NULL || nonce == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if ((ctx = malloc(sizeof(gquic_tls_aead_ctx_t))) == NULL) {
-        return GQUIC_EXCEPTION_ALLOCATION_FAILED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
     }
     gquic_tls_aead_ctx_init(ctx);
     if ((size_t) EVP_CIPHER_key_length(EVP_aes_128_gcm()) == GQUIC_STR_SIZE(key)) {
@@ -813,7 +829,7 @@ static inline int aead_aes_gcm_init(gquic_tls_aead_t *const ret, const gquic_str
         ctx->cipher = EVP_aes_256_gcm();
     }
     else {
-        return GQUIC_EXCEPTION_KEY_OR_IV_LENGTH_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_KEY_OR_IV_LENGTH_UNEXCEPTED);
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_str_copy(&ctx->nonce, nonce));
     GQUIC_ASSERT_FAST_RETURN(gquic_str_copy(&ctx->key, key));
@@ -822,16 +838,16 @@ static inline int aead_aes_gcm_init(gquic_tls_aead_t *const ret, const gquic_str
     ret->seal = gquic_tls_aead_seal;
     ret->dtor = aead_ctx_dtor;
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static inline int aead_chacha20_poly1305_init(gquic_tls_aead_t *const ret, const gquic_str_t *const key, const gquic_str_t *const nonce) {
     gquic_tls_aead_ctx_t *ctx = NULL;
     if (ret == NULL || key == NULL || nonce == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if ((ctx = malloc(sizeof(gquic_tls_aead_ctx_t))) == NULL) {
-        return GQUIC_EXCEPTION_ALLOCATION_FAILED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
     }
     gquic_tls_aead_ctx_init(ctx);
     ctx->cipher = EVP_chacha20_poly1305();
@@ -842,73 +858,73 @@ static inline int aead_chacha20_poly1305_init(gquic_tls_aead_t *const ret, const
     ret->seal = gquic_tls_aead_seal;
     ret->dtor = aead_ctx_dtor;
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int aead_aes_gcm_init_prefix(gquic_tls_aead_t *const ret, const gquic_str_t *const key, const gquic_str_t *const nonce) {
     gquic_tls_aead_ctx_t *ctx = NULL;
     if (ret == NULL || key == NULL || nonce == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    aead_aes_gcm_init(ret, key, nonce);
+    GQUIC_ASSERT_FAST_RETURN(aead_aes_gcm_init(ret, key, nonce));
     ctx = ret->self;
     ctx->nonce_wrapper = aead_prefix_nonce_wrapper;
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int aead_chacha20_poly1305_init_prefix(gquic_tls_aead_t *const ret, const gquic_str_t *const key, const gquic_str_t *const nonce) {
     gquic_tls_aead_ctx_t *ctx = NULL;
     if (ret == NULL || key == NULL || nonce == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     aead_chacha20_poly1305_init(ret, key, nonce);
     ctx = ret->self;
     ctx->nonce_wrapper = aead_prefix_nonce_wrapper;
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int aead_aes_gcm_init_xor(gquic_tls_aead_t *const ret, const gquic_str_t *const key, const gquic_str_t *const nonce) {
     gquic_tls_aead_ctx_t *ctx = NULL;
     if (ret == NULL || key == NULL || nonce == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    aead_aes_gcm_init(ret, key, nonce);
+    GQUIC_ASSERT_FAST_RETURN(aead_aes_gcm_init(ret, key, nonce));
     ctx = ret->self;
     ctx->nonce_wrapper = aead_xor_nonce_wrapper;
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int aead_chacha20_poly1305_init_xor(gquic_tls_aead_t *const ret, const gquic_str_t *const key, const gquic_str_t *const nonce) {
     gquic_tls_aead_ctx_t *ctx = NULL;
     if (ret == NULL || key == NULL || nonce == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     aead_chacha20_poly1305_init(ret, key, nonce);
     ctx = ret->self;
     ctx->nonce_wrapper = aead_xor_nonce_wrapper;
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int aead_prefix_nonce_wrapper(gquic_str_t *const ret, const gquic_str_t *const base, const gquic_str_t *const nonce) {
     if (ret == NULL || base == NULL || nonce == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_str_init(ret);
     GQUIC_ASSERT_FAST_RETURN(gquic_str_alloc(ret, 12));
     memcpy(GQUIC_STR_VAL(ret), GQUIC_STR_VAL(base), 4);
     memcpy(GQUIC_STR_VAL(ret) + 4, GQUIC_STR_VAL(nonce), 8);
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int aead_xor_nonce_wrapper(gquic_str_t *const ret, const gquic_str_t *const base, const gquic_str_t *const nonce) {
     size_t i;
     if (ret == NULL || base == NULL || nonce == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_str_init(ret);
     GQUIC_ASSERT_FAST_RETURN(gquic_str_copy(ret, base));
@@ -916,7 +932,7 @@ static int aead_xor_nonce_wrapper(gquic_str_t *const ret, const gquic_str_t *con
         ((unsigned char *) GQUIC_STR_VAL(ret))[i + 4] ^= ((unsigned char *) GQUIC_STR_VAL(nonce))[i];
     }
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_cipher_suite_expand_label(gquic_str_t *const ret,
@@ -928,17 +944,17 @@ int gquic_tls_cipher_suite_expand_label(gquic_str_t *const ret,
     int exception = GQUIC_SUCCESS;
     gquic_tls_mac_t hash;
     if (ret == NULL || cipher_suite == NULL || secret == NULL || label == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_tls_mac_init(&hash);
     GQUIC_ASSERT_FAST_RETURN(cipher_suite->mac(&hash, 0, NULL));
     if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_hkdf_expand_label(ret, &hash, secret, content, label, length))) {
         gquic_tls_mac_dtor(&hash);
-        return exception;
+        GQUIC_PROCESS_DONE(exception);
     }
 
     gquic_tls_mac_dtor(&hash);
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_cipher_suite_derive_secret(gquic_str_t *const ret,
@@ -950,13 +966,13 @@ int gquic_tls_cipher_suite_derive_secret(gquic_str_t *const ret,
     gquic_str_t content = { 0, NULL };
     int exception = GQUIC_SUCCESS;
     if (ret == NULL || cipher_suite == NULL || secret == NULL || label == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_tls_mac_init(&default_transport);
     if (transport != NULL
         && transport->md_ctx != NULL
         && GQUIC_ASSERT_CAUSE(exception, gquic_tls_mac_md_sum(&content, transport))) {
-        return exception;
+        GQUIC_PROCESS_DONE(exception);
     }
     else {
         cipher_suite->mac(&default_transport, 0, NULL);
@@ -970,7 +986,7 @@ int gquic_tls_cipher_suite_derive_secret(gquic_str_t *const ret,
 
     gquic_tls_mac_dtor(&default_transport);
     gquic_str_reset(&content);
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_cipher_suite_extract(gquic_str_t *const ret,
@@ -980,19 +996,19 @@ int gquic_tls_cipher_suite_extract(gquic_str_t *const ret,
     gquic_tls_mac_t hash;
     int exception = GQUIC_SUCCESS;
     if (ret == NULL || cipher_suite == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_tls_mac_init(&hash);
     if (cipher_suite->mac == NULL || GQUIC_ASSERT_CAUSE(exception, cipher_suite->mac(&hash, 0, NULL))) {
-        return exception;
+        GQUIC_PROCESS_DONE(exception);
     }
     if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_hkdf_extract(ret, &hash, secret, salt))) {
         gquic_tls_mac_dtor(&hash);
-        return exception;
+        GQUIC_PROCESS_DONE(exception);
     }
 
     gquic_tls_mac_dtor(&hash);
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_cipher_suite_traffic_key(gquic_str_t *const key,
@@ -1002,12 +1018,12 @@ int gquic_tls_cipher_suite_traffic_key(gquic_str_t *const key,
     static const gquic_str_t key_label = { 3, "key" };
     static const gquic_str_t iv_label = { 2, "iv" };
     if (key == NULL || iv == NULL || cipher_suite == NULL || traffic_sec == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_cipher_suite_expand_label(key, cipher_suite, traffic_sec, &key_label, NULL, cipher_suite->key_len));
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_cipher_suite_expand_label(iv, cipher_suite, traffic_sec, &iv_label, NULL, 12));
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_cipher_suite_finished_hash(gquic_str_t *const hash,
@@ -1023,7 +1039,7 @@ int gquic_tls_cipher_suite_finished_hash(gquic_str_t *const hash,
     gquic_tls_mac_init(&tmp);
     static const gquic_str_t label = { 8, "finished" };
     if (hash == NULL || cipher_suite == NULL || base_key == NULL || transport == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     cipher_suite->mac(&tmp, GQUIC_TLS_VERSION_13, NULL);
     if (GQUIC_ASSERT_CAUSE(exception,
@@ -1044,37 +1060,37 @@ int gquic_tls_cipher_suite_finished_hash(gquic_str_t *const hash,
     gquic_str_reset(&verify_data);
     gquic_tls_mac_dtor(&mac);
     gquic_tls_mac_dtor(&tmp);
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 failure:
     gquic_str_reset(&finished_key);
     gquic_str_reset(&verify_data);
     gquic_tls_mac_dtor(&mac);
     gquic_tls_mac_dtor(&tmp);
-    return exception;
+    GQUIC_PROCESS_DONE(exception);
 }
 
 int gquic_tls_ekm_init(gquic_tls_ekm_t *const ekm) {
     if (ekm == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     ekm->ekm = NULL;
     ekm->dtor = NULL;
     ekm->self = NULL;
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_ekm_dtor(gquic_tls_ekm_t *const ekm) {
     if (ekm == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (ekm->self == NULL) {
-        return GQUIC_SUCCESS;
+        GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
     if (ekm->dtor != NULL) {
         ekm->dtor(ekm->self);
         free(ekm->self);
     }
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_ekm_invoke(gquic_str_t *const ret,
@@ -1083,7 +1099,7 @@ int gquic_tls_ekm_invoke(gquic_str_t *const ret,
                          const gquic_str_t *const label,
                          const size_t length) {
     if (ekm == NULL || ekm->ekm == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     return ekm->ekm(ret, ekm->self, cnt, label, length);
 }
@@ -1106,46 +1122,46 @@ static int gquic_tls_ekm_keying_material_invoke(gquic_str_t *const ret,
     gquic_tls_ekm_keying_material_t *ekm_self = self;
     int exception = GQUIC_SUCCESS;
     if (ret == NULL || self == NULL || cnt == NULL || label == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_cipher_suite_derive_secret(&sec, ekm_self->cipher_suite, NULL, &ekm_self->exp_master_sec, label));
     gquic_tls_mac_init(&hash);
     if (GQUIC_ASSERT_CAUSE(exception, ekm_self->cipher_suite->mac(&hash, 0, NULL))) {
         gquic_str_reset(&sec);
-        return exception;
+        GQUIC_PROCESS_DONE(exception);
     }
     if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_mac_md_update(&hash, cnt))) {
         gquic_str_reset(&sec);
         gquic_tls_mac_dtor(&hash);
-        return exception;
+        GQUIC_PROCESS_DONE(exception);
     }
     if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_mac_md_sum(&cnt_hash, &hash))) {
         gquic_str_reset(&sec);
         gquic_tls_mac_dtor(&hash);
-        return exception;
+        GQUIC_PROCESS_DONE(exception);
     }
     if (GQUIC_ASSERT_CAUSE(exception,
                            gquic_tls_cipher_suite_expand_label(ret, ekm_self->cipher_suite, &sec, &exporter_label, &cnt_hash, length))) {
         gquic_str_reset(&sec);
         gquic_str_reset(&cnt_hash);
         gquic_tls_mac_dtor(&hash);
-        return exception;
+        GQUIC_PROCESS_DONE(exception);
     }
 
     gquic_str_reset(&sec);
     gquic_str_reset(&cnt_hash);
     gquic_tls_mac_dtor(&hash);
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_tls_ekm_keying_material_dtor(void *self) {
     gquic_tls_ekm_keying_material_t *ekm_self = self;
     if (self == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_str_reset(&ekm_self->exp_master_sec);
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_cipher_suite_export_keying_material(gquic_tls_ekm_t *const ekm,
@@ -1155,7 +1171,7 @@ int gquic_tls_cipher_suite_export_keying_material(gquic_tls_ekm_t *const ekm,
     static const gquic_str_t exporter_label = { 10, "exp master" };
     int exception = GQUIC_SUCCESS;
     if (ekm == NULL || cipher_suite == NULL || master_sec == NULL || transport == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_tls_ekm_keying_material_t *self = malloc(sizeof(gquic_tls_ekm_keying_material_t));
     self->cipher_suite = cipher_suite;
@@ -1163,12 +1179,12 @@ int gquic_tls_cipher_suite_export_keying_material(gquic_tls_ekm_t *const ekm,
     if (GQUIC_ASSERT_CAUSE(exception,
                            gquic_tls_cipher_suite_derive_secret(&self->exp_master_sec, cipher_suite, transport, master_sec, &exporter_label))) {
         free(self);
-        return exception;
+        GQUIC_PROCESS_DONE(exception);
     }
 
     ekm->self = self;
     ekm->ekm = gquic_tls_ekm_keying_material_invoke;
     ekm->dtor = gquic_tls_ekm_keying_material_dtor;
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

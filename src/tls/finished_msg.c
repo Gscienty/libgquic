@@ -29,26 +29,28 @@ gquic_tls_finished_msg_t *gquic_tls_finished_msg_alloc() {
 static int gquic_tls_finished_msg_init(void *const msg) {
     gquic_tls_finished_msg_t *const spec = msg;
     if (msg == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_str_init(&spec->verify);
-    return 0;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_tls_finished_msg_dtor(void *const msg) {
     gquic_tls_finished_msg_t *const spec = msg;
     if (msg == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_str_reset(&spec->verify);
     gquic_tls_finished_msg_init(msg);
-    return 0;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static ssize_t gquic_tls_finished_msg_size(const void *const msg) {
     const gquic_tls_finished_msg_t *const spec = msg;
     if (msg == NULL) {
-        return -1;
+        return 0;
     }
     return 1 + 3 + spec->verify.size;
 }
@@ -57,27 +59,27 @@ static int gquic_tls_finished_msg_serialize(const void *const msg, gquic_writer_
     const gquic_tls_finished_msg_t *const spec = msg;
     gquic_list_t prefix_len_stack;
     if (msg == NULL || writer == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if ((size_t) gquic_tls_finished_msg_size(msg) > GQUIC_STR_SIZE(writer)) {
-        return -2;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
     gquic_list_head_init(&prefix_len_stack);
     gquic_big_endian_writer_1byte(writer, GQUIC_TLS_HANDSHAKE_MSG_TYPE_FINISHED);
     __gquic_fill_str(writer, &spec->verify, 3);
-    return 0;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_tls_finished_msg_deserialize(void *const msg, gquic_reader_str_t *const reader) {
     gquic_tls_finished_msg_t *const spec = msg;
     if (msg == NULL || reader == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (gquic_reader_str_read_byte(reader) != GQUIC_TLS_HANDSHAKE_MSG_TYPE_FINISHED) {
-        return -2;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_TLS_RECORD_TYPE_INVALID_UNEXCEPTED);
     }
-    if (__gquic_recovery_str(&spec->verify, 3, reader) != 0) {
-        return -2;
-    }
-    return 0;
+    GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_str(&spec->verify, 3, reader));
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

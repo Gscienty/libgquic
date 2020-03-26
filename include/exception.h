@@ -78,11 +78,38 @@
 #define GQUIC_EXCEPTION_DECRYPT_FAILED                          -10000075
 #define GQUIC_EXCEPTION_KEY_OR_IV_LENGTH_UNEXCEPTED             -10000076
 #define GQUIC_EXCEPTION_MAC_LENGTH_UNEXCEPTED                   -10000077
+#define GQUIC_EXCEPTION_INVALID_SIGALG                          -10000078
+#define GQUIC_EXCEPTION_MAC_NOT_EQUAL                           -10000079
+#define GQUIC_EXCEPTION_SERVER_CERTS_EMPTY                      -10000080
+#define GQUIC_EXCEPTION_SERVER_CERTS_EXPIRED                    -10000081
+#define GQUIC_EXCEPTION_HANDSHAKE_MESSAGE_EMPTY                 -10000082
+#define GQUIC_EXCEPTION_BAD_CERT                                -10000083
+#define GQUIC_EXCEPTION_RANDOM_FAILED                           -10000084
+#define GQUIC_EXCEPTION_VERIFY_SERVER_BUT_SERVER_NAME_EMPTY     -10000085
+#define GQUIC_EXCEPTION_PROTO_SIZE_UNEXCEPTED                   -10000086
+#define GQUIC_EXCEPTION_PROTOS_TOO_LONG                         -10000087
+#define GQUIC_EXCEPTION_UNSUPPORT_VERSIONS                      -10000088
+#define GQUIC_EXCEPTION_HANDSHAKE_DONE                          -10000089
+#define GQUIC_EXCEPTION_UNSUPPORT_VERSION                       -10000090
+#define GQUIC_EXCEPTION_UNSUPPORT_EXTENSION                     -10000091
+#define GQUIC_EXCEPTION_TLS_ILLEGAL_PARAMERTERS                 -10000092
+#define GQUIC_EXCEPTION_TLS_DECODE_ERROR                        -10000093
+#define GQUIC_EXCEPTION_TLS_MISSION_EXTENSION                   -10000094
+#define GQUIC_EXCEPTION_TLS_UNNECESSARY_HRR_MESSAGE             -10000095
+#define GQUIC_EXCEPTION_TLS_SEND_TWO_HRR                        -10000096
+#define GQUIC_EXCEPTION_TLS_NO_APP_PROTOCOL                     -10000097
+#define GQUIC_EXCEPTION_TLS_HANDSHAKE_MESSAGE_UNEXCEPTED        -10000098
+#define GQUIC_EXCEPTION_TLS_HANDSHAKE_FAILED                    -10000099
 #define GQUIC_SUCCESS 0
 
-#define GQUIC_ASSERT_CAUSE(exception, expression) (((exception) = (expression)) != GQUIC_SUCCESS)
-#define GQUIC_ASSERT(expression) ((expression) != GQUIC_SUCCESS)
+#ifdef DEBUG
 
+#include <stdio.h>
+
+#define GQUIC_ASSERT_CAUSE(exception, expression) \
+    (((exception) = (expression)) != GQUIC_SUCCESS && ({ printf("GQUIC_ASSERT_CAUSE " __FILE__ " %d\n", __LINE__); 1; }))
+#define GQUIC_ASSERT(expression) \
+    ((expression) != GQUIC_SUCCESS && ({ printf("GQUIC_ASSERT " __FILE__ " %d\n", __LINE__); 1; }))
 #define GQUIC_ASSERT_FAST_RETURN(expression) \
 { \
     int __$exception = GQUIC_SUCCESS; \
@@ -90,5 +117,43 @@
         return __$exception; \
     } \
 }
+#define GQUIC_PROCESS_DONE(exception) \
+{ \
+    int __$exception = (exception); \
+    if (__$exception != GQUIC_SUCCESS) {\
+        printf("GQUIC_PROCESS_DONE " __FILE__ " %d\n", __LINE__); \
+    }\
+    return __$exception; \
+}
+#define GQUIC_EXCEPTION_ASSIGN(exception, expression) \
+{\
+    int __$exception = (exception); \
+    if (__$exception != GQUIC_SUCCESS) {\
+        printf("GQUIC_EXCEPTION_ASSIGN " __FILE__ " %d\n", __LINE__); \
+    }\
+    (exception) = __$exception; \
+}
+
+#else
+
+#define GQUIC_ASSERT_CAUSE(exception, expression) (((exception) = (expression)) != GQUIC_SUCCESS)
+#define GQUIC_ASSERT(expression) ((expression) != GQUIC_SUCCESS)
+#define GQUIC_ASSERT_FAST_RETURN(expression) \
+{ \
+    int __$exception = GQUIC_SUCCESS; \
+    if (GQUIC_ASSERT_CAUSE(__$exception, expression)) { \
+        return __$exception; \
+    } \
+}
+#define GQUIC_PROCESS_DONE(exception) \
+{ \
+    return (exception); \
+}
+#define GQUIC_EXCEPTION_ASSIGN(exception, expression) \
+{\
+    (exception) = (expression); \
+}
+
+#endif
 
 #endif

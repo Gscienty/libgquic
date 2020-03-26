@@ -1,9 +1,6 @@
 #ifndef _LIBGQUIC_TLS_CONFIG_H
 #define _LIBGQUIC_TLS_CONFIG_H
 
-#include <time.h>
-#include <openssl/x509.h>
-#include <sys/types.h>
 #include "util/list.h"
 #include "util/rbtree.h"
 #include "util/str.h"
@@ -11,6 +8,10 @@
 #include "tls/cert_req_msg.h"
 #include "tls/common.h"
 #include "tls/cipher_suite.h"
+#include <time.h>
+#include <openssl/x509.h>
+#include <openssl/pkcs12.h>
+#include <sys/types.h>
 
 typedef struct gquic_tls_record_layer_s gquic_tls_record_layer_t;
 struct gquic_tls_record_layer_s {
@@ -48,7 +49,7 @@ struct gquic_tls_config_s {
     int (*extensions) (gquic_list_t *const, void *const, const u_int8_t);
     int (*received_extensions) (void *const, const u_int8_t, gquic_list_t *const);
     int (*verify_peer_certs) (const gquic_list_t *const, const gquic_list_t *const);
-    int (*get_ser_cert) (gquic_str_t *const, const gquic_tls_client_hello_msg_t *const);
+    int (*get_ser_cert) (PKCS12 **const, const gquic_tls_client_hello_msg_t *const);
     int (*get_cli_cert) (gquic_str_t *const, const gquic_tls_cert_req_msg_t *const);
     gquic_tls_record_layer_t alt_record;
     int enforce_next_proto_selection;

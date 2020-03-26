@@ -4,7 +4,7 @@
 #include "tls/_msg_serialize_util.h"
 #include "tls/meta.h"
 
-static ssize_t gquic_tls_encrypt_ext_msg_optional_deserialize(gquic_tls_encrypt_ext_msg_t *, gquic_reader_str_t *const);
+static int gquic_tls_encrypt_ext_msg_optional_deserialize(gquic_tls_encrypt_ext_msg_t *, gquic_reader_str_t *const);
 
 static int gquic_tls_encrypt_ext_msg_init(void *const msg);
 static int gquic_tls_encrypt_ext_msg_dtor(void *const msg);
@@ -31,31 +31,33 @@ gquic_tls_encrypt_ext_msg_t *gquic_tls_encrypt_ext_msg_alloc() {
 static int gquic_tls_encrypt_ext_msg_init(void *const msg) {
     gquic_tls_encrypt_ext_msg_t *const spec = msg;
     if (msg == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_str_init(&spec->alpn_proto);
     gquic_list_head_init(&spec->addition_exts);
-    return 0;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_tls_encrypt_ext_msg_dtor(void *const msg) {
     gquic_tls_encrypt_ext_msg_t *const spec = msg;
     if (msg == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_str_reset(&spec->alpn_proto);
     while (!gquic_list_head_empty(&spec->addition_exts)) {
         gquic_str_reset(&((gquic_tls_extension_t *) GQUIC_LIST_FIRST(&spec->addition_exts))->data);
         gquic_list_release(GQUIC_LIST_FIRST(&spec->addition_exts));
     }
-    return 0;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static ssize_t gquic_tls_encrypt_ext_msg_size(const void *const msg) {
     const gquic_tls_encrypt_ext_msg_t *const spec = msg;
     size_t ret = 0;
     if (msg == NULL) {
-        return -1;
+        return 0;
     }
     // encrypted extensions
     ret += 1;
@@ -75,10 +77,10 @@ static int gquic_tls_encrypt_ext_msg_serialize(const void *const msg, gquic_writ
     gquic_list_t prefix_len_stack;
     int _lazy = 0;
     if (msg == NULL || writer == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if ((size_t) gquic_tls_encrypt_ext_msg_size(msg) > GQUIC_STR_SIZE(writer)) {
-        return -2;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
     gquic_list_head_init(&prefix_len_stack);
     gquic_big_endian_writer_1byte(writer, GQUIC_TLS_HANDSHAKE_MSG_TYPE_ENCRYPTED_EXTS);
@@ -98,83 +100,70 @@ static int gquic_tls_encrypt_ext_msg_serialize(const void *const msg, gquic_writ
         __gquic_fill_str(writer, &ext->data, 2);
     }
     for (_lazy = 0; _lazy < 2; _lazy++) __gquic_fill_prefix_len(&prefix_len_stack, writer);
-    return 0;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_tls_encrypt_ext_msg_deserialize(void *const msg, gquic_reader_str_t *const reader) {
     ssize_t prefix_len = 0;
     if (msg == NULL || reader == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (gquic_reader_str_read_byte(reader) != GQUIC_TLS_HANDSHAKE_MSG_TYPE_ENCRYPTED_EXTS) {
-        return -2;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_TLS_RECORD_TYPE_INVALID_UNEXCEPTED);
     }
     __gquic_recovery_bytes(&prefix_len, 3, reader);
     if ((size_t) prefix_len > GQUIC_STR_SIZE(reader)) {
-        return -3;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
     __gquic_recovery_bytes(&prefix_len, 2, reader);
     if ((size_t) prefix_len > GQUIC_STR_SIZE(reader)) {
-        return -3;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
     gquic_reader_str_t opt_reader = { prefix_len, GQUIC_STR_VAL(reader) };
-    if (gquic_tls_encrypt_ext_msg_optional_deserialize(msg, &opt_reader) < 0) {
-        return -2;
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_tls_encrypt_ext_msg_optional_deserialize(msg, &opt_reader));
     gquic_reader_str_readed_size(reader, GQUIC_STR_VAL(&opt_reader) - GQUIC_STR_VAL(reader));
 
-    return 0;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static ssize_t gquic_tls_encrypt_ext_msg_optional_deserialize(gquic_tls_encrypt_ext_msg_t*msg, gquic_reader_str_t *const reader) {
+static int gquic_tls_encrypt_ext_msg_optional_deserialize(gquic_tls_encrypt_ext_msg_t*msg, gquic_reader_str_t *const reader) {
     u_int16_t opt_type = 0;
     size_t prefix_len = 0;
     void *_ = NULL;
     gquic_tls_extension_t *field;
     if (msg == NULL || reader == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     while (GQUIC_STR_SIZE(reader) > 0) {
         opt_type = 0;
-        if (__gquic_recovery_bytes(&opt_type, 2, reader) != 0) {
-            return -2;
-        }
+        GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&opt_type, 2, reader));
 
         switch (opt_type) {
-
         case GQUIC_TLS_EXTENSION_ALPN:
             gquic_reader_str_readed_size(reader, 2 + 2);
             prefix_len = 0;
-            if (__gquic_recovery_bytes(&prefix_len, 1, reader) != 0) {
-                return -3;
-            }
+            GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&prefix_len, 1, reader));
             for (_ = GQUIC_STR_VAL(reader); (size_t) (GQUIC_STR_VAL(reader) - _) < prefix_len;) {
                 u_int8_t *alpn = gquic_list_alloc(sizeof(u_int8_t));
                 if (alpn == NULL) {
-                    return -4;
+                    GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
                 }
-                if (__gquic_recovery_bytes(alpn, 1, reader) != 0) {
-                    return -5;
-                }
-                if (gquic_list_insert_before(GQUIC_LIST_PAYLOAD(&msg->alpn_proto), alpn) != 0) {
-                    return -6;
-                }
+                GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(alpn, 1, reader));
+                GQUIC_ASSERT_FAST_RETURN(gquic_list_insert_before(GQUIC_LIST_PAYLOAD(&msg->alpn_proto), alpn));
             }
             break;
 
         default:
             if ((field = gquic_list_alloc(sizeof(gquic_tls_extension_t))) == NULL) {
-                return -7;
+                GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
             }
             field->type = opt_type;
-            if (__gquic_recovery_str(&field->data, 2, reader) != 0) {
-                return -8;
-            }
-            if (gquic_list_insert_before(&msg->addition_exts, field) != 0) {
-                return -9;
-            }
+            GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_str(&field->data, 2, reader));
+            GQUIC_ASSERT_FAST_RETURN(gquic_list_insert_before(&msg->addition_exts, field));
             break;
         }
     }
-    return 0;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
