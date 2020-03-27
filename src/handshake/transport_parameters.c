@@ -10,7 +10,7 @@ static inline int __serialize_var(gquic_writer_str_t *const, gquic_list_t *const
 
 int gquic_transport_parameters_init(gquic_transport_parameters_t *const params) {
     if (params == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_str_init(&params->original_conn_id);
     params->idle_timeout = 0;
@@ -27,7 +27,7 @@ int gquic_transport_parameters_init(gquic_transport_parameters_t *const params) 
     params->disable_migration = 1;
     params->active_conn_id_limit = 0;
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 size_t gquic_transport_parameters_size(const gquic_transport_parameters_t *const params) {
@@ -67,7 +67,7 @@ size_t gquic_transport_parameters_size(const gquic_transport_parameters_t *const
 int gquic_transport_parameters_serialize(const gquic_transport_parameters_t *const params, gquic_writer_str_t *const writer) {
     gquic_list_t prefix_len_stack;
     if (params == NULL || writer == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     
     gquic_list_head_init(&prefix_len_stack);
@@ -117,7 +117,7 @@ int gquic_transport_parameters_serialize(const gquic_transport_parameters_t *con
     tmp_writer.size += 2;
     __gquic_fill_prefix_len(&prefix_len_stack, &tmp_writer);
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_transport_parameters_deserialize(gquic_transport_parameters_t *const params, gquic_reader_str_t *const reader) {
@@ -125,11 +125,11 @@ int gquic_transport_parameters_deserialize(gquic_transport_parameters_t *const p
     u_int16_t id = 0;
     u_int16_t param_len = 0;
     if (params == NULL || reader == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     __gquic_recovery_bytes(&len, 2, reader);
     if (len > GQUIC_STR_SIZE(reader) - 2) {
-        return GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
     gquic_reader_str_t inner_reader = { len, GQUIC_STR_VAL(reader) };
     while (GQUIC_STR_SIZE(&inner_reader) >= 4) {
@@ -185,7 +185,7 @@ int gquic_transport_parameters_deserialize(gquic_transport_parameters_t *const p
         }
     }
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static inline int __serialize_var(gquic_writer_str_t *const writer,
@@ -193,12 +193,12 @@ static inline int __serialize_var(gquic_writer_str_t *const writer,
                                   const u_int16_t id,
                                   const u_int64_t val) {
     if (writer == NULL || prefix_len_stack == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_big_endian_writer_2byte(writer, id);
     __gquic_store_prefix_len(prefix_len_stack, writer, 2);
     GQUIC_ASSERT_FAST_RETURN(gquic_varint_serialize(&val, writer));
     __gquic_fill_prefix_len(prefix_len_stack, writer);
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

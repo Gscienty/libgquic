@@ -41,10 +41,10 @@ static int gquic_frame_stream_serialize(const void *const frame, gquic_writer_st
     u_int64_t len = 0;
     const gquic_frame_stream_t *spec = frame;
     if (spec == NULL || writer == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (GQUIC_FRAME_SIZE(spec) > GQUIC_STR_SIZE(writer)) {
-        return GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_writer_str_write_byte(writer, GQUIC_FRAME_META(spec).type));
     len = GQUIC_STR_SIZE(&spec->data);
@@ -61,7 +61,7 @@ static int gquic_frame_stream_serialize(const void *const frame, gquic_writer_st
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_writer_str_write(writer, &spec->data));
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_frame_stream_deserialize(void *const frame, gquic_reader_str_t *const reader) {
@@ -69,11 +69,11 @@ static int gquic_frame_stream_deserialize(void *const frame, gquic_reader_str_t 
     u_int8_t type;
     gquic_frame_stream_t *spec = frame;
     if (spec == NULL || reader == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     type = gquic_reader_str_read_byte(reader);
     if ((type & 0x08) != 0x08) {
-        return GQUIC_EXCEPTION_FRAME_TYPE_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_FRAME_TYPE_UNEXCEPTED);
     }
     GQUIC_FRAME_META(spec).type = type;
     u_int64_t *vars[] = {
@@ -91,29 +91,29 @@ static int gquic_frame_stream_deserialize(void *const frame, gquic_reader_str_t 
     GQUIC_ASSERT_FAST_RETURN(gquic_str_alloc(&spec->data, len));
     GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_read(&spec->data, reader));
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_frame_stream_init(void *const frame) {
     gquic_frame_stream_t *spec = frame;
     if (spec == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_str_init(&spec->data);
     spec->id = 0;
     spec->off = 0;
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_frame_stream_dtor(void *const frame) {
     gquic_frame_stream_t *spec = frame;
     if (spec == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_str_reset(&spec->data);
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 u_int64_t gquic_frame_stream_data_capacity(const u_int64_t size, const gquic_frame_stream_t *const frame) {
@@ -135,6 +135,7 @@ u_int64_t gquic_frame_stream_data_capacity(const u_int64_t size, const gquic_fra
     if ((GQUIC_FRAME_META(frame).type & 0x02) != 0x00 && gquic_varint_size(&capacity_size) != 1) {
         capacity_size--;
     }
+
     return capacity_size;
 }
 

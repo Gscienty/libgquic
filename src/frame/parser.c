@@ -27,16 +27,16 @@ static int gquic_frame_parser_parse(void **const, gquic_frame_parser_t *const, g
 
 int gquic_frame_parser_init(gquic_frame_parser_t *const parser) {
     if (parser == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     parser->ack_delay_exponent = 0;
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_frame_parser_next(void **const frame_storage, gquic_frame_parser_t *const parser, gquic_reader_str_t *const reader, const u_int8_t enc_lv) {
     if (frame_storage == NULL || parser == NULL || reader == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     while (GQUIC_STR_SIZE(reader) != 0) {
         if (GQUIC_STR_FIRST_BYTE(reader) == 0x00) {
@@ -44,10 +44,10 @@ int gquic_frame_parser_next(void **const frame_storage, gquic_frame_parser_t *co
             continue;
         }
         GQUIC_ASSERT_FAST_RETURN(gquic_frame_parser_parse(frame_storage, parser, reader, enc_lv));
-        return GQUIC_SUCCESS;
+        GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_frame_parser_parse(void **const frame_storage,
@@ -55,7 +55,7 @@ static int gquic_frame_parser_parse(void **const frame_storage,
                                     gquic_reader_str_t *const reader,
                                     const u_int8_t enc_lv) {
     if (frame_storage == NULL || parser == NULL || reader == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     *frame_storage = NULL;
 
@@ -71,13 +71,13 @@ static int gquic_frame_parser_parse(void **const frame_storage,
         case 0x1d: // conn close
             break;
         default:
-            return GQUIC_EXCEPTION_ENC_LV_FRAME_CONFLICT;
+            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ENC_LV_FRAME_CONFLICT);
         }
         break;
     case GQUIC_ENC_LV_1RTT:
         break;
     default:
-        return GQUIC_EXCEPTION_INVALID_ENC_LV;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INVALID_ENC_LV);
     }
 
     if ((GQUIC_STR_FIRST_BYTE(reader) & 0xf8) == 0x08) {
@@ -140,13 +140,13 @@ static int gquic_frame_parser_parse(void **const frame_storage,
         *frame_storage = gquic_frame_connection_close_alloc();
         break;
     default:
-        return GQUIC_EXCEPTION_INVALID_FRAME;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INVALID_FRAME);
     }
     if (*frame_storage == NULL) {
-        return GQUIC_EXCEPTION_INTERNAL_ERROR;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INTERNAL_ERROR);
     }
     GQUIC_FRAME_INIT(*frame_storage);
     GQUIC_ASSERT_FAST_RETURN(GQUIC_FRAME_DESRIALIZE(*frame_storage, reader));
 
-    return 0;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

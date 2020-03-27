@@ -18,15 +18,16 @@ void *gquic_frame_alloc(size_t size) {
     meta->on_acked.cb = NULL;
     meta->on_lost.self = NULL;
     meta->on_lost.cb = NULL;
+
     return ((void *) meta) + sizeof(gquic_frame_meta_t);
 }
 
 int gquic_frame_release(void *const frame) {
     if (frame == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     GQUIC_FRAME_DTOR(frame);
     free(&GQUIC_FRAME_META(frame));
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

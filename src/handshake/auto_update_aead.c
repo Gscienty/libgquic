@@ -9,7 +9,7 @@ static int gquic_auto_update_aead_next_traffic_sec(gquic_str_t *const,
 
 int gquic_auto_update_aead_init(gquic_auto_update_aead_t *const aead) {
     if (aead == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     aead->suite = NULL;
     aead->times = 0;
@@ -40,7 +40,7 @@ int gquic_auto_update_aead_init(gquic_auto_update_aead_t *const aead) {
 
     gquic_str_init(&aead->nonce_buf);
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_auto_update_aead_roll(gquic_auto_update_aead_t *const aead, const u_int64_t now) {
@@ -49,7 +49,7 @@ int gquic_auto_update_aead_roll(gquic_auto_update_aead_t *const aead, const u_in
     gquic_str_t next_recv_traffic_sec = { 0, NULL };
     gquic_str_t next_send_traffic_sec = { 0, NULL };
     if (aead == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
 
     aead->times++;
@@ -88,12 +88,12 @@ int gquic_auto_update_aead_roll(gquic_auto_update_aead_t *const aead, const u_in
 
     gquic_str_reset(&next_recv_traffic_sec);
     gquic_str_reset(&next_send_traffic_sec);
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 failure:
 
     gquic_str_reset(&next_recv_traffic_sec);
     gquic_str_reset(&next_send_traffic_sec);
-    return exception;
+    GQUIC_PROCESS_DONE(exception);
 }
 
 static int gquic_auto_update_aead_next_traffic_sec(gquic_str_t *const ret,
@@ -102,14 +102,14 @@ static int gquic_auto_update_aead_next_traffic_sec(gquic_str_t *const ret,
     static const gquic_str_t label = { 7, "quic ku" };
     gquic_tls_mac_t hash;
     if (ret == NULL || suite == NULL || traffic_sec == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_tls_mac_init(&hash);
     GQUIC_ASSERT_FAST_RETURN(suite->mac(&hash, GQUIC_TLS_VERSION_13, NULL));
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_hkdf_expand_label(ret, &hash, traffic_sec, NULL, &label, EVP_MD_size(hash.md)));
     gquic_tls_mac_dtor(&hash);
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_auto_update_aead_set_rkey(gquic_auto_update_aead_t *const aead,
@@ -117,7 +117,7 @@ int gquic_auto_update_aead_set_rkey(gquic_auto_update_aead_t *const aead,
                                     const gquic_str_t *const traffic_sec) {
     gquic_str_t next_recv_traffic_sec = { 0, NULL };
     if (aead == NULL || suite == NULL || traffic_sec == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_header_protector_dtor(&aead->header_dec);
     gquic_header_protector_init(&aead->header_dec);
@@ -139,7 +139,7 @@ int gquic_auto_update_aead_set_rkey(gquic_auto_update_aead_t *const aead,
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_create_aead(&aead->next_recv_aead, suite, &aead->next_recv_traffic_sec));
 
     gquic_str_reset(&next_recv_traffic_sec);
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_auto_update_aead_set_wkey(gquic_auto_update_aead_t *const aead,
@@ -147,7 +147,7 @@ int gquic_auto_update_aead_set_wkey(gquic_auto_update_aead_t *const aead,
                                     const gquic_str_t *const traffic_sec) {
     gquic_str_t next_send_traffic_sec = { 0, NULL };
     if (aead == NULL || suite == NULL || traffic_sec == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_header_protector_dtor(&aead->header_enc);
     gquic_header_protector_init(&aead->header_enc);
@@ -169,7 +169,7 @@ int gquic_auto_update_aead_set_wkey(gquic_auto_update_aead_t *const aead,
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_create_aead(&aead->next_send_aead, suite, &aead->next_send_traffic_sec));
 
     gquic_str_reset(&next_send_traffic_sec);
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_auto_update_aead_open(gquic_str_t *const plain_text,
@@ -181,7 +181,7 @@ int gquic_auto_update_aead_open(gquic_str_t *const plain_text,
                                 const gquic_str_t *const cipher_text,
                                 const gquic_str_t *const addata) {
     if (plain_text == NULL || aead == NULL || tag == NULL || cipher_text == NULL || addata == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (aead->prev_recv_aead.self != NULL && recv_time > aead->prev_recv_aead_expire) {
         gquic_tls_aead_dtor(&aead->prev_recv_aead);
@@ -192,35 +192,36 @@ int gquic_auto_update_aead_open(gquic_str_t *const plain_text,
     if (kp != (aead->times % 2 == 1)) {
         if (aead->cur_key_first_recv_pn == ((u_int64_t) -1) || pn < aead->cur_key_first_recv_pn) {
             if (aead->times == 0) {
-                return GQUIC_EXCEPTION_KEY_TIMES_ERROR;
+                GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_KEY_TIMES_ERROR);
             }
             if (aead->prev_recv_aead.self == NULL) {
-                return GQUIC_EXCEPTION_KEY_DROPPED;
+                GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_KEY_DROPPED);
             }
             if (GQUIC_ASSERT(GQUIC_TLS_AEAD_OPEN(plain_text, &aead->prev_recv_aead, &aead->nonce_buf, tag, cipher_text, addata))) {
-                return GQUIC_EXCEPTION_DECRYPTION_FAILED;
+                GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_DECRYPTION_FAILED);
             }
-            return GQUIC_SUCCESS;
+
+            GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
         }
         if (GQUIC_ASSERT(GQUIC_TLS_AEAD_OPEN(plain_text, &aead->next_recv_aead, &aead->nonce_buf, tag, cipher_text, addata))) {
-            return GQUIC_EXCEPTION_DECRYPTION_FAILED;
+            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_DECRYPTION_FAILED);
         }
         if (aead->cur_key_first_sent_pn == ((u_int64_t) -1)) {
-            return GQUIC_EXCEPTION_UPDATE_KEY_QUICKLY;
+            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_UPDATE_KEY_QUICKLY);
         }
         GQUIC_ASSERT_FAST_RETURN(gquic_auto_update_aead_roll(aead, recv_time));
         aead->cur_key_first_recv_pn = pn;
-        return GQUIC_SUCCESS;
+        GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
     if (GQUIC_ASSERT(GQUIC_TLS_AEAD_OPEN(plain_text, &aead->recv_aead, &aead->nonce_buf, tag, cipher_text, addata))) {
-        return GQUIC_EXCEPTION_DECRYPTION_FAILED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_DECRYPTION_FAILED);
     }
     aead->cur_key_num_recv++;
     if (aead->cur_key_first_recv_pn == ((u_int64_t) -1)) {
         aead->cur_key_first_recv_pn = pn;
     }
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_auto_update_aead_seal(gquic_str_t *const tag,
@@ -230,7 +231,7 @@ int gquic_auto_update_aead_seal(gquic_str_t *const tag,
                                 const gquic_str_t *const plain_text,
                                 const gquic_str_t *const addata) {
     if (cipher_text == NULL || tag == NULL || aead == NULL || plain_text == NULL || addata == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (aead->cur_key_first_sent_pn == ((u_int64_t) -1)) {
         aead->cur_key_first_sent_pn = pn;
@@ -239,5 +240,5 @@ int gquic_auto_update_aead_seal(gquic_str_t *const tag,
     gquic_big_endian_transfer(GQUIC_STR_VAL(&aead->nonce_buf) - 8, &pn, 8);
     GQUIC_ASSERT_FAST_RETURN(GQUIC_TLS_AEAD_SEAL(tag, cipher_text, &aead->send_aead, &aead->nonce_buf, plain_text, addata));
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

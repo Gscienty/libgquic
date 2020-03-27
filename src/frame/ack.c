@@ -11,12 +11,12 @@ static int gquic_frame_ack_dtor(void *const);
 
 int gquic_frame_ack_range_init(gquic_frame_ack_range_t *const range) {
     if (range == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     range->gap = 0;
     range->range = 0;
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 gquic_frame_ack_t *gquic_frame_ack_alloc() {
@@ -55,10 +55,10 @@ static size_t gquic_frame_ack_size(const void *const frame) {
 static int gquic_frame_ack_serialize(const void *const frame, gquic_writer_str_t *const writer) {
     const gquic_frame_ack_t *spec = frame;
     if (spec == NULL || writer == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (GQUIC_FRAME_SIZE(spec) > GQUIC_STR_SIZE(writer)) {
-        return GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_writer_str_write_byte(writer, GQUIC_FRAME_META(spec).type));
     const u_int64_t *vars[] = { &spec->largest_ack, &spec->delay, &spec->count, &spec->first_range };
@@ -80,18 +80,18 @@ static int gquic_frame_ack_serialize(const void *const frame, gquic_writer_str_t
         }
     }
 
-    return 0;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_frame_ack_deserialize(void *const frame, gquic_reader_str_t *const reader) {
     u_int8_t type;
     gquic_frame_ack_t *spec = frame;
     if (spec == NULL || reader == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     type = gquic_reader_str_read_byte(reader);
     if (type != 0x02 && type != 0x03) {
-        return GQUIC_EXCEPTION_FRAME_TYPE_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_FRAME_TYPE_UNEXCEPTED);
     }
     GQUIC_FRAME_META(spec).type = type;
     u_int64_t *vars[] = { &spec->largest_ack, &spec->delay, &spec->count, &spec->first_range };
@@ -119,13 +119,13 @@ static int gquic_frame_ack_deserialize(void *const frame, gquic_reader_str_t *co
         }
     }
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_frame_ack_init(void *const frame) {
     gquic_frame_ack_t *spec = frame;
     if (spec == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     spec->count = 0;
     spec->delay = 0;
@@ -136,19 +136,19 @@ static int gquic_frame_ack_init(void *const frame) {
     spec->largest_ack = 0;
     gquic_list_head_init(&spec->ranges);
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_frame_ack_dtor(void *const frame) {
     gquic_frame_ack_t *spec = frame;
     if (spec == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     while (gquic_list_next(GQUIC_LIST_PAYLOAD(&spec->ranges)) != GQUIC_LIST_PAYLOAD(&spec->ranges)) {
         gquic_list_release(gquic_list_next(GQUIC_LIST_PAYLOAD(&spec->ranges)));
     }
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_frame_ack_acks_packet(const gquic_list_t *const blocks, const u_int64_t pn) {
@@ -175,12 +175,12 @@ int gquic_frame_ack_ranges_to_blocks(gquic_list_t *const blocks, const gquic_fra
     u_int64_t largest = 0;
     u_int64_t smallest = 0;
     if (blocks == NULL || spec == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     largest = spec->largest_ack;
     smallest = largest - spec->first_range;
     if ((block = gquic_list_alloc(sizeof(gquic_frame_ack_block_t))) == NULL) {
-        return GQUIC_EXCEPTION_ALLOCATION_FAILED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
     }
     block->largest = largest;
     block->smallest = smallest;
@@ -189,14 +189,14 @@ int gquic_frame_ack_ranges_to_blocks(gquic_list_t *const blocks, const gquic_fra
         largest = smallest - range->gap - 2;
         smallest = largest - range->range;
         if ((block = gquic_list_alloc(sizeof(gquic_frame_ack_block_t))) == NULL) {
-            return GQUIC_EXCEPTION_ALLOCATION_FAILED;
+            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
         }
         block->largest = largest;
         block->smallest = smallest;
         gquic_list_insert_before(blocks, block);
     }
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_frame_ack_ranges_from_blocks(gquic_frame_ack_t *const spec, const gquic_list_t *const blocks) {
@@ -206,7 +206,7 @@ int gquic_frame_ack_ranges_from_blocks(gquic_frame_ack_t *const spec, const gqui
     u_int64_t largest = 0;
     u_int64_t smallest = 0;
     if (spec == NULL || blocks == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     block = GQUIC_LIST_FIRST(blocks);
     largest = block->largest;
@@ -220,7 +220,7 @@ int gquic_frame_ack_ranges_from_blocks(gquic_frame_ack_t *const spec, const gqui
             continue;
         }
         if ((range = gquic_list_alloc(sizeof(gquic_frame_ack_range_t))) == NULL) {
-            return GQUIC_EXCEPTION_ALLOCATION_FAILED;
+            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
         }
         range->gap = smallest - block->largest - 2;
         range->range = block->largest - block->smallest;
@@ -228,7 +228,7 @@ int gquic_frame_ack_ranges_from_blocks(gquic_frame_ack_t *const spec, const gqui
         spec->count++;
     }
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_frames_has_frame_ack(gquic_list_t *const frames) {

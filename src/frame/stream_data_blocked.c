@@ -20,6 +20,7 @@ gquic_frame_stream_data_blocked_t *gquic_frame_stream_data_blocked_alloc() {
     GQUIC_FRAME_META(frame).dtor_func = gquic_frame_stream_data_blocked_dtor;
     GQUIC_FRAME_META(frame).serialize_func = gquic_frame_stream_data_blocked_serialize;
     GQUIC_FRAME_META(frame).size_func = gquic_frame_stream_data_blocked_size;
+
     return frame;
 }
 
@@ -28,6 +29,7 @@ static size_t gquic_frame_stream_data_blocked_size(const void *const frame) {
     if (spec == NULL) {
         return 0;
     }
+
     return 1 + gquic_varint_size(&spec->id) + gquic_varint_size(&spec->limit);
 }
 
@@ -35,10 +37,10 @@ static int gquic_frame_stream_data_blocked_serialize(const void *const frame, gq
     int i;
     const gquic_frame_stream_data_blocked_t *spec = frame;
     if (spec == NULL || writer == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (GQUIC_FRAME_SIZE(spec) > GQUIC_STR_SIZE(writer)) {
-        return GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_writer_str_write_byte(writer, GQUIC_FRAME_META(spec).type));
     const u_int64_t *vars[] = { &spec->id, &spec->limit };
@@ -46,16 +48,16 @@ static int gquic_frame_stream_data_blocked_serialize(const void *const frame, gq
         GQUIC_ASSERT_FAST_RETURN(gquic_varint_serialize(vars[i], writer));
     }
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_frame_stream_data_blocked_deserialize(void *const frame, gquic_reader_str_t *const reader) {
     gquic_frame_stream_data_blocked_t *spec = frame;
     if (spec == NULL || reader == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (gquic_reader_str_read_byte(reader) != GQUIC_FRAME_META(spec).type) {
-        return GQUIC_EXCEPTION_FRAME_TYPE_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_FRAME_TYPE_UNEXCEPTED);
     }
     u_int64_t *vars[] = { &spec->id, &spec->limit };
     int i = 0;
@@ -63,23 +65,24 @@ static int gquic_frame_stream_data_blocked_deserialize(void *const frame, gquic_
         GQUIC_ASSERT_FAST_RETURN(gquic_varint_deserialize(vars[i], reader));
     }
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_frame_stream_data_blocked_init(void *const frame) {
     gquic_frame_stream_data_blocked_t *spec = frame;
     if (spec == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     spec->id = 0;
     spec->limit = 0;
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_frame_stream_data_blocked_dtor(void *const frame) {
     if (frame == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    return GQUIC_SUCCESS;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

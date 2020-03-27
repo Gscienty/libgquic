@@ -39,10 +39,10 @@ static size_t gquic_frame_connection_close_size(const void *const frame) {
 static int gquic_frame_connection_close_serialize(const void *const frame, gquic_writer_str_t *const writer) {
     const gquic_frame_connection_close_t *spec = frame;
     if (spec == NULL || writer == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (GQUIC_FRAME_SIZE(spec) > GQUIC_STR_SIZE(writer)) {
-        return GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_writer_str_write_byte(writer, GQUIC_FRAME_META(spec).type));
 
@@ -57,7 +57,7 @@ static int gquic_frame_connection_close_serialize(const void *const frame, gquic
     gquic_str_t phase = { spec->phase_len, spec->phase };
     GQUIC_ASSERT_FAST_RETURN(gquic_writer_str_write(writer, &phase));
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_frame_connection_close_deserialize(void *const frame, gquic_reader_str_t *const reader) {
@@ -65,11 +65,11 @@ static int gquic_frame_connection_close_deserialize(void *const frame, gquic_rea
     int i = 0;
     gquic_frame_connection_close_t *spec = frame;
     if (spec == NULL || reader == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     type = gquic_reader_str_read_byte(reader);
     if (type != 0x1c && type != 0x1d) {
-        return GQUIC_EXCEPTION_FRAME_TYPE_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_FRAME_TYPE_UNEXCEPTED);
     }
     GQUIC_FRAME_META(spec).type = type;
     u_int64_t *vars[] = { &spec->errcode, (type == 0x1d ? &spec->type : NULL), &spec->phase_len };
@@ -80,35 +80,35 @@ static int gquic_frame_connection_close_deserialize(void *const frame, gquic_rea
         GQUIC_ASSERT_FAST_RETURN(gquic_varint_deserialize(vars[i], reader));
     }
     if ((spec->phase = malloc(spec->phase_len)) == NULL) {
-        return GQUIC_EXCEPTION_ALLOCATION_FAILED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
     }
     gquic_str_t phase = { spec->phase_len, spec->phase };
     GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_read(&phase, reader));
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_frame_connection_close_init(void *const frame) {
     gquic_frame_connection_close_t *spec = frame;
     if (spec == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     spec->errcode = 0;
     spec->phase_len = 0;
     spec->type = 0;
     spec->phase = NULL;
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_frame_connection_close_dtor(void *const frame) {
     gquic_frame_connection_close_t *spec = frame;
     if (spec == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (spec->phase != NULL) {
         free(spec->phase);
     }
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
