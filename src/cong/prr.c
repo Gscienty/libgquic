@@ -3,26 +3,26 @@
 
 int gquic_prr_init(gquic_prr_t *const prr) {
     if (prr == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     prr->ack_count = 0;
     prr->delivered_bytes = 0;
     prr->infly_bytes = 0;
     prr->sent_bytes = 0;
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_prr_packet_lost(gquic_prr_t *const prr, const u_int64_t infly) {
     if (prr == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     prr->ack_count = 0;
     prr->delivered_bytes = 0;
     prr->infly_bytes = infly;
     prr->sent_bytes = 0;
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_prr_allowable_send(gquic_prr_t *const prr, const u_int64_t cwnd, const u_int64_t infly, const u_int64_t slowstart_thd) {
