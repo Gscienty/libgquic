@@ -29,60 +29,60 @@ gquic_tls_next_proto_msg_t *gquic_tls_next_proto_msg_alloc() {
 static int gquic_tls_next_proto_msg_init(void *const msg) {
     gquic_tls_next_proto_msg_t *const spec = msg;
     if (msg == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_str_init(&spec->verify);
-    return 0;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_tls_next_proto_msg_dtor(void *const msg) {
     gquic_tls_next_proto_msg_t *const spec = msg;
     if (msg == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_str_reset(&spec->verify);
     gquic_tls_next_proto_msg_init(msg);
-    return 0;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static ssize_t gquic_tls_next_proto_msg_size(const void *const msg) {
     const gquic_tls_next_proto_msg_t *const spec = msg;
     if (msg == NULL) {
-        return -1;
+        return 0;
     }
     return 1 + 3 + spec->verify.size;
 }
 
 static int gquic_tls_next_proto_msg_serialize(const void *const msg, gquic_writer_str_t *const writer) {
     const gquic_tls_next_proto_msg_t *const spec = msg;
-    size_t off = 0;
     gquic_list_t prefix_len_stack;
     if (msg == NULL || writer == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if ((size_t) gquic_tls_next_proto_msg_size(msg) > GQUIC_STR_SIZE(writer)) {
-        return -2;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
     gquic_list_head_init(&prefix_len_stack);
     gquic_big_endian_writer_1byte(writer, GQUIC_TLS_HANDSHAKE_MSG_TYPE_NEXT_PROTO);
     __gquic_store_prefix_len(&prefix_len_stack, writer, 3);
     __gquic_fill_str(writer, &spec->verify, 1);
     __gquic_fill_prefix_len(&prefix_len_stack, writer);
-    return off;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_tls_next_proto_msg_deserialize(void *const msg, gquic_reader_str_t *const reader) {
     gquic_tls_next_proto_msg_t *const spec = msg;
-    size_t off = 0;
     if (msg == NULL || reader == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (gquic_reader_str_read_byte(reader) != GQUIC_TLS_HANDSHAKE_MSG_TYPE_NEXT_PROTO) {
-        return -2;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
-    off += 3;
-    if (__gquic_recovery_str(&spec->verify, 1, reader) != 0) {
-        return -2;
-    }
-    return off;
+    GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_readed_size(reader, 3));
+    GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_str(&spec->verify, 1, reader));
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

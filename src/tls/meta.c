@@ -1,4 +1,5 @@
 #include "tls/meta.h"
+#include "exception.h"
 #include <malloc.h>
 
 void *gquic_tls_msg_alloc(const size_t size) {
@@ -18,10 +19,10 @@ void *gquic_tls_msg_alloc(const size_t size) {
 
 int gquic_tls_msg_release(void *const msg) {
     if (msg == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     GQUIC_TLS_MSG_DTOR(msg);
     free(&GQUIC_TLS_MSG_META(msg));
 
-    return 0;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

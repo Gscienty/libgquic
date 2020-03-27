@@ -29,22 +29,24 @@ gquic_tls_key_update_msg_t *gquic_tls_key_update_msg_alloc() {
 static int gquic_tls_key_update_msg_init(void *const msg) {
     gquic_tls_key_update_msg_t *const spec = msg;
     if (msg == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     spec->req = 0;
-    return 0;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_tls_key_update_msg_dtor(void *const msg) {
     if (msg == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    return 0;
+    
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static ssize_t gquic_tls_key_update_msg_size(const void *const msg) {
     if (msg == NULL) {
-        return -1;
+        return 0;
     }
     return 1 + 3 + 1;
 }
@@ -53,10 +55,10 @@ static int gquic_tls_key_update_msg_serialize(const void *const msg, gquic_write
     const gquic_tls_key_update_msg_t *const spec = msg;
     gquic_list_t prefix_len_stack;
     if (msg == NULL || writer == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if ((size_t) gquic_tls_key_update_msg_size(msg) > GQUIC_STR_SIZE(writer)) {
-        return -2;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
     gquic_list_head_init(&prefix_len_stack);
     gquic_big_endian_writer_1byte(writer, GQUIC_TLS_HANDSHAKE_MSG_TYPE_KEY_UPDATE);
@@ -69,28 +71,25 @@ static int gquic_tls_key_update_msg_serialize(const void *const msg, gquic_write
     }
     __gquic_fill_prefix_len(&prefix_len_stack, writer);
 
-    return 0;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_tls_key_update_msg_deserialize(void *const msg, gquic_reader_str_t *const reader) {
     gquic_tls_key_update_msg_t *const spec = msg;
     size_t prefix_len = 0;
     if (msg == NULL || reader == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (gquic_reader_str_read_byte(reader) != GQUIC_TLS_HANDSHAKE_MSG_TYPE_KEY_UPDATE) {
-        return -2;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_TLS_RECORD_TYPE_INVALID_UNEXCEPTED);
     }
     prefix_len = 0;
-    if (__gquic_recovery_bytes(&prefix_len, 3, reader) != 0) {
-        return -3;
-    }
+    GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&prefix_len, 3, reader));
     if (prefix_len > GQUIC_STR_SIZE(reader)) {
-        return -4;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
-    if (__gquic_recovery_bytes(&spec->req, 1, reader) != 0) {
-        return -5;
-    }
-    return 0;
+    GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&spec->req, 1, reader));
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 

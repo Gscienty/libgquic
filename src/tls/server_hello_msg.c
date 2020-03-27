@@ -37,7 +37,7 @@ gquic_tls_server_hello_msg_t *gquic_tls_server_hello_msg_alloc() {
 static int gquic_tls_server_hello_msg_init(void *const msg) {
     gquic_tls_server_hello_msg_t *const spec = msg;
     if (msg == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     spec->vers = 0;
     gquic_str_init(&spec->random);
@@ -59,13 +59,14 @@ static int gquic_tls_server_hello_msg_init(void *const msg) {
     spec->selected_identity = 0;
     gquic_str_init(&spec->cookie);
     spec->selected_group = 0;
-    return 0;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_tls_server_hello_msg_dtor(void *const msg) {
     gquic_tls_server_hello_msg_t *const spec = msg;
     if (msg == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_str_reset(&spec->random);
     gquic_str_reset(&spec->sess_id);
@@ -81,13 +82,14 @@ static int gquic_tls_server_hello_msg_dtor(void *const msg) {
         gquic_str_reset(GQUIC_LIST_FIRST(&spec->scts));
         gquic_list_release(GQUIC_LIST_FIRST(&spec->scts));
     }
-    return 0;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static ssize_t gquic_tls_server_hello_msg_size(const void *const msg) {
     size_t ret = 0;
     if (msg == NULL) {
-        return -1;
+        return 0;
     }
     // server hello
     ret += 1;
@@ -100,7 +102,7 @@ static ssize_t gquic_tls_server_hello_msg_size(const void *const msg) {
 static ssize_t gquic_tls_server_hello_msg_payload_size(const gquic_tls_server_hello_msg_t *msg) {
     size_t ret = 0;
     if (msg == NULL) {
-        return -1;
+        return 0;
     }
 
     // ver
@@ -122,7 +124,7 @@ static ssize_t gquic_tls_server_hello_msg_payload_size(const gquic_tls_server_he
 static ssize_t gquic_tls_server_hello_msg_optional_size(const gquic_tls_server_hello_msg_t *msg) {
     size_t ret = 0;
     if (msg == NULL) {
-        return -1;
+        return 0;
     }
     // next_proto_neg
     if (msg->next_proto_neg) {
@@ -158,34 +160,31 @@ static ssize_t gquic_tls_server_hello_msg_optional_size(const gquic_tls_server_h
 }
 
 static int gquic_tls_server_hello_msg_serialize(const void *const msg, gquic_writer_str_t *const writer) {
-    ssize_t ret = 0;
     gquic_list_t prefix_len_stack;
     if (msg == NULL || writer == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if ((size_t) gquic_tls_server_hello_msg_size(msg) > GQUIC_STR_SIZE(writer)) {
-        return -2;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
     gquic_list_head_init(&prefix_len_stack);
     // server_hello
     gquic_big_endian_writer_1byte(writer, GQUIC_TLS_HANDSHAKE_MSG_TYPE_SERVER_HELLO);
 
     __gquic_store_prefix_len(&prefix_len_stack, writer, 3);
-    if ((ret = gquic_tls_server_hello_msg_payload_serialize(msg, writer)) != 0) {
-        return -3 + ret * 100;
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_tls_server_hello_msg_payload_serialize(msg, writer));
     __gquic_fill_prefix_len(&prefix_len_stack, writer);
-    return 0;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_tls_server_hello_msg_payload_serialize(const gquic_tls_server_hello_msg_t *msg, gquic_writer_str_t *const writer) {
-    ssize_t ret = 0;
     gquic_list_t prefix_len_stack;
     if (msg == NULL || writer == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if ((size_t) gquic_tls_server_hello_msg_payload_size(msg) > GQUIC_STR_SIZE(writer)) {
-        return -2;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
     gquic_list_head_init(&prefix_len_stack);
 
@@ -194,7 +193,7 @@ static int gquic_tls_server_hello_msg_payload_serialize(const gquic_tls_server_h
 
     // random
     if (msg->random.size != 32) {
-        return -3;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INTERNAL_ERROR);
     }
     gquic_writer_str_write(writer, &msg->random);
 
@@ -209,23 +208,20 @@ static int gquic_tls_server_hello_msg_payload_serialize(const gquic_tls_server_h
 
     // optional prefix len
     __gquic_store_prefix_len(&prefix_len_stack, writer, 2);
-    if ((ret = gquic_tls_server_hello_msg_optional_serialize(msg, writer)) < 0) {
-        return -4;
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_tls_server_hello_msg_optional_serialize(msg, writer));
     __gquic_fill_prefix_len(&prefix_len_stack, writer);
 
-    return 0;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_tls_server_hello_msg_optional_serialize(const gquic_tls_server_hello_msg_t *msg, gquic_writer_str_t *const writer) {
-    size_t off = 0;
     int _lazy = 0;
     gquic_list_t prefix_len_stack;
     if (msg == NULL || writer == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if ((size_t) gquic_tls_server_hello_msg_optional_size(msg) > GQUIC_STR_SIZE(writer)) {
-        return -2;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
     gquic_list_head_init(&prefix_len_stack);
 
@@ -322,77 +318,59 @@ static int gquic_tls_server_hello_msg_optional_serialize(const gquic_tls_server_
         __gquic_fill_prefix_len(&prefix_len_stack, writer);
     }
 
-    return off;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_tls_server_hello_msg_deserialize(void *const msg, gquic_reader_str_t *const reader) {
     ssize_t ret = 0;
     if (msg == NULL || reader == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (gquic_reader_str_read_byte(reader) != GQUIC_TLS_HANDSHAKE_MSG_TYPE_SERVER_HELLO) {
-        return -2;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
     __gquic_recovery_bytes(&ret, 3, reader);
     if ((size_t) ret > GQUIC_STR_SIZE(reader)) {
-        return -3;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
-    if ((ret = gquic_tls_server_hello_payload_deserialize(msg, reader)) < 0) {
-        return -3;
-    }
-    return 0;
+    GQUIC_ASSERT_FAST_RETURN(gquic_tls_server_hello_payload_deserialize(msg, reader));
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_tls_server_hello_payload_deserialize(gquic_tls_server_hello_msg_t *msg, gquic_reader_str_t *const reader) {
     size_t prefix_len = 0;
-    ssize_t ret = 0;
     if (msg == NULL || reader == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
 
     // vers
-    if (__gquic_recovery_bytes(&msg->vers, 2, reader) != 0) {
-        return -2;
-    }
+    GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&msg->vers, 2, reader));
 
     // random
-    if (gquic_str_alloc(&msg->random, 32) != 0) {
-        return -3;
-    }
-    if (gquic_reader_str_read(&msg->random, reader) != 0) {
-        return -4;
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_str_alloc(&msg->random, 32));
+    GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_read(&msg->random, reader));
 
     // sess_id
-    if (__gquic_recovery_str(&msg->sess_id, 1, reader) != 0) {
-        return -2;
-    }
+    GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_str(&msg->sess_id, 1, reader));
 
     // cipher_suite
-    if (__gquic_recovery_bytes(&msg->cipher_suite, 2, reader) != 0) {
-        return -2;
-    }
+    GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&msg->cipher_suite, 2, reader));
 
     // compression_method
-    if (__gquic_recovery_bytes(&msg->compression_method, 1, reader) != 0) {
-        return -2;
-    }
+    GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&msg->compression_method, 1, reader));
 
     // optional prefix len
     prefix_len = 0;
-    if (__gquic_recovery_bytes(&prefix_len, 2, reader) != 0) {
-        return -2;
-    }
+    GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&prefix_len, 2, reader));
     if (prefix_len > GQUIC_STR_SIZE(reader)) {
-        return -2;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
     gquic_reader_str_t opt_reader = { prefix_len, GQUIC_STR_VAL(reader) };
-    if ((ret = gquic_tls_server_hello_optional_deserialize(msg, &opt_reader)) < 0) {
-        return -2;
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_tls_server_hello_optional_deserialize(msg, &opt_reader));
     gquic_reader_str_readed_size(reader, GQUIC_STR_VAL(&opt_reader) - GQUIC_STR_VAL(reader));
 
-    return 0;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_tls_server_hello_optional_deserialize(gquic_tls_server_hello_msg_t *msg, gquic_reader_str_t *const reader) {
@@ -401,32 +379,23 @@ static int gquic_tls_server_hello_optional_deserialize(gquic_tls_server_hello_ms
     void *_ = NULL;
     void *field;
     if (msg == NULL || reader == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     while (GQUIC_STR_SIZE(reader) > 0) {
         opt_type = 0;
-        if (__gquic_recovery_bytes(&opt_type, 2, reader) != 0) {
-            return -2;
-        }
+        GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&opt_type, 2, reader));
 
         switch (opt_type) {
-            
         case GQUIC_TLS_EXTENSION_NEXT_PROTO_NEG:
             msg->next_proto_neg = 1;
             prefix_len = 0;
-            if (__gquic_recovery_bytes(&prefix_len, 2, reader) != 0) {
-                return -2;
-            }
+            GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&prefix_len, 2, reader));
             for (_ = GQUIC_STR_VAL(reader); (size_t) (GQUIC_STR_VAL(reader) - _) < prefix_len;) { 
                 if ((field = gquic_list_alloc(sizeof(gquic_str_t))) == NULL) {
-                    return -2;
+                    GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
                 }
-                if (__gquic_recovery_str(field, 1, reader) != 0) {
-                    return -2;
-                }
-                if (gquic_list_insert_before(&msg->next_protos, field) != 0) {
-                    return -2;
-                }
+                GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_str(field, 1, reader));
+                GQUIC_ASSERT_FAST_RETURN(gquic_list_insert_before(&msg->next_protos, field));
             }
             break;
 
@@ -443,94 +412,66 @@ static int gquic_tls_server_hello_optional_deserialize(gquic_tls_server_hello_ms
         case GQUIC_TLS_EXTENSION_RENEGOTIATION_INFO:
             msg->secure_regegotiation_supported = 1;
             gquic_reader_str_readed_size(reader, 2);
-            if (__gquic_recovery_str(&msg->secure_regegotation, 1, reader) != 0) {
-                return -2;
-            }
+            GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_str(&msg->secure_regegotation, 1, reader));
             break;
 
         case GQUIC_TLS_EXTENSION_ALPN:
             gquic_reader_str_readed_size(reader, 2 + 2);
             prefix_len = 0;
-            if (__gquic_recovery_bytes(&prefix_len, 1, reader) != 0) {
-                return -2;
-            }
+            GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&prefix_len, 1, reader));
             for (_ = GQUIC_STR_VAL(reader); (size_t) (GQUIC_STR_VAL(reader) - _) < prefix_len;) { 
                 u_int8_t *alpn = gquic_list_alloc(sizeof(u_int8_t));
                 if (alpn == NULL) {
-                    return -2;
+                    GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
                 }
-                if (__gquic_recovery_bytes(alpn, 1, reader) != 0) {
-                    return -2;
-                }
-                if (gquic_list_insert_before(GQUIC_LIST_PAYLOAD(&msg->alpn_proto), alpn) != 0) {
-                    return -2;
-                }
+                GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(alpn, 1, reader));
+                GQUIC_ASSERT_FAST_RETURN(gquic_list_insert_before(GQUIC_LIST_PAYLOAD(&msg->alpn_proto), alpn));
             }
             break;
 
         case GQUIC_TLS_EXTENSION_SCT:
             gquic_reader_str_readed_size(reader, 2);
             prefix_len = 0;
-            if (__gquic_recovery_bytes(&prefix_len, 2, reader) != 0) {
-                return -2;
-            }
+            GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&prefix_len, 2, reader));
             for (_ = GQUIC_STR_VAL(reader); (size_t) (GQUIC_STR_VAL(reader) - _) < prefix_len;) { 
                 if ((field = gquic_list_alloc(sizeof(gquic_str_t))) == NULL) {
-                    return -2;
+                    GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
                 }
-                if (__gquic_recovery_str(field, 2, reader) != 0) {
-                    return -2;
-                }
-                if (gquic_list_insert_before(&msg->scts, field) != 0) {
-                    return -2;
-                }
+                GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_str(field, 2, reader));
+                GQUIC_ASSERT_FAST_RETURN(gquic_list_insert_before(&msg->scts, field));
             }
             break;
 
         case GQUIC_TLS_EXTENSION_SUPPORTED_VERSIONS:
             gquic_reader_str_readed_size(reader, 2);
-            if (__gquic_recovery_bytes(&msg->supported_version, 2, reader) != 0) {
-                return -2;
-            }
+            GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&msg->supported_version, 2, reader));
             break;
 
         case GQUIC_TLS_EXTENSION_KEY_SHARE:
             prefix_len = 0;
-            if (__gquic_recovery_bytes(&prefix_len, 2, reader) != 0) {
-                return -2;
-            }
+            GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&prefix_len, 2, reader));
             if (prefix_len == 2) {
-                if (__gquic_recovery_bytes(&msg->selected_group, 2, reader) != 0) {
-                    return -2;
-                }
+                GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&msg->selected_group, 2, reader));
             }
             else {
-                if (__gquic_recovery_bytes(&msg->ser_share.group, 2, reader) != 0) {
-                    return -2;
-                }
-                if (__gquic_recovery_str(&msg->ser_share.data, 2, reader) != 0) {
-                    return -2;
-                }
+                GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&msg->ser_share.group, 2, reader));
+                GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_str(&msg->ser_share.data, 2, reader));
             }
             break;
 
         case GQUIC_TLS_EXTENSION_PRE_SHARED_KEY:
             gquic_reader_str_readed_size(reader, 2);
             msg->selected_identity_persent = 1;
-            if (__gquic_recovery_bytes(&msg->selected_identity, 2, reader) != 0) {
-                return -2;
-            }
+            GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&msg->selected_identity, 2, reader));
             break;
 
         case GQUIC_TLS_EXTENSION_COOKIE:
             gquic_reader_str_readed_size(reader, 2);
-            if (__gquic_recovery_str(&msg->cookie, 2, reader) != 0) {
-                return -2;
-            }
+            GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_str(&msg->cookie, 2, reader));
             break;
 
         }
     }
 
-    return 0;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

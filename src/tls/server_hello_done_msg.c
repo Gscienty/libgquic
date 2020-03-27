@@ -28,45 +28,49 @@ gquic_tls_server_hello_done_msg_t *gquic_tls_server_hello_done_msg_alloc() {
 
 static int gquic_tls_server_hello_done_msg_init(void *const msg) {
     if (msg == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    return 0;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_tls_server_hello_done_msg_dtor(void *const msg) {
     if (msg == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    return 0;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static ssize_t gquic_tls_server_hello_done_msg_size(const void *const msg) {
     if (msg == NULL) {
-        return -1;
+        return 0;
     }
     return 4;
 }
 
 static int gquic_tls_server_hello_done_msg_serialize(const void *const msg, gquic_writer_str_t *const writer) {
-    size_t off = 0;
     if (msg == NULL || writer == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if ((size_t) gquic_tls_server_hello_done_msg_size(msg) > GQUIC_STR_SIZE(writer)) {
-        return -2;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
     gquic_big_endian_writer_1byte(writer, GQUIC_TLS_HANDSHAKE_MSG_TYPE_SER_HELLO_DONE);
     gquic_big_endian_writer_1byte(writer, 0);
     gquic_big_endian_writer_2byte(writer, 0);
-    return off;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_tls_server_hello_done_msg_deserialize(void *const msg, gquic_reader_str_t *const reader) {
     if (msg == NULL || reader == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (gquic_reader_str_read_byte(reader) != GQUIC_TLS_HANDSHAKE_MSG_TYPE_SER_HELLO_DONE) {
-        return -2;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
-    return gquic_reader_str_readed_size(reader, 3);
+    GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_readed_size(reader, 3));
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

@@ -20,21 +20,21 @@ static inline int __gquic_recovery_bytes(void *ret, const size_t bytes, gquic_re
 
 static inline int __gquic_recovery_str(gquic_str_t *str, const size_t bytes, gquic_reader_str_t *const reader) {
     if (str == NULL || reader == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (bytes > GQUIC_STR_SIZE(reader)) {
-        return GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
     gquic_str_init(str);
     GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&str->size, bytes, reader));
 
     if (str->size > GQUIC_STR_SIZE(reader)) {
-        return GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_str_alloc(str, str->size));
     GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_read(str, reader));
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static inline int __gquic_recovery_x509(X509 ** x509_storage, const size_t bytes, gquic_reader_str_t *const reader) {

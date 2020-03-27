@@ -1,9 +1,10 @@
 #include "tls/prf.h"
 #include "tls/common.h"
+#include "exception.h"
 
 int gquic_tls_hash_from_sigalg(const EVP_MD **const hash, u_int16_t sigalg) {
     if (hash == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     switch (sigalg) {
     case GQUIC_SIGALG_ECDSA_SHA1:
@@ -29,7 +30,8 @@ int gquic_tls_hash_from_sigalg(const EVP_MD **const hash, u_int16_t sigalg) {
         *hash = NULL;
         break;
     default:
-        return -2;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INVALID_SIGALG);
     }
-    return 0;
+    
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

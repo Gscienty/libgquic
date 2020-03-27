@@ -7,6 +7,7 @@
 #include "tls/client_key_exchange_msg.h"
 #include "tls/common.h"
 #include "util/str.h"
+#include <openssl/pkcs12.h>
 
 typedef struct gquic_tls_key_agreement_s gquic_tls_key_agreement_t;
 struct gquic_tls_key_agreement_s {
@@ -15,13 +16,13 @@ struct gquic_tls_key_agreement_s {
     int (*generate_ser_key_exchange)(gquic_tls_server_key_exchange_msg_t *const,
                                      void *const,
                                      const gquic_tls_config_t *const,
-                                     const gquic_str_t *const,
+                                     PKCS12 *const,
                                      const gquic_tls_client_hello_msg_t *const,
                                      const gquic_tls_server_hello_msg_t *const);
     int (*process_cli_key_exchange)(gquic_str_t *const,
                                     void *const,
                                     const gquic_tls_config_t *const,
-                                    const gquic_str_t *const,
+                                    PKCS12 *const,
                                     const gquic_tls_client_key_exchange_msg_t *const,
                                     u_int16_t);
 
@@ -30,12 +31,12 @@ struct gquic_tls_key_agreement_s {
                                      void *const,
                                      const gquic_tls_config_t *const,
                                      const gquic_tls_client_hello_msg_t *const,
-                                     const gquic_str_t *const);
+                                     X509 *const);
     int (*process_ser_key_exchange)(void *const,
                                     const gquic_tls_config_t *const,
                                     const gquic_tls_client_hello_msg_t *const,
                                     const gquic_tls_server_hello_msg_t *const,
-                                    const gquic_str_t *const,
+                                    X509 *const,
                                     const gquic_tls_server_key_exchange_msg_t *const);
     int (*dtor) (void *const);
 };

@@ -54,5 +54,6 @@ static inline void __gquic_fill_str(gquic_writer_str_t *const writer, const gqui
 static inline void __gquic_fill_x509(gquic_writer_str_t *const writer, X509 *const x509, const u_int8_t prefix_len) {
     size_t size = i2d_X509(x509, NULL);
     gquic_big_endian_transfer(GQUIC_STR_VAL(writer), &size, prefix_len);
+    gquic_writer_str_writed_size(writer, prefix_len);
     gquic_writer_str_write_x509(writer, x509);
 }
