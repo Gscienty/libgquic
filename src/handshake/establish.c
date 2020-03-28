@@ -944,10 +944,10 @@ int gquic_handshake_establish_get_handshake_opener(gquic_header_protector_t **co
     if (!est->handshake_opener.available) {
         if (est->initial_opener.available) {
             sem_post(&est->mtx);
-            return GQUIC_EXCEPTION_KEY_DROPPED;
+            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_KEY_UNAVAILABLE);
         }
         sem_post(&est->mtx);
-        return GQUIC_EXCEPTION_KEY_UNAVAILABLE;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_KEY_DROPPED);
     }
     else {
         GQUIC_ASSERT_CAUSE(exception, gquic_common_long_header_opener_get_header_opener(protector, &est->handshake_opener));
@@ -1007,7 +1007,7 @@ int gquic_handshake_establish_get_handshake_sealer(gquic_header_protector_t **co
     }
     sem_wait(&est->mtx);
     if (!est->handshake_sealer.available) {
-        if (!est->initial_sealer.available) {
+        if (est->initial_sealer.available) {
             sem_post(&est->mtx);
             GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_KEY_UNAVAILABLE);
         }
