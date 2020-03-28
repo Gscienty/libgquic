@@ -1,5 +1,6 @@
 #include "closed_session.h"
 #include "util/sem_list.h"
+#include "exception.h"
 #include <malloc.h>
 #include <semaphore.h>
 #include <pthread.h>
@@ -74,22 +75,25 @@ gquic_packet_handler_t *gquic_closed_remote_session_server_alloc() {
 static int gquic_closed_remote_session_handle_packet(void *const _, gquic_received_packet_t *const rp) {
     (void) _;
     if (rp == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_packet_buffer_put(rp->buffer);
     free(rp);
-    return 0;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_closed_remote_session_close(void *const _) {
     (void) _;
-    return 0;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_closed_remote_session_destory(void *const _, const int __) {
     (void) _;
     (void) __;
-    return 0;
+    
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_closed_remote_session_client_is_client(void *const _) {
@@ -132,7 +136,7 @@ gquic_packet_handler_t *gquic_closed_local_session_alloc(gquic_net_conn_t *const
 static int gquic_closed_local_session_is_client(void *const sess_) {
     gquic_closed_local_session_t *const sess = sess_;
     if (sess == NULL) {
-        return -1;
+        return 0;
     }
     return sess->is_client;
 }
@@ -145,40 +149,42 @@ static int gquic_closed_local_session_destory(void *const sess_, const int _) {
     (void) _;
     gquic_closed_local_session_t *const sess = sess_;
     if (sess == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     sem_wait(&sess->close_mtx);
     if (sess->close_flag) {
         sem_post(&sess->close_mtx);
-        return 0;
+        GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
     sess->close_flag = 1;
     u_int8_t *event = NULL;
     if ((event = gquic_list_alloc(sizeof(u_int8_t)))== NULL) {
         sem_post(&sess->close_mtx);
-        return -2;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
     }
     *event = GQUIC_CLOSED_LOCAL_SESSION_EVENT_CLOSE;
     sem_post(&sess->close_mtx);
 
     gquic_sem_list_push(&sess->run_event_list, event);
-    return 0;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_closed_local_session_handle_packet(void *const sess_, gquic_received_packet_t *const rp) {
     gquic_closed_local_session_t *const sess = sess_;
     if (sess_  == NULL || rp == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     u_int8_t *event = NULL;
     if ((event = gquic_list_alloc(sizeof(u_int8_t)))== NULL) {
-        return -2;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
     }
     *event = GQUIC_CLOSED_LOCAL_SESSION_EVENT_RECEIVED_PACKET;
     gquic_packet_buffer_put(rp->buffer);
     free(rp);
     gquic_sem_list_push(&sess->run_event_list, event);
-    return 0;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static void *gquic_closed_local_session_thread(void *const sess_) {
@@ -213,10 +219,10 @@ loop_start:
 
 static int gquic_closed_local_session_dtor(gquic_closed_local_session_t *const sess) {
     if (sess == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_str_reset(&sess->data);
     // TODO clear sem_list
 
-    return 0;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
