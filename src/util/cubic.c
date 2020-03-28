@@ -9,7 +9,7 @@ static float gquic_cubic_bata_last_max(const gquic_cubic_t *const);
 
 int gquic_cubic_init(gquic_cubic_t *const cubic) {
     if (cubic == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     cubic->conn_count = 1;
     cubic->epoch = 0;
@@ -20,15 +20,15 @@ int gquic_cubic_init(gquic_cubic_t *const cubic) {
     cubic->origin_point_time = 0;
     cubic->last_target_cwnd = 0;
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_cubic_ctor(gquic_cubic_t *const cubic) {
     if (cubic == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     cubic->conn_count = 1;
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static float gquic_cubic_beta(const gquic_cubic_t *const cubic) {

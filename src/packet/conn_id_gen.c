@@ -7,7 +7,7 @@ static int gquic_conn_id_gen_issue_new_conn_id(gquic_conn_id_gen_t *const);
 
 int gquic_conn_id_gen_init(gquic_conn_id_gen_t *const gen) {
     if (gen == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gen->conn_id_len = 0;
     gen->highest_seq = 0;
@@ -26,7 +26,7 @@ int gquic_conn_id_gen_init(gquic_conn_id_gen_t *const gen) {
     gen->queue_ctrl_frame.cb = NULL;
     gen->queue_ctrl_frame.self = NULL;
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_conn_id_gen_ctor(gquic_conn_id_gen_t *const gen,
@@ -55,7 +55,7 @@ int gquic_conn_id_gen_ctor(gquic_conn_id_gen_t *const gen,
         || replace_with_closed_cb == NULL
         || queue_ctrl_frame_self == NULL
         || queue_ctrl_frame_cb == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gen->conn_id_len = GQUIC_STR_SIZE(initial_conn_id);
     gen->add_conn_id.cb = add_conn_id_cb;
@@ -69,26 +69,24 @@ int gquic_conn_id_gen_ctor(gquic_conn_id_gen_t *const gen,
     gen->queue_ctrl_frame.cb = queue_ctrl_frame_cb;
     gen->queue_ctrl_frame.self = queue_ctrl_frame_self;
 
-    if (gquic_rbtree_alloc(&rbt, sizeof(u_int64_t), sizeof(gquic_str_t)) != 0) {
-        return GQUIC_EXCEPTION_ALLOCATION_FAILED;
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_rbtree_alloc(&rbt, sizeof(u_int64_t), sizeof(gquic_str_t)));
     *(u_int64_t *) GQUIC_RBTREE_KEY(rbt) = 0;
     gquic_str_init(GQUIC_RBTREE_VALUE(rbt));
     gquic_str_copy(GQUIC_RBTREE_VALUE(rbt), initial_conn_id);
     gquic_rbtree_insert(&gen->active_src_conn_ids, rbt);
     gquic_str_copy(&gen->initial_cli_dst_conn_id, initial_cli_dst_conn_id);
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_conn_id_gen_set_max_active_conn_ids(gquic_conn_id_gen_t *const gen, const u_int64_t limit) {
     u_int64_t i = 0;
     u_int64_t used_limit = limit;
     if (gen == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (gen->conn_id_len == 0) {
-        return GQUIC_SUCCESS;
+        GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
     if (6 < used_limit) {
         used_limit = 6;
@@ -96,17 +94,18 @@ int gquic_conn_id_gen_set_max_active_conn_ids(gquic_conn_id_gen_t *const gen, co
     for (i = 1; i < used_limit; i++) {
         GQUIC_ASSERT_FAST_RETURN(gquic_conn_id_gen_issue_new_conn_id(gen));
     }
-    return GQUIC_SUCCESS;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_conn_id_gen_issue_new_conn_id(gquic_conn_id_gen_t *const gen) {
-    int exception = 0;
+    int exception = GQUIC_SUCCESS;
     gquic_str_t conn_id = { 0, NULL };
     gquic_str_t token = { 0, NULL };
     gquic_rbtree_t *rbt = NULL;
     gquic_frame_new_connection_id_t *frame = NULL;
     if (gen == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (GQUIC_ASSERT_CAUSE(exception, gquic_conn_id_generate(&conn_id, gen->conn_id_len))) {
         goto failure;
@@ -123,7 +122,7 @@ static int gquic_conn_id_gen_issue_new_conn_id(gquic_conn_id_gen_t *const gen) {
         goto failure;
     }
     if ((frame = gquic_frame_new_connection_id_alloc()) == NULL) {
-        exception = GQUIC_EXCEPTION_ALLOCATION_FAILED;
+        GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
         goto failure;
     }
     memcpy(frame->conn_id, GQUIC_STR_VAL(&conn_id), GQUIC_STR_SIZE(&conn_id));
@@ -135,7 +134,7 @@ static int gquic_conn_id_gen_issue_new_conn_id(gquic_conn_id_gen_t *const gen) {
 
     gquic_str_reset(&conn_id);
     gquic_str_reset(&token);
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 failure:
     gquic_str_reset(&conn_id);
     gquic_str_reset(&token);
@@ -144,34 +143,35 @@ failure:
         gquic_rbtree_release(rbt, NULL);
     }
 
-    return exception;
+    GQUIC_PROCESS_DONE(exception);
 }
 
 int gquic_conn_id_gen_retire(gquic_conn_id_gen_t *const gen, const u_int64_t seq) {
     gquic_rbtree_t *rbt = NULL;
     if (gen == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (seq > gen->highest_seq) {
-        return GQUIC_EXCEPTION_GREATE_THAN_HIGHEST_SEQ;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_GREATE_THAN_HIGHEST_SEQ);
     }
     if (gquic_rbtree_find((const gquic_rbtree_t **) &rbt, gen->active_src_conn_ids, &seq, sizeof(u_int64_t)) != 0) {
-        return GQUIC_SUCCESS;
+        GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
     GQUIC_CONN_ID_GEN_RETIRE_CONN_ID(gen, GQUIC_RBTREE_VALUE(rbt));
     gquic_rbtree_remove(&gen->active_src_conn_ids, &rbt);
     gquic_str_reset(GQUIC_RBTREE_VALUE(rbt));
     gquic_rbtree_release(rbt, NULL);
     if (seq == 0) {
-        return GQUIC_SUCCESS;
+        GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
+    GQUIC_ASSERT_FAST_RETURN(gquic_conn_id_gen_issue_new_conn_id(gen));
 
-    return gquic_conn_id_gen_issue_new_conn_id(gen);
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_conn_id_gen_set_handshake_complete(gquic_conn_id_gen_t *const gen) {
     if (gen == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (GQUIC_STR_SIZE(&gen->initial_cli_dst_conn_id) != 0) {
         GQUIC_CONN_ID_GEN_RETIRE_CONN_ID(gen, &gen->initial_cli_dst_conn_id);
@@ -179,13 +179,13 @@ int gquic_conn_id_gen_set_handshake_complete(gquic_conn_id_gen_t *const gen) {
         gquic_str_init(&gen->initial_cli_dst_conn_id);
     }
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_conn_id_gen_remove_all(gquic_conn_id_gen_t *const gen) {
     gquic_rbtree_t *payload = NULL;
     if (gen == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (GQUIC_STR_SIZE(&gen->initial_cli_dst_conn_id) != 0) {
         GQUIC_CONN_ID_GEN_REMOVE_CONN_ID(gen, &gen->initial_cli_dst_conn_id);
@@ -195,7 +195,7 @@ int gquic_conn_id_gen_remove_all(gquic_conn_id_gen_t *const gen) {
         GQUIC_CONN_ID_GEN_REMOVE_CONN_ID(gen, GQUIC_RBTREE_VALUE(payload));
     GQUIC_RBTREE_EACHOR_END(payload)
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_conn_id_gen_replace_with_closed(gquic_conn_id_gen_t *const gen,
@@ -203,7 +203,7 @@ int gquic_conn_id_gen_replace_with_closed(gquic_conn_id_gen_t *const gen,
     gquic_rbtree_t *payload = NULL;
     gquic_packet_handler_t *handler = NULL;
     if (gen == NULL || closed_handler_alloc == NULL || self == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (GQUIC_STR_SIZE(&gen->initial_cli_dst_conn_id) != 0) {
         GQUIC_ASSERT_FAST_RETURN(closed_handler_alloc(&handler, self));
@@ -215,5 +215,5 @@ int gquic_conn_id_gen_replace_with_closed(gquic_conn_id_gen_t *const gen,
         GQUIC_CONN_ID_GEN_REPLACE_WITH_CLOSED(gen, GQUIC_RBTREE_VALUE(payload), handler);
     GQUIC_RBTREE_EACHOR_END(payload)
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

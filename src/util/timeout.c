@@ -28,28 +28,28 @@ static gquic_timeout_t *gquic_timeout_alloc() {
 
 static int gquic_timeout_init(gquic_timeout_t *const timeout) {
     if (timeout == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     timeout->expire = 0;
     timeout->args = NULL;
     timeout->cb = NULL;
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_timeout_start(const gquic_time_t expire, int (*cb) (void *const), void *const args) {
     gquic_timeout_t *timeout = NULL;
     if (cb == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if ((timeout = gquic_timeout_alloc()) == NULL) {
-        return GQUIC_EXCEPTION_ALLOCATION_FAILED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
     }
     timeout->expire = expire;
     timeout->cb = cb;
     timeout->args = args;
     pthread_create(&timeout->thread, NULL, __thread_runner, timeout);
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static void *__thread_runner(void *const timeout_) {

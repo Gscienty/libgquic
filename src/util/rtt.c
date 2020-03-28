@@ -5,19 +5,20 @@
 
 int gquic_rtt_init(gquic_rtt_t *rtt) {
     if (rtt == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     rtt->latest = 0;
     rtt->max_delay = 0;
     rtt->mean_dev = 0;
     rtt->min = 0;
     rtt->smooth = 0;
-    return GQUIC_SUCCESS;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_rtt_update(gquic_rtt_t *rtt, const u_int64_t send, const u_int64_t ack) {
     if (rtt == NULL || send <= 0) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (rtt->min == 0 || rtt->min > send) {
         rtt->min = send;
@@ -35,7 +36,8 @@ int gquic_rtt_update(gquic_rtt_t *rtt, const u_int64_t send, const u_int64_t ack
         rtt->mean_dev = 0.75 * rtt->mean_dev + 0.25 * fabs((double) (rtt->smooth - sample));
         rtt->smooth = 0.875 * rtt->smooth + 0.125 * sample;
     }
-    return GQUIC_SUCCESS;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 #define __MAX(a, b) ((a) > (b) ? (a) : (b))
@@ -52,5 +54,6 @@ u_int64_t gquic_time_pto(const gquic_rtt_t *const rtt, const int inc_max_ack_del
     if (inc_max_ack_delay) {
         pto += rtt->max_delay;
     }
+
     return pto;
 }

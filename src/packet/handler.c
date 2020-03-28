@@ -3,7 +3,7 @@
 
 int gquic_packet_handler_init(gquic_packet_handler_t *const handler) {
     if (handler == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     handler->handle_packet.cb = NULL;
     handler->handle_packet.self = NULL;
@@ -13,5 +13,5 @@ int gquic_packet_handler_init(gquic_packet_handler_t *const handler) {
     handler->destroy.self = NULL;
     gquic_io_init(&handler->closer);
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

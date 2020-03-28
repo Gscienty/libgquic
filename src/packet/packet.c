@@ -5,7 +5,7 @@
 
 int gquic_packet_init(gquic_packet_t *const packet) {
     if (packet == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     packet->pn = 0;
     packet->largest_ack = 0;
@@ -15,12 +15,12 @@ int gquic_packet_init(gquic_packet_t *const packet) {
     packet->included_infly = 0;
     packet->frames = NULL;
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_packet_dtor(gquic_packet_t *const packet) {
     if (packet == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (packet->frames != NULL) {
         while (!gquic_list_head_empty(packet->frames)) {
@@ -30,5 +30,5 @@ int gquic_packet_dtor(gquic_packet_t *const packet) {
         free(packet->frames);
     }
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

@@ -26,7 +26,7 @@ static int gquic_packet_unpacker_unpack_header(gquic_unpacked_packet_t *const,
 
 int gquic_unpacked_packet_payload_init(gquic_unpacked_packet_payload_t *const payload) {
     if (payload == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     payload->data = NULL;
     payload->opener.is_1rtt = 0;
@@ -36,12 +36,12 @@ int gquic_unpacked_packet_payload_init(gquic_unpacked_packet_payload_t *const pa
     payload->header_opener = NULL;
     payload->recv_time = 0;
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_unpacked_packet_init(gquic_unpacked_packet_t *const unpacked_packet) {
     if (unpacked_packet == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     unpacked_packet->valid = 0;
     unpacked_packet->pn = 0;
@@ -49,36 +49,36 @@ int gquic_unpacked_packet_init(gquic_unpacked_packet_t *const unpacked_packet) {
     unpacked_packet->enc_lv = 0;
     gquic_str_init(&unpacked_packet->data);
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_unpacked_packet_dtor(gquic_unpacked_packet_t *const unpacked_packet) {
     if (unpacked_packet == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_packet_header_dtor(&unpacked_packet->hdr);
     gquic_str_reset(&unpacked_packet->data);
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_packet_unpacker_init(gquic_packet_unpacker_t *const unpacker) {
     if (unpacker == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     unpacker->est = 0;
     unpacker->largest_recv_pn = 0;
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_packet_unpacker_ctor(gquic_packet_unpacker_t *const unpacker, gquic_handshake_establish_t *const est) {
     if (unpacker == NULL || est == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     unpacker->est = est;
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_packet_unpacker_unpack(gquic_unpacked_packet_t *const unpacked_packet,
@@ -87,7 +87,7 @@ int gquic_packet_unpacker_unpack(gquic_unpacked_packet_t *const unpacked_packet,
                                  const u_int64_t recv_time) {
     gquic_unpacked_packet_payload_t payload;
     if (unpacked_packet == NULL || unpacker == NULL || data == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_unpacked_packet_payload_init(&payload);
     payload.data = data;
@@ -112,7 +112,7 @@ int gquic_packet_unpacker_unpack(gquic_unpacked_packet_t *const unpacked_packet,
                                                                       unpacker->est));
             break;
         default:
-            return GQUIC_EXCEPTION_HEADER_TYPE_UNEXCEPTED;
+            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_HEADER_TYPE_UNEXCEPTED);
         }
         unpacked_packet->hdr.is_long = 1;
     }
@@ -127,7 +127,7 @@ int gquic_packet_unpacker_unpack(gquic_unpacked_packet_t *const unpacked_packet,
         unpacked_packet->hdr.is_long = 0;
     }
     else {
-        return GQUIC_EXCEPTION_HEADER_TYPE_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_HEADER_TYPE_UNEXCEPTED);
     }
 
     GQUIC_ASSERT_FAST_RETURN(gquic_packet_unpacker_unpack_header_packet(unpacked_packet, unpacker, &payload));
@@ -137,7 +137,7 @@ int gquic_packet_unpacker_unpack(gquic_unpacked_packet_t *const unpacked_packet,
         unpacker->largest_recv_pn = tmp_pn;
     }
     unpacked_packet->valid = 1;
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_common_long_header_opener_open_wrapper(gquic_str_t *const plain_text,
@@ -166,25 +166,25 @@ static int gquic_packet_unpacker_unpack_header_packet(gquic_unpacked_packet_t *c
     int exception = GQUIC_SUCCESS;
     gquic_reader_str_t reader = { 0, NULL };
     if (unpacked_packet == NULL || unpacker == NULL || payload == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     reader = *payload->data;
     if (unpacked_packet->hdr.is_long) {
         if ((unpacked_packet->hdr.hdr.l_hdr = gquic_packet_long_header_alloc()) == NULL) {
-            return GQUIC_EXCEPTION_ALLOCATION_FAILED;
+            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
         }
         GQUIC_ASSERT_FAST_RETURN(gquic_packet_long_header_deserialize_unseal_part(unpacked_packet->hdr.hdr.l_hdr, &reader));
         
     }
     else {
         if ((unpacked_packet->hdr.hdr.s_hdr = malloc(sizeof(gquic_packet_short_header_t))) == NULL) {
-            return GQUIC_EXCEPTION_ALLOCATION_FAILED;
+            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
         }
         GQUIC_ASSERT_FAST_RETURN(gquic_packet_short_header_deserialize_unseal_part(unpacked_packet->hdr.hdr.s_hdr, &reader));
     }
     GQUIC_ASSERT_CAUSE(exception, gquic_packet_unpacker_unpack_header(unpacked_packet, unpacker, payload, &reader));
     if (exception != GQUIC_SUCCESS && exception != GQUIC_EXCEPTION_INVALID_RESERVED_BITS) {
-        return exception;
+        GQUIC_PROCESS_DONE(exception);
     }
 
     u_int64_t header_len = GQUIC_STR_VAL(&reader) - GQUIC_STR_VAL(payload->data);
@@ -197,7 +197,7 @@ static int gquic_packet_unpacker_unpack_header_packet(gquic_unpacked_packet_t *c
                                                                 gquic_packet_header_get_pn(&unpacked_packet->hdr),
                                                                 unpacked_packet->hdr.is_long == 0 && ((GQUIC_STR_FIRST_BYTE(payload->data) & 0x04) != 0),
                                                                 &tag, &cipher_text, &addata));
-    return exception;
+    GQUIC_PROCESS_DONE(exception);
 }
 
 static int gquic_packet_unpacker_unpack_header(gquic_unpacked_packet_t *const unpacked_packet,
@@ -209,11 +209,11 @@ static int gquic_packet_unpacker_unpack_header(gquic_unpacked_packet_t *const un
     u_int8_t origin_pn[4] = { 0 };
     int pn_len = 0;
     if (unpacked_packet == NULL || unpacker == NULL || payload == NULL || reader == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     deserialized_hdr_size = GQUIC_STR_VAL(reader) - GQUIC_STR_VAL(payload->data);
     if (GQUIC_STR_SIZE(payload->data) < deserialized_hdr_size + 4 + 16) {
-        return GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
     memcpy(origin_pn, GQUIC_STR_VAL(payload->data) + deserialized_hdr_size, 4);
     gquic_str_t header = { 4, GQUIC_STR_VAL(payload->data) + deserialized_hdr_size };
@@ -224,7 +224,7 @@ static int gquic_packet_unpacker_unpack_header(gquic_unpacked_packet_t *const un
         pn_len = gquic_packet_number_flag_to_size(unpacked_packet->hdr.hdr.l_hdr->flag);
         GQUIC_ASSERT_FAST_RETURN(gquic_packet_long_header_deserialize_seal_part(unpacked_packet->hdr.hdr.l_hdr, reader));
         if ((unpacked_packet->hdr.hdr.l_hdr->flag & 0x0c) != 0) {
-            exception = GQUIC_EXCEPTION_INVALID_RESERVED_BITS;
+            GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_INVALID_RESERVED_BITS);
         }
         *(u_int8_t *) GQUIC_STR_VAL(payload->data) = unpacked_packet->hdr.hdr.l_hdr->flag;
     }
@@ -233,7 +233,7 @@ static int gquic_packet_unpacker_unpack_header(gquic_unpacked_packet_t *const un
         pn_len = gquic_packet_number_flag_to_size(unpacked_packet->hdr.hdr.s_hdr->flag);
         GQUIC_ASSERT_FAST_RETURN(gquic_packet_short_header_deserialize_seal_part(unpacked_packet->hdr.hdr.s_hdr, reader));
         if ((unpacked_packet->hdr.hdr.s_hdr->flag & 0x18) != 0) {
-            exception = GQUIC_EXCEPTION_INVALID_RESERVED_BITS;
+            GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_INVALID_RESERVED_BITS);
         }
         *(u_int8_t *) GQUIC_STR_VAL(payload->data) = unpacked_packet->hdr.hdr.s_hdr->flag;
     }
@@ -243,5 +243,5 @@ static int gquic_packet_unpacker_unpack_header(gquic_unpacked_packet_t *const un
     gquic_packet_header_set_pn(&unpacked_packet->hdr,
                                gquic_packet_number_decode(pn_len, unpacker->largest_recv_pn, gquic_packet_header_get_pn(&unpacked_packet->hdr)));
 
-    return exception;
+    GQUIC_PROCESS_DONE(exception);
 }

@@ -28,7 +28,7 @@ int gquic_multiplexer_add_conn(gquic_packet_handler_map_t **const handler_storag
     int exception = GQUIC_SUCCESS;
     gquic_rbtree_t *rbt = NULL;
     if (handler_storage == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_init_multiplexer();
 
@@ -43,19 +43,19 @@ int gquic_multiplexer_add_conn(gquic_packet_handler_map_t **const handler_storag
         gquic_rbtree_insert(&__ins.conns, rbt);
     }
     if (((gquic_packet_handler_map_t *) GQUIC_RBTREE_VALUE(rbt))->conn_id_len != conn_id_len) {
-        exception = GQUIC_EXCEPTION_RECV_CONN_ID_CONFLICT;
+        GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_RECV_CONN_ID_CONFLICT);
         goto finished;
     }
     if (GQUIC_STR_SIZE(stateless_reset_token) != 0
         && gquic_str_cmp(stateless_reset_token, &((gquic_packet_handler_map_t *) GQUIC_RBTREE_VALUE(rbt))->stateless_reset_key) != 0) {
-        exception = GQUIC_EXCEPTION_CONN_CANNOT_USE_DIFF_STATELESS_TOKEN;
+        GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_CONN_CANNOT_USE_DIFF_STATELESS_TOKEN);
         goto finished;
     }
     *handler_storage = GQUIC_RBTREE_VALUE(rbt);
 
 finished:
     sem_post(&__ins.mtx);
-    return exception;
+    GQUIC_PROCESS_DONE(exception);
 }
 
 int gquic_multiplexer_remove_conn(const int conn_fd) {
@@ -65,7 +65,7 @@ int gquic_multiplexer_remove_conn(const int conn_fd) {
     sem_wait(&__ins.mtx);
     
     if (gquic_rbtree_find((const gquic_rbtree_t **) &rbt, __ins.conns, &conn_fd, sizeof(int)) != 0) {
-        exception = GQUIC_EXCEPTION_CONN_UNKNOW;
+        GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_CONN_UNKNOW);
         goto finished;
     }
     gquic_rbtree_remove(&__ins.conns, &rbt);
@@ -74,5 +74,5 @@ int gquic_multiplexer_remove_conn(const int conn_fd) {
 
 finished:
     sem_post(&__ins.mtx);
-    return exception;
+    GQUIC_PROCESS_DONE(exception);
 }

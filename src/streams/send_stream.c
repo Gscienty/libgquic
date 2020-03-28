@@ -19,7 +19,7 @@ inline static int gquic_send_stream_is_newly_completed(gquic_send_stream_t *cons
 
 int gquic_send_stream_init(gquic_send_stream_t *const str) {
     if (str == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     sem_init(&str->mtx, 0, 1);
     str->outstanding_frames_count = 0;
@@ -39,7 +39,7 @@ int gquic_send_stream_init(gquic_send_stream_t *const str) {
     str->deadline = 0;
     str->flow_ctrl = NULL;
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_send_stream_ctor(gquic_send_stream_t *const str,
@@ -47,12 +47,13 @@ int gquic_send_stream_ctor(gquic_send_stream_t *const str,
                            gquic_stream_sender_t *const sender,
                            gquic_flowcontrol_stream_flow_ctrl_t *const flow_ctrl) {
     if (str == NULL || sender == NULL || flow_ctrl == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     str->stream_id = stream_id;
     str->sender = sender;
     str->flow_ctrl = flow_ctrl;
-    return GQUIC_SUCCESS;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_send_stream_write(int *const writed, gquic_send_stream_t *const str, const gquic_str_t *const data) {
@@ -61,23 +62,23 @@ int gquic_send_stream_write(int *const writed, gquic_send_stream_t *const str, c
     u_int64_t written_bytes = 0;
     u_int64_t deadline = 0;
     if (writed == NULL || str == NULL || data == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     *writed = 0;
     sem_wait(&str->mtx);
     if (str->finished_writing) {
         *writed = 0;
-        exception = GQUIC_EXCEPTION_CLOSED;
+        GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_CLOSED);
         goto finished;
     }
     if (str->canceled_write) {
         *writed = 0;
-        exception = str->canceled_write_reason;
+        GQUIC_EXCEPTION_ASSIGN(exception, str->canceled_write_reason);
         goto finished;
     }
     if (str->closed_for_shutdown) {
         *writed = 0;
-        exception = str->close_for_shutdown_reason;
+        GQUIC_EXCEPTION_ASSIGN(exception, str->close_for_shutdown_reason);
         goto finished;
     }
     struct timeval tv;
@@ -86,12 +87,11 @@ int gquic_send_stream_write(int *const writed, gquic_send_stream_t *const str, c
     u_int64_t now = tv.tv_sec * 1000 * 1000 + tv.tv_usec;
     if (str->deadline != 0 && str->deadline < now) {
         *writed = 0;
-        exception = GQUIC_EXCEPTION_DEADLINE;
+        GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_DEADLINE);
         goto finished;
     }
     if (GQUIC_STR_SIZE(data) == 0) {
         *writed = 0;
-        exception = GQUIC_SUCCESS;
         goto finished;
     }
 
@@ -131,30 +131,31 @@ int gquic_send_stream_write(int *const writed, gquic_send_stream_t *const str, c
     }
     if (str->closed_for_shutdown) {
         *writed = written_bytes;
-        exception = str->close_for_shutdown_reason;
+        GQUIC_EXCEPTION_ASSIGN(exception, str->close_for_shutdown_reason);
     }
     else if (str->canceled_write) {
         *writed = written_bytes;
-        exception = str->canceled_write_reason;
+        GQUIC_EXCEPTION_ASSIGN(exception, str->canceled_write_reason);
     }
 finished:
     sem_post(&str->mtx);
-    return exception;
+
+    GQUIC_PROCESS_DONE(exception);
 }
 
 static int gquic_send_stream_get_writing_data(gquic_frame_stream_t *const frame, gquic_send_stream_t *const str, u_int64_t max_bytes) {
     u_int64_t tmp = 0;
     if (frame == NULL || str == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (GQUIC_STR_SIZE(&str->writing_data) == 0) {
         GQUIC_FRAME_META(frame).type |= str->finished_writing && !str->fin_sent ? 0x01 : 0x00;
-        return GQUIC_SUCCESS;
+        GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
     tmp = gquic_flowcontrol_stream_flow_ctrl_swnd_size(str->flow_ctrl);
     max_bytes = max_bytes < tmp ? max_bytes : tmp;
     if (max_bytes == 0) {
-        return GQUIC_SUCCESS;
+        GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
     gquic_str_reset(&frame->data);
     gquic_str_init(&frame->data);
@@ -175,7 +176,7 @@ static int gquic_send_stream_get_writing_data(gquic_frame_stream_t *const frame,
     gquic_flowcontrol_stream_flow_ctrl_sent_add_bytes(str->flow_ctrl, GQUIC_STR_SIZE(&frame->data));
     GQUIC_FRAME_META(frame).type |= str->finished_writing && GQUIC_STR_SIZE(&str->writing_data) && !str->fin_sent ? 0x01 : 0x00;
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_send_stream_pop_new_stream_frame(gquic_frame_stream_t *const frame, gquic_send_stream_t *const str, const u_int64_t max_bytes) {
@@ -275,11 +276,11 @@ static int gquic_send_stream_queue_retransmission(gquic_send_stream_t *const str
     gquic_frame_stream_t **stream_frame_storage = NULL;
     gquic_frame_stream_t *stream_frame = frame;
     if (str == NULL || frame == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     GQUIC_FRAME_META(stream_frame).type |= 0x02;
     if ((stream_frame_storage = gquic_list_alloc(sizeof(gquic_frame_stream_t *))) == NULL) {
-        return GQUIC_EXCEPTION_ALLOCATION_FAILED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
     }
     *stream_frame_storage = stream_frame;
     sem_wait(&str->mtx);
@@ -287,12 +288,13 @@ static int gquic_send_stream_queue_retransmission(gquic_send_stream_t *const str
     str->outstanding_frames_count--;
     if (str->outstanding_frames_count < 0) {
         sem_post(&str->mtx);
-        return GQUIC_EXCEPTION_INTERNAL_ERROR;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INTERNAL_ERROR);
     }
     sem_post(&str->mtx);
 
     GQUIC_SENDER_ON_HAS_STREAM_DATA(str->sender, str->stream_id);
-    return GQUIC_SUCCESS;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_send_stream_queue_retransmission_wrap(void *const str, void *const frame) {
@@ -302,21 +304,22 @@ static int gquic_send_stream_queue_retransmission_wrap(void *const str, void *co
 static int gquic_send_stream_frame_acked(gquic_send_stream_t *const str, void *const frame) {
     int newly_completed = 0;
     if (str == NULL || frame == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_stream_frame_pool_put(frame);
     sem_wait(&str->mtx);
     str->outstanding_frames_count--;
     if (str->outstanding_frames_count < 0) {
         sem_post(&str->mtx);
-        return GQUIC_EXCEPTION_INTERNAL_ERROR;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INTERNAL_ERROR);
     }
     newly_completed = gquic_send_stream_is_newly_completed(str);
     sem_post(&str->mtx);
     if (newly_completed) {
         GQUIC_SENDER_ON_STREAM_COMPLETED(str->sender, str->stream_id);
     }
-    return GQUIC_SUCCESS;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_send_stream_frame_acked_wrap(void *const str, void *const frame) {
@@ -338,22 +341,22 @@ inline static int gquic_send_stream_is_newly_completed(gquic_send_stream_t *cons
 
 int gquic_send_stream_handle_stop_sending_frame(gquic_send_stream_t *const str, const gquic_frame_stop_sending_t *const stop_sending) {
     if (str == NULL || stop_sending == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_send_stream_cancel_write(str, stop_sending->errcode);
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_send_stream_cancel_write(gquic_send_stream_t *const str, const u_int64_t err) {
     int newly_completed = 0;
     gquic_frame_reset_stream_t *reset_frame = NULL;
     if (str == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     sem_wait(&str->mtx);
     if (str->canceled_write) {
         sem_post(&str->mtx);
-        return GQUIC_SUCCESS;
+        GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
     str->canceled_write = 1;
     str->canceled_write_reason = -err;
@@ -362,7 +365,7 @@ int gquic_send_stream_cancel_write(gquic_send_stream_t *const str, const u_int64
 
     sem_post(&str->write_sem);
     if ((reset_frame = gquic_frame_reset_stream_alloc()) == NULL) {
-        return GQUIC_EXCEPTION_ALLOCATION_FAILED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
     }
     reset_frame->id = str->stream_id;
     reset_frame->final_size = str->write_off;
@@ -370,7 +373,7 @@ int gquic_send_stream_cancel_write(gquic_send_stream_t *const str, const u_int64
     if (newly_completed) {
         GQUIC_SENDER_ON_STREAM_COMPLETED(str->sender, str->stream_id);
     }
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_send_stream_has_data(gquic_send_stream_t *const str) {
@@ -386,7 +389,7 @@ int gquic_send_stream_has_data(gquic_send_stream_t *const str) {
 
 int gquic_send_stream_close_for_shutdown(gquic_send_stream_t *const str, const int err) {
     if (str == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     sem_wait(&str->mtx);
     str->canceled_write = 1;
@@ -394,13 +397,13 @@ int gquic_send_stream_close_for_shutdown(gquic_send_stream_t *const str, const i
     sem_post(&str->mtx);
     sem_post(&str->write_sem);
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_send_stream_handle_max_stream_data_frame(gquic_send_stream_t *const str, gquic_frame_max_stream_data_t *const frame) {
     int has_stream_data = 0;
     if (str == NULL || frame == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     sem_wait(&str->mtx);
     has_stream_data = GQUIC_STR_SIZE(&str->writing_data) > 0;
@@ -410,12 +413,12 @@ int gquic_send_stream_handle_max_stream_data_frame(gquic_send_stream_t *const st
     if (has_stream_data) {
         GQUIC_SENDER_ON_HAS_STREAM_DATA(str->sender, str->stream_id);
     }
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_send_stream_close(gquic_send_stream_t *const str) {
     if (str == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     sem_wait(&str->mtx);
     if (str->canceled_write) {
@@ -425,16 +428,16 @@ int gquic_send_stream_close(gquic_send_stream_t *const str) {
     str->finished_writing = 1;
     sem_post(&str->mtx);
     GQUIC_SENDER_ON_HAS_STREAM_DATA(str->sender, str->stream_id);
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_send_stream_set_write_deadline(gquic_send_stream_t *const str, const u_int64_t deadline) {
     if (str == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     sem_wait(&str->mtx);
     str->deadline = deadline;
     sem_post(&str->mtx);
     sem_post(&str->write_sem);
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

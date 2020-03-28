@@ -29,19 +29,20 @@ static gquic_rbtree_t nil = {
 
 int gquic_rbtree_root_init(gquic_rbtree_t **const root) {
     if (root == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     *root = &nil;
-    return GQUIC_SUCCESS;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_rbtree_alloc(gquic_rbtree_t **const rb, const size_t key_len, const size_t val_len) {
     gquic_rbtree_t *ret = NULL;
     if (rb == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if ((ret = malloc(sizeof(gquic_rbtree_t) + key_len + val_len)) == NULL) {
-        return GQUIC_EXCEPTION_ALLOCATION_FAILED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
     }
     ret->color = GQUIC_RBTREE_COLOR_RED;
     ret->left = &nil;
@@ -51,19 +52,21 @@ int gquic_rbtree_alloc(gquic_rbtree_t **const rb, const size_t key_len, const si
     if (rb != NULL) {
         *rb = ret;
     }
-    return GQUIC_SUCCESS;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_rbtree_release(gquic_rbtree_t *const rb, int (*release_val)(void *const)) {
     int exception = GQUIC_SUCCESS;
     if (rb == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (release_val != NULL && GQUIC_ASSERT_CAUSE(exception, release_val(GQUIC_RBTREE_VALUE(rb)))) {
         return exception;
     }
     free(rb);
-    return GQUIC_SUCCESS;
+    
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_rbtree_insert(gquic_rbtree_t **const root, gquic_rbtree_t *const node) {
@@ -71,7 +74,7 @@ int gquic_rbtree_insert(gquic_rbtree_t **const root, gquic_rbtree_t *const node)
     gquic_rbtree_t *parent = &nil;
     gquic_rbtree_t **in = root;
     if (root == NULL || node == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
 
     while (*in != &nil) {
@@ -89,6 +92,7 @@ int gquic_rbtree_insert(gquic_rbtree_t **const root, gquic_rbtree_t *const node)
     }
     node->parent = parent;
     *in = node;
+
     return gquic_rbtree_insert_fixup(root, node);
 }
 
@@ -97,7 +101,7 @@ int gquic_rbtree_insert_cmp(gquic_rbtree_t **const root, gquic_rbtree_t *const n
     gquic_rbtree_t *parent = &nil;
     gquic_rbtree_t **in = root;
     if (root == NULL || node == NULL || key_cmp == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
 
     while (*in != &nil) {
@@ -115,12 +119,13 @@ int gquic_rbtree_insert_cmp(gquic_rbtree_t **const root, gquic_rbtree_t *const n
     }
     node->parent = parent;
     *in = node;
+
     return gquic_rbtree_insert_fixup(root, node);
 }
 
 int gquic_rbtree_remove(gquic_rbtree_t **const root, gquic_rbtree_t **const node_p) {
     if (root == NULL || node_p == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_rbtree_t *node = *node_p;
     if (node->left != &nil && node->right != &nil) {
@@ -140,7 +145,8 @@ int gquic_rbtree_remove(gquic_rbtree_t **const root, gquic_rbtree_t **const node
         child->color = GQUIC_RBTREE_COLOR_BLACK;
     }
     *node_p = node;
-    return GQUIC_SUCCESS;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_rbtree_is_nil(gquic_rbtree_t *const node) {
@@ -150,13 +156,13 @@ int gquic_rbtree_is_nil(gquic_rbtree_t *const node) {
 int gquic_rbtree_find(const gquic_rbtree_t **const ret, const gquic_rbtree_t *const root, const void *key, const size_t key_len) {
     int cmpret;
     if (ret == NULL || root == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     *ret = root;
     while (*ret != &nil) {
         cmpret = gquic_rbtree_key_cmp(key, key_len, *ret);
         if (cmpret == 0) {
-            return GQUIC_SUCCESS;
+            GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
         }
         if (cmpret < 0) {
             *ret = (*ret)->left;
@@ -165,19 +171,20 @@ int gquic_rbtree_find(const gquic_rbtree_t **const ret, const gquic_rbtree_t *co
             *ret = (*ret)->right;
         }
     }
-    return GQUIC_EXCEPTION_NOT_FOUND;
+
+    GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_NOT_FOUND);
 }
 
 int gquic_rbtree_find_cmp(const gquic_rbtree_t **const ret, const gquic_rbtree_t *const root, void *key, int (key_cmp) (void *const, void *const)) {
     int cmpret;
     if (ret == NULL || root == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     *ret = root;
     while (*ret != &nil) {
         cmpret = key_cmp(key, GQUIC_RBTREE_KEY(*ret));
         if (cmpret == 0) {
-            return GQUIC_SUCCESS;
+            GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
         }
         if (cmpret < 0) {
             *ret = (*ret)->left;
@@ -186,13 +193,14 @@ int gquic_rbtree_find_cmp(const gquic_rbtree_t **const ret, const gquic_rbtree_t
             *ret = (*ret)->right;
         }
     }
-    return GQUIC_EXCEPTION_NOT_FOUND;
+
+    GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_NOT_FOUND);
 }
 
 static int gquic_rbtree_left_rotate(gquic_rbtree_t **root, gquic_rbtree_t *node) {
     gquic_rbtree_t *child;
     if (root == NULL || node == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     child = node->right;
     node->right = child->left;
@@ -211,13 +219,14 @@ static int gquic_rbtree_left_rotate(gquic_rbtree_t **root, gquic_rbtree_t *node)
     }
     child->left = node;
     node->parent = child;
-    return GQUIC_SUCCESS;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_rbtree_right_rotate(gquic_rbtree_t **root, gquic_rbtree_t *node) {
     gquic_rbtree_t *child;
     if (root == NULL || node == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     child = node->left;
     node->left = child->right;
@@ -238,7 +247,8 @@ static int gquic_rbtree_right_rotate(gquic_rbtree_t **root, gquic_rbtree_t *node
     }
     child->right = node;
     node->parent = child;
-    return GQUIC_SUCCESS;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_rbtree_key_cmp(const void *a_key, const size_t a_len, const gquic_rbtree_t *b) {
@@ -306,7 +316,8 @@ static int gquic_rbtree_insert_fixup(gquic_rbtree_t **root, gquic_rbtree_t *node
         }
     }
     (*root)->color = GQUIC_RBTREE_COLOR_BLACK;
-    return GQUIC_SUCCESS;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static gquic_rbtree_t *gquic_rbtree_successor(gquic_rbtree_t *node) {
@@ -321,6 +332,7 @@ static gquic_rbtree_t *gquic_rbtree_successor(gquic_rbtree_t *node) {
         node = ret;
         ret = node->parent;
     }
+
     return ret;
 }
 
@@ -331,12 +343,13 @@ static gquic_rbtree_t *gquic_rbtree_minimum(gquic_rbtree_t *node) {
     while (node->left != &nil) {
         node = node->left;
     }
+
     return node;
 }
 
 static inline int gquic_rbtree_replace(gquic_rbtree_t **const root, gquic_rbtree_t *const old_n, gquic_rbtree_t *const new_n) {
     if (root == NULL || old_n == NULL || new_n == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (old_n == *root) {
         *root = new_n;
@@ -352,12 +365,13 @@ static inline int gquic_rbtree_replace(gquic_rbtree_t **const root, gquic_rbtree
     if (new_n != &nil) {
         new_n->parent = old_n->parent;
     }
-    return GQUIC_SUCCESS;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static inline int gquic_rbtree_sibling(gquic_rbtree_t **const ret, const gquic_rbtree_t *const node) {
     if (ret == NULL || node == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (node->parent->left == node) {
         *ret = node->parent->right;
@@ -365,23 +379,25 @@ static inline int gquic_rbtree_sibling(gquic_rbtree_t **const ret, const gquic_r
     else {
         *ret = node->parent->left;
     }
-    return GQUIC_SUCCESS;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static inline int gquic_rbtree_delete_case1(gquic_rbtree_t **const root, gquic_rbtree_t *const node) {
     if (root == NULL || node == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (node->parent != &nil) {
         gquic_rbtree_delete_case2(root, node);
     }
-    return GQUIC_SUCCESS;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static inline int gquic_rbtree_delete_case2(gquic_rbtree_t **const root, gquic_rbtree_t *const node) {
     gquic_rbtree_t *sibling = &nil;
     if (root == NULL || node == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_rbtree_sibling(&sibling, node);
     if (sibling->color == GQUIC_RBTREE_COLOR_RED) {
@@ -395,12 +411,13 @@ static inline int gquic_rbtree_delete_case2(gquic_rbtree_t **const root, gquic_r
         }
     }
     gquic_rbtree_delete_case3(root, node);
-    return GQUIC_SUCCESS;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 static inline int gquic_rbtree_delete_case3(gquic_rbtree_t **const root, gquic_rbtree_t *const node) {
     gquic_rbtree_t *sibling = &nil;
     if (root == NULL || node == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_rbtree_sibling(&sibling, node);
     if (node->parent->color == GQUIC_RBTREE_COLOR_BLACK &&
@@ -414,13 +431,13 @@ static inline int gquic_rbtree_delete_case3(gquic_rbtree_t **const root, gquic_r
         gquic_rbtree_delete_case4(root, node);
     }
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static inline int gquic_rbtree_delete_case4(gquic_rbtree_t **const root, gquic_rbtree_t *const node) {
     gquic_rbtree_t *sibling = &nil;
     if (root == NULL || node == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_rbtree_sibling(&sibling, node);
     if (node->parent->color == GQUIC_RBTREE_COLOR_RED &&
@@ -433,13 +450,14 @@ static inline int gquic_rbtree_delete_case4(gquic_rbtree_t **const root, gquic_r
     else {
         gquic_rbtree_delete_case5(root, node);
     }
-    return GQUIC_SUCCESS;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static inline int gquic_rbtree_delete_case5(gquic_rbtree_t **const root, gquic_rbtree_t *const node) {
     gquic_rbtree_t *sibling = &nil;
     if (root == NULL || node == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_rbtree_sibling(&sibling, node);
     if (node->parent->left == node &&
@@ -460,13 +478,13 @@ static inline int gquic_rbtree_delete_case5(gquic_rbtree_t **const root, gquic_r
     }
     gquic_rbtree_delete_case6(root, node);
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static inline int gquic_rbtree_delete_case6(gquic_rbtree_t **const root, gquic_rbtree_t *const node) {
     gquic_rbtree_t *sibling = &nil;
     if (root == NULL || node == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_rbtree_sibling(&sibling, node);
     sibling->color = node->parent->color;
@@ -479,12 +497,13 @@ static inline int gquic_rbtree_delete_case6(gquic_rbtree_t **const root, gquic_r
         sibling->left->color = GQUIC_RBTREE_COLOR_BLACK;
         gquic_rbtree_right_rotate(root, node->parent);
     }
-    return GQUIC_SUCCESS;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static inline int gquic_rbtree_assign(gquic_rbtree_t **const root, gquic_rbtree_t *const target, gquic_rbtree_t *const ref) {
     if (root == NULL || target == NULL || ref == NULL || target == &nil || ref == &nil) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     target->color = ref->color;
     target->left = ref->left;
@@ -508,5 +527,6 @@ static inline int gquic_rbtree_assign(gquic_rbtree_t **const root, gquic_rbtree_
     if (ref->right != &nil) {
         ref->right->parent = target;
     }
-    return GQUIC_SUCCESS;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
