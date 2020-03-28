@@ -30,8 +30,9 @@ int main() {
         if (itr == &GQUIC_UNIT_TEST_STRUCT_NAME(__$anchor)) {
             continue;
         }
+        printf("UNIT TEST BEGIN: %s\n", itr->title);
         int ret = itr->cb();
-        printf("unit test [%s]:\t%s\e[97m\n", itr->title, ret == 0 ? "\e[32mSuccess" : "\e[31mFailure");
+        printf("UNIT TEST RESULT: %s\e[97m\n\n", ret == 0 ? "\e[32mSuccess" : "\e[31mFailure");
     }
     return 0;
 }

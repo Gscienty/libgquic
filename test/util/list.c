@@ -6,7 +6,8 @@ GQUIC_UNIT_TEST(list_empty_test_1) {
     gquic_list_t list;
     gquic_list_head_init(&list);
     GQUIC_UNIT_TEST_EXPECT(gquic_list_head_empty(&list));
-    return 0;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 GQUIC_UNIT_TEST(list_empty_test_2) {
@@ -16,7 +17,8 @@ GQUIC_UNIT_TEST(list_empty_test_2) {
     *i = 0;
     gquic_list_insert_after(&list, i);
     GQUIC_UNIT_TEST_EXPECT(!gquic_list_head_empty(&list));
-    return 0;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 GQUIC_UNIT_TEST(list_empty_test_3) {
@@ -28,7 +30,8 @@ GQUIC_UNIT_TEST(list_empty_test_3) {
     GQUIC_UNIT_TEST_EXPECT(!gquic_list_head_empty(&list));
     gquic_list_release(GQUIC_LIST_FIRST(&list));
     GQUIC_UNIT_TEST_EXPECT(gquic_list_head_empty(&list));
-    return 0;
+    
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 GQUIC_UNIT_TEST(list_insert_after) {
@@ -47,7 +50,7 @@ GQUIC_UNIT_TEST(list_insert_after) {
         GQUIC_UNIT_TEST_EXPECT(expect++ == *r);
     }
 
-    return 0;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 GQUIC_UNIT_TEST(list_insert_before) {
@@ -66,5 +69,5 @@ GQUIC_UNIT_TEST(list_insert_before) {
         GQUIC_UNIT_TEST_EXPECT(expect++ == *r);
     }
 
-    return 0;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

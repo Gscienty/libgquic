@@ -1,8 +1,10 @@
 #ifndef _LIBGQUIC_UNIT_TEST_H
 #define _LIBGQUIC_UNIT_TEST_H
 
+#include "exception.h"
 #include <sys/types.h>
 #include <stddef.h>
+#include <stdio.h>
 
 typedef struct gquic_unit_test_s gquic_unit_test_t;
 struct gquic_unit_test_s {
@@ -23,6 +25,10 @@ struct gquic_unit_test_s {
         .magic = GQUIC_UNIT_TEST_MAGIC \
     }; \
     int GQUIC_UNIT_TEST_FUNCTION_NAME(n)() 
-#define GQUIC_UNIT_TEST_EXPECT(x) if (!(x)) { return -1; }
+#define GQUIC_UNIT_TEST_EXPECT(x) \
+    if (!(x)) { \
+        printf("<UNIT TEST> failure point: " __FILE__ " line - %d\n", __LINE__); \
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_UNIT_TEST_FAILED); \
+    }
 
 #endif

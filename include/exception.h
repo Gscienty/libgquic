@@ -113,6 +113,7 @@
 #define GQUIC_EXCEPTION_ASPECT_ERROR                            -10000110
 #define GQUIC_EXCEPTION_INVALID_SEND_MODE                       -10000111
 #define GQUIC_EXCEPTION_PACKED_PACKET_INVALID                   -10000112
+#define GQUIC_EXCEPTION_UNIT_TEST_FAILED                        -10000113
 #define GQUIC_SUCCESS 0
 
 #ifdef DEBUG

@@ -55,8 +55,6 @@ static int server_hello_handshake_msg(gquic_str_t *const msg) {
     RAND_bytes(GQUIC_STR_VAL(&hello->random), 32);
     gquic_str_copy(&hello->sess_id, &sess_id);
     hello->cipher_suite = GQUIC_TLS_CIPHER_SUITE_AES_128_GCM_SHA256;
-    gquic_str_t cookie = { 6, "cookie" };
-    gquic_str_copy(&hello->cookie, &cookie);
     hello->ser_share.group = GQUIC_TLS_CURVE_X25519;
     gquic_tls_ecdhe_params_t ecdhe;
     gquic_tls_ecdhe_params_init(&ecdhe);
@@ -105,17 +103,14 @@ static int cert_msg(gquic_str_t *const msg) {
     gquic_tls_cert_msg_t *cert = gquic_tls_cert_msg_alloc();
     GQUIC_TLS_MSG_INIT(cert);
 
-    gquic_str_t *x509_b = gquic_list_alloc(sizeof(gquic_str_t));
+    X509 **x509_storage = gquic_list_alloc(sizeof(X509 *));
     X509 *x509 = NULL;
     FILE *x509_f = fopen("test_certs/ed25519_req.pem", "r");
     PEM_read_X509(x509_f, &x509, NULL, NULL);
-    gquic_str_alloc(x509_b, i2d_X509(x509, NULL));
-    unsigned char *ug = GQUIC_STR_VAL(x509_b);
-    i2d_X509(x509, &ug);
-    X509_free(x509);
     fclose(x509_f);
+    *x509_storage = x509;
 
-    gquic_list_insert_before(&cert->cert.certs, x509_b);
+    gquic_list_insert_before(&cert->cert.certs, x509_storage);
 
     gquic_tls_msg_combine_serialize(msg, cert);
     printf("server say CERT:\n");

@@ -1,6 +1,7 @@
 #ifndef _LIBGQUIC_UTIL_RBTREE_H
 #define _LIBGQUIC_UTIL_RBTREE_H
 
+#include "util/list.h"
 #include <sys/types.h>
 
 #define GQUIC_RBTREE_COLOR_RED 0x00

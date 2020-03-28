@@ -17,7 +17,7 @@ int main() {
     u_int8_t iv_content[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
     gquic_str_t iv = { sizeof(iv_content), iv_content };
 
-    int ret = gquic_tls_suite_assign(&enc_half_conn.suite, cipher_suite, &iv, &key, NULL, 0);
+    int ret = gquic_tls_suite_ctor(&enc_half_conn.suite, cipher_suite, &iv, &key, NULL, 0);
     printf("suite assign: %d\n", ret);
 
     u_int8_t plain_text_content[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };

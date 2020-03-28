@@ -32,7 +32,8 @@ GQUIC_UNIT_TEST(cubic_handle_ack_1) {
     curr_cwnd = gquic_cubic_cwnd_after_packet_ack(&cubic, 1460, curr_cwnd, rtt_min, gquic_time_now());
 
     GQUIC_UNIT_TEST_EXPECT(expect_cwnd == curr_cwnd);
-    return 0;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 GQUIC_UNIT_TEST(cubic_handle_ack_2) {
@@ -89,7 +90,8 @@ GQUIC_UNIT_TEST(cubic_handle_ack_2) {
     curr_cwnd = gquic_cubic_cwnd_after_packet_ack(&cubic, 1460, curr_cwnd, rtt_min, now);
     expect_cwnd = convex_cwnd(initial_cwnd, rtt_min, now - initial_time);
     GQUIC_UNIT_TEST_EXPECT(expect_cwnd == curr_cwnd);
-    return 0;
+    
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 GQUIC_UNIT_TEST(cubic_handle_ack_3) {
@@ -119,7 +121,7 @@ GQUIC_UNIT_TEST(cubic_handle_ack_3) {
         curr_cwnd = next_cwnd;
     }
 
-    return 0;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 GQUIC_UNIT_TEST(cubic_handle_ack_4) {
@@ -159,7 +161,8 @@ GQUIC_UNIT_TEST(cubic_handle_ack_4) {
     }
     u_int64_t min_inc = 1460 * 9 / 10;
     GQUIC_UNIT_TEST_EXPECT(curr_cwnd > min_inc + initial_cwnd);
-    return 0;
+    
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 GQUIC_UNIT_TEST(cubic_handle_loss_1) {
@@ -176,9 +179,8 @@ GQUIC_UNIT_TEST(cubic_handle_loss_1) {
     GQUIC_UNIT_TEST_EXPECT(expect_cwnd == gquic_cubic_cwnd_after_packet_ack(&cubic, 1460, curr_cwnd, rtt_min, now))
 
     u_int64_t pre_loss_cwnd = curr_cwnd;
-    if (cubic.last_max_cwnd != 0) {
-        return -1;
-    }
+    GQUIC_UNIT_TEST_EXPECT(cubic.last_max_cwnd == 0);
+
     expect_cwnd = curr_cwnd * beta();
     GQUIC_UNIT_TEST_EXPECT(expect_cwnd == gquic_cubic_cwnd_after_packet_loss(&cubic, curr_cwnd));
     GQUIC_UNIT_TEST_EXPECT(cubic.last_max_cwnd == pre_loss_cwnd);
@@ -202,5 +204,5 @@ GQUIC_UNIT_TEST(cubic_handle_loss_1) {
     expect_last_max = pre_loss_cwnd;
     GQUIC_UNIT_TEST_EXPECT(expect_last_max == cubic.last_max_cwnd);
 
-    return 0;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

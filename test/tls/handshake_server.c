@@ -145,14 +145,12 @@ static int read_handshake_msg(gquic_str_t *const msg, void *self) {
     return 0;
 }
 
-static int get_cert(gquic_str_t *const cert_s, const gquic_tls_client_hello_msg_t *const hello) {
+static int get_cert(PKCS12 **const p12_storage, const gquic_tls_client_hello_msg_t *const hello) {
     (void) hello;
     FILE *f = fopen("test_certs/ed25519_p12.pem", "r");
     PKCS12 *p12 = d2i_PKCS12_fp(f, NULL);
-    gquic_str_alloc(cert_s, i2d_PKCS12(p12, NULL));
-    u_int8_t *buf = GQUIC_STR_VAL(cert_s);
-    i2d_PKCS12(p12, &buf);
     fclose(f);
+    *p12_storage = p12;
     return 0;
 }
 
