@@ -188,6 +188,9 @@ int gquic_auto_update_aead_open(gquic_str_t *const plain_text,
         gquic_tls_aead_init(&aead->prev_recv_aead);
         aead->prev_recv_aead_expire = 0;
     }
+    if (GQUIC_STR_SIZE(&aead->nonce_buf) < 8) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
+    }
     gquic_big_endian_transfer(GQUIC_STR_VAL(&aead->nonce_buf) - 8, &pn, 8);
     if (kp != (aead->times % 2 == 1)) {
         if (aead->cur_key_first_recv_pn == ((u_int64_t) -1) || pn < aead->cur_key_first_recv_pn) {
@@ -237,6 +240,9 @@ int gquic_auto_update_aead_seal(gquic_str_t *const tag,
         aead->cur_key_first_sent_pn = pn;
     }
     aead->cur_key_num_sent++;
+    if (GQUIC_STR_SIZE(&aead->nonce_buf) < 8) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
+    }
     gquic_big_endian_transfer(GQUIC_STR_VAL(&aead->nonce_buf) - 8, &pn, 8);
     GQUIC_ASSERT_FAST_RETURN(GQUIC_TLS_AEAD_SEAL(tag, cipher_text, &aead->send_aead, &aead->nonce_buf, plain_text, addata));
 

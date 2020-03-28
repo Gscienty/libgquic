@@ -114,6 +114,8 @@
 #define GQUIC_EXCEPTION_INVALID_SEND_MODE                       -10000111
 #define GQUIC_EXCEPTION_PACKED_PACKET_INVALID                   -10000112
 #define GQUIC_EXCEPTION_UNIT_TEST_FAILED                        -10000113
+#define GQUIC_EXCEPTION_IDLE_TIMEOUT                            -10000114
+#define GQUIC_EXCEPTION_HANDSHAKE_TIMEOUT                       -10000115
 #define GQUIC_SUCCESS 0
 
 #ifdef DEBUG
@@ -131,9 +133,9 @@
         return __$exception; \
     } \
 }
-#define GQUIC_PROCESS_DONE(exception) \
+#define GQUIC_PROCESS_DONE(expression) \
 { \
-    int __$exception = (exception); \
+    int __$exception = (expression); \
     if (__$exception != GQUIC_SUCCESS) {\
         printf("GQUIC_PROCESS_DONE " __FILE__ " %d\n", __LINE__); \
     }\
@@ -141,7 +143,7 @@
 }
 #define GQUIC_EXCEPTION_ASSIGN(exception, expression) \
 {\
-    int __$exception = (exception); \
+    int __$exception = (expression); \
     if (__$exception != GQUIC_SUCCESS) {\
         printf("GQUIC_EXCEPTION_ASSIGN " __FILE__ " %d\n", __LINE__); \
     }\
@@ -159,9 +161,9 @@
         return __$exception; \
     } \
 }
-#define GQUIC_PROCESS_DONE(exception) \
+#define GQUIC_PROCESS_DONE(expression) \
 { \
-    return (exception); \
+    return (expression); \
 }
 #define GQUIC_EXCEPTION_ASSIGN(exception, expression) \
 {\
