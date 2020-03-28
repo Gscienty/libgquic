@@ -108,8 +108,8 @@ int gquic_packet_unpacker_unpack(gquic_unpacked_packet_t *const unpacked_packet,
             payload.opener.is_1rtt = 0;
             payload.opener.cb.cb = gquic_common_long_header_opener_open_wrapper;
             GQUIC_ASSERT_FAST_RETURN(gquic_handshake_establish_get_handshake_opener(&payload.header_opener,
-                                                                      (gquic_common_long_header_opener_t **) &payload.opener.self,
-                                                                      unpacker->est));
+                                                                                    (gquic_common_long_header_opener_t **) &payload.opener.self,
+                                                                                    unpacker->est));
             break;
         default:
             GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_HEADER_TYPE_UNEXCEPTED);
@@ -137,6 +137,7 @@ int gquic_packet_unpacker_unpack(gquic_unpacked_packet_t *const unpacked_packet,
         unpacker->largest_recv_pn = tmp_pn;
     }
     unpacked_packet->valid = 1;
+
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 

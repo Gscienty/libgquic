@@ -104,10 +104,7 @@ static int init_write(void *const _, gquic_writer_str_t *const writer) {
     memcpy(GQUIC_STR_VAL(&rp->buffer->slice), GQUIC_STR_VAL(&cnt), GQUIC_STR_SIZE(&cnt));
     rp->data = rp->buffer->slice;
     rp->data.size = GQUIC_STR_SIZE(&cnt);
-    struct timeval tv;
-    struct timezone tz;
-    gettimeofday(&tv, &tz);
-    rp->recv_time = tv.tv_sec * 1000 * 1000 + tv.tv_usec;
+    rp->recv_time = gquic_time_now();
     rp->remote_addr.type = AF_INET;
 
     printf("send shello\n");
@@ -214,13 +211,10 @@ static int gquic_handshake_establish_handle_msg_wrapper(void *const est, const g
     return gquic_handshake_establish_handle_msg(est, data, enc_lv);
 }
 
-static int get_cert(gquic_str_t *const cert_s, const gquic_tls_client_hello_msg_t *const hello) {
+static int get_cert(PKCS12 **const cert_s, const gquic_tls_client_hello_msg_t *const hello) {
     (void) hello;
     FILE *f = fopen("test_certs/ed25519_p12.pem", "r");
-    PKCS12 *p12 = d2i_PKCS12_fp(f, NULL);
-    gquic_str_alloc(cert_s, i2d_PKCS12(p12, NULL));
-    u_int8_t *buf = GQUIC_STR_VAL(cert_s);
-    i2d_PKCS12(p12, &buf);
+    *cert_s = d2i_PKCS12_fp(f, NULL);
     fclose(f);
     return 0;
 }

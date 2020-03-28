@@ -775,11 +775,11 @@ int gquic_session_run(gquic_session_t *const sess) {
         }
 
         if (!sess->handshake_completed && now - sess->session_creation_time >= sess->cfg->handshake_timeout) {
-            gquic_session_destroy_inner(sess, -3 * 10 - 2);
+            gquic_session_destroy_inner(sess, GQUIC_EXCEPTION_HANDSHAKE_TIMEOUT);
             continue;
         }
         if (sess->handshake_completed && now - gquic_session_idle_timeout_start_time(sess) >= sess->idle_timeout) {
-            gquic_session_destroy_inner(sess, -4 * 10 - 3);
+            gquic_session_destroy_inner(sess, GQUIC_EXCEPTION_IDLE_TIMEOUT);
             continue;
         }
 
@@ -1027,6 +1027,7 @@ static int gquic_session_handle_packet_inner(gquic_session_t *const sess, gquic_
     }
     data = rp->data;
     p = rp;
+    buffer = p->buffer;
     while (GQUIC_STR_SIZE(&data) != 0) {
         if (counter > 0) {
             p = gquic_received_packet_copy(p);

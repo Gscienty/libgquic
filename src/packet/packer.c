@@ -708,7 +708,8 @@ int gquic_packet_packer_try_pack_handshake_packet(gquic_packed_packet_t *const p
 
     payload.sealer.cb = gquic_common_long_header_sealer_seal_wrapper;
     GQUIC_ASSERT_FAST_RETURN(gquic_handshake_establish_get_handshake_sealer(&payload.header_sealer,
-                                                              (gquic_common_long_header_sealer_t **) &payload.sealer.self, packer->est));
+                                                                            (gquic_common_long_header_sealer_t **) &payload.sealer.self,
+                                                                            packer->est));
     GQUIC_ASSERT_FAST_RETURN(gquic_packet_received_packet_handlers_get_ack_frame(&payload.ack, packer->acks, GQUIC_ENC_LV_INITIAL));
     if (payload.ack != NULL) {
         payload.len = GQUIC_FRAME_SIZE(payload.ack);
