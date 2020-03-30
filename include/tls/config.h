@@ -50,7 +50,7 @@ struct gquic_tls_config_s {
     int (*received_extensions) (void *const, const u_int8_t, gquic_list_t *const);
     int (*verify_peer_certs) (const gquic_list_t *const, const gquic_list_t *const);
     int (*get_ser_cert) (PKCS12 **const, const gquic_tls_client_hello_msg_t *const);
-    int (*get_cli_cert) (gquic_str_t *const, const gquic_tls_cert_req_msg_t *const);
+    int (*get_cli_cert) (PKCS12 **const, const gquic_tls_cert_req_msg_t *const);
     gquic_tls_record_layer_t alt_record;
     int enforce_next_proto_selection;
     u_int8_t cli_auth;

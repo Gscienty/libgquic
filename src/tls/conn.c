@@ -691,7 +691,7 @@ int gquic_tls_conn_verify_ser_cert(gquic_tls_conn_t *const conn, const gquic_lis
             gquic_tls_conn_send_alert(conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
             GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
         }
-        *peer_cert = *cert_storage;
+        *peer_cert = X509_dup(*cert_storage);
         if (GQUIC_ASSERT_CAUSE(exception, gquic_list_insert_before(&conn->peer_certs, peer_cert))) {
             gquic_tls_conn_send_alert(conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
             GQUIC_PROCESS_DONE(exception);

@@ -219,7 +219,7 @@ static int gquic_tls_handshake_server_state_process_cli_hello(gquic_tls_handshak
     ser_state->s_hello->compression_method = 0;
     GQUIC_LIST_FOREACH(suite_id, (ser_state->conn->cfg->ser_perfer_cipher_suite ? &default_cipher_suites : &ser_state->c_hello->cipher_suites)) {
         gquic_list_t *supported = ser_state->conn->cfg->ser_perfer_cipher_suite ? &ser_state->c_hello->cipher_suites : &default_cipher_suites;
-        if (gquic_tls_choose_cipher_suite(&ser_state->suite, supported, *suite_id) == 0) {
+        if (!GQUIC_ASSERT(gquic_tls_choose_cipher_suite(&ser_state->suite, supported, *suite_id))) {
             break;
         }
     }
@@ -924,6 +924,7 @@ static int gquic_tls_handshake_server_state_send_ser_cert(gquic_tls_handshake_se
         gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
         goto failure;
     }
+    // TODO add server appendix certs
     if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_msg_combine_serialize(&buf, cert_msg))) {
         gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
         goto failure;

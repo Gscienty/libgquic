@@ -22,6 +22,7 @@
 #include "frame/parser.h"
 #include "handshake/establish.h"
 #include "handshake/transport_parameters.h"
+#include "tls/config.h"
 
 typedef struct gquic_session_s gquic_session_t;
 struct gquic_session_s {
@@ -96,7 +97,19 @@ struct gquic_session_s {
 
     pthread_t handshake_thread;
     pthread_t send_queue_thread;
+
+    gquic_tls_config_t tls_config;
+
+    struct {
+        void *self;
+        int (*cb) (void *const);
+    } on_handshake_completed;
 };
+
+#define GQUIC_SESSION_ON_HANDSHAKE_COMPLETED(sess) \
+    ((sess)->on_handshake_completed.cb == NULL \
+    ? GQUIC_EXCEPTION_NOT_IMPLEMENTED \
+    : ((sess)->on_handshake_completed.cb((sess)->on_handshake_completed.self)))
 
 int gquic_session_init(gquic_session_t *const sess);
 int gquic_session_ctor(gquic_session_t *const sess,

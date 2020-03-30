@@ -360,7 +360,10 @@ int gquic_packet_handler_map_add(gquic_str_t *const token,
         free(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt));
         *(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt) = ph;
         sem_post(&handler->mtx);
-        GQUIC_ASSERT_FAST_RETURN(gquic_packet_handler_map_get_stateless_reset_token(token, handler, conn_id));
+
+        if (token != NULL) {
+            GQUIC_ASSERT_FAST_RETURN(gquic_packet_handler_map_get_stateless_reset_token(token, handler, conn_id));
+        }
 
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
@@ -375,7 +378,9 @@ int gquic_packet_handler_map_add(gquic_str_t *const token,
     gquic_rbtree_insert_cmp(&handler->handlers, rbt, gquic_packet_handler_rb_str_cmp);
     sem_post(&handler->mtx);
 
-    GQUIC_ASSERT_FAST_RETURN(gquic_packet_handler_map_get_stateless_reset_token(token, handler, conn_id));
+    if (token != NULL) {
+        GQUIC_ASSERT_FAST_RETURN(gquic_packet_handler_map_get_stateless_reset_token(token, handler, conn_id));
+    }
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

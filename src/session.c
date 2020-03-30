@@ -11,6 +11,7 @@
 #include "packet/send_mode.h"
 #include "exception.h"
 
+static int gquic_session_config_transfer_tls_config(gquic_tls_config_t *const, gquic_config_t *const);
 static int gquic_session_add_reset_token_wrapper(void *const, const gquic_str_t *const);
 static int gquic_session_add_wrapper(gquic_str_t *const, void *const, const gquic_str_t *const);
 static int gquic_session_handle_packet_wrapper(void *const, gquic_received_packet_t *const);
@@ -192,6 +193,11 @@ int gquic_session_init(gquic_session_t *const sess) {
 
     sem_init(&sess->early_sess_ready, 0, 0);
 
+    gquic_tls_config_init(&sess->tls_config);
+
+    sess->on_handshake_completed.cb = NULL;
+    sess->on_handshake_completed.self = NULL;
+
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
@@ -230,6 +236,7 @@ int gquic_session_ctor(gquic_session_t *const sess,
     sess->src_conn_id_len = GQUIC_STR_SIZE(src_conn_id);
     sess->is_client = is_client;
     sess->runner = runner;
+    GQUIC_ASSERT_FAST_RETURN(gquic_session_config_transfer_tls_config(&sess->tls_config, sess->cfg));
     GQUIC_ASSERT_FAST_RETURN(gquic_conn_id_manager_ctor(&sess->conn_id_manager,
                                                         dst_conn_id,
                                                         sess, gquic_session_add_reset_token_wrapper,
@@ -274,7 +281,7 @@ int gquic_session_ctor(gquic_session_t *const sess,
                                                             &sess->one_rtt_stream, gquic_one_rtt_stream_write_wrapper,
                                                             is_client ? sess : NULL,
                                                             is_client ? gquic_session_client_written_callback : NULL,
-                                                            &cfg->tls_config,
+                                                            &sess->tls_config,
                                                             dst_conn_id,
                                                             &params,
                                                             &sess->rtt,
@@ -310,8 +317,8 @@ int gquic_session_ctor(gquic_session_t *const sess,
                                                       &sess->recv_packet_handler,
                                                       sess->is_client));
 
-    if (is_client && GQUIC_STR_SIZE(&cfg->tls_config.ser_name) != 0) {
-        gquic_str_copy(&sess->token_store_key, &cfg->tls_config.ser_name);
+    if (is_client && GQUIC_STR_SIZE(&sess->tls_config.ser_name) != 0) {
+        gquic_str_copy(&sess->token_store_key, &sess->tls_config.ser_name);
     }
     // TODO is_client && token store
     
@@ -800,11 +807,14 @@ finished:
 }
 
 static void *gquic_session_run_handshake_thread(void *const sess_) {
+    int exception = GQUIC_SUCCESS;
     gquic_session_t *const sess = sess_;
     if (sess == NULL) {
         return NULL;
     }
-    gquic_handshake_establish_run(&sess->est);
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_handshake_establish_run(&sess->est))) {
+        gquic_session_close_local(sess, exception);
+    }
 
     return NULL;
 }
@@ -1005,6 +1015,8 @@ static int gquic_session_handle_handshake_completed(gquic_session_t *const sess)
         // TODO gen token
         gquic_handshake_establish_drop_handshake_keys(&sess->est);
     }
+    
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_SESSION_ON_HANDSHAKE_COMPLETED(sess));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -1826,5 +1838,21 @@ static int gquic_session_handle_close_err_local_alloc_closed_session(gquic_packe
     }
     *handler_storage = gquic_closed_local_session_alloc(params->sess->conn, &params->close_packet, params->sess->is_client);
     
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}
+
+static int gquic_session_config_transfer_tls_config(gquic_tls_config_t *const tls_config, gquic_config_t *const config) {
+    if (tls_config == NULL || config == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+    gquic_list_copy(&tls_config->next_protos, &config->next_protos, NULL);
+    tls_config->enforce_next_proto_selection = config->enforce_next_proto_selections;
+    tls_config->verify_peer_certs = config->verify_peer_certs;
+    tls_config->get_ser_cert = config->get_ser_cert;
+    tls_config->get_cli_cert = config->get_cli_cert;
+    tls_config->insecure_skiy_verify = config->insecure_skiy_verify;
+    gquic_list_copy(&tls_config->cipher_suites, &config->cipher_suites, NULL);
+    tls_config->ser_perfer_cipher_suite = config->ser_perfer_cipher_suite;
+
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
