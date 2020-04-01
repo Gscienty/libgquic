@@ -3,6 +3,7 @@
 #include "frame/reset_stream.h"
 #include "frame/meta.h"
 #include "frame/stream_pool.h"
+#include "util/time.h"
 #include "exception.h"
 #include <sys/time.h>
 #include <string.h>
@@ -81,10 +82,7 @@ int gquic_send_stream_write(int *const writed, gquic_send_stream_t *const str, c
         GQUIC_EXCEPTION_ASSIGN(exception, str->close_for_shutdown_reason);
         goto finished;
     }
-    struct timeval tv;
-    struct timezone tz;
-    gettimeofday(&tv, &tz);
-    u_int64_t now = tv.tv_sec * 1000 * 1000 + tv.tv_usec;
+    u_int64_t now = gquic_time_now();
     if (str->deadline != 0 && str->deadline < now) {
         *writed = 0;
         GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_DEADLINE);
@@ -103,8 +101,7 @@ int gquic_send_stream_write(int *const writed, gquic_send_stream_t *const str, c
         written_bytes = GQUIC_STR_SIZE(data) - GQUIC_STR_SIZE(&str->writing_data);
         deadline = str->deadline;
         if (deadline != 0) {
-            gettimeofday(&tv, &tz);
-            now = tv.tv_sec * 1000 * 1000 + tv.tv_usec;
+            now = gquic_time_now();
             if (deadline < now) {
                 *writed = written_bytes;
                 gquic_str_reset(&str->writing_data);
