@@ -243,9 +243,127 @@ GQUIC_UNIT_TEST(rejects_overlapping_data_range) {
     gquic_str_t writer = { 10, buf };
 
     GQUIC_UNIT_TEST_EXPECT(gquic_recv_stream_read(&recv_str, &writer) == GQUIC_SUCCESS);
-    printf("%s\n", buf);
     GQUIC_UNIT_TEST_EXPECT(memcmp("abcdef", buf, 6) == 0);
     GQUIC_UNIT_TEST_EXPECT(GQUIC_STR_VAL(&writer) - (void *) buf == 6);
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}
+
+GQUIC_UNIT_TEST(deadline) {
+    gquic_stream_sender_t sender;
+    gquic_stream_sender_init(&sender);
+    gquic_flowcontrol_stream_flow_ctrl_t stream_flow_ctrl;
+    gquic_flowcontrol_stream_flow_ctrl_init(&stream_flow_ctrl);
+    gquic_recv_stream_t recv_str;
+    gquic_recv_stream_init(&recv_str);
+    gquic_flowcontrol_stream_flow_ctrl_update_highest_recv(&stream_flow_ctrl, 4, 0);
+    gquic_flowcontrol_stream_flow_ctrl_read_add_bytes(&stream_flow_ctrl, 4);
+
+    gquic_recv_stream_ctor(&recv_str, 1337, &sender, &stream_flow_ctrl);
+
+    gquic_frame_stream_t *frame1 = gquic_frame_stream_alloc();
+    frame1->off = 0;
+    gquic_str_set(&frame1->data, "abcd");
+    GQUIC_UNIT_TEST_EXPECT(gquic_recv_stream_handle_stream_frame(&recv_str, frame1) == GQUIC_SUCCESS);
+
+    gquic_recv_stream_set_read_deadline(&recv_str, gquic_time_now() - 1000 * 1000);
+
+    u_int8_t buf[10] = { 0 };
+    gquic_str_t writer = { 10, buf };
+    GQUIC_UNIT_TEST_EXPECT(gquic_recv_stream_read(&recv_str, &writer) == GQUIC_EXCEPTION_DEADLINE);
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}
+
+struct __deadline_changed_s {
+    gquic_recv_stream_t *recv_str;
+    sem_t done;
+};
+
+static int __deadline_changed(void *const param_) {
+    struct __deadline_changed_s *const param = param_;
+
+    u_int8_t buf[10] = { 0 };
+    gquic_str_t writer = { 10, buf };
+    GQUIC_UNIT_TEST_EXPECT(gquic_recv_stream_read(param->recv_str, &writer) == GQUIC_EXCEPTION_DEADLINE);
+
+    sem_post(&param->done);
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}
+
+GQUIC_UNIT_TEST(deadline_changed) {
+    gquic_stream_sender_t sender;
+    gquic_stream_sender_init(&sender);
+    gquic_flowcontrol_stream_flow_ctrl_t stream_flow_ctrl;
+    gquic_flowcontrol_stream_flow_ctrl_init(&stream_flow_ctrl);
+    gquic_recv_stream_t recv_str;
+    gquic_recv_stream_init(&recv_str);
+    gquic_flowcontrol_stream_flow_ctrl_update_highest_recv(&stream_flow_ctrl, 4, 0);
+    gquic_flowcontrol_stream_flow_ctrl_read_add_bytes(&stream_flow_ctrl, 4);
+
+    gquic_recv_stream_ctor(&recv_str, 1337, &sender, &stream_flow_ctrl);
+    gquic_recv_stream_set_read_deadline(&recv_str, gquic_time_now() + 1000 * 1000 * 1000);
+
+    struct __deadline_changed_s param;
+    sem_init(&param.done, 0, 0);
+    param.recv_str = &recv_str;
+
+    gquic_timeout_start(0, __deadline_changed, &param);
+
+    gquic_recv_stream_set_read_deadline(&recv_str, gquic_time_now() - 1);
+
+    sem_wait(&param.done);
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}
+
+GQUIC_UNIT_TEST(deadline_after) {
+    gquic_stream_sender_t sender;
+    gquic_stream_sender_init(&sender);
+    gquic_flowcontrol_stream_flow_ctrl_t stream_flow_ctrl;
+    gquic_flowcontrol_stream_flow_ctrl_init(&stream_flow_ctrl);
+    gquic_recv_stream_t recv_str;
+    gquic_recv_stream_init(&recv_str);
+    gquic_flowcontrol_stream_flow_ctrl_update_highest_recv(&stream_flow_ctrl, 4, 0);
+    gquic_flowcontrol_stream_flow_ctrl_read_add_bytes(&stream_flow_ctrl, 4);
+
+    gquic_recv_stream_ctor(&recv_str, 1337, &sender, &stream_flow_ctrl);
+    gquic_recv_stream_set_read_deadline(&recv_str, gquic_time_now() + 1000 * 1000);
+
+    u_int8_t buf[10] = { 0 };
+    gquic_str_t writer = { 10, buf };
+    GQUIC_UNIT_TEST_EXPECT(gquic_recv_stream_read(&recv_str, &writer) == GQUIC_EXCEPTION_DEADLINE);
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}
+
+GQUIC_UNIT_TEST(close_with_fin) {
+    gquic_stream_sender_t sender;
+    gquic_stream_sender_init(&sender);
+    gquic_flowcontrol_stream_flow_ctrl_t stream_flow_ctrl;
+    gquic_flowcontrol_stream_flow_ctrl_init(&stream_flow_ctrl);
+    gquic_recv_stream_t recv_str;
+    gquic_recv_stream_init(&recv_str);
+
+    gquic_recv_stream_ctor(&recv_str, 1337, &sender, &stream_flow_ctrl);
+
+    gquic_flowcontrol_stream_flow_ctrl_update_highest_recv(&stream_flow_ctrl, 4, 1);
+    gquic_flowcontrol_stream_flow_ctrl_read_add_bytes(&stream_flow_ctrl, 4);
+    
+    gquic_frame_stream_t *frame = gquic_frame_stream_alloc();
+    frame->off = 0;
+    gquic_frame_stream_set_fin(frame);
+    gquic_str_set(&frame->data, "abcd");
+
+    GQUIC_UNIT_TEST_EXPECT(gquic_recv_stream_handle_stream_frame(&recv_str, frame) == GQUIC_SUCCESS);
+    
+    u_int8_t buf[10] = { 0 };
+    gquic_str_t writer = { 10, buf };
+
+    GQUIC_UNIT_TEST_EXPECT(gquic_recv_stream_read(&recv_str, &writer) == GQUIC_EXCEPTION_EOF);
+    GQUIC_UNIT_TEST_EXPECT(memcmp("abcd", buf, 4) == 0);
+    GQUIC_UNIT_TEST_EXPECT(GQUIC_STR_VAL(&writer) - (void *) buf == 4);
+
+    GQUIC_UNIT_TEST_EXPECT(gquic_recv_stream_read(&recv_str, &writer) == GQUIC_EXCEPTION_EOF);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
