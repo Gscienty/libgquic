@@ -198,8 +198,12 @@ static int gquic_frame_sorter_push_inner(gquic_frame_sorter_t *const sorter,
     }
 
     if (cut_flag && GQUIC_STR_SIZE(&tmp_data) < 128) {
+        gquic_str_t tmp = tmp_data;
+        gquic_str_init(&tmp_data);
+        GQUIC_ASSERT_FAST_RETURN(gquic_str_copy(&tmp_data, &tmp));
         if (done_cb_self != NULL) {
             done_cb(done_cb_self);
+            done_cb = NULL;
             done_cb_self = NULL;
         }
     }
@@ -215,6 +219,7 @@ static int gquic_frame_sorter_push_inner(gquic_frame_sorter_t *const sorter,
             GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
         }
         *((u_int64_t *) GQUIC_RBTREE_KEY(cb_rbt)) = off;
+        gquic_str_init(&((gquic_frame_sorter_entry_t *) GQUIC_RBTREE_VALUE(cb_rbt))->data);
         ((gquic_frame_sorter_entry_t *) GQUIC_RBTREE_VALUE(cb_rbt))->done_cb.cb = done_cb;
         ((gquic_frame_sorter_entry_t *) GQUIC_RBTREE_VALUE(cb_rbt))->done_cb.self = done_cb_self;
         gquic_str_copy(&((gquic_frame_sorter_entry_t *) GQUIC_RBTREE_VALUE(cb_rbt))->data, &tmp_data);

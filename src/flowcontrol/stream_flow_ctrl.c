@@ -50,9 +50,7 @@ int gquic_flowcontrol_stream_flow_ctrl_dtor(gquic_flowcontrol_stream_flow_ctrl_t
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_flowcontrol_stream_flow_ctrl_update_highest_recv(gquic_flowcontrol_stream_flow_ctrl_t *const ctrl,
-                                                           const u_int64_t off,
-                                                           int final) {
+int gquic_flowcontrol_stream_flow_ctrl_update_highest_recv(gquic_flowcontrol_stream_flow_ctrl_t *const ctrl, const u_int64_t off, int final) {
     int exception = GQUIC_SUCCESS;
     u_int64_t increment = 0;
     if (ctrl == NULL) {

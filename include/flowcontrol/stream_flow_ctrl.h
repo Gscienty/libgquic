@@ -3,6 +3,7 @@
 
 #include "flowcontrol/base.h"
 #include "flowcontrol/conn_flow_ctrl.h"
+#include "exception.h"
 
 typedef struct gquic_flowcontrol_stream_flow_ctrl_s gquic_flowcontrol_stream_flow_ctrl_t;
 struct gquic_flowcontrol_stream_flow_ctrl_s {
@@ -16,7 +17,10 @@ struct gquic_flowcontrol_stream_flow_ctrl_s {
     int recv_final_off;
 };
 
-#define GQUIC_FLOWCONTROL_STREAM_FLOW_CTRL_QUEUE_WND_UPDATE(ctrl) ((ctrl)->queue_wnd_update.cb((ctrl)->queue_wnd_update.self, (ctrl)->stream_id))
+#define GQUIC_FLOWCONTROL_STREAM_FLOW_CTRL_QUEUE_WND_UPDATE(ctrl) \
+    ((ctrl)->queue_wnd_update.cb == NULL \
+     ? GQUIC_EXCEPTION_NOT_IMPLEMENTED \
+     : (ctrl)->queue_wnd_update.cb((ctrl)->queue_wnd_update.self, (ctrl)->stream_id))
 
 int gquic_flowcontrol_stream_flow_ctrl_init(gquic_flowcontrol_stream_flow_ctrl_t *const ctrl);
 int gquic_flowcontrol_stream_flow_ctrl_ctor(gquic_flowcontrol_stream_flow_ctrl_t *const ctrl,
