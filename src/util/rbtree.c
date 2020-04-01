@@ -162,7 +162,7 @@ int gquic_rbtree_find(const gquic_rbtree_t **const ret, const gquic_rbtree_t *co
     while (*ret != &nil) {
         cmpret = gquic_rbtree_key_cmp(key, key_len, *ret);
         if (cmpret == 0) {
-            GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+            return GQUIC_SUCCESS;
         }
         if (cmpret < 0) {
             *ret = (*ret)->left;
@@ -172,7 +172,7 @@ int gquic_rbtree_find(const gquic_rbtree_t **const ret, const gquic_rbtree_t *co
         }
     }
 
-    GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_NOT_FOUND);
+    return GQUIC_EXCEPTION_NOT_FOUND;
 }
 
 int gquic_rbtree_find_cmp(const gquic_rbtree_t **const ret, const gquic_rbtree_t *const root, void *key, int (key_cmp) (void *const, void *const)) {
@@ -184,7 +184,7 @@ int gquic_rbtree_find_cmp(const gquic_rbtree_t **const ret, const gquic_rbtree_t
     while (*ret != &nil) {
         cmpret = key_cmp(key, GQUIC_RBTREE_KEY(*ret));
         if (cmpret == 0) {
-            GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+            return GQUIC_SUCCESS;
         }
         if (cmpret < 0) {
             *ret = (*ret)->left;
@@ -194,7 +194,7 @@ int gquic_rbtree_find_cmp(const gquic_rbtree_t **const ret, const gquic_rbtree_t
         }
     }
 
-    GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_NOT_FOUND);
+    return GQUIC_EXCEPTION_NOT_FOUND;
 }
 
 static int gquic_rbtree_left_rotate(gquic_rbtree_t **root, gquic_rbtree_t *node) {
