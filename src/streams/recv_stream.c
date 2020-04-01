@@ -7,7 +7,7 @@
 #include <string.h>
 
 static inline int gquic_recv_stream_dequeue_next_frame(gquic_recv_stream_t *const);
-static int gquic_recv_stream_read_inner(int *const, int *const, gquic_recv_stream_t *const, gquic_str_t *const);
+static int gquic_recv_stream_read_inner(int *const, gquic_recv_stream_t *const, gquic_writer_str_t *const);
 static int gquic_recv_stream_read_cancel_inner(gquic_recv_stream_t *const, const int);
 static int gquic_recv_stream_handle_stream_frame_inner(int *const, gquic_recv_stream_t *const, gquic_frame_stream_t *const);
 static int gquic_recv_stream_handle_reset_stream_frame_inner(int *const, gquic_recv_stream_t *const, const gquic_frame_reset_stream_t *const);
@@ -70,14 +70,14 @@ int gquic_recv_stream_dtor(gquic_recv_stream_t *const str) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_recv_stream_read(int *const read, gquic_recv_stream_t *const str, gquic_str_t *const data) {
+int gquic_recv_stream_read(gquic_recv_stream_t *const str, gquic_writer_str_t *const writer) {
     int completed = 0;
     int exception = GQUIC_SUCCESS;
-    if (read == NULL || str == NULL || data == NULL) {
+    if (str == NULL || writer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     sem_wait(&str->mtx);
-    GQUIC_ASSERT_CAUSE(exception, gquic_recv_stream_read_inner(&completed, read, str, data));
+    GQUIC_ASSERT_CAUSE(exception, gquic_recv_stream_read_inner(&completed, str, writer));
     sem_post(&str->mtx);
 
     if (completed) {
@@ -136,56 +136,48 @@ static inline int gquic_recv_stream_dequeue_next_frame(gquic_recv_stream_t *cons
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_recv_stream_read_inner(int *const completed, int *const read, gquic_recv_stream_t *const str, gquic_str_t *const data) {
+static int gquic_recv_stream_read_inner(int *const completed, gquic_recv_stream_t *const str, gquic_writer_str_t *const writer) {
     u_int64_t read_bytes = 0;
     u_int64_t deadline = 0;
     size_t readed_size = 0;
-    if (completed == NULL || read == NULL || str == NULL || data == NULL) {
+    if (completed == NULL || str == NULL || writer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (str->fin_read) {
         *completed = 0;
-        *read = 0;
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_EOF);
     }
     if (str->canceled_read) {
         *completed = 0;
-        *read = 0;
         GQUIC_PROCESS_DONE(str->cancel_read_reason);
     }
     if (str->reset_remote) {
         *completed = 0;
-        *read = 0;
         GQUIC_PROCESS_DONE(str->reset_remote_reason);
     }
     if (str->close_for_shutdown) {
         *completed = 0;
-        *read = 0;
         GQUIC_PROCESS_DONE(str->close_for_shutdown_reason);
     }
-    while (read_bytes < GQUIC_STR_SIZE(data)) {
+    while (read_bytes < GQUIC_STR_SIZE(writer)) {
         if (GQUIC_STR_SIZE(&str->cur_frame) == 0 || (u_int64_t) str->frame_read_pos >= GQUIC_STR_SIZE(&str->cur_frame)) {
             gquic_recv_stream_dequeue_next_frame(str);
         }
         if (GQUIC_STR_SIZE(&str->cur_frame) == 0 && read_bytes > 0) {
             *completed = 0;
-            *read = read_bytes;
             GQUIC_PROCESS_DONE(str->close_for_shutdown_reason);
         }
         for ( ;; ) {
             if (str->close_for_shutdown) {
                 *completed = 0;
-                *read = read_bytes;
                 GQUIC_PROCESS_DONE(str->close_for_shutdown_reason);
             }
             if (str->canceled_read) {
                 *completed = 0;
-                *read = read_bytes;
                 GQUIC_PROCESS_DONE(str->cancel_read_reason);
             }
             if (str->reset_remote) {
                 *completed = 0;
-                *read = read_bytes;
                 GQUIC_PROCESS_DONE(str->reset_remote_reason);
             }
             deadline = str->deadline;
@@ -193,7 +185,6 @@ static int gquic_recv_stream_read_inner(int *const completed, int *const read, g
                 u_int64_t now = gquic_time_now();
                 if (now >= deadline) {
                     *completed = 0;
-                    *read = read_bytes;
                     GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_DEADLINE);
                 }
             }
@@ -213,25 +204,22 @@ static int gquic_recv_stream_read_inner(int *const completed, int *const read, g
                 gquic_recv_stream_dequeue_next_frame(str);
             }
         }
-        if (read_bytes > GQUIC_STR_SIZE(data)) {
+        if (read_bytes > GQUIC_STR_SIZE(writer)) {
             *completed = 0;
-            *read = read_bytes;
             GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INTERNAL_ERROR);
         }
         if ((size_t) str->frame_read_pos > GQUIC_STR_SIZE(&str->cur_frame)) {
             *completed = 0;
-            *read = read_bytes;
             GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INTERNAL_ERROR);
         }
 
         sem_post(&str->mtx);
 
-        readed_size = GQUIC_STR_SIZE(data) - read_bytes < GQUIC_STR_SIZE(&str->cur_frame) - str->frame_read_pos
-            ? GQUIC_STR_SIZE(data) - read_bytes
+        readed_size = GQUIC_STR_SIZE(writer) - read_bytes < GQUIC_STR_SIZE(&str->cur_frame) - str->frame_read_pos
+            ? GQUIC_STR_SIZE(writer) - read_bytes
             : GQUIC_STR_SIZE(&str->cur_frame) - str->frame_read_pos;
-        memcpy(GQUIC_STR_VAL(data) + read_bytes,
-               GQUIC_STR_VAL(&str->cur_frame) + str->frame_read_pos,
-               readed_size);
+        gquic_str_t buf = { readed_size, GQUIC_STR_VAL(&str->cur_frame) + str->frame_read_pos };
+        gquic_writer_str_write(writer, &buf);
         str->frame_read_pos += readed_size;
         read_bytes += readed_size;
         str->read_off += readed_size;
@@ -244,14 +232,11 @@ static int gquic_recv_stream_read_inner(int *const completed, int *const read, g
         if ((u_int64_t) str->frame_read_pos >= GQUIC_STR_SIZE(&str->cur_frame) && str->cur_frame_is_last) {
             str->fin_read = 1;
             *completed = 1;
-            *read = read_bytes;
             GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_EOF);
         }
 
     }
-
     *completed = 1;
-    *read = read_bytes;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -287,7 +272,7 @@ static int gquic_recv_stream_handle_stream_frame_inner(int *const completed, gqu
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     max_off = frame->off + GQUIC_STR_SIZE(&frame->data);
-    fin = (GQUIC_FRAME_META(frame).type & 0x01) != 0x00;
+    fin = gquic_frame_stream_get_fin(frame);
     if (GQUIC_ASSERT_CAUSE(exception, gquic_flowcontrol_stream_flow_ctrl_update_highest_recv(str->flow_ctrl, max_off, fin))) {
         *completed = 0;
         GQUIC_PROCESS_DONE(exception);
