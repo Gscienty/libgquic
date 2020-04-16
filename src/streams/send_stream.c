@@ -35,7 +35,7 @@ int gquic_send_stream_init(gquic_send_stream_t *const str) {
     str->finished_writing = 0;
     str->fin_sent = 0;
     str->completed = 0;
-    gquic_str_init(&str->writing_data);
+    str->send_reader = NULL;
     sem_init(&str->write_sem, 0, 0);
     str->deadline = 0;
     str->flow_ctrl = NULL;
@@ -44,9 +44,7 @@ int gquic_send_stream_init(gquic_send_stream_t *const str) {
 }
 
 int gquic_send_stream_ctor(gquic_send_stream_t *const str,
-                           const u_int64_t stream_id,
-                           gquic_stream_sender_t *const sender,
-                           gquic_flowcontrol_stream_flow_ctrl_t *const flow_ctrl) {
+                           const u_int64_t stream_id, gquic_stream_sender_t *const sender, gquic_flowcontrol_stream_flow_ctrl_t *const flow_ctrl) {
     if (str == NULL || sender == NULL || flow_ctrl == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -57,12 +55,11 @@ int gquic_send_stream_ctor(gquic_send_stream_t *const str,
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_send_stream_write(gquic_send_stream_t *const str, gquic_writer_str_t *const writer) {
+int gquic_send_stream_write(gquic_send_stream_t *const str, gquic_reader_str_t *const reader) {
     int exception = GQUIC_SUCCESS;
     int notified_sender = 0;
-    u_int64_t written_bytes = 0;
     u_int64_t deadline = 0;
-    if (str == NULL || writer == NULL) {
+    if (str == NULL || reader == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     sem_wait(&str->mtx);
@@ -83,27 +80,21 @@ int gquic_send_stream_write(gquic_send_stream_t *const str, gquic_writer_str_t *
         GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_DEADLINE);
         goto finished;
     }
-    if (GQUIC_STR_SIZE(writer) == 0) {
+    if (GQUIC_STR_SIZE(reader) == 0) {
         goto finished;
     }
 
-    gquic_str_reset(&str->writing_data);
-    gquic_str_init(&str->writing_data);
-    gquic_str_copy(&str->writing_data, writer);
+    str->send_reader = reader;
 
     for ( ;; ) {
-        written_bytes = GQUIC_STR_SIZE(writer) - GQUIC_STR_SIZE(&str->writing_data);
         deadline = str->deadline;
         if (deadline != 0) {
             now = gquic_time_now();
             if (deadline < now) {
-                gquic_writer_str_writed_size(writer, written_bytes);
-                gquic_str_reset(&str->writing_data);
-                gquic_str_init(&str->writing_data);
                 goto finished;
             }
         }
-        if (GQUIC_STR_SIZE(&str->writing_data) == 0 || str->canceled_write || str->closed_for_shutdown) {
+        if (GQUIC_STR_SIZE(str->send_reader) == 0 || str->canceled_write || str->closed_for_shutdown) {
             break;
         }
         sem_post(&str->mtx);
@@ -120,7 +111,6 @@ int gquic_send_stream_write(gquic_send_stream_t *const str, gquic_writer_str_t *
         }
         sem_wait(&str->mtx);
     }
-    gquic_writer_str_writed_size(writer, written_bytes);
 
     if (str->closed_for_shutdown) {
         GQUIC_EXCEPTION_ASSIGN(exception, str->close_for_shutdown_reason);
@@ -129,6 +119,7 @@ int gquic_send_stream_write(gquic_send_stream_t *const str, gquic_writer_str_t *
         GQUIC_EXCEPTION_ASSIGN(exception, str->canceled_write_reason);
     }
 finished:
+    str->send_reader = NULL;
     sem_post(&str->mtx);
 
     GQUIC_PROCESS_DONE(exception);
@@ -139,8 +130,10 @@ static int gquic_send_stream_get_writing_data(gquic_frame_stream_t *const frame,
     if (frame == NULL || str == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if (GQUIC_STR_SIZE(&str->writing_data) == 0) {
-        GQUIC_FRAME_META(frame).type |= str->finished_writing && !str->fin_sent ? 0x01 : 0x00;
+    if (GQUIC_STR_SIZE(str->send_reader) == 0) {
+        if (str->finished_writing && !str->fin_sent) {
+            gquic_frame_stream_set_fin(frame);
+        }
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
     tmp = gquic_flowcontrol_stream_flow_ctrl_swnd_size(str->flow_ctrl);
@@ -150,22 +143,20 @@ static int gquic_send_stream_get_writing_data(gquic_frame_stream_t *const frame,
     }
     gquic_str_reset(&frame->data);
     gquic_str_init(&frame->data);
-    if (GQUIC_STR_SIZE(&str->writing_data) > max_bytes) {
+    if (GQUIC_STR_SIZE(str->send_reader) > max_bytes) {
         GQUIC_ASSERT_FAST_RETURN(gquic_str_alloc(&frame->data, max_bytes));
-        memcpy(GQUIC_STR_VAL(&frame->data), GQUIC_STR_VAL(&str->writing_data), max_bytes);
-        memmove(GQUIC_STR_VAL(&frame->data), GQUIC_STR_VAL(&frame->data) + max_bytes, GQUIC_STR_SIZE(&frame->data) - max_bytes);
-        str->writing_data.size = GQUIC_STR_SIZE(&str->writing_data) - max_bytes;
+        GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_read(&frame->data, str->send_reader));
     }
     else {
-        GQUIC_ASSERT_FAST_RETURN(gquic_str_alloc(&frame->data, GQUIC_STR_SIZE(&str->writing_data)));
-        memcpy(GQUIC_STR_VAL(&frame->data), GQUIC_STR_VAL(&str->writing_data), max_bytes);
-        gquic_str_reset(&str->writing_data);
-        gquic_str_init(&str->writing_data);
+        GQUIC_ASSERT_FAST_RETURN(gquic_str_alloc(&frame->data, GQUIC_STR_SIZE(str->send_reader)));
+        GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_read(&frame->data, str->send_reader));
         sem_post(&str->write_sem);
     }
     str->write_off += GQUIC_STR_SIZE(&frame->data);
     gquic_flowcontrol_stream_flow_ctrl_sent_add_bytes(str->flow_ctrl, GQUIC_STR_SIZE(&frame->data));
-    GQUIC_FRAME_META(frame).type |= str->finished_writing && GQUIC_STR_SIZE(&str->writing_data) && !str->fin_sent ? 0x01 : 0x00;
+    if (str->finished_writing && GQUIC_STR_SIZE(str->send_reader) != 0 && !str->fin_sent) {
+        gquic_frame_stream_set_fin(frame);
+    }
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -182,11 +173,11 @@ static int gquic_send_stream_pop_new_stream_frame(gquic_frame_stream_t *const fr
     }
     data_capacity = gquic_frame_stream_data_capacity(max_bytes, frame);
     if (data_capacity == 0) {
-        return GQUIC_STR_SIZE(&str->writing_data) != 0;
+        return GQUIC_STR_SIZE(str->send_reader) != 0;
     }
     gquic_send_stream_get_writing_data(frame, str, data_capacity);
-    if (GQUIC_STR_SIZE(&frame->data) == 0 && (GQUIC_FRAME_META(frame).type & 0x01) == 0x00) {
-        if (GQUIC_STR_SIZE(&str->writing_data) == 0) {
+    if (GQUIC_STR_SIZE(&frame->data) == 0 && !gquic_frame_stream_get_fin(frame)) {
+        if (GQUIC_STR_SIZE(str->send_reader) == 0) {
             return 0;
         }
         if (gquic_flowcontrol_base_is_newly_blocked(&off, &str->flow_ctrl->base)) {
@@ -201,7 +192,7 @@ static int gquic_send_stream_pop_new_stream_frame(gquic_frame_stream_t *const fr
     if ((GQUIC_FRAME_META(frame).type & 0x01) != 0x00) {
         str->fin_sent = 1;
     }
-    return GQUIC_STR_SIZE(&str->writing_data) != 0;
+    return GQUIC_STR_SIZE(str->send_reader) != 0;
 }
 
 static int gquic_send_stream_try_retransmission(gquic_frame_stream_t **const frame, gquic_send_stream_t *const str, const u_int64_t max_bytes) {
@@ -234,7 +225,7 @@ static int gquic_send_stream_pop_new_or_retransmission_stream_frame(gquic_frame_
     (*frame)->id = str->stream_id;
     (*frame)->off = str->write_off;
     remain_data = gquic_send_stream_pop_new_stream_frame(*frame, str, max_bytes);
-    if (GQUIC_STR_SIZE(&(*frame)->data) == 0 && (GQUIC_FRAME_META(*frame).type & 0x01) == 0x00) {
+    if (GQUIC_STR_SIZE(&(*frame)->data) == 0 && !gquic_frame_stream_get_fin(*frame)) {
         gquic_stream_frame_pool_put((*frame));
         *frame = NULL;
         return remain_data;
@@ -373,7 +364,7 @@ int gquic_send_stream_has_data(gquic_send_stream_t *const str) {
         return 0;
     }
     sem_wait(&str->mtx);
-    has_data = GQUIC_STR_SIZE(&str->writing_data) > 0;
+    has_data = GQUIC_STR_SIZE(str->send_reader) > 0;
     sem_post(&str->mtx);
     return has_data;
 }
@@ -397,7 +388,7 @@ int gquic_send_stream_handle_max_stream_data_frame(gquic_send_stream_t *const st
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     sem_wait(&str->mtx);
-    has_stream_data = GQUIC_STR_SIZE(&str->writing_data) > 0;
+    has_stream_data = GQUIC_STR_SIZE(str->send_reader) > 0;
     sem_post(&str->mtx);
 
     gquic_flowcontrol_base_update_swnd(&str->flow_ctrl->base, frame->max);

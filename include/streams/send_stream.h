@@ -26,7 +26,7 @@ struct gquic_send_stream_s {
     int finished_writing;
     int fin_sent;
     int completed;
-    gquic_str_t writing_data;
+    gquic_reader_str_t *send_reader;
     sem_t write_sem;
     u_int64_t deadline;
     gquic_flowcontrol_stream_flow_ctrl_t *flow_ctrl;
@@ -34,10 +34,8 @@ struct gquic_send_stream_s {
 
 int gquic_send_stream_init(gquic_send_stream_t *const str);
 int gquic_send_stream_ctor(gquic_send_stream_t *const str,
-                           const u_int64_t stream_id,
-                           gquic_stream_sender_t *const sender,
-                           gquic_flowcontrol_stream_flow_ctrl_t *const flow_ctrl);
-int gquic_send_stream_write(gquic_send_stream_t *const str, gquic_writer_str_t *const writer);
+                           const u_int64_t stream_id, gquic_stream_sender_t *const sender, gquic_flowcontrol_stream_flow_ctrl_t *const flow_ctrl);
+int gquic_send_stream_write(gquic_send_stream_t *const str, gquic_reader_str_t *const reader);
 int gquic_send_stream_pop_stream_frame(gquic_frame_stream_t **const frame, gquic_send_stream_t *const str, const u_int64_t max_bytes);
 int gquic_send_stream_handle_stop_sending_frame(gquic_send_stream_t *const str, const gquic_frame_stop_sending_t *const stop_sending);
 int gquic_send_stream_cancel_write(gquic_send_stream_t *const str, const u_int64_t err);
