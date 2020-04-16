@@ -13,7 +13,7 @@ gquic_str_t sci = { 3, "sci" };
 gquic_str_t server_sci = { 4, "ssci" };
 
 gquic_config_t cfg;
-gquic_config_t ser_cfg;
+gquic_tls_config_t ser_cfg;
 gquic_transport_parameters_t server_params;
 gquic_crypto_stream_t initial;
 gquic_crypto_stream_t handshake;
@@ -241,8 +241,8 @@ void server_process_client_hello_package(const gquic_str_t *const raw) {
                                    &handshake, handshake_write,
                                    &onertt, one_rtt_write,
                                    NULL, NULL,
-                                   &ser_cfg.tls_config, &conn_id, &server_params, &server_rtt, &server_addr, 0);
-    ser_cfg.tls_config.get_ser_cert = get_cert;
+                                   &ser_cfg, &conn_id, &server_params, &server_rtt, &server_addr, 0);
+    ser_cfg.get_ser_cert = get_cert;
     
     gquic_packet_unpacker_init(&server_unpacker);
     gquic_packet_unpacker_ctor(&server_unpacker, &server_establish);
@@ -366,11 +366,10 @@ int main() {
     conn.write.self = conn_write;
     conn.write.cb = conn_write;
 
-    gquic_tls_config_init(&cfg.tls_config);
-    cfg.tls_config.insecure_skiy_verify = 1;
-    cfg.handshake_timeout = 2 * 1000 * 1000;
+    gquic_config_init(&cfg);
 
-    gquic_tls_config_init(&ser_cfg.tls_config);
+    cfg.insecure_skiy_verify = 1;
+    cfg.handshake_timeout = 2 * 1000 * 1000;
 
     gquic_packet_handler_map_init(&handler_map);
     gquic_str_t tmp_token = { 0, NULL };
