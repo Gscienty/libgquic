@@ -57,53 +57,47 @@ int gquic_send_stream_ctor(gquic_send_stream_t *const str,
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_send_stream_write(int *const writed, gquic_send_stream_t *const str, const gquic_str_t *const data) {
+int gquic_send_stream_write(gquic_send_stream_t *const str, gquic_writer_str_t *const writer) {
     int exception = GQUIC_SUCCESS;
     int notified_sender = 0;
     u_int64_t written_bytes = 0;
     u_int64_t deadline = 0;
-    if (writed == NULL || str == NULL || data == NULL) {
+    if (str == NULL || writer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    *writed = 0;
     sem_wait(&str->mtx);
     if (str->finished_writing) {
-        *writed = 0;
         GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_CLOSED);
         goto finished;
     }
     if (str->canceled_write) {
-        *writed = 0;
         GQUIC_EXCEPTION_ASSIGN(exception, str->canceled_write_reason);
         goto finished;
     }
     if (str->closed_for_shutdown) {
-        *writed = 0;
         GQUIC_EXCEPTION_ASSIGN(exception, str->close_for_shutdown_reason);
         goto finished;
     }
     u_int64_t now = gquic_time_now();
     if (str->deadline != 0 && str->deadline < now) {
-        *writed = 0;
         GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_DEADLINE);
         goto finished;
     }
-    if (GQUIC_STR_SIZE(data) == 0) {
-        *writed = 0;
+    if (GQUIC_STR_SIZE(writer) == 0) {
         goto finished;
     }
 
     gquic_str_reset(&str->writing_data);
     gquic_str_init(&str->writing_data);
-    gquic_str_copy(&str->writing_data, data);
+    gquic_str_copy(&str->writing_data, writer);
 
     for ( ;; ) {
-        written_bytes = GQUIC_STR_SIZE(data) - GQUIC_STR_SIZE(&str->writing_data);
+        written_bytes = GQUIC_STR_SIZE(writer) - GQUIC_STR_SIZE(&str->writing_data);
         deadline = str->deadline;
         if (deadline != 0) {
             now = gquic_time_now();
             if (deadline < now) {
-                *writed = written_bytes;
+                gquic_writer_str_writed_size(writer, written_bytes);
                 gquic_str_reset(&str->writing_data);
                 gquic_str_init(&str->writing_data);
                 goto finished;
@@ -126,12 +120,12 @@ int gquic_send_stream_write(int *const writed, gquic_send_stream_t *const str, c
         }
         sem_wait(&str->mtx);
     }
+    gquic_writer_str_writed_size(writer, written_bytes);
+
     if (str->closed_for_shutdown) {
-        *writed = written_bytes;
         GQUIC_EXCEPTION_ASSIGN(exception, str->close_for_shutdown_reason);
     }
     else if (str->canceled_write) {
-        *writed = written_bytes;
         GQUIC_EXCEPTION_ASSIGN(exception, str->canceled_write_reason);
     }
 finished:

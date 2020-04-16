@@ -37,7 +37,7 @@ int gquic_send_stream_ctor(gquic_send_stream_t *const str,
                            const u_int64_t stream_id,
                            gquic_stream_sender_t *const sender,
                            gquic_flowcontrol_stream_flow_ctrl_t *const flow_ctrl);
-int gquic_send_stream_write(int *const writed, gquic_send_stream_t *const str, const gquic_str_t *const data);
+int gquic_send_stream_write(gquic_send_stream_t *const str, gquic_writer_str_t *const writer);
 int gquic_send_stream_pop_stream_frame(gquic_frame_stream_t **const frame, gquic_send_stream_t *const str, const u_int64_t max_bytes);
 int gquic_send_stream_handle_stop_sending_frame(gquic_send_stream_t *const str, const gquic_frame_stop_sending_t *const stop_sending);
 int gquic_send_stream_cancel_write(gquic_send_stream_t *const str, const u_int64_t err);
