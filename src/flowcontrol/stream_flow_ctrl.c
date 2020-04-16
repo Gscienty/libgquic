@@ -137,13 +137,12 @@ int gquic_flowcontrol_stream_flow_ctrl_abandon(gquic_flowcontrol_stream_flow_ctr
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_flowcontrol_stream_flow_ctrl_sent_add_bytes(gquic_flowcontrol_stream_flow_ctrl_t *const ctrl,
-                                                      const u_int64_t n) {
+int gquic_flowcontrol_stream_flow_ctrl_sent_add_bytes(gquic_flowcontrol_stream_flow_ctrl_t *const ctrl, const u_int64_t n) {
     if (ctrl == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    gquic_flowcontrol_base_read_add_bytes(&ctrl->base, n);
-    gquic_flowcontrol_conn_flow_ctrl_read_add_bytes(ctrl->conn_flow_ctrl, n);
+    gquic_flowcontrol_base_sent_add_bytes(&ctrl->base, n);
+    gquic_flowcontrol_base_sent_add_bytes(&ctrl->conn_flow_ctrl->base, n);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

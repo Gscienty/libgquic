@@ -1,5 +1,5 @@
 #include "flowcontrol/base.h"
-#include <time.h>
+#include "util/time.h"
 
 u_int64_t gquic_flowcontrol_base_swnd_size(const gquic_flowcontrol_base_t *const);
 static inline int gquic_flowcontrol_base_try_adjust_wnd_size(gquic_flowcontrol_base_t *const);
@@ -50,16 +50,21 @@ int gquic_flowcontrol_base_is_newly_blocked(u_int64_t *const swnd, gquic_flowcon
     return 1;
 }
 
+int gquic_flowcontrol_base_sent_add_bytes(gquic_flowcontrol_base_t *const base, const u_int64_t n) {
+    if (base == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+    base->sent_bytes += n;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}
+
 int gquic_flowcontrol_base_read_add_bytes(gquic_flowcontrol_base_t *const base, const u_int64_t n) {
     if (base == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     sem_wait(&base->mtx);
     if (base->read_bytes == 0) {
-        struct timeval tv;
-        struct timezone tz;
-        gettimeofday(&tv, &tz);
-        base->epoch_time = tv.tv_sec * 1000 * 1000 + tv.tv_usec;
+        base->epoch_time = gquic_time_now();
         base->epoch_off = base->read_bytes;
     }
     base->read_bytes += n;

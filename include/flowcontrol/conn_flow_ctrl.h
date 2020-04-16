@@ -23,10 +23,8 @@ int gquic_flowcontrol_conn_flow_ctrl_ctor(gquic_flowcontrol_conn_flow_ctrl_t *co
                                           gquic_rtt_t *const rtt);
 int gquic_flowcontrol_conn_flow_ctrl_dtor(gquic_flowcontrol_conn_flow_ctrl_t *const ctrl);
 u_int64_t gquic_flowcontrol_conn_flow_ctrl_swnd_size(gquic_flowcontrol_conn_flow_ctrl_t *const ctrl);
-int gquic_flowcontrol_conn_flow_ctrl_increment_highest_recv(gquic_flowcontrol_conn_flow_ctrl_t *const ctrl,
-                                                            const u_int64_t increment);
-int gquic_flowcontrol_conn_flow_ctrl_read_add_bytes(gquic_flowcontrol_conn_flow_ctrl_t *const ctrl,
-                                                    const u_int64_t n);
+int gquic_flowcontrol_conn_flow_ctrl_increment_highest_recv(gquic_flowcontrol_conn_flow_ctrl_t *const ctrl, const u_int64_t increment);
+int gquic_flowcontrol_conn_flow_ctrl_read_add_bytes(gquic_flowcontrol_conn_flow_ctrl_t *const ctrl, const u_int64_t n);
 u_int64_t gquic_flowcontrol_conn_flow_ctrl_get_wnd_update(gquic_flowcontrol_conn_flow_ctrl_t *const ctrl);
 int gquic_flowcontrol_conn_flow_ctrl_ensure_min_wnd_size(gquic_flowcontrol_conn_flow_ctrl_t *const ctrl, const u_int64_t inc);
 

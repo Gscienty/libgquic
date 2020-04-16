@@ -30,6 +30,7 @@ int gquic_flowcontrol_base_read_add_bytes(gquic_flowcontrol_base_t *const base, 
 u_int64_t gquic_flowcontrol_base_swnd_size(const gquic_flowcontrol_base_t *const base);
 int gquic_flowcontrol_base_has_wnd_update(const gquic_flowcontrol_base_t *const base);
 u_int64_t gquic_flowcontrol_base_get_wnd_update(gquic_flowcontrol_base_t *const base);
+int gquic_flowcontrol_base_sent_add_bytes(gquic_flowcontrol_base_t *const base, const u_int64_t n);
 static inline int gquic_flowcontrol_base_update_swnd(gquic_flowcontrol_base_t *const base, const u_int64_t off) {
     if (base == NULL) {
         return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
