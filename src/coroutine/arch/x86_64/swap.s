@@ -23,10 +23,10 @@ __swap_context:
     movq %rcx, 120(%rdi)
 
     movq (%rsp), %rcx
-    movq %rcx, 128(%rdi)
+    movq %rcx, 136(%rdi)
 
     leaq 8(%rsp), %rcx
-    movq %rcx, 136(%rdi)
+    movq %rcx, 128(%rdi)
 
     /* recover their context */
     movq 8(%rsi), %r8

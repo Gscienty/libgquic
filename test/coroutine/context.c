@@ -29,6 +29,7 @@ GQUIC_UNIT_TEST(make_context) {
     child_ctx.stack.stack_pointer = stack;
     child_ctx.stack.stack_size = 4096;
 
+    child_ctx.parent = &main_ctx;
     gquic_coroutine_make_context(&child_ctx, maked_fn, NULL);
     gquic_coroutine_current_context(&main_ctx);
 
