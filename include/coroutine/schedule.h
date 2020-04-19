@@ -16,7 +16,12 @@ struct gquic_coroutine_schedule_s {
     gquic_list_t ready; /* gquic_coroutine_t * */
 };
 
+#define GQUIC_COROUTINE_GET_SCHEDULE(co) \
+    ((gquic_coroutine_schedule_t *) (((void *) (co)->ctx.link) - ((void *) &((gquic_coroutine_schedule_t *) 0)->schedule_ctx)))
+
 int gquic_coroutine_schedule_init(gquic_coroutine_schedule_t *const sche);
 int gquic_coroutine_schedule_join(gquic_coroutine_schedule_t *const sche, gquic_coroutine_t *const co);
+int gquic_coroutine_schedule_resume(gquic_coroutine_schedule_t *const sche);
+int gquic_coroutine_schedule_yield(gquic_coroutine_schedule_t *const sche, gquic_coroutine_t *const co);
 
 #endif

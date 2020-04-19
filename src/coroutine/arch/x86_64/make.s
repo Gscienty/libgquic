@@ -20,7 +20,7 @@ __make_context:
 
     movq $__end_context, (%rbx)         ; // put __end_context at bottom of stack
     movq (%rdi), %rax
-    movq %rax, 8(%rbx)                  ; // put ctx.stack.parent at bottom of stack
+    movq %rax, 8(%rbx)                  ; // put ctx.stack.link at bottom of stack
 
     movq %rdx, 72(%rdi)                 ; // put args
 

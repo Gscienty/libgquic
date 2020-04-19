@@ -11,7 +11,7 @@ struct gquic_coroutine_stack_s {
 
 typedef struct gquic_coroutine_context_s gquic_couroutine_context_t;
 struct gquic_coroutine_context_s {
-    gquic_couroutine_context_t *parent;
+    gquic_couroutine_context_t *link;
     u_int8_t regs[256];
     gquic_couroutine_stack_t stack;
 } __attribute__((packed));
