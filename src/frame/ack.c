@@ -101,7 +101,8 @@ static int gquic_frame_ack_deserialize(void *const frame, gquic_reader_str_t *co
     }
     if (spec->count != 0) {
         for (i = 0; i < spec->count - 1; i++) {
-            gquic_frame_ack_range_t *range = gquic_list_alloc(sizeof(gquic_frame_ack_range_t));
+            gquic_frame_ack_range_t *range = NULL;
+            GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &range, sizeof(gquic_frame_ack_range_t)));
             gquic_frame_ack_range_init(range);
             GQUIC_ASSERT_FAST_RETURN(gquic_list_insert_before(&spec->ranges, range));
             u_int64_t *range_vars[] = { &range->gap, &range->range };
@@ -179,18 +180,14 @@ int gquic_frame_ack_ranges_to_blocks(gquic_list_t *const blocks, const gquic_fra
     }
     largest = spec->largest_ack;
     smallest = largest - spec->first_range;
-    if ((block = gquic_list_alloc(sizeof(gquic_frame_ack_block_t))) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &block, sizeof(gquic_frame_ack_block_t)));
     block->largest = largest;
     block->smallest = smallest;
     gquic_list_insert_before(blocks, block);
     GQUIC_LIST_FOREACH(range, &spec->ranges) {
         largest = smallest - range->gap - 2;
         smallest = largest - range->range;
-        if ((block = gquic_list_alloc(sizeof(gquic_frame_ack_block_t))) == NULL) {
-            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-        }
+        GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &block, sizeof(gquic_frame_ack_block_t)));
         block->largest = largest;
         block->smallest = smallest;
         gquic_list_insert_before(blocks, block);
@@ -219,9 +216,7 @@ int gquic_frame_ack_ranges_from_blocks(gquic_frame_ack_t *const spec, const gqui
             is_first = 0;
             continue;
         }
-        if ((range = gquic_list_alloc(sizeof(gquic_frame_ack_range_t))) == NULL) {
-            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-        }
+        GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &range, sizeof(gquic_frame_ack_range_t)));
         range->gap = smallest - block->largest - 2;
         range->range = block->largest - block->smallest;
         gquic_list_insert_before(&spec->ranges, range);

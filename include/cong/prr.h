@@ -19,21 +19,21 @@ int gquic_prr_allowable_send(gquic_prr_t *const prr, const u_int64_t cwnd, const
 
 static inline int gquic_prr_packet_acked(gquic_prr_t *const prr, const u_int64_t ack_bytes) {
     if (prr == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     prr->delivered_bytes += ack_bytes;
     prr->ack_count++;
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static inline int gquic_prr_packet_sent(gquic_prr_t *const prr, const u_int64_t sent_bytes) {
     if (prr == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     prr->sent_bytes += sent_bytes;
-    
-    return GQUIC_SUCCESS;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 #endif

@@ -248,17 +248,13 @@ int gquic_tls_sig_schemes_from_cert(gquic_list_t *const sig_schemes, PKCS12 *con
     switch (X509_get_signature_type(x509)) {
     case EVP_PKEY_RSA:
         for (i = 0; i < 4; i++) {
-            if ((sig_scheme = gquic_list_alloc(sizeof(u_int16_t))) == NULL) {
-                GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-            }
+            GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &sig_scheme, sizeof(u_int16_t)));
             *sig_scheme = pkcs1_sig_schemes[i];
             gquic_list_insert_before(sig_schemes, sig_scheme);
         }
         break;
     case EVP_PKEY_ED25519:
-        if ((sig_scheme = gquic_list_alloc(sizeof(u_int16_t))) == NULL) {
-            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-        }
+        GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &sig_scheme, sizeof(u_int16_t)));
         *sig_scheme = GQUIC_SIGALG_ED25519;
         gquic_list_insert_before(sig_schemes, sig_scheme);
         break;

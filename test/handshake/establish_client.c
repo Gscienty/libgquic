@@ -24,7 +24,8 @@ static int client_hello_process(const gquic_str_t *const chello_buf) {
     printf("client say: CHELLO \n");
     gquic_str_test_echo(chello_buf);
 
-    gquic_tls_client_hello_msg_t *chello = gquic_tls_client_hello_msg_alloc();
+    gquic_tls_client_hello_msg_t *chello ;
+    gquic_tls_client_hello_msg_alloc(&chello);
     GQUIC_TLS_MSG_INIT(chello);
     gquic_reader_str_t reader = *chello_buf;
     GQUIC_TLS_MSG_DESERIALIZE(chello, &reader);
@@ -37,7 +38,8 @@ static int client_hello_process(const gquic_str_t *const chello_buf) {
 }
 
 static int server_hello_handshake_msg(gquic_str_t *const msg) {
-    gquic_tls_server_hello_msg_t *hello = gquic_tls_server_hello_msg_alloc();
+    gquic_tls_server_hello_msg_t *hello;
+    gquic_tls_server_hello_msg_alloc(&hello);
     GQUIC_TLS_MSG_INIT(hello);
 
     hello->vers = GQUIC_TLS_VERSION_13;
@@ -46,8 +48,8 @@ static int server_hello_handshake_msg(gquic_str_t *const msg) {
     RAND_bytes(GQUIC_STR_VAL(&hello->random), 32);
     gquic_str_copy(&hello->sess_id, &sess_id);
     hello->cipher_suite = GQUIC_TLS_CIPHER_SUITE_AES_128_GCM_SHA256;
-    gquic_str_t cookie = { 6, "cookie" };
-    gquic_str_copy(&hello->cookie, &cookie);
+    /*gquic_str_t cookie = { 6, "cookie" };*/
+    /*gquic_str_copy(&hello->cookie, &cookie);*/
     hello->ser_share.group = GQUIC_TLS_CURVE_X25519;
     gquic_tls_ecdhe_params_t ecdhe;
     gquic_tls_ecdhe_params_init(&ecdhe);
@@ -83,7 +85,8 @@ static int server_hello_handshake_msg(gquic_str_t *const msg) {
 }
 
 static int encrypted_exts_handshake_msg(gquic_str_t *const msg) {
-    gquic_tls_encrypt_ext_msg_t *ext = gquic_tls_encrypt_ext_msg_alloc();
+    gquic_tls_encrypt_ext_msg_t *ext;
+    gquic_tls_encrypt_ext_msg_alloc(&ext);
     GQUIC_TLS_MSG_INIT(ext);
 
     gquic_str_alloc(msg, GQUIC_TLS_MSG_SIZE(ext));
@@ -97,20 +100,19 @@ static int encrypted_exts_handshake_msg(gquic_str_t *const msg) {
 }
 
 static int cert_msg(gquic_str_t *const msg) {
-    gquic_tls_cert_msg_t *cert = gquic_tls_cert_msg_alloc();
+    gquic_tls_cert_msg_t *cert;
+    gquic_tls_cert_msg_alloc(&cert);
     GQUIC_TLS_MSG_INIT(cert);
 
-    gquic_str_t *x509_b = gquic_list_alloc(sizeof(gquic_str_t));
+    X509 **x509_storage;
+    gquic_list_alloc((void **) &x509_storage, sizeof(X509 *));
     X509 *x509 = NULL;
     FILE *x509_f = fopen("test_certs/ed25519_req.pem", "r");
     PEM_read_X509(x509_f, &x509, NULL, NULL);
-    gquic_str_alloc(x509_b, i2d_X509(x509, NULL));
-    unsigned char *ug = GQUIC_STR_VAL(x509_b);
-    i2d_X509(x509, &ug);
-    X509_free(x509);
     fclose(x509_f);
+    *x509_storage = x509;
 
-    gquic_list_insert_before(&cert->cert.certs, x509_b);
+    gquic_list_insert_before(&cert->cert.certs, x509_storage);
 
     gquic_str_alloc(msg, GQUIC_TLS_MSG_SIZE(cert));
     gquic_writer_str_t writer = *msg;
@@ -127,7 +129,8 @@ static int verify_msg(gquic_str_t *const msg) {
     gquic_str_t verify_msg = { 0, NULL };
     gquic_tls_mac_md_sum(&sum, &transport);
 
-    gquic_tls_cert_verify_msg_t *verify = gquic_tls_cert_verify_msg_alloc();
+    gquic_tls_cert_verify_msg_t *verify;
+    gquic_tls_cert_verify_msg_alloc(&verify);
     GQUIC_TLS_MSG_INIT(verify);
 
     verify->sign_algo = GQUIC_SIGALG_ED25519;
@@ -158,7 +161,8 @@ static int verify_msg(gquic_str_t *const msg) {
 }
 
 static int finish_msg(gquic_str_t *const msg) {
-    gquic_tls_finished_msg_t *finished = gquic_tls_finished_msg_alloc();
+    gquic_tls_finished_msg_t *finished;
+    gquic_tls_finished_msg_alloc(&finished);
     GQUIC_TLS_MSG_INIT(finished);
 
     const gquic_tls_cipher_suite_t *cipher_suite = NULL;

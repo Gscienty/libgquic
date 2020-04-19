@@ -21,19 +21,17 @@ static ssize_t gquic_tls_client_hello_msg_size(const void *const msg);
 static int gquic_tls_client_hello_msg_serialize(const void *const msg, gquic_writer_str_t *const);
 static int gquic_tls_client_hello_msg_deserialize(void *const msg, gquic_reader_str_t *const);
 
-gquic_tls_client_hello_msg_t *gquic_tls_client_hello_msg_alloc() {
-    gquic_tls_client_hello_msg_t *msg = gquic_tls_msg_alloc(sizeof(gquic_tls_client_hello_msg_t));
-    if (msg == NULL) {
-        return NULL;
-    }
-    GQUIC_TLS_MSG_META(msg).deserialize_func = gquic_tls_client_hello_msg_deserialize;
-    GQUIC_TLS_MSG_META(msg).dtor_func = gquic_tls_client_hello_msg_dtor;
-    GQUIC_TLS_MSG_META(msg).init_func = gquic_tls_client_hello_msg_init;
-    GQUIC_TLS_MSG_META(msg).serialize_func = gquic_tls_client_hello_msg_serialize;
-    GQUIC_TLS_MSG_META(msg).size_func = gquic_tls_client_hello_msg_size;
-    GQUIC_TLS_MSG_META(msg).type = GQUIC_TLS_HANDSHAKE_MSG_TYPE_CLIENT_HELLO;
+int gquic_tls_client_hello_msg_alloc(gquic_tls_client_hello_msg_t **result) {
+    GQUIC_ASSERT_FAST_RETURN(gquic_tls_msg_alloc((void **) result, sizeof(gquic_tls_client_hello_msg_t)));
 
-    return msg;
+    GQUIC_TLS_MSG_META(*result).deserialize_func = gquic_tls_client_hello_msg_deserialize;
+    GQUIC_TLS_MSG_META(*result).dtor_func = gquic_tls_client_hello_msg_dtor;
+    GQUIC_TLS_MSG_META(*result).init_func = gquic_tls_client_hello_msg_init;
+    GQUIC_TLS_MSG_META(*result).serialize_func = gquic_tls_client_hello_msg_serialize;
+    GQUIC_TLS_MSG_META(*result).size_func = gquic_tls_client_hello_msg_size;
+    GQUIC_TLS_MSG_META(*result).type = GQUIC_TLS_HANDSHAKE_MSG_TYPE_CLIENT_HELLO;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_tls_client_hello_msg_init(void *const msg) {
@@ -530,9 +528,7 @@ static int gquic_tls_client_hello_payload_deserialize(gquic_tls_client_hello_msg
     GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&prefix_len, 2, reader));
 
     for (_ = GQUIC_STR_VAL(reader); (size_t) (GQUIC_STR_VAL(reader) - _) < prefix_len;) {
-        if ((field = gquic_list_alloc(sizeof(u_int16_t))) == NULL) {
-            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-        }
+        GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &field, sizeof(u_int16_t)));
         *(u_int16_t *) field = 0;
         GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(field, 2, reader));
         GQUIC_ASSERT_FAST_RETURN(gquic_list_insert_before(&msg->cipher_suites, field));
@@ -589,9 +585,7 @@ static int gquic_tls_client_hello_optional_deserialize(gquic_tls_client_hello_ms
             prefix_len = 0;
             GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&prefix_len, 2, reader));
             for (_ = GQUIC_STR_VAL(reader); (size_t) (GQUIC_STR_VAL(reader) - _) < prefix_len;) {
-                if ((field = gquic_list_alloc(sizeof(u_int16_t))) == NULL) {
-                    GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-                }
+                GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &field, sizeof(u_int16_t)));
                 *(u_int16_t *) field = 0;
                 GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(field, 2, reader));
                 GQUIC_ASSERT_FAST_RETURN(gquic_list_insert_before(&msg->supported_curves, field));
@@ -613,9 +607,7 @@ static int gquic_tls_client_hello_optional_deserialize(gquic_tls_client_hello_ms
             prefix_len = 0;
             GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&prefix_len, 2, reader));
             for (_ = GQUIC_STR_VAL(reader); (size_t) (GQUIC_STR_VAL(reader) - _) < prefix_len;) {
-                if ((field = gquic_list_alloc(sizeof(u_int16_t))) == NULL) {
-                    GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-                }
+                GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &field, sizeof(u_int16_t)));
                 *(u_int16_t *) field = 0;
                 GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(field, 2, reader));
                 GQUIC_ASSERT_FAST_RETURN(gquic_list_insert_before(&msg->supported_sign_algos, field));
@@ -627,9 +619,7 @@ static int gquic_tls_client_hello_optional_deserialize(gquic_tls_client_hello_ms
             prefix_len = 0;
             GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&prefix_len, 2, reader));
             for (_ = GQUIC_STR_VAL(reader); (size_t) (GQUIC_STR_VAL(reader) - _) < prefix_len;) {
-                if ((field = gquic_list_alloc(sizeof(u_int16_t))) == NULL) {
-                    GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-                }
+                GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &field, sizeof(u_int16_t)));
                 *(u_int16_t *) field = 0;
                 GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(field, 2, reader));
                 GQUIC_ASSERT_FAST_RETURN(gquic_list_insert_before(&msg->supported_sign_algos_cert, field));
@@ -647,9 +637,7 @@ static int gquic_tls_client_hello_optional_deserialize(gquic_tls_client_hello_ms
             prefix_len = 0;
             GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&prefix_len, 2, reader));
             for (_ = GQUIC_STR_VAL(reader); (size_t) (GQUIC_STR_VAL(reader) - _) < prefix_len;) {
-                if ((field = gquic_list_alloc(sizeof(gquic_str_t))) == NULL) {
-                    GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-                }
+                GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &field, sizeof(gquic_str_t)));
                 ((gquic_str_t *) field)->size = 0;
                 GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_str(field, 1, reader));
                 GQUIC_ASSERT_FAST_RETURN(gquic_list_insert_before(&msg->alpn_protos, field));
@@ -666,9 +654,7 @@ static int gquic_tls_client_hello_optional_deserialize(gquic_tls_client_hello_ms
             prefix_len = 0;
             GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&prefix_len, 1, reader));
             for (_ = GQUIC_STR_VAL(reader); (size_t) (GQUIC_STR_VAL(reader) - _) < prefix_len;) {
-                if ((field = gquic_list_alloc(sizeof(u_int16_t))) == NULL) {
-                    GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-                }
+                GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &field, sizeof(u_int16_t)));
                 *(u_int16_t *) field = 0;
                 GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(field, 2, reader));
                 GQUIC_ASSERT_FAST_RETURN(gquic_list_insert_before(&msg->supported_versions, field));
@@ -685,9 +671,7 @@ static int gquic_tls_client_hello_optional_deserialize(gquic_tls_client_hello_ms
             prefix_len = 0;
             GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&prefix_len, 2, reader));
             for (_ = GQUIC_STR_VAL(reader); (size_t) (GQUIC_STR_VAL(reader) - _) < prefix_len;) {
-                if ((field = gquic_list_alloc(sizeof(gquic_tls_key_share_t))) == NULL) {
-                    GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-                }
+                GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &field, sizeof(gquic_tls_key_share_t)));
                 ((gquic_tls_key_share_t *) field)->group = 0;
                 GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&((gquic_tls_key_share_t *) field)->group, 2, reader));
                 GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_str(&((gquic_tls_key_share_t *) field)->data, 2, reader));
@@ -710,9 +694,7 @@ static int gquic_tls_client_hello_optional_deserialize(gquic_tls_client_hello_ms
             prefix_len = 0;
             GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&prefix_len, 2, reader));
             for (_ = GQUIC_STR_VAL(reader); (size_t) (GQUIC_STR_VAL(reader) - _) < prefix_len;) {
-                if ((field = gquic_list_alloc(sizeof(gquic_tls_psk_identity_t))) == NULL) {
-                    GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-                }
+                GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &field, sizeof(gquic_tls_psk_identity_t)));
                 GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_str(&((gquic_tls_psk_identity_t *) field)->label, 2, reader));
                 GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&((gquic_tls_psk_identity_t *) field)->obfuscated_ticket_age, 4, reader));
                 GQUIC_ASSERT_FAST_RETURN(gquic_list_insert_before(&msg->psk_identities, field));
@@ -720,18 +702,14 @@ static int gquic_tls_client_hello_optional_deserialize(gquic_tls_client_hello_ms
             prefix_len = 0;
             GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&prefix_len, 2, reader));
             for (_ = GQUIC_STR_VAL(reader); (size_t) (GQUIC_STR_VAL(reader) - _) < prefix_len;) {
-                if ((field = gquic_list_alloc(sizeof(gquic_str_t))) == NULL) {
-                    GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-                }
+                GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &field, sizeof(gquic_str_t)));
                 GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_str(field, 1, reader));
                 GQUIC_ASSERT_FAST_RETURN(gquic_list_insert_before(&msg->psk_binders, field));
             }
             break;
 
         default:
-            if ((field = gquic_list_alloc(sizeof(gquic_tls_extension_t))) == NULL) {
-                GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-            }
+            GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &field, sizeof(gquic_tls_extension_t)));
             ((gquic_tls_extension_t *) field)->type = opt_type;
             GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_str(&((gquic_tls_extension_t *) field)->data, 2, reader));
             GQUIC_ASSERT_FAST_RETURN(gquic_list_insert_before(&msg->extensions, field));

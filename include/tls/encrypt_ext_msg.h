@@ -10,5 +10,5 @@ struct gquic_tls_encrypt_ext_msg_s {
     gquic_list_t addition_exts;
 };
 
-gquic_tls_encrypt_ext_msg_t *gquic_tls_encrypt_ext_msg_alloc();
+int gquic_tls_encrypt_ext_msg_alloc(gquic_tls_encrypt_ext_msg_t **const result);
 #endif

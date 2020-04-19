@@ -54,9 +54,7 @@ static int gquic_packet_received_mem_add(gquic_packet_received_mem_t *const mem,
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (gquic_list_head_empty(&mem->ranges)) {
-        if ((interval = gquic_list_alloc(sizeof(gquic_packet_interval_t))) == NULL) {
-            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-        }
+        GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &interval, sizeof(gquic_packet_interval_t)));
         interval->end = pn;
         interval->start = pn;
         mem->ranges_count++;
@@ -93,9 +91,7 @@ static int gquic_packet_received_mem_add(gquic_packet_received_mem_t *const mem,
 
         if (pn > interval->end) {
             prev_interval = interval;
-            if ((interval = gquic_list_alloc(sizeof(gquic_packet_interval_t))) == NULL) {
-                GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-            }
+            GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &interval, sizeof(gquic_packet_interval_t)));
             interval->start = pn;
             interval->end = pn;
             mem->ranges_count++;
@@ -104,9 +100,7 @@ static int gquic_packet_received_mem_add(gquic_packet_received_mem_t *const mem,
         }
     }
 
-    if ((interval = gquic_list_alloc(sizeof(gquic_packet_interval_t))) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &interval, sizeof(gquic_packet_interval_t)));
     interval->end = pn;
     interval->start = pn;
     mem->ranges_count++;
@@ -257,9 +251,7 @@ int gquic_packet_received_mem_get_blocks(gquic_list_t *const blocks, const gquic
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
     GQUIC_LIST_RFOREACH(interval, &mem->ranges) {
-        if ((block = gquic_list_alloc(sizeof(gquic_frame_ack_block_t))) == NULL) {
-            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-        }
+        GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &block, sizeof(gquic_frame_ack_block_t)));
         block->smallest = interval->start;
         block->largest = interval->end;
         gquic_list_insert_before(blocks, block);

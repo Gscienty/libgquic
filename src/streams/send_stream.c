@@ -261,9 +261,7 @@ static int gquic_send_stream_queue_retransmission(gquic_send_stream_t *const str
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     GQUIC_FRAME_META(stream_frame).type |= 0x02;
-    if ((stream_frame_storage = gquic_list_alloc(sizeof(gquic_frame_stream_t *))) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &stream_frame_storage, sizeof(gquic_frame_stream_t *)));
     *stream_frame_storage = stream_frame;
     sem_wait(&str->mtx);
     gquic_list_insert_before(&str->retransmission_queue, stream_frame_storage);

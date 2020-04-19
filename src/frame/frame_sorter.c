@@ -37,9 +37,7 @@ int gquic_frame_sorter_ctor(gquic_frame_sorter_t *const sorter) {
     if (sorter == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if ((interval = gquic_list_alloc(sizeof(gquic_byte_interval_t))) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &interval, sizeof(gquic_byte_interval_t)));
     interval->start = 0;
     interval->end = (1UL << 62) - 1;
     sorter->gaps_count++;
@@ -179,9 +177,7 @@ static int gquic_frame_sorter_push_inner(gquic_frame_sorter_t *const sorter,
     }
     else {
         if (gap == end_gap) {
-            if ((intv = gquic_list_alloc(sizeof(gquic_byte_interval_t))) == NULL) {
-                GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-            }
+            GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &intv, sizeof(gquic_byte_interval_t)));
             intv->start = end;
             intv->end = gap->end;
             gquic_list_insert_after(&GQUIC_LIST_META(gap), intv);

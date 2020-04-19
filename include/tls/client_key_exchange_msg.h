@@ -8,5 +8,5 @@ struct gquic_tls_client_key_exchange_msg_s {
     gquic_str_t cipher;
 };
 
-gquic_tls_client_key_exchange_msg_t *gquic_tls_client_key_exchange_msg_alloc();
+int gquic_tls_client_key_exchange_msg_alloc(gquic_tls_client_key_exchange_msg_t **const result);
 #endif

@@ -33,12 +33,12 @@ u_int64_t gquic_flowcontrol_base_get_wnd_update(gquic_flowcontrol_base_t *const 
 int gquic_flowcontrol_base_sent_add_bytes(gquic_flowcontrol_base_t *const base, const u_int64_t n);
 static inline int gquic_flowcontrol_base_update_swnd(gquic_flowcontrol_base_t *const base, const u_int64_t off) {
     if (base == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (off > base->swnd) {
         base->swnd = off;
     }
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 #endif

@@ -3,15 +3,19 @@
 #include <string.h>
 #include "exception.h"
 
-void *gquic_list_alloc(size_t size) {
+int gquic_list_alloc(void **const result, size_t size) {
+    if (result == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
     gquic_list_t *meta = (gquic_list_t *) malloc(sizeof(gquic_list_t) + size);
     if (meta == NULL) {
-        return NULL;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
     }
     gquic_list_head_init(meta);
     meta->payload_size = size;
+    *result = GQUIC_LIST_PAYLOAD(meta);
 
-    return GQUIC_LIST_PAYLOAD(meta);
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_list_head_init(gquic_list_t *head) {
@@ -105,9 +109,7 @@ int gquic_list_copy(gquic_list_t *list, const gquic_list_t *ref, int (*fptr) (vo
         return GQUIC_EXCEPTION_INITIAL_FAILED;
     }
     GQUIC_LIST_FOREACH(ref_field, ref) {
-        if ((field = gquic_list_alloc(GQUIC_LIST_META(ref_field).payload_size)) == NULL) {
-            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-        }
+        GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc(&field, GQUIC_LIST_META(ref_field).payload_size));
         if (fptr == NULL) {
             memcpy(field, ref_field, GQUIC_LIST_META(ref_field).payload_size);
         }

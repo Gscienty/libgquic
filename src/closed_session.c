@@ -147,6 +147,7 @@ static int gquic_closed_local_session_close(void *const sess_) {
 
 static int gquic_closed_local_session_destory(void *const sess_, const int _) {
     (void) _;
+    int exception = GQUIC_SUCCESS;
     gquic_closed_local_session_t *const sess = sess_;
     if (sess == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -158,9 +159,9 @@ static int gquic_closed_local_session_destory(void *const sess_, const int _) {
     }
     sess->close_flag = 1;
     u_int8_t *event = NULL;
-    if ((event = gquic_list_alloc(sizeof(u_int8_t)))== NULL) {
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &event, sizeof(u_int8_t)))) {
         sem_post(&sess->close_mtx);
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
+        GQUIC_PROCESS_DONE(exception);
     }
     *event = GQUIC_CLOSED_LOCAL_SESSION_EVENT_CLOSE;
     sem_post(&sess->close_mtx);
@@ -176,9 +177,7 @@ static int gquic_closed_local_session_handle_packet(void *const sess_, gquic_rec
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     u_int8_t *event = NULL;
-    if ((event = gquic_list_alloc(sizeof(u_int8_t)))== NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &event, sizeof(u_int8_t)));
     *event = GQUIC_CLOSED_LOCAL_SESSION_EVENT_RECEIVED_PACKET;
     gquic_packet_buffer_put(rp->buffer);
     free(rp);

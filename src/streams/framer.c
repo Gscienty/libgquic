@@ -31,9 +31,7 @@ int gquic_framer_queue_ctrl_frame(gquic_framer_t *const framer, void *const fram
     if (framer == NULL || frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if ((frame_storage = gquic_list_alloc(sizeof(void *))) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &frame_storage, sizeof(void *)));
     *frame_storage = frame;
     sem_wait(&framer->ctrl_frame_mtx);
     gquic_list_insert_before(&framer->ctrl_frames, frame_storage);
@@ -43,6 +41,7 @@ int gquic_framer_queue_ctrl_frame(gquic_framer_t *const framer, void *const fram
 }
 
 int gquic_framer_append_ctrl_frame(gquic_list_t *const frames, u_int64_t *const length, gquic_framer_t *const framer, const u_int64_t max_len) {
+    int exception = GQUIC_SUCCESS;
     void **ctrl_frame_storage = NULL;
     void **frame_storage = NULL;
     u_int64_t frame_size = 0;
@@ -57,9 +56,9 @@ int gquic_framer_append_ctrl_frame(gquic_list_t *const frames, u_int64_t *const 
         if (*length + frame_size > max_len) {
             break;
         }
-        if ((frame_storage = gquic_list_alloc(sizeof(void *))) == NULL) {
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &frame_storage, sizeof(void *)))) {
             sem_post(&framer->ctrl_frame_mtx);
-            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
+            GQUIC_PROCESS_DONE(exception);
         }
         *frame_storage = *ctrl_frame_storage;
         gquic_list_insert_before(frames, frame_storage);
@@ -72,6 +71,7 @@ int gquic_framer_append_ctrl_frame(gquic_list_t *const frames, u_int64_t *const 
 }
 
 int gquic_framer_add_active_stream(gquic_framer_t *const framer, const u_int64_t id) {
+    int exception = GQUIC_SUCCESS;
     gquic_rbtree_t *rb_id = NULL;
     u_int64_t *id_storage = NULL;
     if (framer == NULL) {
@@ -86,9 +86,9 @@ int gquic_framer_add_active_stream(gquic_framer_t *const framer, const u_int64_t
         *(u_int64_t *) GQUIC_RBTREE_KEY(rb_id) = id;
         gquic_rbtree_insert(&framer->active_streams_root, rb_id);
 
-        if ((id_storage = gquic_list_alloc(sizeof(u_int64_t))) == NULL) {
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &id_storage, sizeof(u_int64_t)))) {
             sem_post(&framer->mtx);
-            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
+            GQUIC_PROCESS_DONE(exception);
         }
         *id_storage = id;
         gquic_list_insert_before(&framer->stream_queue, id_storage);
@@ -101,6 +101,7 @@ int gquic_framer_add_active_stream(gquic_framer_t *const framer, const u_int64_t
 }
 
 int gquic_framer_append_stream_frames(gquic_list_t *const frames, u_int64_t *const length, gquic_framer_t *const framer, const u_int64_t max_len) {
+    int exception = GQUIC_SUCCESS;
     int i = 0;
     int active_streams_count = 0;
     gquic_stream_t *str = NULL;
@@ -138,9 +139,9 @@ int gquic_framer_append_stream_frames(gquic_list_t *const frames, u_int64_t *con
         remain_len += gquic_varint_size(&remain_len);
         has_more_data = gquic_send_stream_pop_stream_frame(&stream_frame, &str->send, remain_len);
         if (has_more_data) {
-            if ((stream_queue_id = gquic_list_alloc(sizeof(u_int64_t))) == NULL) {
+            if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &stream_queue_id, sizeof(u_int64_t)))) {
                 sem_post(&framer->mtx);
-                GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
+                GQUIC_PROCESS_DONE(exception);
             }
             *stream_queue_id = id;
             gquic_list_insert_before(&framer->stream_queue, stream_queue_id);
@@ -156,9 +157,9 @@ int gquic_framer_append_stream_frames(gquic_list_t *const frames, u_int64_t *con
             continue;
         }
 
-        if ((frame_storage = gquic_list_alloc(sizeof(void *))) == NULL) {
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &frame_storage, sizeof(void *)))) {
             sem_post(&framer->mtx);
-            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
+            GQUIC_PROCESS_DONE(exception);
         }
         *frame_storage = stream_frame;
         gquic_list_insert_before(frames, frame_storage);

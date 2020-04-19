@@ -65,19 +65,19 @@ struct gquic_handshake_event_s {
 
 #define GQUIC_HANDSHAKE_EVENT_ON_RECV_PARAMS(p, e) \
     (((p) == NULL || (p)->on_recv_params.cb == NULL || (p)->on_recv_params.self == NULL) \
-     ? -1 \
+     ? GQUIC_EXCEPTION_NOT_IMPLEMENTED \
      : ((p)->on_recv_params.cb((p)->on_recv_params.self, (e))))
 #define GQUIC_HANDSHAKE_EVENT_ON_ERR(p, a, e) \
     (((p) == NULL || (p)->on_err.cb == NULL || (p)->on_err.self == NULL) \
-     ? -1 \
+     ? GQUIC_EXCEPTION_NOT_IMPLEMENTED \
      : ((p)->on_err.cb((p)->on_err.self, (a), (e))))
 #define GQUIC_HANDSHAKE_EVENT_DROP_KEYS(p, e) \
     (((p) == NULL || (p)->drop_keys.cb == NULL || (p)->drop_keys.self == NULL) \
-     ? -1 : \
-     ((p)->drop_keys.cb((p)->drop_keys.self, (e))))
+     ? GQUIC_EXCEPTION_NOT_IMPLEMENTED \
+     : ((p)->drop_keys.cb((p)->drop_keys.self, (e))))
 #define GQUIC_HANDSHAKE_EVENT_ON_HANDSHAKE_COMPLETE(p) \
     (((p) == NULL || (p)->on_handshake_complete.cb == NULL || (p)->on_handshake_complete.self == NULL) \
-     ? -1 \
+     ? GQUIC_EXCEPTION_NOT_IMPLEMENTED \
      : ((p)->on_handshake_complete.cb((p)->on_handshake_complete.self)))
 
 int gquic_handshake_event_init(gquic_handshake_event_t *const event);

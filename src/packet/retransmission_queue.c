@@ -21,9 +21,7 @@ int gquic_retransmission_queue_add_initial(gquic_retransmission_queue_t *const q
     if (queue == NULL || frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if ((frame_storage = gquic_list_alloc(sizeof(void *))) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &frame_storage, sizeof(void *)));
     *frame_storage = frame;
     if (GQUIC_FRAME_META(frame).type == 0x06) {
         gquic_list_insert_before(&queue->initial_crypto, frame_storage);
@@ -40,9 +38,7 @@ int gquic_retransmission_queue_add_handshake(gquic_retransmission_queue_t *const
     if (queue == NULL || frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if ((frame_storage = gquic_list_alloc(sizeof(void *))) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &frame_storage, sizeof(void *)));
     *frame_storage = frame;
     if (GQUIC_FRAME_META(frame).type == 0x06) {
         gquic_list_insert_before(&queue->handshake_crypto, frame_storage);
@@ -59,9 +55,7 @@ int gquic_retransmission_queue_add_app(gquic_retransmission_queue_t *const queue
     if (queue == NULL || frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if ((frame_storage = gquic_list_alloc(sizeof(void *))) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &frame_storage, sizeof(void *)));
     *frame_storage = frame;
     gquic_list_insert_before(&queue->app, frame_storage);
 

@@ -87,9 +87,7 @@ int gquic_packet_number_gen_next(u_int64_t *const pn, gquic_packet_number_gen_t 
             gquic_list_release(GQUIC_LIST_FIRST(&gen->mem));
             gen->mem_count--;
         }
-        if ((mem_pn = gquic_list_alloc(sizeof(u_int64_t))) == NULL) {
-            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-        }
+        GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &mem_pn, sizeof(u_int64_t)));
         *mem_pn = gen->next;
         gquic_list_insert_before(&gen->mem, mem_pn);
         gen->next++;

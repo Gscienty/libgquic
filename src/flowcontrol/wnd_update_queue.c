@@ -101,8 +101,7 @@ int gquic_wnd_update_queue_queue_all(gquic_wnd_update_queue_t *const queue) {
         max_stream_data_frame->id = *(u_int64_t *) GQUIC_RBTREE_KEY(rbt);
         max_stream_data_frame->max = offset;
         GQUIC_WND_UPDATE_QUEUE_CB(queue, max_stream_data_frame);
-        if ((id = gquic_list_alloc(sizeof(u_int64_t))) == NULL) {
-            GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &id, sizeof(u_int64_t)))) {
             goto failure;
         }
         *id = *(u_int64_t *) GQUIC_RBTREE_KEY(rbt);

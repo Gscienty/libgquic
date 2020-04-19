@@ -12,19 +12,17 @@ static ssize_t gquic_tls_new_sess_ticket_msg_size(const void *const msg);
 static int gquic_tls_new_sess_ticket_msg_serialize(const void *const msg, gquic_writer_str_t *const);
 static int gquic_tls_new_sess_ticket_msg_deserialize(void *const msg, gquic_reader_str_t *const);
 
-gquic_tls_new_sess_ticket_msg_t *gquic_tls_new_sess_ticket_msg_alloc() {
-    gquic_tls_new_sess_ticket_msg_t *msg = gquic_tls_msg_alloc(sizeof(gquic_tls_new_sess_ticket_msg_t));
-    if (msg == NULL) {
-        return NULL;
-    }
-    GQUIC_TLS_MSG_META(msg).deserialize_func = gquic_tls_new_sess_ticket_msg_deserialize;
-    GQUIC_TLS_MSG_META(msg).dtor_func = gquic_tls_new_sess_ticket_msg_dtor;
-    GQUIC_TLS_MSG_META(msg).init_func = gquic_tls_new_sess_ticket_msg_init;
-    GQUIC_TLS_MSG_META(msg).serialize_func = gquic_tls_new_sess_ticket_msg_serialize;
-    GQUIC_TLS_MSG_META(msg).size_func = gquic_tls_new_sess_ticket_msg_size;
-    GQUIC_TLS_MSG_META(msg).type = GQUIC_TLS_HANDSHAKE_MSG_TYPE_NEW_SESS_TICKET;
+int gquic_tls_new_sess_ticket_msg_alloc(gquic_tls_new_sess_ticket_msg_t **const result) {
+    GQUIC_ASSERT_FAST_RETURN(gquic_tls_msg_alloc((void **) result, sizeof(gquic_tls_new_sess_ticket_msg_t)));
 
-    return msg;
+    GQUIC_TLS_MSG_META(*result).deserialize_func = gquic_tls_new_sess_ticket_msg_deserialize;
+    GQUIC_TLS_MSG_META(*result).dtor_func = gquic_tls_new_sess_ticket_msg_dtor;
+    GQUIC_TLS_MSG_META(*result).init_func = gquic_tls_new_sess_ticket_msg_init;
+    GQUIC_TLS_MSG_META(*result).serialize_func = gquic_tls_new_sess_ticket_msg_serialize;
+    GQUIC_TLS_MSG_META(*result).size_func = gquic_tls_new_sess_ticket_msg_size;
+    GQUIC_TLS_MSG_META(*result).type = GQUIC_TLS_HANDSHAKE_MSG_TYPE_NEW_SESS_TICKET;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_tls_new_sess_ticket_msg_init(void *const msg) {

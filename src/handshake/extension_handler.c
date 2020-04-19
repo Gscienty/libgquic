@@ -53,9 +53,7 @@ int gquic_handshake_extension_handler_get_extensions(gquic_list_t *const extensi
         || (!handler->is_client && msg_type != GQUIC_TLS_HANDSHAKE_MSG_TYPE_ENCRYPTED_EXTS)) {
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
-    if ((ext = gquic_list_alloc(sizeof(gquic_tls_extension_t))) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &ext, sizeof(gquic_tls_extension_t)));
     ext->type = GQUIC_TLS_EXTENSION_QUIC;
     gquic_str_init(&ext->data);
     GQUIC_ASSERT_FAST_RETURN(gquic_str_copy(&ext->data, &handler->params));
@@ -79,9 +77,7 @@ int gquic_handshake_extension_handler_recv_extensions(gquic_handshake_extension_
     
     GQUIC_LIST_FOREACH(ext, extensions) {
         if (ext->type == GQUIC_TLS_EXTENSION_QUIC) {
-            if ((process_event = gquic_list_alloc(sizeof(gquic_establish_process_event_t))) == NULL) {
-                GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-            }
+            GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &process_event, sizeof(gquic_establish_process_event_t)));
             process_event->type = GQUIC_ESTABLISH_PROCESS_EVENT_PARAM;
             gquic_str_init(&process_event->param);
             GQUIC_ASSERT_FAST_RETURN(gquic_str_copy(&process_event->param, &ext->data));
@@ -89,9 +85,7 @@ int gquic_handshake_extension_handler_recv_extensions(gquic_handshake_extension_
         }
     }
     if (process_event == NULL) {
-        if ((process_event = gquic_list_alloc(sizeof(gquic_establish_process_event_t))) == NULL) {
-            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-        }
+        GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &process_event, sizeof(gquic_establish_process_event_t)));
         process_event->type = GQUIC_ESTABLISH_PROCESS_EVENT_PARAM;
         gquic_str_init(&process_event->param);
     }

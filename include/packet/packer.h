@@ -117,21 +117,13 @@ int gquic_packet_packer_pack_with_padding(gquic_packed_packet_t *const packed_pa
                                           gquic_packet_packer_t *const packer,
                                           gquic_packed_packet_payload_t *const payload,
                                           const u_int64_t padding_len);
-int gquic_packet_packer_try_pack_ack_packet(gquic_packed_packet_t *const packed_packet,
-                                            gquic_packet_packer_t *const packer);
-int gquic_packet_packer_try_pack_initial_packet(gquic_packed_packet_t *const packed_packet,
-                                                gquic_packet_packer_t *const packer);
-int gquic_packet_packer_try_pack_handshake_packet(gquic_packed_packet_t *const packed_packet,
-                                                  gquic_packet_packer_t *const packer);
-int gquic_packet_packer_try_pack_app_packet(gquic_packed_packet_t *const packed_packet,
-                                            gquic_packet_packer_t *const packer);
-int gquic_packet_packer_try_pack_crypto_packet(gquic_packed_packet_t *const packed_packet,
-                                               gquic_packet_packer_t *const packer);
-int gquic_packet_packer_try_pack_probe_packet(gquic_packed_packet_t *const packed_packet,
-                                              gquic_packet_packer_t *const packer,
-                                              const u_int8_t enc_lv);
-int gquic_packet_packer_pack_packet(gquic_packed_packet_t *const packed_packet,
-                                    gquic_packet_packer_t *const packer);
+int gquic_packet_packer_try_pack_ack_packet(gquic_packed_packet_t *const packed_packet, gquic_packet_packer_t *const packer);
+int gquic_packet_packer_try_pack_initial_packet(gquic_packed_packet_t *const packed_packet, gquic_packet_packer_t *const packer);
+int gquic_packet_packer_try_pack_handshake_packet(gquic_packed_packet_t *const packed_packet, gquic_packet_packer_t *const packer);
+int gquic_packet_packer_try_pack_app_packet(gquic_packed_packet_t *const packed_packet, gquic_packet_packer_t *const packer);
+int gquic_packet_packer_try_pack_crypto_packet(gquic_packed_packet_t *const packed_packet, gquic_packet_packer_t *const packer);
+int gquic_packet_packer_try_pack_probe_packet(gquic_packed_packet_t *const packed_packet, gquic_packet_packer_t *const packer, const u_int8_t enc_lv);
+int gquic_packet_packer_pack_packet(gquic_packed_packet_t *const packed_packet, gquic_packet_packer_t *const packer);
 int gquic_packet_packer_pack_crypto_packet(gquic_packed_packet_t *const packed_packet,
                                            gquic_packet_packer_t *const packer,
                                            gquic_packed_packet_payload_t *const payload,

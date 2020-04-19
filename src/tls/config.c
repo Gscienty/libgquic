@@ -110,10 +110,8 @@ int gquic_tls_config_supported_versions(gquic_list_t *ret, const gquic_tls_confi
             || (is_client && __supported_versions[i] < GQUIC_TLS_VERSION_10)) {
             continue;
         }
-        u_int16_t *field = gquic_list_alloc(sizeof(u_int16_t));
-        if (field == NULL) {
-            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-        }
+        u_int16_t *field = NULL;
+        GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &field, sizeof(u_int16_t)));
         gquic_list_insert_before(ret, field);
         *field = __supported_versions[i];
     }
@@ -136,9 +134,7 @@ int gquic_tls_config_curve_preferences(gquic_list_t *ret) {
     size_t i;
     u_int16_t *payload;
     for (i = 0; i < sizeof(__default_curve_preferences) / sizeof(u_int16_t); i++) {
-        if ((payload = gquic_list_alloc(sizeof(u_int16_t))) == NULL) {
-            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-        }
+        GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &payload, sizeof(u_int16_t)));
         *payload = __default_curve_preferences[i];
         GQUIC_ASSERT_FAST_RETURN(gquic_list_insert_before(ret, payload));
     }
@@ -197,9 +193,7 @@ int gquic_tls_supported_sigalgs_tls12(gquic_list_t *const sigsches) {
     }
     gquic_list_head_init(sigsches);
     for (i = 0; i < sizeof(__supported_sigalgs_tls12) / sizeof(u_int16_t); i++) {
-        if ((payload = gquic_list_alloc(sizeof(u_int16_t))) == NULL) {
-            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-        }
+        GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &payload, sizeof(u_int16_t)));
         *payload = __supported_sigalgs_tls12[i];
         GQUIC_ASSERT_FAST_RETURN(gquic_list_insert_before(sigsches, payload));
     }

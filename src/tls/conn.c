@@ -383,10 +383,8 @@ int gquic_tls_conn_load_session(gquic_str_t *const cache_key,
     }
     int64_t ticket_age;
     gquic_time_since_milli(&ticket_age, &(*sess)->received_at);
-    gquic_tls_psk_identity_t *identity = gquic_list_alloc(sizeof(gquic_tls_psk_identity_t));
-    if (identity == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    gquic_tls_psk_identity_t *identity = NULL;
+    GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &identity, sizeof(gquic_tls_psk_identity_t)));
     gquic_str_init(&identity->label);
     gquic_str_copy(&identity->label, &(*sess)->sess_ticket);
     identity->obfuscated_ticket_age = ticket_age + (*sess)->age_add;
@@ -423,27 +421,23 @@ int gquic_tls_conn_read_handshake(void **const msg, gquic_tls_conn_t *const conn
     
     switch (GQUIC_STR_FIRST_BYTE(&data)) {
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_HELLO_REQ:
-        if ((*msg = gquic_tls_hello_req_msg_alloc()) == NULL) {
-            GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_hello_req_msg_alloc((gquic_tls_hello_req_msg_t **) msg))) {
             goto failure;
         }
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_CLIENT_HELLO:
-        if ((*msg = gquic_tls_client_hello_msg_alloc()) == NULL) {
-            GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_client_hello_msg_alloc((gquic_tls_client_hello_msg_t **) msg))) {
             goto failure;
         }
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_SERVER_HELLO:
-        if ((*msg = gquic_tls_server_hello_msg_alloc()) == NULL) {
-            GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_server_hello_msg_alloc((gquic_tls_server_hello_msg_t **) msg))) {
             goto failure;
         }
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_NEW_SESS_TICKET:
         if (conn->ver == GQUIC_TLS_VERSION_13) {
-            if ((*msg = gquic_tls_new_sess_ticket_msg_alloc()) == NULL) {
-                GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
+            if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_new_sess_ticket_msg_alloc((gquic_tls_new_sess_ticket_msg_t **) msg))) {
                 goto failure;
             }
         }
@@ -454,8 +448,7 @@ int gquic_tls_conn_read_handshake(void **const msg, gquic_tls_conn_t *const conn
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT:
         if (conn->ver == GQUIC_TLS_VERSION_13) {
-            if ((*msg = gquic_tls_cert_msg_alloc()) == NULL) {
-                GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
+            if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_cert_msg_alloc((gquic_tls_cert_msg_t **) msg))) {
                 goto failure;
             }
         }
@@ -466,8 +459,7 @@ int gquic_tls_conn_read_handshake(void **const msg, gquic_tls_conn_t *const conn
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT_REQ:
         if (conn->ver == GQUIC_TLS_VERSION_13) {
-            if ((*msg = gquic_tls_cert_req_msg_alloc()) == NULL) {
-                GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
+            if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_cert_req_msg_alloc((gquic_tls_cert_req_msg_t **) msg))) {
                 goto failure;
             }
         }
@@ -477,62 +469,52 @@ int gquic_tls_conn_read_handshake(void **const msg, gquic_tls_conn_t *const conn
         }
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT_STATUS:
-        if ((*msg = gquic_tls_cert_status_msg_alloc()) == NULL) {
-            GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_cert_status_msg_alloc((gquic_tls_cert_status_msg_t **) msg))) {
             goto failure;
         }
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_SER_KEY_EXCHANGE:
-        if ((*msg = gquic_tls_server_key_exchange_msg_alloc()) == NULL) {
-            GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_server_key_exchange_msg_alloc((gquic_tls_server_key_exchange_msg_t **) msg))) {
             goto failure;
         }
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_SER_HELLO_DONE:
-        if ((*msg = gquic_tls_server_hello_done_msg_alloc()) == NULL) {
-            GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_server_hello_done_msg_alloc((gquic_tls_server_hello_done_msg_t **) msg))) {
             goto failure;
         }
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_CLI_KEY_EXCHANGE:
-        if ((*msg = gquic_tls_client_key_exchange_msg_alloc()) == NULL) {
-            GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_client_key_exchange_msg_alloc((gquic_tls_client_key_exchange_msg_t **) msg))) {
             goto failure;
         }
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT_VERIFY:
-        if ((*msg = gquic_tls_cert_verify_msg_alloc()) == NULL) {
-            GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_cert_verify_msg_alloc((gquic_tls_cert_verify_msg_t **) msg))) {
             goto failure;
         }
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_NEXT_PROTO:
-        if ((*msg = gquic_tls_next_proto_msg_alloc()) == NULL) {
-            GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_next_proto_msg_alloc((gquic_tls_next_proto_msg_t **) msg))) {
             goto failure;
         }
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_FINISHED:
-        if ((*msg = gquic_tls_finished_msg_alloc()) == NULL) {
-            GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_finished_msg_alloc((gquic_tls_finished_msg_t **) msg))) {
             goto failure;
         }
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_ENCRYPTED_EXTS:
-        if ((*msg = gquic_tls_encrypt_ext_msg_alloc()) == NULL) {
-            GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_encrypt_ext_msg_alloc((gquic_tls_encrypt_ext_msg_t **) msg))) {
             goto failure;
         }
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_END_OF_EARLY_DATA:
-        if ((*msg = gquic_tls_end_of_early_data_msg_alloc()) == NULL) {
-            GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_end_of_early_data_msg_alloc((gquic_tls_end_of_early_data_msg_t **) msg))) {
             goto failure;
         }
         break;
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_KEY_UPDATE:
-        if ((*msg = gquic_tls_key_update_msg_alloc()) == NULL) {
-            GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_key_update_msg_alloc((gquic_tls_key_update_msg_t **) msg))) {
             goto failure;
         }
         break;
@@ -687,9 +669,9 @@ int gquic_tls_conn_verify_ser_cert(gquic_tls_conn_t *const conn, const gquic_lis
             first = 0;
         }
         X509 **peer_cert = NULL;
-        if ((peer_cert = gquic_list_alloc(sizeof(X509 *))) == NULL) {
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &peer_cert, sizeof(X509 *)))) {
             gquic_tls_conn_send_alert(conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
-            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
+            GQUIC_PROCESS_DONE(exception);
         }
         *peer_cert = X509_dup(*cert_storage);
         if (GQUIC_ASSERT_CAUSE(exception, gquic_list_insert_before(&conn->peer_certs, peer_cert))) {
@@ -739,15 +721,11 @@ int gquic_tls_conn_get_sess_ticket(gquic_str_t *const msg, gquic_tls_conn_t *con
     if (conn->cfg->sess_ticket_disabled) {
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
-    if ((ticket = gquic_tls_new_sess_ticket_msg_alloc()) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_tls_new_sess_ticket_msg_alloc(&ticket));
     GQUIC_TLS_MSG_INIT(ticket);
     gquic_tls_sess_state_init(&state);
     GQUIC_LIST_FOREACH(peer_cert, &conn->peer_certs) {
-        if ((cert = gquic_list_alloc(sizeof(X509 *))) == NULL) {
-            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-        }
+        GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &cert, sizeof(X509 *)));
         *cert = *(X509 **) peer_cert;
         GQUIC_ASSERT_FAST_RETURN(gquic_list_insert_before(&state.cert.certs, cert));
     }

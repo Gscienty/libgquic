@@ -13,5 +13,5 @@ struct gquic_tls_new_sess_ticket_msg_s {
     u_int32_t max_early_data;
 };
 
-gquic_tls_new_sess_ticket_msg_t *gquic_tls_new_sess_ticket_msg_alloc();
+int gquic_tls_new_sess_ticket_msg_alloc(gquic_tls_new_sess_ticket_msg_t **const result);
 #endif

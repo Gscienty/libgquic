@@ -195,6 +195,7 @@ static int gquic_inuni_stream_map_release_stream_inner(gquic_inuni_stream_map_t 
 
 int gquic_inuni_stream_map_close(gquic_inuni_stream_map_t *const str_map, const int err) {
     gquic_rbtree_t *rbt = NULL;
+    gquic_rbtree_t **elem = NULL;
     gquic_list_t queue;
     if (str_map == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -205,18 +206,21 @@ int gquic_inuni_stream_map_close(gquic_inuni_stream_map_t *const str_map, const 
     str_map->closed_reason = err;
     rbt = str_map->streams_root;
     if (!gquic_rbtree_is_nil(rbt)) {
-        gquic_list_insert_before(&queue, gquic_list_alloc(sizeof(gquic_rbtree_t *)));
-        *(gquic_rbtree_t **) GQUIC_LIST_LAST(&queue) = rbt;
+        gquic_list_alloc((void **) &elem, sizeof(gquic_rbtree_t *));
+        gquic_list_insert_before(&queue, elem);
+        *elem = rbt;
     }
     while (!gquic_list_head_empty(&queue)) {
         rbt = GQUIC_LIST_FIRST(&queue);
         if (!gquic_rbtree_is_nil(rbt->left)) {
-            gquic_list_insert_before(&queue, gquic_list_alloc(sizeof(gquic_rbtree_t *)));
+            gquic_list_alloc((void **) &elem, sizeof(gquic_rbtree_t *));
+            gquic_list_insert_before(&queue, elem);
             *(gquic_rbtree_t **) GQUIC_LIST_LAST(&queue) = rbt->left;
         }
         if (!gquic_rbtree_is_nil(rbt->right)) {
-            gquic_list_insert_before(&queue, gquic_list_alloc(sizeof(gquic_rbtree_t *)));
-            *(gquic_rbtree_t **) GQUIC_LIST_LAST(&queue) = rbt->right;
+            gquic_list_alloc((void **) &elem, sizeof(gquic_rbtree_t *));
+            gquic_list_insert_before(&queue, elem);
+            *elem = rbt->right;
         }
 
         gquic_stream_close_for_shutdown(GQUIC_RBTREE_VALUE(rbt), err);

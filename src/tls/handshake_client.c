@@ -105,8 +105,7 @@ int gquic_tls_handshake_client_hello_init(gquic_tls_client_hello_msg_t **const m
     }
     gquic_list_head_init(&supported_versions);
 
-    if ((*msg = gquic_tls_client_hello_msg_alloc()) == NULL) {
-        GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_client_hello_msg_alloc(msg))) {
         goto failure;
     }
     if (GQUIC_ASSERT_CAUSE(exception, GQUIC_TLS_MSG_INIT(*msg))) {
@@ -172,9 +171,8 @@ int gquic_tls_handshake_client_hello_init(gquic_tls_client_hello_msg_t **const m
     }
     count = sizeof(__cipher_suites) / sizeof(u_int16_t);
     for (i = 0; i < count; i++) {
-        u_int16_t *cipher_suite = gquic_list_alloc(sizeof(u_int16_t));
-        if (cipher_suite == NULL) {
-            GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
+        u_int16_t *cipher_suite = NULL;
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &cipher_suite, sizeof(u_int16_t)))) {
             goto failure;
         }
         *cipher_suite = __cipher_suites[i];
@@ -187,9 +185,8 @@ int gquic_tls_handshake_client_hello_init(gquic_tls_client_hello_msg_t **const m
     if ((*msg)->vers >= GQUIC_TLS_VERSION_12) {
         count = sizeof(__supported_sign_algos) / sizeof(u_int16_t);
         for (i = 0; i < count; i++) {
-            u_int16_t *sigalg = gquic_list_alloc(sizeof(u_int16_t));
-            if (sigalg == NULL) {
-                GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
+            u_int16_t *sigalg = NULL;
+            if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &sigalg, sizeof(u_int16_t)))) {
                 goto failure;
             }
             *sigalg = __supported_sign_algos[i];
@@ -235,9 +232,8 @@ static int gquic_tls_handshake_client_hello_edch_params_init(gquic_tls_ecdhe_par
         if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_ecdhe_params_generate(params, GQUIC_TLS_CURVE_X25519))) {
             goto failure;
         }
-        gquic_tls_key_share_t *ks = gquic_list_alloc(sizeof(gquic_tls_key_share_t));
-        if (ks == NULL) {
-            GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
+        gquic_tls_key_share_t *ks = NULL;
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &ks, sizeof(gquic_tls_key_share_t)))) {
             goto failure;
         }
         gquic_list_head_init(&GQUIC_LIST_META(ks));
@@ -528,9 +524,8 @@ static int gquic_tls_client_handshake_state_process_hello_retry_request(gquic_tl
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
         GQUIC_PROCESS_DONE(exception);
     }
-    if ((key_share = gquic_list_alloc(sizeof(gquic_tls_key_share_t))) == NULL) {
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &key_share, sizeof(gquic_tls_key_share_t)))) {
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
-        GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
         goto failure;
     }
     key_share->group = curve_id;
@@ -884,9 +879,8 @@ static int gquic_tls_client_handshake_state_read_ser_cert(gquic_tls_handshake_cl
         size_t count = sizeof(__supported_sign_algos) / sizeof(u_int16_t);
         size_t i;
         for (i = 0; i < count; i++) {
-            u_int16_t *sigalg = gquic_list_alloc(sizeof(u_int16_t));
-            if (sigalg == NULL) {
-                GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
+            u_int16_t *sigalg = NULL;
+            if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &sigalg, sizeof(u_int16_t)))) {
                 goto failure;
             }
             *sigalg = __supported_sign_algos[i];
@@ -1124,9 +1118,7 @@ static int gquic_tls_client_handshake_state_send_cli_finished(gquic_tls_handshak
     if (cli_state == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if ((finished = gquic_tls_finished_msg_alloc()) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_tls_finished_msg_alloc(&finished));
     GQUIC_TLS_MSG_INIT(finished);
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_cipher_suite_finished_hash(&finished->verify,
                                              cli_state->suite,

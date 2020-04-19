@@ -71,9 +71,7 @@ int gquic_packet_sent_mem_sent_packet(gquic_packet_sent_mem_t *const mem, const 
     if (mem == NULL || packet == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if ((packet_storage = gquic_list_alloc(sizeof(gquic_packet_t *))) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &packet_storage, sizeof(gquic_packet_t *)));
     GQUIC_ASSERT_FAST_RETURN(gquic_rbtree_alloc(&packet_storage_rb_node, sizeof(u_int64_t), sizeof(gquic_packet_t ***)));
     *packet_storage = packet;
     *(const gquic_packet_t ***) GQUIC_RBTREE_VALUE(packet_storage_rb_node) = packet_storage;
@@ -543,8 +541,7 @@ static int gquic_packet_sent_packet_handler_determine_newly_acked_packets(gquic_
                 if ((*packet_storage)->pn > block->largest) {
                     break;
                 }
-                if ((ret_packet_storage = gquic_list_alloc(sizeof(gquic_packet_t *))) == NULL) {
-                    GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
+                if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &ret_packet_storage, sizeof(gquic_packet_t *)))) {
                     goto failure;
                 }
                 *ret_packet_storage = *packet_storage;
@@ -552,8 +549,7 @@ static int gquic_packet_sent_packet_handler_determine_newly_acked_packets(gquic_
             }
         }
         else {
-            if ((ret_packet_storage = gquic_list_alloc(sizeof(gquic_packet_t *))) == NULL) {
-                GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
+            if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &ret_packet_storage, sizeof(gquic_packet_t *)))) {
                 goto failure;
             }
             *ret_packet_storage = *packet_storage;
@@ -631,11 +627,8 @@ static int gquic_packet_sent_packet_handler_detect_lost_packets(gquic_packet_sen
         if ((*packet_storage)->pn > pn_spec->largest_ack) {
             break;
         }
-        if ((*packet_storage)->send_time < lost_send_time
-            || pn_spec->largest_ack >= (*packet_storage)->pn + 3) {
-            if ((lost_packet_storage = gquic_list_alloc(sizeof(gquic_packet_t *))) == NULL) {
-                GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-            }
+        if ((*packet_storage)->send_time < lost_send_time || pn_spec->largest_ack >= (*packet_storage)->pn + 3) {
+            GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &lost_packet_storage, sizeof(gquic_packet_t *)));
             *lost_packet_storage = *packet_storage;
             gquic_list_insert_before(&lost_packets, lost_packet_storage);
         }

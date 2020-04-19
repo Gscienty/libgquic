@@ -296,9 +296,9 @@ int gquic_packet_packer_pack_conn_close(gquic_packed_packet_t *const packed_pack
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
     }
     gquic_list_head_init(payload.frames);
-    if ((frame_storage = gquic_list_alloc(sizeof(void *))) == NULL) {
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &frame_storage, sizeof(void *)))) {
         gquic_packed_packet_payload_dtor(&payload);
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
+        GQUIC_PROCESS_DONE(exception);
     }
     *frame_storage = conn_close;
     gquic_list_insert_before(payload.frames, frame_storage);
@@ -782,9 +782,9 @@ int gquic_packet_packer_try_pack_app_packet(gquic_packed_packet_t *const packed_
             gquic_packed_packet_payload_dtor(&payload);
             GQUIC_PROCESS_DONE(exception);
         }
-        if ((frame_storage = gquic_list_alloc(sizeof(void *))) == NULL) {
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &frame_storage, sizeof(void *)))) {
             gquic_packed_packet_payload_dtor(&payload);
-            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
+            GQUIC_PROCESS_DONE(exception);
         }
         *frame_storage = frame;
         gquic_list_insert_before(payload.frames, frame_storage);
@@ -815,9 +815,9 @@ int gquic_packet_packer_try_pack_app_packet(gquic_packed_packet_t *const packed_
                 GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
             }
             GQUIC_FRAME_INIT(frame);
-            if ((frame_storage = gquic_list_alloc(sizeof(void *))) == NULL) {
+            if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &frame_storage, sizeof(void *)))) {
                 gquic_packed_packet_payload_dtor(&payload);
-                GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
+                GQUIC_PROCESS_DONE(exception);
             }
             *frame_storage = frame;
             gquic_list_insert_before(payload.frames, frame_storage);
@@ -905,9 +905,7 @@ int gquic_packet_packer_pack_crypto_packet(gquic_packed_packet_t *const packed_p
             if (frame == NULL) {
                 break;
             }
-            if ((frame_storage = gquic_list_alloc(sizeof(void *))) == NULL) {
-                GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-            }
+            GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &frame_storage, sizeof(void *)));
             *frame_storage = frame;
             gquic_list_insert_before(payload->frames, frame_storage);
             payload->len += GQUIC_FRAME_SIZE(frame);
@@ -916,9 +914,7 @@ int gquic_packet_packer_pack_crypto_packet(gquic_packed_packet_t *const packed_p
     else if (gquic_crypto_stream_has_data(str)) {
         GQUIC_ASSERT_FAST_RETURN(gquic_crypto_stream_pop_crypto_frame((gquic_frame_crypto_t **) &frame,
                                                                       str, packer->max_packet_size - header_len - 16 - payload->len));
-        if ((frame_storage = gquic_list_alloc(sizeof(void *))) == NULL) {
-            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-        }
+        GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &frame_storage, sizeof(void *)));
         *frame_storage = frame;
         gquic_list_insert_before(payload->frames, frame_storage);
         payload->len += GQUIC_FRAME_SIZE(frame);

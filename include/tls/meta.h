@@ -3,6 +3,7 @@
 
 #include <sys/types.h>
 #include <stddef.h>
+#include "exception.h"
 #include "util/str.h"
 
 typedef struct gquic_tls_msg_meta_s gquic_tls_msg_meta_t;
@@ -26,20 +27,17 @@ struct gquic_tls_msg_meta_s {
 #define GQUIC_TLS_MSG_SERIALIZE(ptr, writer) (GQUIC_TLS_MSG_META((ptr)).serialize_func((ptr), (writer)))
 #define GQUIC_TLS_MSG_DESERIALIZE(ptr, reader) (GQUIC_TLS_MSG_META((ptr)).deserialize_func((ptr), (reader)))
 
-void *gquic_tls_msg_alloc(const size_t size);
+int gquic_tls_msg_alloc(void **const result, const size_t size);
 int gquic_tls_msg_release(void *const msg);
 static inline int gquic_tls_msg_combine_serialize(gquic_str_t *const buf, const void *const msg) {
     if (buf == NULL || msg == NULL) {
-        return -1;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if (gquic_str_alloc(buf, GQUIC_TLS_MSG_SIZE(msg)) != 0) {
-        return -2;
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_str_alloc(buf, GQUIC_TLS_MSG_SIZE(msg)));
     gquic_writer_str_t writer = *buf;
-    if (GQUIC_TLS_MSG_SERIALIZE(msg, &writer) != 0) {
-        return -3;
-    }
-    return 0;
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_TLS_MSG_SERIALIZE(msg, &writer));
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 #endif

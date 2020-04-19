@@ -35,7 +35,7 @@ struct gquic_tls_client_hello_msg_s {
     gquic_list_t extensions;
 };
 
-gquic_tls_client_hello_msg_t *gquic_tls_client_hello_msg_alloc();
+int gquic_tls_client_hello_msg_alloc(gquic_tls_client_hello_msg_t **const result);
 ssize_t gquic_tls_client_hello_msg_size_without_binders(gquic_tls_client_hello_msg_t *msg);
 
 #endif

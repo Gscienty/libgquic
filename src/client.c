@@ -124,7 +124,7 @@ static void *__gquic_client_session_run(void *const client_){
     if (GQUIC_ASSERT_CAUSE(exception, gquic_session_run(&client->sess))) {
         gquic_packet_handler_map_close(client->packet_handlers);
     }
-    if ((event = gquic_list_alloc(sizeof(gquic_client_sec_conn_event_t))) == NULL) {
+    if (GQUIC_ASSERT(gquic_list_alloc((void **) &event, sizeof(gquic_client_sec_conn_event_t)))) {
         return NULL;
     }
     event->type = GQUIC_CLIENT_SEC_CONN_EVENT_TYPE_ERROR;
@@ -140,9 +140,7 @@ static int gquic_client_on_handshake_completed(void *const client_) {
     if (client == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if ((event = gquic_list_alloc(sizeof(gquic_client_sec_conn_event_t))) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &event, sizeof(gquic_client_sec_conn_event_t)));
     event->type = GQUIC_CLIENT_SEC_CONN_EVENT_TYPE_HANDSHAKE_COMPLETE;
     GQUIC_ASSERT_FAST_RETURN(gquic_sem_list_push(&client->sec_conn_events, event));
     
@@ -154,9 +152,7 @@ int gquic_client_done(gquic_client_t *const client) {
     if (client == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if ((event = gquic_list_alloc(sizeof(gquic_client_sec_conn_event_t))) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &event, sizeof(gquic_client_sec_conn_event_t)));
     event->type = GQUIC_CLIENT_SEC_CONN_EVENT_TYPE_CLOSE;
     GQUIC_ASSERT_FAST_RETURN(gquic_sem_list_push(&client->sec_conn_events, event));
 

@@ -10,12 +10,12 @@ static inline int __gquic_recovery_x509(X509 **, const size_t, gquic_reader_str_
 
 static inline int __gquic_recovery_bytes(void *ret, const size_t bytes, gquic_reader_str_t *const reader) {
     if (bytes > GQUIC_STR_SIZE(reader)) {
-        return GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_transfer(ret, GQUIC_STR_VAL(reader), bytes));
     gquic_reader_str_readed_size(reader, bytes);
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static inline int __gquic_recovery_str(gquic_str_t *str, const size_t bytes, gquic_reader_str_t *const reader) {

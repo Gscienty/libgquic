@@ -105,9 +105,7 @@ int gquic_conn_id_manager_add(gquic_conn_id_manager_t *const manager, gquic_fram
     }
 
     if (gquic_list_head_empty(&manager->queue) || ((gquic_new_conn_id_t *) GQUIC_LIST_LAST(&manager->queue))->seq < frame->seq) {
-        if ((new_conn_id = gquic_list_alloc(sizeof(gquic_new_conn_id_t))) == NULL) {
-            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-        }
+        GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &new_conn_id, sizeof(gquic_new_conn_id_t)));
         new_conn_id->seq = frame->seq;
         gquic_str_t tmp_conn_id = { frame->len, frame->conn_id };
         gquic_str_copy(&new_conn_id->conn_id, &tmp_conn_id);
@@ -129,9 +127,7 @@ int gquic_conn_id_manager_add(gquic_conn_id_manager_t *const manager, gquic_fram
             }
             if (new_conn_id->seq > frame->seq) {
                 next_new_conn_id = new_conn_id;
-                if ((new_conn_id = gquic_list_alloc(sizeof(gquic_new_conn_id_t))) == NULL) {
-                    GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-                }
+                GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &new_conn_id, sizeof(gquic_new_conn_id_t)));
                 new_conn_id->seq = frame->seq;
                 gquic_str_t tmp_conn_id = { frame->len, frame->conn_id };
                 gquic_str_copy(&new_conn_id->conn_id, &tmp_conn_id);

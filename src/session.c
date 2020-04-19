@@ -453,9 +453,7 @@ static int gquic_session_on_handshake_complete_client_wrapper(void *const sess_)
     if (sess == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if ((event = gquic_list_alloc(sizeof(gquic_session_run_event_t)))== NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &event, sizeof(gquic_session_run_event_t)));
     event->type = GQUIC_SESSION_EVENT_HANDSHAKE_COMPLETED;
     gquic_sem_list_push(&sess->run_event_list, event);
 
@@ -469,9 +467,7 @@ static int gquic_session_on_handshake_complete_server_wrapper(void *const sess_)
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_packet_handler_map_retire(sess->runner, &sess->cli_dst_conn_id);
-    if ((event = gquic_list_alloc(sizeof(gquic_session_run_event_t)))== NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &event, sizeof(gquic_session_run_event_t)));
     event->type = GQUIC_SESSION_EVENT_HANDSHAKE_COMPLETED;
     gquic_sem_list_push(&sess->run_event_list, event);
 
@@ -566,9 +562,7 @@ static int gquic_session_schedule_sending(gquic_session_t *const sess) {
     if (sess == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if ((event = gquic_list_alloc(sizeof(gquic_session_run_event_t)))== NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &event, sizeof(gquic_session_run_event_t)));
     event->type = GQUIC_SESSION_EVENT_SENDING_SCHEDULED;
     gquic_sem_list_push(&sess->run_event_list, event);
 
@@ -580,9 +574,7 @@ int gquic_session_handle_packet(gquic_session_t *const sess, gquic_received_pack
     if (sess == NULL || rp == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if ((event = gquic_list_alloc(sizeof(gquic_session_run_event_t)))== NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &event, sizeof(gquic_session_run_event_t)));
     event->type = GQUIC_SESSION_EVENT_RECEIVED_PACKAET;
     event->payload.rp = rp;
     gquic_sem_list_push(&sess->run_event_list, event);
@@ -611,6 +603,7 @@ int gquic_session_destroy(gquic_session_t *const sess, const int err) {
 }
 
 static int gquic_session_destroy_inner(gquic_session_t *const sess, const int err) {
+    int exception = GQUIC_SUCCESS;
     if (sess == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -621,9 +614,9 @@ static int gquic_session_destroy_inner(gquic_session_t *const sess, const int er
     }
     sess->close_flag = 1;
     gquic_session_run_event_t *event = NULL;
-    if ((event = gquic_list_alloc(sizeof(gquic_session_run_event_t)))== NULL) {
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &event, sizeof(gquic_session_run_event_t)))) {
         sem_post(&sess->close_mtx);
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
+        GQUIC_PROCESS_DONE(exception);
     }
     event->type = GQUIC_SESSION_EVENT_CLOSE;
     event->payload.err.err = err;
@@ -636,6 +629,7 @@ static int gquic_session_destroy_inner(gquic_session_t *const sess, const int er
 }
 
 static int gquic_session_close_local(gquic_session_t *const sess, const int err) {
+    int exception = GQUIC_SUCCESS;
     if (sess == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -646,9 +640,9 @@ static int gquic_session_close_local(gquic_session_t *const sess, const int err)
     }
     sess->close_flag = 1;
     gquic_session_run_event_t *event = NULL;
-    if ((event = gquic_list_alloc(sizeof(gquic_session_run_event_t)))== NULL) {
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &event, sizeof(gquic_session_run_event_t)))) {
         sem_post(&sess->close_mtx);
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
+        GQUIC_PROCESS_DONE(exception);
     }
     event->type = GQUIC_SESSION_EVENT_CLOSE;
     event->payload.err.err = err;
@@ -833,14 +827,15 @@ static void *gquic_session_run_send_queue_thread(void *const sess_) {
 }
 
 static int gquic_session_client_written_callback(void *const sess_) {
+    int exception = GQUIC_SUCCESS;
     gquic_session_t *const sess = sess_;
     if (sess == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_session_run_event_t *event = NULL;
-    if ((event = gquic_list_alloc(sizeof(gquic_session_run_event_t)))== NULL) {
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &event, sizeof(gquic_session_run_event_t)))) {
         sem_post(&sess->close_mtx);
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
+        GQUIC_PROCESS_DONE(exception);
     }
     event->type = GQUIC_SESSION_EVENT_CHELLO_WRITTEN;
     gquic_sem_list_push(&sess->run_event_list, event);
@@ -1191,6 +1186,7 @@ finished:
 }
 
 static int gquic_session_try_queue_undecryptable_packet(gquic_session_t *const sess, gquic_received_packet_t *const rp) {
+    int exception = GQUIC_SUCCESS;
     gquic_received_packet_t **rp_storage = NULL;
     if (sess == NULL || rp == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -1203,9 +1199,9 @@ static int gquic_session_try_queue_undecryptable_packet(gquic_session_t *const s
         free(rp);
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_TOO_MANY_UNDECRYPTABLE_PACKETS);
     }
-    if ((rp_storage = gquic_list_alloc(sizeof(gquic_received_packet_t *))) == NULL) {
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &rp_storage, sizeof(gquic_received_packet_t *)))) {
         free(rp);
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
+        GQUIC_PROCESS_DONE(exception);
     }
     *rp_storage = rp;
     gquic_list_insert_before(&sess->undecryptable_packets, rp_storage);
@@ -1494,6 +1490,7 @@ static int gquic_session_handle_retire_conn_id_frame(gquic_session_t *const sess
 }
 
 static int gquic_session_close_remote(gquic_session_t *const sess, const int err) {
+    int exception = GQUIC_SUCCESS;
     if (sess == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -1504,9 +1501,9 @@ static int gquic_session_close_remote(gquic_session_t *const sess, const int err
     }
     sess->close_flag = 1;
     gquic_session_run_event_t *event = NULL;
-    if ((event = gquic_list_alloc(sizeof(gquic_session_run_event_t)))== NULL) {
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &event, sizeof(gquic_session_run_event_t)))) {
         sem_post(&sess->close_mtx);
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
+        GQUIC_PROCESS_DONE(exception);
     }
     event->type = GQUIC_SESSION_EVENT_CLOSE;
     event->payload.err.err = err;

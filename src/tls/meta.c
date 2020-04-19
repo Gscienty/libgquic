@@ -2,10 +2,13 @@
 #include "exception.h"
 #include <malloc.h>
 
-void *gquic_tls_msg_alloc(const size_t size) {
+int gquic_tls_msg_alloc(void **const result, const size_t size) {
+    if (result == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
     gquic_tls_msg_meta_t *meta = malloc(sizeof(gquic_tls_msg_meta_t) + size);
     if (meta == NULL) {
-        return NULL;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
     }
     meta->init_func = NULL;
     meta->deserialize_func = NULL;
@@ -14,7 +17,9 @@ void *gquic_tls_msg_alloc(const size_t size) {
     meta->size_func = NULL;
     meta->type = 0x00;
     meta->payload_size = size;
-    return ((void *) meta) + sizeof(gquic_tls_msg_meta_t);
+    *result = ((void *) meta) + sizeof(gquic_tls_msg_meta_t);
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_tls_msg_release(void *const msg) {

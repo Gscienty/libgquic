@@ -20,9 +20,11 @@ static inline void __gquic_fill_str(gquic_writer_str_t *const, const gquic_str_t
 static inline void __gquic_fill_x509(gquic_writer_str_t *const, X509 *const, const u_int8_t);
 
 static inline void __gquic_stack_push(gquic_list_t *stack, gquic_writer_str_t *const writer, const u_int8_t size) {
-    gquic_list_insert_after(stack, gquic_list_alloc(sizeof(gquic_serialize_stack_t)));
-    ((gquic_serialize_stack_t *) GQUIC_LIST_FIRST(stack))->ptr = GQUIC_STR_VAL(writer);
-    ((gquic_serialize_stack_t *) GQUIC_LIST_FIRST(stack))->size = size;
+    gquic_serialize_stack_t *elem = NULL;
+    gquic_list_alloc((void **) &elem, sizeof(gquic_serialize_stack_t));
+    gquic_list_insert_after(stack, elem);
+    elem->ptr = GQUIC_STR_VAL(writer);
+    elem->size = size;
 }
 
 static inline void __gquic_stack_pop(void **const ptr, u_int8_t *const prefix_len, gquic_list_t *stack) {

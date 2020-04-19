@@ -8,5 +8,5 @@ struct gquic_tls_key_update_msg_s {
     int req;
 };
 
-gquic_tls_key_update_msg_t *gquic_tls_key_update_msg_alloc();
+int gquic_tls_key_update_msg_alloc(gquic_tls_key_update_msg_t **const result);
 #endif

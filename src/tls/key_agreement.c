@@ -161,7 +161,7 @@ static int gquic_tls_ecdhe_key_agreement_init(gquic_tls_ecdhe_key_agreement_t *c
     ka->ver = 0;
     ka->is_rsa = 0;
     gquic_tls_ecdhe_params_init(&ka->params);
-    ka->ckex_msg = gquic_tls_client_key_exchange_msg_alloc();
+    GQUIC_ASSERT_FAST_RETURN(gquic_tls_client_key_exchange_msg_alloc(&ka->ckex_msg));
     GQUIC_TLS_MSG_INIT(ka->ckex_msg);
     gquic_str_init(&ka->pre_master_sec);
     
@@ -384,12 +384,16 @@ select_curve_id_end:
         GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_TLS_RSA_SIG_INVALID);
         goto failure;
     }
-    gquic_list_insert_before(&slices, gquic_list_alloc(sizeof(const gquic_str_t *)));
-    *(const gquic_str_t **) gquic_list_prev(GQUIC_LIST_PAYLOAD(&slices)) = &c_hello->random;
-    gquic_list_insert_before(&slices, gquic_list_alloc(sizeof(const gquic_str_t *)));
-    *(const gquic_str_t **) gquic_list_prev(GQUIC_LIST_PAYLOAD(&slices)) = &s_hello->random;
-    gquic_list_insert_before(&slices, gquic_list_alloc(sizeof(const gquic_str_t *)));
-    *(const gquic_str_t **) gquic_list_prev(GQUIC_LIST_PAYLOAD(&slices)) = &ser_ecdh_params;
+    const gquic_str_t **tmp = NULL;
+    gquic_list_alloc((void **) &tmp, sizeof(const gquic_str_t *));
+    gquic_list_insert_before(&slices, tmp);
+    *tmp = &c_hello->random;
+    gquic_list_alloc((void **) &tmp, sizeof(const gquic_str_t *));
+    gquic_list_insert_before(&slices, tmp);
+    *tmp = &s_hello->random;
+    gquic_list_alloc((void **) &tmp, sizeof(const gquic_str_t *));
+    gquic_list_insert_before(&slices, tmp);
+    *tmp = &ser_ecdh_params;
     if (GQUIC_ASSERT_CAUSE(exception, hash_for_ser_key_exchange(&sign, sig_type, hash, ecdhe_self->ver, &slices))) {
         goto failure;
     }
@@ -576,7 +580,11 @@ static int ecdhe_ka_process_ser_key_exchange(void *const self,
             goto failure;
         }
     }
-    gquic_list_insert_after(&c_sup_sigalgs, gquic_list_alloc(sizeof(u_int16_t)));
+    u_int16_t *c_sup_sigalg = NULL;
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &c_sup_sigalg, sizeof(u_int16_t)))) {
+        goto failure;
+    }
+    gquic_list_insert_after(&c_sup_sigalgs, c_sup_sigalg);
     *(u_int16_t *) GQUIC_LIST_FIRST(&c_sup_sigalgs) = sigalg;
     if (GQUIC_ASSERT_CAUSE(exception,
                            gquic_tls_selected_sigalg(&sigalg, &sig_type,
@@ -597,12 +605,16 @@ static int ecdhe_ka_process_ser_key_exchange(void *const self,
     }
     memmove(GQUIC_STR_VAL(&sig), GQUIC_STR_VAL(&sig) + 2, GQUIC_STR_SIZE(&sig) - 2);
     sig.size -= 2;
-    gquic_list_insert_before(&slices, gquic_list_alloc(sizeof(const gquic_str_t *)));
-    *(const gquic_str_t **) gquic_list_prev(GQUIC_LIST_PAYLOAD(&slices)) = &c_hello->random;
-    gquic_list_insert_before(&slices, gquic_list_alloc(sizeof(const gquic_str_t *)));
-    *(const gquic_str_t **) gquic_list_prev(GQUIC_LIST_PAYLOAD(&slices)) = &s_hello->random;
-    gquic_list_insert_before(&slices, gquic_list_alloc(sizeof(const gquic_str_t *)));
-    *(const gquic_str_t **) gquic_list_prev(GQUIC_LIST_PAYLOAD(&slices)) = &ser_ecdh_params;
+    const gquic_str_t **tmp = NULL;
+    gquic_list_alloc((void **) &tmp, sizeof(const gquic_str_t *));
+    gquic_list_insert_before(&slices, tmp);
+    *tmp = &c_hello->random;
+    gquic_list_alloc((void **) &tmp, sizeof(const gquic_str_t *));
+    gquic_list_insert_before(&slices, tmp);
+    *tmp = &s_hello->random;
+    gquic_list_alloc((void **) &tmp, sizeof(const gquic_str_t *));
+    gquic_list_insert_before(&slices, tmp);
+    *tmp = &ser_ecdh_params;
     if (GQUIC_ASSERT_CAUSE(exception, hash_for_ser_key_exchange(&sign, sig_type, hash, ecdhe_self->ver, &slices))) {
         goto failure;
     }

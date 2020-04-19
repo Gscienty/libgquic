@@ -125,9 +125,7 @@ int gquic_tls_cert_deserialize(gquic_tls_cert_t *const msg, gquic_reader_str_t *
     start_position = GQUIC_STR_VAL(reader);
     while ((size_t) (GQUIC_STR_VAL(reader) - start_position) < payload_len) {
         GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_x509(&x509, 3, reader));
-        if ((x509_storage = gquic_list_alloc(sizeof(X509 *))) == NULL) {
-            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-        }
+        GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &x509_storage, sizeof(X509 *)));
         *x509_storage = x509;
         GQUIC_ASSERT_FAST_RETURN(gquic_list_insert_before(&msg->certs, x509_storage));
         
@@ -148,9 +146,7 @@ int gquic_tls_cert_deserialize(gquic_tls_cert_t *const msg, gquic_reader_str_t *
                     GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&sct_prefix_len, 2, reader));
                     sct_start_position = GQUIC_STR_VAL(reader);
                     while ((size_t) (GQUIC_STR_VAL(reader) - sct_start_position) < sct_prefix_len) {
-                        if ((field = gquic_list_alloc(sizeof(gquic_str_t))) == NULL) {
-                            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-                        }
+                        GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &field, sizeof(gquic_str_t)));
                         GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_str(field, 2, reader));
                         GQUIC_ASSERT_FAST_RETURN(gquic_list_insert_before(&msg->scts, field));
                     }

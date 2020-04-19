@@ -232,27 +232,27 @@ static void *__establish_run(void *arg) {
         goto finish;
     }
     if ((err_ret = gquic_tls_conn_handshake(&est->conn)) != 0) {
-        if ((err_event = gquic_list_alloc(sizeof(gquic_establish_err_event_t))) == NULL) {
+        if (GQUIC_ASSERT(gquic_list_alloc((void **) &err_event, sizeof(gquic_establish_err_event_t)))) {
             goto finish;
         }
         err_event->ret = err_ret;
         gquic_sem_list_push(&est->err_events_queue, err_event);
 
-        if ((ending_event = gquic_list_alloc(sizeof(gquic_establish_ending_event_t))) == NULL) {
+        if (GQUIC_ASSERT(gquic_list_alloc((void **) &ending_event, sizeof(gquic_establish_ending_event_t)))) {
             goto finish;
         }
         ending_event->type = GQUIC_ESTABLISH_ENDING_EVENT_INTERNAL_ERR;
         gquic_sem_list_push(&est->handshake_ending_events_queue, ending_event);
         goto finish;
     }
-    if ((ending_event = gquic_list_alloc(sizeof(gquic_establish_ending_event_t))) == NULL) {
+    if (GQUIC_ASSERT(gquic_list_alloc((void **) &ending_event, sizeof(gquic_establish_ending_event_t)))) {
         goto finish;
     }
     ending_event->type = GQUIC_ESTABLISH_ENDING_EVENT_HANDSHAKE_COMPLETE;
     gquic_sem_list_push(&est->handshake_ending_events_queue, ending_event);
     return NULL;
 finish:
-    if ((process_event = gquic_list_alloc(sizeof(gquic_establish_process_event_t))) == NULL) {
+    if (GQUIC_ASSERT(gquic_list_alloc((void **) &process_event, sizeof(gquic_establish_process_event_t)))) {
         return NULL;
     }
     process_event->type = GQUIC_ESTABLISH_PROCESS_EVENT_DONE;
@@ -265,9 +265,7 @@ int gquic_handshake_establish_close(gquic_handshake_establish_t *const est) {
     if (est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if ((event = gquic_list_alloc(sizeof(gquic_establish_ending_event_t))) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &event, sizeof(gquic_establish_ending_event_t)));
     event->type = GQUIC_ESTABLISH_ENDING_EVENT_CLOSE;
     gquic_sem_list_push(&est->handshake_ending_events_queue, event);
 
@@ -286,9 +284,7 @@ int gquic_handshake_establish_handle_msg(gquic_handshake_establish_t *const est,
         GQUIC_HANDSHAKE_EVENT_ON_ERR(&est->events, GQUIC_TLS_ALERT_UNEXPECTED_MESSAGE, exception);
         return 0;
     }
-    if ((msg = gquic_list_alloc(sizeof(gquic_str_t))) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &msg, sizeof(gquic_str_t)));
     *msg = *data;
     gquic_sem_list_push(&est->msg_events_queue, msg);
     if (enc_level == GQUIC_ENC_LV_1RTT) {
@@ -654,9 +650,7 @@ int gquic_handshake_establish_set_rkey(gquic_handshake_establish_t *const est,
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INVALID_ENC_LV);
     }
     sem_post(&est->mtx);
-    if ((process_event = gquic_list_alloc(sizeof(gquic_establish_process_event_t))) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &process_event, sizeof(gquic_establish_process_event_t)));
     process_event->type = GQUIC_ESTABLISH_PROCESS_EVENT_RECV_RKEY;
     gquic_sem_list_push(&est->handshake_process_events_queue, process_event);
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
@@ -701,9 +695,7 @@ int gquic_handshake_establish_set_wkey(gquic_handshake_establish_t *const est,
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INVALID_ENC_LV);
     }
     sem_post(&est->mtx);
-    if ((process_event = gquic_list_alloc(sizeof(gquic_establish_process_event_t))) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &process_event, sizeof(gquic_establish_process_event_t)));
     process_event->type = GQUIC_ESTABLISH_PROCESS_EVENT_RECV_WKEY;
     gquic_sem_list_push(&est->handshake_process_events_queue, process_event);
 
@@ -772,8 +764,7 @@ int gquic_handshake_establish_write_record(size_t *const size, gquic_handshake_e
             }
         }
         else {
-            if ((process_event = gquic_list_alloc(sizeof(gquic_establish_process_event_t))) == NULL) {
-                GQUIC_ASSERT_CAUSE(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
+            if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &process_event, sizeof(gquic_establish_process_event_t)))) {
                 goto failure;
             }
             process_event->type = GQUIC_ESTABLISH_PROCESS_EVENT_WRITE_RECORD;
@@ -802,9 +793,7 @@ int gquic_handshake_establish_send_alert(gquic_handshake_establish_t *const est,
     if (est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if ((ending_event = gquic_list_alloc(sizeof(gquic_establish_ending_event_t))) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &ending_event, sizeof(gquic_establish_ending_event_t)));
     ending_event->type = GQUIC_ESTABLISH_ENDING_EVENT_ALERT;
     ending_event->payload.alert_code = alert;
     gquic_sem_list_push(&est->handshake_ending_events_queue, ending_event);

@@ -34,9 +34,7 @@ int gquic_packet_send_queue_send(gquic_packet_send_queue_t *const queue, gquic_p
     if (queue == NULL || packed_packet == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if ((event = gquic_list_alloc(sizeof(gquic_packet_send_queue_event_t))) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &event, sizeof(gquic_packet_send_queue_event_t)));
     event->event = GQUIC_PACKET_SEND_QUEUE_EVENT_PACKET;
     event->packed_packet = packed_packet;
     gquic_sem_list_push(&queue->queue, event);
@@ -49,9 +47,7 @@ int gquic_packet_send_queue_close(gquic_packet_send_queue_t *const queue) {
     if (queue == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if ((event = gquic_list_alloc(sizeof(gquic_packet_send_queue_event_t))) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &event, sizeof(gquic_packet_send_queue_event_t)));
     event->event = GQUIC_PACKET_SEND_QUEUE_EVENT_CLOSE;
     event->packed_packet = NULL;
     gquic_sem_list_push(&queue->queue, event);

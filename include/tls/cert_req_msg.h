@@ -13,5 +13,5 @@ struct gquic_tls_cert_req_msg_s {
     gquic_list_t cert_auths;
 };
 
-gquic_tls_cert_req_msg_t *gquic_tls_cert_req_msg_alloc();
+int gquic_tls_cert_req_msg_alloc(gquic_tls_cert_req_msg_t **const result);
 #endif
