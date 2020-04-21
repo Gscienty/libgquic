@@ -1,5 +1,8 @@
 #include "coroutine/chain.h"
 #include "exception.h"
+#include <stdarg.h>
+
+static int gquic_coroutine_single_chain_recv(void **const, gquic_coroutine_t *const, gquic_coroutine_chain_t *const, const int waiting);
 
 int gquic_coroutine_chain_init(gquic_coroutine_chain_t *const chain) {
     if (chain == NULL) {
@@ -13,35 +16,37 @@ int gquic_coroutine_chain_init(gquic_coroutine_chain_t *const chain) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_coroutine_chain_wait(void **const result, gquic_coroutine_chain_t *const chain, gquic_coroutine_t *const co) {
-    int exception = GQUIC_SUCCESS;
-    int first = 1;
-    gquic_coroutine_t **co_storage = NULL;
-    if (result == NULL || chain == NULL || co == NULL) {
+int gquic_coroutine_chain_recv(void **const result, gquic_coroutine_t *const co, const int waiting, ...) {
+    va_list chains;
+    gquic_coroutine_chain_t *chain = NULL;
+    if (result == NULL || co == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    pthread_mutex_lock(&chain->mtx);
-    while (gquic_list_head_empty(&chain->elems)) {
-        if (first) {
-            co->status = GQUIC_COROUTINE_STATUS_WAITING;
-            if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &co_storage, sizeof(gquic_coroutine_t *)))) {
-                pthread_mutex_unlock(&chain->mtx);
-                GQUIC_PROCESS_DONE(exception);
-            }
-            *co_storage = co;
-            if (GQUIC_ASSERT_CAUSE(exception, gquic_list_insert_before(&chain->waiting, co_storage))) {
-                pthread_mutex_unlock(&chain->mtx);
-                GQUIC_PROCESS_DONE(exception);
-            }
-            first = 0;
+    *result = NULL;
+
+    va_start(chains, waiting);
+    while ((chain = va_arg(chains, gquic_coroutine_chain_t *const)) != NULL) {
+        GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_single_chain_recv(result, co, chain, waiting));
+        if (*result != NULL) {
+            GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
         }
-        pthread_mutex_unlock(&chain->mtx);
+    }
+    va_end(chains);
+
+    if (waiting) {
+        co->status = GQUIC_COROUTINE_STATUS_WAITING;
         gquic_coroutine_yield(co);
-        pthread_mutex_lock(&chain->mtx);
+        va_start(chains, waiting);
+        while ((chain = va_arg(chains, gquic_coroutine_chain_t *const)) != NULL) {
+            GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_single_chain_recv(result, co, chain, 0));
+            if (*result != NULL) {
+                GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+            }
+        }
+        va_end(chains);
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INTERNAL_ERROR);
     }
 
-    *result = *(void **) GQUIC_LIST_FIRST(&chain->elems);
-    pthread_mutex_unlock(&chain->mtx);
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
@@ -56,7 +61,7 @@ int gquic_coroutine_chain_send(gquic_coroutine_chain_t *const chain, gquic_corou
     *message_storage = message;
 
     pthread_mutex_lock(&chain->mtx);
-    if (GQUIC_ASSERT_CAUSE(exception, gquic_list_insert_after(&chain->elems, message_storage))) {
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_list_insert_before(&chain->elems, message_storage))) {
         pthread_mutex_unlock(&chain->mtx);
         GQUIC_PROCESS_DONE(exception);
     }
@@ -68,5 +73,35 @@ int gquic_coroutine_chain_send(gquic_coroutine_chain_t *const chain, gquic_corou
     if (co != NULL) {
         GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_schedule_join(sche, co));
     }
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}
+
+static int gquic_coroutine_single_chain_recv(void **const result, gquic_coroutine_t *const co, gquic_coroutine_chain_t *const chain, const int waiting) {
+    int exception = GQUIC_SUCCESS;
+    gquic_coroutine_t **co_storage = NULL;
+    if (result == NULL || co == NULL || chain == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+
+    pthread_mutex_lock(&chain->mtx);
+    if (gquic_list_head_empty(&chain->elems) && waiting) {
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &co_storage, sizeof(gquic_coroutine_t *)))) {
+            pthread_mutex_unlock(&chain->mtx);
+            GQUIC_PROCESS_DONE(exception);
+        }
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_list_insert_before(&chain->waiting, co_storage))) {
+            pthread_mutex_unlock(&chain->mtx);
+            GQUIC_PROCESS_DONE(exception);
+        }
+    }
+    else if (!gquic_list_head_empty(&chain->elems)) {
+        *result = *(void **) GQUIC_LIST_FIRST(&chain->elems);
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_list_release(GQUIC_LIST_FIRST(&chain->elems)))) {
+            pthread_mutex_unlock(&chain->mtx);
+            GQUIC_PROCESS_DONE(exception);
+        }
+    }
+    pthread_mutex_unlock(&chain->mtx);
+
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

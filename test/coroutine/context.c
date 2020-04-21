@@ -1,41 +1,36 @@
 #include "unit_test.h"
-#include "coroutine/context.h"
+#include "coroutine/schedule.h"
+#include "coroutine/coroutine.h"
 #include "util/str.h"
 #include <string.h>
 
 gquic_couroutine_context_t main_ctx;
 gquic_couroutine_context_t child_ctx;
 
-GQUIC_UNIT_TEST(get_context) {
-    gquic_couroutine_context_t ctx;
-    ctx.parent = NULL;
-    memset(ctx.regs, 0, sizeof(ctx.regs));
-    gquic_coroutine_current_context(&ctx);
-    GQUIC_UNIT_TEST_EXPECT(ctx.parent == NULL);
-
-    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
-}
-
-int maked_fn(void *const _) {
+int maked_fn(gquic_coroutine_t *co, void *const _) {
     (void) _;
     printf("HERE\n");
+    gquic_coroutine_yield(co);
+    printf("HERE3\n");
+
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-GQUIC_UNIT_TEST(make_context) {
-    u_int8_t stack[4096] = { 0 };
-    gquic_str_t data = { 4096, stack };
+GQUIC_UNIT_TEST(schedule_remain) {
+    gquic_coroutine_schedule_t sche;
+    gquic_coroutine_schedule_init(&sche);
 
-    child_ctx.stack.stack_pointer = stack;
-    child_ctx.stack.stack_size = 4096;
+    gquic_coroutine_t *co;
+    gquic_coroutine_alloc(&co);
+    gquic_coroutine_ctor(co, 4096, maked_fn, NULL);
 
-    child_ctx.parent = &main_ctx;
-    gquic_coroutine_make_context(&child_ctx, maked_fn, NULL);
-    gquic_coroutine_current_context(&main_ctx);
+    gquic_coroutine_schedule_join(&sche, co);
 
-    gquic_coroutine_swap_context(&main_ctx, &child_ctx);
+    gquic_coroutine_schedule_resume(&sche);
 
-    gquic_str_test_echo(&data);
+    printf("HERE2\n");
+
+    gquic_coroutine_schedule_resume(&sche);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
