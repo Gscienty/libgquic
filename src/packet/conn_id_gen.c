@@ -121,8 +121,7 @@ static int gquic_conn_id_gen_issue_new_conn_id(gquic_conn_id_gen_t *const gen) {
     if (GQUIC_ASSERT_CAUSE(exception, GQUIC_CONN_ID_GEN_ADD_CONN_ID(&token, gen, &conn_id))) {
         goto failure;
     }
-    if ((frame = gquic_frame_new_connection_id_alloc()) == NULL) {
-        GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_frame_new_connection_id_alloc(&frame))) {
         goto failure;
     }
     memcpy(frame->conn_id, GQUIC_STR_VAL(&conn_id), GQUIC_STR_SIZE(&conn_id));

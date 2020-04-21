@@ -261,6 +261,7 @@ int gquic_packet_received_mem_get_blocks(gquic_list_t *const blocks, const gquic
 }
 
 int gquic_packet_received_packet_handler_get_ack_frame(gquic_frame_ack_t **const ack, gquic_packet_received_packet_handler_t *const handler) {
+    int exception = GQUIC_SUCCESS;
     gquic_list_t blocks;
     if (ack == NULL || handler == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -270,11 +271,11 @@ int gquic_packet_received_packet_handler_get_ack_frame(gquic_frame_ack_t **const
     if (gquic_list_head_empty(&blocks)) {
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
-    if ((*ack = gquic_frame_ack_alloc()) == NULL) {
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_frame_ack_alloc(ack))) {
         while (!gquic_list_head_empty(&blocks)) {
             gquic_list_release(GQUIC_LIST_FIRST(&blocks));
         }
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
+        GQUIC_PROCESS_DONE(exception);
     }
     GQUIC_FRAME_INIT(*ack);
     struct timeval tv;

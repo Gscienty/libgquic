@@ -11,6 +11,6 @@ struct gquic_frame_reset_stream_s {
     u_int64_t final_size;
 };
 
-gquic_frame_reset_stream_t *gquic_frame_reset_stream_alloc();
+int gquic_frame_reset_stream_alloc(gquic_frame_reset_stream_t **const frame_storage);
 
 #endif

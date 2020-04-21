@@ -4,6 +4,6 @@
 typedef struct gquic_frame_padding_s gquic_frame_padding_t;
 struct gquic_frame_padding_s { };
 
-gquic_frame_padding_t *gquic_frame_padding_alloc();
+int gquic_frame_padding_alloc(gquic_frame_padding_t **const frame_storage);
 
 #endif

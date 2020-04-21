@@ -766,7 +766,8 @@ int gquic_session_run(gquic_session_t *const sess) {
             && sess->handshake_completed
             && sess->first_ack_eliciting_packet == 0
             && now - sess->last_packet_received_time >= sess->keep_alive_interval / 2) {
-            gquic_frame_ping_t *ping = gquic_frame_ping_alloc();
+            gquic_frame_ping_t *ping = NULL;
+            gquic_frame_ping_alloc(&ping);
             gquic_framer_queue_ctrl_frame(&sess->framer, ping);
             sess->keep_alive_ping_sent = 1;
         }
@@ -1551,9 +1552,7 @@ static int gquic_session_send_connection_close(gquic_str_t *const data,
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_packed_packet_init(&packet);
-    if ((frame = gquic_frame_connection_close_alloc()) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_frame_connection_close_alloc(&frame));
     GQUIC_FRAME_META(frame).type = is_app ? 0x1d : 0x1c;
     frame->errcode = errcode;
     frame->type = frame_type;
@@ -1705,9 +1704,7 @@ static int gquic_session_send_packet(int *const sent_packet, gquic_session_t *co
     }
     *sent_packet = 0;
     if (gquic_flowcontrol_base_is_newly_blocked(&swnd, &sess->conn_flow_ctrl.base)) {
-        if ((blocked = gquic_frame_data_blocked_alloc()) == NULL) {
-            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-        }
+        GQUIC_ASSERT_FAST_RETURN(gquic_frame_data_blocked_alloc(&blocked));
         blocked->limit = swnd;
         gquic_framer_queue_ctrl_frame(&sess->framer, blocked);
     }
@@ -1772,9 +1769,9 @@ static int gquic_session_send_probe_packet(gquic_session_t *const sess, const u_
     if (!packed_packet->valid) {
         gquic_packed_packet_dtor(packed_packet);
         gquic_packed_packet_init(packed_packet);
-        if ((ping = gquic_frame_ping_alloc()) == NULL) {
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_frame_ping_alloc(&ping))) {
             free(packed_packet);
-            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
+            GQUIC_PROCESS_DONE(exception);
         }
         switch (enc_lv) {
         case GQUIC_ENC_LV_INITIAL:

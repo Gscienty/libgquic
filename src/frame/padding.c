@@ -9,15 +9,14 @@ static int gquic_frame_padding_deserialize(void *const, gquic_reader_str_t *cons
 static int gquic_frame_padding_init(void *const);
 static int gquic_frame_padding_dtor(void *const);
 
-gquic_frame_padding_t *gquic_frame_padding_alloc() {
+int gquic_frame_padding_alloc(gquic_frame_padding_t **const frame_storage) {
     static gquic_frame_padding_t *frame = NULL;
     if (frame != NULL) {
-        return frame;
+        *frame_storage = frame;
+        GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
-    frame = gquic_frame_alloc(0);
-    if (frame == NULL) {
-        return NULL;
-    }
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_FRAME_ALLOC(&frame, gquic_frame_padding_t));
+
     GQUIC_FRAME_META(frame).type = 0x00;
     GQUIC_FRAME_META(frame).deserialize_func = gquic_frame_padding_deserialize;
     GQUIC_FRAME_META(frame).init_func = gquic_frame_padding_init;
@@ -25,7 +24,8 @@ gquic_frame_padding_t *gquic_frame_padding_alloc() {
     GQUIC_FRAME_META(frame).serialize_func = gquic_frame_padding_serialize;
     GQUIC_FRAME_META(frame).size_func = gquic_frame_padding_size;
 
-    return frame;
+    *frame_storage = frame;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static size_t gquic_frame_padding_size(const void *const frame) {

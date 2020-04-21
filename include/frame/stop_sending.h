@@ -10,6 +10,6 @@ struct gquic_frame_stop_sending_s {
     u_int64_t errcode;
 };
 
-gquic_frame_stop_sending_t *gquic_frame_stop_sending_alloc();
+int gquic_frame_stop_sending_alloc(gquic_frame_stop_sending_t **const frame_storage);
 
 #endif

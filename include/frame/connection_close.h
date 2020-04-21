@@ -11,6 +11,6 @@ struct gquic_frame_connection_close_s {
     char *phase;
 };
 
-gquic_frame_connection_close_t *gquic_frame_connection_close_alloc();
+int gquic_frame_connection_close_alloc(gquic_frame_connection_close_t **const frame_storage);
 
 #endif

@@ -72,9 +72,7 @@ int gquic_conn_id_manager_add(gquic_conn_id_manager_t *const manager, gquic_fram
     }
 
     if (frame->seq < manager->highest_retired) {
-        if ((retire_frame = gquic_frame_retire_connection_id_alloc()) == NULL) {
-            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-        }
+        GQUIC_ASSERT_FAST_RETURN(gquic_frame_retire_connection_id_alloc(&retire_frame));
         retire_frame->seq = frame->seq;
         GQUIC_CONN_ID_MANAGER_QUEUE_CTRL_FRAME(manager, retire_frame);
         goto added;
@@ -87,9 +85,7 @@ int gquic_conn_id_manager_add(gquic_conn_id_manager_t *const manager, gquic_fram
                 break;
             }
             next_new_conn_id = gquic_list_next(new_conn_id);
-            if ((retire_frame = gquic_frame_retire_connection_id_alloc()) == NULL) {
-                GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-            }
+            GQUIC_ASSERT_FAST_RETURN(gquic_frame_retire_connection_id_alloc(&retire_frame));
             retire_frame->seq = frame->seq;
             GQUIC_CONN_ID_MANAGER_QUEUE_CTRL_FRAME(manager, retire_frame);
             gquic_list_remove(new_conn_id);
@@ -156,9 +152,7 @@ static int gquic_conn_id_update_conn_id(gquic_conn_id_manager_t *const manager) 
     if (manager == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if ((retire_frame = gquic_frame_retire_connection_id_alloc()) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_frame_retire_connection_id_alloc(&retire_frame));
     retire_frame->seq = manager->active_seq;
     GQUIC_CONN_ID_MANAGER_QUEUE_CTRL_FRAME(manager, retire_frame);
     

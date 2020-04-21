@@ -10,6 +10,6 @@ struct gquic_frame_max_stream_data_s {
     u_int64_t max;
 };
 
-gquic_frame_max_stream_data_t *gquic_frame_max_stream_data_alloc();
+int gquic_frame_max_stream_data_alloc(gquic_frame_max_stream_data_t **const frame_storage);
 
 #endif

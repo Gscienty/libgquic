@@ -85,59 +85,59 @@ static int gquic_frame_parser_parse(void **const frame_storage,
     }
     else switch (GQUIC_STR_FIRST_BYTE(reader)) {
     case 0x01:
-        *frame_storage = gquic_frame_ping_alloc();
+        GQUIC_ASSERT_FAST_RETURN(gquic_frame_ping_alloc((gquic_frame_ping_t **) frame_storage));
         break;
     case 0x02:
     case 0x03:
-        *frame_storage = gquic_frame_ack_alloc(); // TODO ack delay exponent
+        GQUIC_ASSERT_FAST_RETURN(gquic_frame_ack_alloc((gquic_frame_ack_t **) frame_storage)); // TODO ack delay exponent
         break;
     case 0x04:
-        *frame_storage = gquic_frame_reset_stream_alloc();
+        GQUIC_ASSERT_FAST_RETURN(gquic_frame_reset_stream_alloc((gquic_frame_reset_stream_t **) frame_storage));
         break;
     case 0x05:
-        *frame_storage = gquic_frame_stop_sending_alloc();
+        GQUIC_ASSERT_FAST_RETURN(gquic_frame_stop_sending_alloc((gquic_frame_stop_sending_t **) frame_storage));
         break;
     case 0x06:
-        *frame_storage = gquic_frame_crypto_alloc();
+        GQUIC_ASSERT_FAST_RETURN(gquic_frame_crypto_alloc((gquic_frame_crypto_t **) frame_storage));
         break;
     case 0x07:
-        *frame_storage = gquic_frame_new_token_alloc();
+        GQUIC_ASSERT_FAST_RETURN(gquic_frame_new_token_alloc((gquic_frame_new_token_t **) frame_storage));
         break;
     case 0x10:
-        *frame_storage = gquic_frame_max_data_alloc();
+        GQUIC_ASSERT_FAST_RETURN(gquic_frame_max_data_alloc((gquic_frame_max_data_t **) frame_storage));
         break;
     case 0x11:
-        *frame_storage = gquic_frame_max_stream_data_alloc();
+        GQUIC_ASSERT_FAST_RETURN(gquic_frame_max_stream_data_alloc((gquic_frame_max_stream_data_t **) frame_storage));
         break;
     case 0x12:
     case 0x13:
-        *frame_storage = gquic_frame_max_streams_alloc();
+        GQUIC_ASSERT_FAST_RETURN(gquic_frame_max_streams_alloc((gquic_frame_max_streams_t **) frame_storage));
         break;
     case 0x14:
-        *frame_storage = gquic_frame_data_blocked_alloc();
+        GQUIC_ASSERT_FAST_RETURN(gquic_frame_data_blocked_alloc((gquic_frame_data_blocked_t **) frame_storage));
         break;
     case 0x15:
-        *frame_storage = gquic_frame_stream_data_blocked_alloc();
+        GQUIC_ASSERT_FAST_RETURN(gquic_frame_stream_data_blocked_alloc((gquic_frame_stream_data_blocked_t **) frame_storage));
         break;
     case 0x16:
     case 0x17:
-        *frame_storage = gquic_frame_streams_blocked_alloc();
+        GQUIC_ASSERT_FAST_RETURN(gquic_frame_streams_blocked_alloc((gquic_frame_streams_blocked_t **) frame_storage));
         break;
     case 0x18:
-        *frame_storage = gquic_frame_new_connection_id_alloc();
+        GQUIC_ASSERT_FAST_RETURN(gquic_frame_new_connection_id_alloc((gquic_frame_new_connection_id_t **) frame_storage));
         break;
     case 0x19:
-        *frame_storage = gquic_frame_retire_connection_id_alloc();
+        GQUIC_ASSERT_FAST_RETURN(gquic_frame_retire_connection_id_alloc((gquic_frame_retire_connection_id_t **) frame_storage));
         break;
     case 0x1a:
-        *frame_storage = gquic_frame_path_challenge_alloc();
+        GQUIC_ASSERT_FAST_RETURN(gquic_frame_path_challenge_alloc((gquic_frame_path_challenge_t **) frame_storage));
         break;
     case 0x1b:
-        *frame_storage = gquic_frame_path_response_alloc();
+        GQUIC_ASSERT_FAST_RETURN(gquic_frame_path_response_alloc((gquic_frame_path_response_t **) frame_storage));
         break;
     case 0x1c:
     case 0x1d:
-        *frame_storage = gquic_frame_connection_close_alloc();
+        GQUIC_ASSERT_FAST_RETURN(gquic_frame_connection_close_alloc((gquic_frame_connection_close_t **) frame_storage));
         break;
     default:
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INVALID_FRAME);

@@ -36,7 +36,7 @@ struct gquic_frame_ack_block_s {
     u_int64_t largest;
 };
 
-gquic_frame_ack_t *gquic_frame_ack_alloc();
+int gquic_frame_ack_alloc(gquic_frame_ack_t **const frame_storage);
 int gquic_frame_ack_acks_packet(const gquic_list_t *const blocks, const u_int64_t pn);
 int gquic_frame_ack_ranges_to_blocks(gquic_list_t *const blocks, const gquic_frame_ack_t *const spec);
 int gquic_frame_ack_ranges_from_blocks(gquic_frame_ack_t *const spec, const gquic_list_t *const blocks);

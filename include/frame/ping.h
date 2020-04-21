@@ -4,6 +4,6 @@
 typedef struct gquic_frame_ping_s gquic_frame_ping_t;
 struct gquic_frame_ping_s { };
 
-gquic_frame_ping_t *gquic_frame_ping_alloc();
+int gquic_frame_ping_alloc(gquic_frame_ping_t **const frame_storage);
 
 #endif

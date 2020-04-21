@@ -19,19 +19,20 @@ int gquic_frame_ack_range_init(gquic_frame_ack_range_t *const range) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-gquic_frame_ack_t *gquic_frame_ack_alloc() {
-    gquic_frame_ack_t *frame = gquic_frame_alloc(sizeof(gquic_frame_ack_t));
-    if (frame == NULL) {
-        return NULL;
+int gquic_frame_ack_alloc(gquic_frame_ack_t **const frame_storage) {
+    if (frame_storage == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    GQUIC_FRAME_META(frame).type = 0x02;
-    GQUIC_FRAME_META(frame).deserialize_func = gquic_frame_ack_deserialize;
-    GQUIC_FRAME_META(frame).init_func = gquic_frame_ack_init;
-    GQUIC_FRAME_META(frame).dtor_func = gquic_frame_ack_dtor;
-    GQUIC_FRAME_META(frame).serialize_func = gquic_frame_ack_serialize;
-    GQUIC_FRAME_META(frame).size_func = gquic_frame_ack_size;
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_FRAME_ALLOC(frame_storage, gquic_frame_ack_t));
 
-    return frame;
+    GQUIC_FRAME_META(*frame_storage).type = 0x02;
+    GQUIC_FRAME_META(*frame_storage).deserialize_func = gquic_frame_ack_deserialize;
+    GQUIC_FRAME_META(*frame_storage).init_func = gquic_frame_ack_init;
+    GQUIC_FRAME_META(*frame_storage).dtor_func = gquic_frame_ack_dtor;
+    GQUIC_FRAME_META(*frame_storage).serialize_func = gquic_frame_ack_serialize;
+    GQUIC_FRAME_META(*frame_storage).size_func = gquic_frame_ack_size;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static size_t gquic_frame_ack_size(const void *const frame) {

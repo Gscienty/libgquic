@@ -9,15 +9,17 @@ static int gquic_frame_ping_deserialize(void *const, gquic_reader_str_t *const);
 static int gquic_frame_ping_init(void *const);
 static int gquic_frame_ping_dtor(void *const);
 
-gquic_frame_ping_t *gquic_frame_ping_alloc() {
+int gquic_frame_ping_alloc(gquic_frame_ping_t **const frame_storage) {
     static gquic_frame_ping_t *frame = NULL;
+    if (frame_storage == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
     if (frame != NULL) {
-        return frame;
+        *frame_storage = frame;
+        GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
-    frame = gquic_frame_alloc(0);
-    if (frame == NULL) {
-        return NULL;
-    }
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_FRAME_ALLOC(&frame, gquic_frame_ping_t));
+
     GQUIC_FRAME_META(frame).type = 0x01;
     GQUIC_FRAME_META(frame).deserialize_func = gquic_frame_ping_deserialize;
     GQUIC_FRAME_META(frame).init_func = gquic_frame_ping_init;
@@ -25,7 +27,8 @@ gquic_frame_ping_t *gquic_frame_ping_alloc() {
     GQUIC_FRAME_META(frame).serialize_func = gquic_frame_ping_serialize;
     GQUIC_FRAME_META(frame).size_func = gquic_frame_ping_size;
 
-    return frame;
+    *frame_storage = frame;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static size_t gquic_frame_ping_size(const void *const frame) {

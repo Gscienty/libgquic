@@ -9,6 +9,6 @@ struct gquic_frame_new_token_s {
     void *token;
 };
 
-gquic_frame_new_token_t *gquic_frame_new_token_alloc();
+int gquic_frame_new_token_alloc(gquic_frame_new_token_t **const frame_storage);
 
 #endif

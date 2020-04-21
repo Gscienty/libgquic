@@ -77,8 +77,7 @@ int gquic_wnd_update_queue_queue_all(gquic_wnd_update_queue_t *const queue) {
     gquic_list_head_init(&del);
     sem_wait(&queue->mtx);
     if (queue->queue_conn) {
-        if ((max_data_frame = gquic_frame_max_data_alloc()) == NULL) {
-            GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_frame_max_data_alloc(&max_data_frame))) {
             goto failure;
         }
         max_data_frame->max = gquic_flowcontrol_conn_flow_ctrl_get_wnd_update(queue->conn_flow_ctrl);
@@ -94,8 +93,7 @@ int gquic_wnd_update_queue_queue_all(gquic_wnd_update_queue_t *const queue) {
         if ((offset = gquic_flowcontrol_stream_flow_ctrl_get_wnd_update(str->recv.flow_ctrl)) == 0) {
             continue;
         }
-        if ((max_stream_data_frame = gquic_frame_max_stream_data_alloc()) == NULL) {
-            GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_frame_max_stream_data_alloc(&max_stream_data_frame))) {
             goto failure;
         }
         max_stream_data_frame->id = *(u_int64_t *) GQUIC_RBTREE_KEY(rbt);

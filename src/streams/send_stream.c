@@ -181,7 +181,9 @@ static int gquic_send_stream_pop_new_stream_frame(gquic_frame_stream_t *const fr
             return 0;
         }
         if (gquic_flowcontrol_base_is_newly_blocked(&off, &str->flow_ctrl->base)) {
-            data_blocked_frame = gquic_frame_stream_data_blocked_alloc();
+            if (GQUIC_ASSERT(gquic_frame_stream_data_blocked_alloc(&data_blocked_frame))) {
+                return 0;
+            }
             data_blocked_frame->id = str->stream_id;
             data_blocked_frame->limit = off;
             GQUIC_SENDER_QUEUE_CTRL_FRAME(str->sender, data_blocked_frame);
@@ -344,9 +346,7 @@ int gquic_send_stream_cancel_write(gquic_send_stream_t *const str, const u_int64
     sem_post(&str->mtx);
 
     sem_post(&str->write_sem);
-    if ((reset_frame = gquic_frame_reset_stream_alloc()) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_frame_reset_stream_alloc(&reset_frame));
     reset_frame->id = str->stream_id;
     reset_frame->final_size = str->write_off;
     reset_frame->errcode = err;

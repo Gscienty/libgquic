@@ -8,6 +8,6 @@ struct gquic_frame_retire_connection_id_s {
     u_int64_t seq;
 };
 
-gquic_frame_retire_connection_id_t *gquic_frame_retire_connection_id_alloc();
+int gquic_frame_retire_connection_id_alloc(gquic_frame_retire_connection_id_t **const frame_storage);
 
 #endif

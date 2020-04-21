@@ -103,9 +103,7 @@ static int gquic_outbidi_stream_map_try_send_blocked_frame(gquic_outbidi_stream_
     if (str_map->max_stream != (u_int64_t) -1) {
         stream_n = str_map->max_stream;
     }
-    if ((frame = gquic_frame_streams_blocked_alloc()) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_frame_streams_blocked_alloc(&frame));
     GQUIC_FRAME_INIT(frame);
     GQUIC_FRAME_META(frame).type = 0x16;
     frame->limit = stream_n;

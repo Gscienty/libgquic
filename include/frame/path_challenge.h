@@ -8,6 +8,6 @@ struct gquic_frame_path_challenge_s {
     u_int8_t data[8];
 };
 
-gquic_frame_path_challenge_t *gquic_frame_path_challenge_alloc();
+int gquic_frame_path_challenge_alloc(gquic_frame_path_challenge_t **const frame_storage);
 
 #endif

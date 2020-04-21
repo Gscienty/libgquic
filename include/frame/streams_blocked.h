@@ -8,6 +8,6 @@ struct gquic_frame_streams_blocked_s {
     u_int64_t limit;
 };
 
-gquic_frame_streams_blocked_t *gquic_frame_streams_blocked_alloc();
+int gquic_frame_streams_blocked_alloc(gquic_frame_streams_blocked_t **const frame_storage);
 
 #endif

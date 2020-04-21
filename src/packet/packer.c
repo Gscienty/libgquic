@@ -810,7 +810,7 @@ int gquic_packet_packer_try_pack_app_packet(gquic_packed_packet_t *const packed_
     
     if (gquic_list_head_empty(payload.frames)) {
         if (packer->non_ack_eliciting_acks_count >= 19) {
-            if ((frame = gquic_frame_ping_alloc()) == NULL) {
+            if (GQUIC_ASSERT_CAUSE(exception, gquic_frame_ping_alloc((gquic_frame_ping_t **) &frame))) {
                 gquic_packed_packet_payload_dtor(&payload);
                 GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
             }

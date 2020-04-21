@@ -183,9 +183,7 @@ static int gquic_inbidi_stream_map_release_stream_inner(gquic_inbidi_stream_map_
     if (str_map->max_stream_count > str_map->streams_count) {
         new_streams_count = str_map->max_stream_count - str_map->streams_count;
         str_map->max_stream = str_map->next_stream_open + new_streams_count - 1;
-        if ((frame = gquic_frame_max_streams_alloc()) == NULL) {
-            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-        }
+        GQUIC_ASSERT_FAST_RETURN(gquic_frame_max_streams_alloc(&frame));
         GQUIC_FRAME_INIT(frame);
         GQUIC_FRAME_META(frame).type = 0x12;
         frame->max = str_map->max_stream;

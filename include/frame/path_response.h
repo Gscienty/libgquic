@@ -8,6 +8,6 @@ struct gquic_frame_path_response_s {
     u_int8_t data[8];
 };
 
-gquic_frame_path_response_t *gquic_frame_path_response_alloc();
+int gquic_frame_path_response_alloc(gquic_frame_path_response_t **const frame_storage);
 
 #endif

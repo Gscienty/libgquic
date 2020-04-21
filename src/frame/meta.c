@@ -2,10 +2,10 @@
 #include "exception.h"
 #include <malloc.h>
 
-void *gquic_frame_alloc(size_t size) {
+int gquic_frame_alloc(void **const result, size_t size) {
     gquic_frame_meta_t *meta = (gquic_frame_meta_t *) malloc(sizeof(gquic_frame_meta_t) + size);
-    if (meta == NULL) {
-        return NULL;
+    if (result == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     meta->init_func = NULL;
     meta->deserialize_func = NULL;
@@ -19,7 +19,9 @@ void *gquic_frame_alloc(size_t size) {
     meta->on_lost.self = NULL;
     meta->on_lost.cb = NULL;
 
-    return ((void *) meta) + sizeof(gquic_frame_meta_t);
+    *result = ((void *) meta) + sizeof(gquic_frame_meta_t);
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_frame_release(void *const frame) {

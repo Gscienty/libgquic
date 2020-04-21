@@ -9,19 +9,20 @@ static int gquic_frame_data_blocked_deserialize(void *const, gquic_reader_str_t 
 static int gquic_frame_data_blocked_init(void *const);
 static int gquic_frame_data_blocked_dtor(void *const);
 
-gquic_frame_data_blocked_t *gquic_frame_data_blocked_alloc() {
-    gquic_frame_data_blocked_t *frame = gquic_frame_alloc(sizeof(gquic_frame_data_blocked_t));
-    if (frame == NULL) {
-        return NULL;
+int gquic_frame_data_blocked_alloc(gquic_frame_data_blocked_t **const frame_storage) {
+    if (frame_storage == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    GQUIC_FRAME_META(frame).type = 0x14;
-    GQUIC_FRAME_META(frame).deserialize_func = gquic_frame_data_blocked_deserialize;
-    GQUIC_FRAME_META(frame).init_func = gquic_frame_data_blocked_init;
-    GQUIC_FRAME_META(frame).dtor_func = gquic_frame_data_blocked_dtor;
-    GQUIC_FRAME_META(frame).serialize_func = gquic_frame_data_blocked_serialize;
-    GQUIC_FRAME_META(frame).size_func = gquic_frame_data_blocked_size;
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_FRAME_ALLOC(frame_storage, gquic_frame_data_blocked_t));
 
-    return frame;
+    GQUIC_FRAME_META(*frame_storage).type = 0x14;
+    GQUIC_FRAME_META(*frame_storage).deserialize_func = gquic_frame_data_blocked_deserialize;
+    GQUIC_FRAME_META(*frame_storage).init_func = gquic_frame_data_blocked_init;
+    GQUIC_FRAME_META(*frame_storage).dtor_func = gquic_frame_data_blocked_dtor;
+    GQUIC_FRAME_META(*frame_storage).serialize_func = gquic_frame_data_blocked_serialize;
+    GQUIC_FRAME_META(*frame_storage).size_func = gquic_frame_data_blocked_size;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static size_t gquic_frame_data_blocked_size(const void *const frame) {

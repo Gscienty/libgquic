@@ -252,7 +252,7 @@ static int gquic_recv_stream_read_cancel_inner(gquic_recv_stream_t *const str, c
     str->canceled_read = 1;
     str->cancel_read_reason = err_code;
     sem_post(&str->read_sem);
-    if ((stop_sending = gquic_frame_stop_sending_alloc()) == NULL) {
+    if (GQUIC_ASSERT(gquic_frame_stop_sending_alloc(&stop_sending))) {
         return 0;
     }
     GQUIC_FRAME_INIT(stop_sending);
@@ -358,9 +358,7 @@ int gquic_recv_stream_close_remote(gquic_recv_stream_t *const str, const u_int64
     if (str == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if ((stream = gquic_frame_stream_alloc()) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_frame_stream_alloc(&stream));
     GQUIC_FRAME_INIT(stream);
     GQUIC_FRAME_META(stream).type |= 0x01; // FIN
     stream->off = off;

@@ -176,9 +176,7 @@ int gquic_crypto_stream_pop_crypto_frame(gquic_frame_crypto_t **frame_storage, g
     if (frame_storage == NULL || str == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if ((*frame_storage = gquic_frame_crypto_alloc()) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_frame_crypto_alloc(frame_storage));
     (*frame_storage)->off = str->out_off;
     if (write_size > GQUIC_STR_SIZE(&str->out_reader)) {
         write_size = GQUIC_STR_SIZE(&str->out_reader);

@@ -12,11 +12,8 @@ int gquic_stream_frame_pool_init() {
 }
 
 int gquic_stream_frame_pool_get(gquic_frame_stream_t **const stream) {
-    if ((*stream = gquic_frame_stream_alloc()) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_frame_stream_alloc(stream));
     GQUIC_FRAME_INIT(*stream);
-
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 

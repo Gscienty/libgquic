@@ -13,7 +13,7 @@ struct gquic_frame_stream_s {
     gquic_str_t data;
 };
 
-gquic_frame_stream_t *gquic_frame_stream_alloc();
+int gquic_frame_stream_alloc(gquic_frame_stream_t **const frame_storage);
 u_int64_t gquic_frame_stream_data_capacity(const u_int64_t size, const gquic_frame_stream_t *const frame);
 int gquic_frame_stream_split(gquic_frame_stream_t **new_frame, gquic_frame_stream_t *const frame, const u_int64_t size);
 
