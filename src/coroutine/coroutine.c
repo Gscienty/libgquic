@@ -46,6 +46,7 @@ int gquic_coroutine_ctor(gquic_coroutine_t *const co, size_t stack_size, int (*f
     // TODO stack pool
     co->ctx.stack.stack_pointer = malloc(stack_size);
     co->ctx.stack.stack_size = stack_size;
+    co->status = GQUIC_COROUTINE_STATUS_STARTING;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
