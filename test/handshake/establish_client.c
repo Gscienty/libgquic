@@ -8,6 +8,7 @@
 #include "tls/meta.h"
 #include "net/addr.h"
 #include "unit_test.h"
+#include "util/malloc.h"
 #include "global_schedule.h"
 #include <stdio.h>
 #include <openssl/rand.h>
@@ -15,6 +16,7 @@
 #include <openssl/x509.h>
 
 gquic_handshake_establish_t est;
+gquic_coroutine_t *co = NULL;
 
 static gquic_str_t sess_id = { 0, NULL };
 static gquic_str_t client_pubkey = { 0, NULL };
@@ -185,29 +187,40 @@ static int finish_msg(gquic_str_t *const msg) {
 static int gquic_handshake_mock_server_run_co(gquic_coroutine_t *const co, void *const est_) {
     (void) est_;
     gquic_str_t msg = { 0, NULL };
+    gquic_str_t *tmp = NULL;
 
     server_hello_handshake_msg(&msg);
-    gquic_handshake_establish_handle_msg(&est, co, &msg, GQUIC_ENC_LV_INITIAL);
+    GQUIC_MALLOC_STRUCT(&tmp, gquic_str_t);
+    gquic_str_copy(tmp, &msg);
+    gquic_handshake_establish_handle_msg(&est, co, tmp, GQUIC_ENC_LV_INITIAL);
 
     printf("server inner\n");
 
     encrypted_exts_handshake_msg(&msg);
-    gquic_handshake_establish_handle_msg(&est, co, &msg, GQUIC_ENC_LV_HANDSHAKE);
+    GQUIC_MALLOC_STRUCT(&tmp, gquic_str_t);
+    gquic_str_copy(tmp, &msg);
+    gquic_handshake_establish_handle_msg(&est, co, tmp, GQUIC_ENC_LV_HANDSHAKE);
 
     printf("server inner\n");
 
     cert_msg(&msg);
-    gquic_handshake_establish_handle_msg(&est, co, &msg, GQUIC_ENC_LV_HANDSHAKE);
+    GQUIC_MALLOC_STRUCT(&tmp, gquic_str_t);
+    gquic_str_copy(tmp, &msg);
+    gquic_handshake_establish_handle_msg(&est, co, tmp, GQUIC_ENC_LV_HANDSHAKE);
 
     printf("server inner\n");
 
     verify_msg(&msg);
-    gquic_handshake_establish_handle_msg(&est, co, &msg, GQUIC_ENC_LV_HANDSHAKE);
+    GQUIC_MALLOC_STRUCT(&tmp, gquic_str_t);
+    gquic_str_copy(tmp, &msg);
+    gquic_handshake_establish_handle_msg(&est, co, tmp, GQUIC_ENC_LV_HANDSHAKE);
 
     printf("server inner\n");
 
     finish_msg(&msg);
-    gquic_handshake_establish_handle_msg(&est, co, &msg, GQUIC_ENC_LV_HANDSHAKE);
+    GQUIC_MALLOC_STRUCT(&tmp, gquic_str_t);
+    gquic_str_copy(tmp, &msg);
+    gquic_handshake_establish_handle_msg(&est, co, tmp, GQUIC_ENC_LV_HANDSHAKE);
 
     printf("server inner\n");
 
@@ -218,21 +231,16 @@ static void *server_thread(void *const _) {
     (void) _;
     gquic_coroutine_t *co = NULL;
     gquic_coroutine_alloc(&co);
-    gquic_coroutine_ctor(co, 1024 * 1024, gquic_handshake_mock_server_run_co, &est);
+    gquic_coroutine_ctor(co, 4096 * 4096, gquic_handshake_mock_server_run_co, &est);
     gquic_coroutine_schedule_join(gquic_get_global_schedule(), co);
-    gquic_coroutine_schedule_resume(gquic_get_global_schedule());
-
     return NULL;
 }
 
 static int init_write(void *const self, gquic_writer_str_t *const writer) {
-    pthread_attr_t attr;
-    pthread_t thread;
-    pthread_attr_init(&attr);
     switch (*(int *) self) {
     case 0:
         client_hello_process(writer);
-        pthread_create(&thread, &attr, server_thread, NULL);
+        server_thread(NULL);
         break;
     }
     (*(int *) self)++;
@@ -287,10 +295,16 @@ GQUIC_UNIT_TEST(establish_client) {
                                                             NULL, NULL,
                                                             &cfg, &conn_id, &params, &rtt, &addr, 1));
 
-    gquic_coroutine_t *co = NULL;
     gquic_coroutine_alloc(&co);
     gquic_coroutine_ctor(co, 4096 * 4096, gquic_handshake_establish_run_co, &est);
     gquic_coroutine_schedule_join(gquic_get_global_schedule(), co);
+    gquic_coroutine_schedule_resume(gquic_get_global_schedule());
+    gquic_coroutine_schedule_resume(gquic_get_global_schedule());
+    gquic_coroutine_schedule_resume(gquic_get_global_schedule());
+    gquic_coroutine_schedule_resume(gquic_get_global_schedule());
+    gquic_coroutine_schedule_resume(gquic_get_global_schedule());
+    gquic_coroutine_schedule_resume(gquic_get_global_schedule());
+    gquic_coroutine_schedule_resume(gquic_get_global_schedule());
     gquic_coroutine_schedule_resume(gquic_get_global_schedule());
     gquic_coroutine_schedule_resume(gquic_get_global_schedule());
     gquic_coroutine_schedule_resume(gquic_get_global_schedule());
