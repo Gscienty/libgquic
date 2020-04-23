@@ -70,20 +70,20 @@ static int gquic_tls_new_sess_ticket_msg_serialize(const void *const msg, gquic_
     }
     gquic_list_head_init(&prefix_len_stack);
 
-    gquic_big_endian_writer_1byte(writer, GQUIC_TLS_HANDSHAKE_MSG_TYPE_NEW_SESS_TICKET);
-    __gquic_store_prefix_len(&prefix_len_stack, writer, 3);
-    gquic_big_endian_writer_4byte(writer, spec->lifetime);
-    gquic_big_endian_writer_4byte(writer, spec->age_add);
-    __gquic_fill_str(writer, &spec->nonce, 1);
-    __gquic_fill_str(writer, &spec->label, 2);
-    __gquic_store_prefix_len(&prefix_len_stack, writer, 2);
+    GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_1byte(writer, GQUIC_TLS_HANDSHAKE_MSG_TYPE_NEW_SESS_TICKET));
+    GQUIC_ASSERT_FAST_RETURN(__gquic_store_prefix_len(&prefix_len_stack, writer, 3));
+    GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_4byte(writer, spec->lifetime));
+    GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_4byte(writer, spec->age_add));
+    GQUIC_ASSERT_FAST_RETURN(__gquic_fill_str(writer, &spec->nonce, 1));
+    GQUIC_ASSERT_FAST_RETURN(__gquic_fill_str(writer, &spec->label, 2));
+    GQUIC_ASSERT_FAST_RETURN(__gquic_store_prefix_len(&prefix_len_stack, writer, 2));
     if (spec->max_early_data > 0) {
-        gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_EARLY_DATA);
-        __gquic_store_prefix_len(&prefix_len_stack, writer, 2);
-        gquic_big_endian_writer_4byte(writer, spec->max_early_data);
-        __gquic_fill_prefix_len(&prefix_len_stack, writer);
+        GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_EARLY_DATA));
+        GQUIC_ASSERT_FAST_RETURN(__gquic_store_prefix_len(&prefix_len_stack, writer, 2));
+        GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_4byte(writer, spec->max_early_data));
+        GQUIC_ASSERT_FAST_RETURN(__gquic_fill_prefix_len(&prefix_len_stack, writer));
     }
-    for (_lazy = 0; _lazy < 2; _lazy++) __gquic_fill_prefix_len(&prefix_len_stack, writer);
+    for (_lazy = 0; _lazy < 2; _lazy++) GQUIC_ASSERT_FAST_RETURN(__gquic_fill_prefix_len(&prefix_len_stack, writer));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -97,7 +97,7 @@ static int gquic_tls_new_sess_ticket_msg_deserialize(void *const msg, gquic_read
     if (gquic_reader_str_read_byte(reader) != GQUIC_TLS_HANDSHAKE_MSG_TYPE_NEW_SESS_TICKET) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_TLS_RECORD_TYPE_INVALID_UNEXCEPTED);
     }
-    __gquic_recovery_bytes(&prefix_len, 3, reader);
+    GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&prefix_len, 3, reader));
     if ((size_t) prefix_len > GQUIC_STR_SIZE(reader)) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
@@ -108,7 +108,7 @@ static int gquic_tls_new_sess_ticket_msg_deserialize(void *const msg, gquic_read
     prefix_len = 0;
     GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&prefix_len, 2, reader));
     if (prefix_len > 0) {
-        gquic_reader_str_readed_size(reader, 2 + 2);
+        GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_readed_size(reader, 2 + 2));
         GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&spec->max_early_data, 4, reader));
     }
 

@@ -3,9 +3,9 @@
 
 #include "tls/conn.h"
 #include "tls/config.h"
-#include "util/sem_list.h"
 #include "util/str.h"
 #include "util/io.h"
+#include "coroutine/chain.h"
 #include "handshake/auto_update_aead.h"
 #include "handshake/aead.h"
 #include "handshake/transport_parameters.h"
@@ -87,10 +87,16 @@ struct gquic_handshake_establish_s {
     gquic_tls_config_t *cfg;
     gquic_tls_conn_t conn;
     gquic_handshake_event_t events;
-    gquic_sem_list_t handshake_ending_events_queue;
-    gquic_sem_list_t err_events_queue;
-    gquic_sem_list_t msg_events_queue;
-    gquic_sem_list_t handshake_process_events_queue;
+    gquic_coroutine_chain_t err_chain;
+    gquic_coroutine_chain_t msg_chain;
+    gquic_coroutine_chain_t param_chain;
+    gquic_coroutine_chain_t done_chain;
+    gquic_coroutine_chain_t complete_chain;
+    gquic_coroutine_chain_t close_chain;
+    gquic_coroutine_chain_t alert_chain;
+    gquic_coroutine_chain_t write_record_chain;
+    gquic_coroutine_chain_t received_rkey_chain;
+    gquic_coroutine_chain_t received_wkey_chain;
     int cli_hello_written;
     int is_client;
     sem_t mtx;
@@ -142,10 +148,11 @@ int gquic_handshake_establish_change_conn_id(gquic_handshake_establish_t *const 
                                              const gquic_str_t *const conn_id);
 int gquic_handshake_establish_1rtt_set_last_acked(gquic_handshake_establish_t *const est,
                                                   const u_int64_t pn);
-int gquic_handshake_establish_run(gquic_handshake_establish_t *const est);
+int gquic_handshake_establish_run(gquic_coroutine_t *const co, gquic_handshake_establish_t *const est);
 int gquic_handshake_establish_close(gquic_handshake_establish_t *const est);
-int gquic_handshake_establish_handle_msg(gquic_handshake_establish_t *const est, const gquic_str_t *const data, const u_int8_t enc_level);
-int gquic_handshake_establish_read_handshake_msg(gquic_str_t *const msg, gquic_handshake_establish_t *const est);
+int gquic_handshake_establish_handle_msg(gquic_handshake_establish_t *const est,
+                                         gquic_coroutine_t *const co, const gquic_str_t *const data, const u_int8_t enc_level);
+int gquic_handshake_establish_read_handshake_msg(gquic_str_t *const msg, gquic_handshake_establish_t *const est, gquic_coroutine_t *const co);
 int gquic_handshake_establish_set_rkey(gquic_handshake_establish_t *const est,
                                        const u_int8_t enc_level,
                                        const gquic_tls_cipher_suite_t *const suite,

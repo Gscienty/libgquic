@@ -1,21 +1,21 @@
 #ifndef _LIBGQUIC_HANDSHAKE_EXTENSION_HANDLER_H
 #define _LIBGQUIC_HANDSHAKE_EXTENSION_HANDLER_H
 
-#include "util/sem_list.h"
 #include "util/str.h"
 #include "handshake/transport_parameters.h"
 #include "tls/config.h"
+#include "coroutine/chain.h"
 
 typedef struct gquic_handshake_extension_handler_s gquic_handshake_extension_handler_t;
 struct gquic_handshake_extension_handler_s {
-    gquic_sem_list_t *process_event_sem;
+    gquic_coroutine_chain_t *param_chain;
     gquic_str_t params;
     int is_client;
 };
 
 int gquic_handshake_extension_handler_init(gquic_handshake_extension_handler_t *const handler);
 int gquic_handshake_extension_handler_ctor(gquic_handshake_extension_handler_t *const handler,
-                                           gquic_sem_list_t *const process_event_sem,
+                                           gquic_coroutine_chain_t *const param_chain,
                                            const gquic_transport_parameters_t *const params,
                                            const int is_client);
 int gquic_handshake_extension_handler_dtor(gquic_handshake_extension_handler_t *const handler);

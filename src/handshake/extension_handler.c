@@ -1,7 +1,9 @@
 #include "handshake/extension_handler.h"
 #include "handshake/establish.h"
 #include "tls/common.h"
+#include "util/malloc.h"
 #include "exception.h"
+#include "global_schedule.h"
 
 static int get_extensions_wrap(gquic_list_t *const, void *const, const u_int8_t);
 static int received_extensions_wrap(void *const, const u_int8_t, gquic_list_t *const);
@@ -12,7 +14,7 @@ int gquic_handshake_extension_handler_init(gquic_handshake_extension_handler_t *
     }
     handler->is_client = 0;
     gquic_str_init(&handler->params);
-    handler->process_event_sem = NULL;
+    handler->param_chain = NULL;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -27,14 +29,14 @@ int gquic_handshake_extension_handler_dtor(gquic_handshake_extension_handler_t *
 }
 
 int gquic_handshake_extension_handler_ctor(gquic_handshake_extension_handler_t *const handler,
-                                           gquic_sem_list_t *const process_event_sem,
+                                           gquic_coroutine_chain_t *const param_chain,
                                            const gquic_transport_parameters_t *const params,
                                            const int is_client) {
-    if (handler == NULL || process_event_sem == NULL || params == NULL) {
+    if (handler == NULL || param_chain == NULL || params == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     handler->is_client = is_client;
-    handler->process_event_sem = process_event_sem;
+    handler->param_chain = param_chain;
     GQUIC_ASSERT_FAST_RETURN(gquic_str_alloc(&handler->params, gquic_transport_parameters_size(params)));
     gquic_writer_str_t writer = handler->params;
     GQUIC_ASSERT_FAST_RETURN(gquic_transport_parameters_serialize(params, &writer));
@@ -77,7 +79,7 @@ int gquic_handshake_extension_handler_recv_extensions(gquic_handshake_extension_
     
     GQUIC_LIST_FOREACH(ext, extensions) {
         if (ext->type == GQUIC_TLS_EXTENSION_QUIC) {
-            GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &process_event, sizeof(gquic_establish_process_event_t)));
+            GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&process_event, gquic_establish_process_event_t));
             process_event->type = GQUIC_ESTABLISH_PROCESS_EVENT_PARAM;
             gquic_str_init(&process_event->param);
             GQUIC_ASSERT_FAST_RETURN(gquic_str_copy(&process_event->param, &ext->data));
@@ -85,11 +87,11 @@ int gquic_handshake_extension_handler_recv_extensions(gquic_handshake_extension_
         }
     }
     if (process_event == NULL) {
-        GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &process_event, sizeof(gquic_establish_process_event_t)));
+        GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&process_event, gquic_establish_process_event_t));
         process_event->type = GQUIC_ESTABLISH_PROCESS_EVENT_PARAM;
         gquic_str_init(&process_event->param);
     }
-    gquic_sem_list_push(handler->process_event_sem, process_event);
+    gquic_coroutine_chain_send(handler->param_chain, gquic_get_global_schedule(), process_event);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

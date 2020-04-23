@@ -191,7 +191,7 @@ int gquic_writer_str_write(gquic_writer_str_t *const writer, const gquic_str_t *
         writer_size = GQUIC_STR_SIZE(writer);
     }
     memcpy(GQUIC_STR_VAL(writer), GQUIC_STR_VAL(buf), writer_size);
-    gquic_writer_str_writed_size(writer, writer_size);
+    GQUIC_ASSERT_FAST_RETURN(gquic_writer_str_writed_size(writer, writer_size));
     
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -216,7 +216,7 @@ int gquic_writer_str_write_padding(gquic_writer_str_t *const writer, u_int8_t pa
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
     memset(GQUIC_STR_VAL(writer), padding_cnt, padding_len);
-    gquic_writer_str_writed_size(writer, padding_len);
+    GQUIC_ASSERT_FAST_RETURN(gquic_writer_str_writed_size(writer, padding_len));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -233,7 +233,7 @@ int gquic_writer_str_write_x509(gquic_writer_str_t *const writer, X509 *const x5
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
     i2d_X509(x509, &buf);
-    gquic_writer_str_writed_size(writer, size);
+    GQUIC_ASSERT_FAST_RETURN(gquic_writer_str_writed_size(writer, size));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

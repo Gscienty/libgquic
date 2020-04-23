@@ -66,13 +66,13 @@ static int gquic_tls_cert_verify_msg_serialize(const void *const msg, gquic_writ
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
     gquic_list_head_init(&prefix_len_stack);
-    gquic_big_endian_writer_1byte(writer, GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT_VERIFY);
-    __gquic_store_prefix_len(&prefix_len_stack, writer, 3);
+    GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_1byte(writer, GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT_VERIFY));
+    GQUIC_ASSERT_FAST_RETURN(__gquic_store_prefix_len(&prefix_len_stack, writer, 3));
     if (spec->has_sign_algo) {
-        gquic_big_endian_writer_2byte(writer, spec->sign_algo);
+        GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, spec->sign_algo));
     }
-    __gquic_fill_str(writer, &spec->sign, 2);
-    __gquic_fill_prefix_len(&prefix_len_stack, writer);
+    GQUIC_ASSERT_FAST_RETURN(__gquic_fill_str(writer, &spec->sign, 2));
+    GQUIC_ASSERT_FAST_RETURN(__gquic_fill_prefix_len(&prefix_len_stack, writer));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -85,7 +85,7 @@ static int gquic_tls_cert_verify_msg_deserialize(void *const msg, gquic_reader_s
     if (gquic_reader_str_read_byte(reader) != GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT_VERIFY) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_TLS_RECORD_TYPE_INVALID_UNEXCEPTED);
     }
-    gquic_reader_str_readed_size(reader, 3);
+    GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_readed_size(reader, 3));
     if (spec->has_sign_algo) {
         GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&spec->sign_algo, 2, reader));
     }

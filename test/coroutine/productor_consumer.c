@@ -7,7 +7,7 @@
 int productor_co_func(gquic_coroutine_t *const co, void *const chain) {
     for ( ;; ) {
         int *product;
-        gquic_coroutine_chain_recv((void **) &product, co, 1, chain);
+        gquic_coroutine_chain_recv((void **) &product, co, 1, chain, NULL);
         printf("consume %d\n", *product);
         gquic_coroutine_yield(co);
     }

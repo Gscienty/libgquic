@@ -41,15 +41,15 @@ static inline int __gquic_recovery_x509(X509 ** x509_storage, const size_t bytes
     gquic_str_t str = { 0, NULL };
     const u_int8_t *tmp = NULL;
     if (x509_storage == NULL || reader == NULL) {
-        return GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_str(&str, bytes, reader));
     tmp = GQUIC_STR_VAL(&str);
     if (d2i_X509(x509_storage, &tmp, GQUIC_STR_SIZE(&str)) == NULL) {
         gquic_str_reset(&str);
-        return GQUIC_EXCEPTION_BAD_X509;
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_BAD_X509);
     }
     gquic_str_reset(&str);
 
-    return GQUIC_SUCCESS;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

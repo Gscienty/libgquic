@@ -1,4 +1,5 @@
 #include "packet/multiplexer.h"
+#include "coroutine/coroutine.h"
 #include "client.h"
 #include "exception.h"
 #include <openssl/rand.h>
@@ -14,7 +15,7 @@ struct gquic_client_sec_conn_event_s {
 };
 
 static int gquic_client_on_handshake_completed(void *const);
-static void *__gquic_client_session_run(void *const);
+static int __gquic_client_session_run_co(gquic_coroutine_t *const, void *const);
 static int gquic_client_implement_packet_handler(gquic_packet_handler_t **const, gquic_client_t *const);
 static int gquic_client_ctor(gquic_client_t *const, int, gquic_net_addr_t *const, gquic_config_t *const, const int);
 static int gquic_client_handle_packet(gquic_client_t *const, gquic_received_packet_t *const);
@@ -85,6 +86,7 @@ int gquic_client_create(gquic_client_t *const client, int fd, gquic_net_addr_t *
 
 static int gquic_client_establish_sec_conn(gquic_client_t *const client) {
     gquic_client_sec_conn_event_t *event = NULL;
+    gquic_coroutine_t *co = NULL;
     int exception = GQUIC_SUCCESS;
     if (client == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -92,9 +94,8 @@ static int gquic_client_establish_sec_conn(gquic_client_t *const client) {
     client->sess.on_handshake_completed.self = client;
     client->sess.on_handshake_completed.cb = gquic_client_on_handshake_completed;
 
-    if (pthread_create(&client->sess_run_thread, NULL, __gquic_client_session_run, client) != 0) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_CREATE_THREAD_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_alloc(&co));
+    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_ctor(co, 1024 * 1024, __gquic_client_session_run_co, client));
     
     GQUIC_ASSERT_FAST_RETURN(gquic_sem_list_pop((void **) &event, &client->sec_conn_events));
     switch (event->type) {
@@ -114,24 +115,26 @@ static int gquic_client_establish_sec_conn(gquic_client_t *const client) {
     GQUIC_PROCESS_DONE(exception);
 }
 
-static void *__gquic_client_session_run(void *const client_){
+static int __gquic_client_session_run_co(gquic_coroutine_t *const co, void *const client_){
     int exception = GQUIC_SUCCESS;
     gquic_client_t *const client = client_;
     gquic_client_sec_conn_event_t *event = NULL;
-    if (client == NULL) {
-        return NULL;
+    if (co == NULL || client == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if (GQUIC_ASSERT_CAUSE(exception, gquic_session_run(&client->sess))) {
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_session_run(&client->sess, co))) {
         gquic_packet_handler_map_close(client->packet_handlers);
     }
-    if (GQUIC_ASSERT(gquic_list_alloc((void **) &event, sizeof(gquic_client_sec_conn_event_t)))) {
-        return NULL;
-    }
-    event->type = GQUIC_CLIENT_SEC_CONN_EVENT_TYPE_ERROR;
-    event->err = exception;
-    gquic_sem_list_push(&client->sec_conn_events, event);
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+    // TODO
+    /*if (GQUIC_ASSERT(gquic_list_alloc((void **) &event, sizeof(gquic_client_sec_conn_event_t)))) {*/
+        /*return NULL;*/
+    /*}*/
+    /*event->type = GQUIC_CLIENT_SEC_CONN_EVENT_TYPE_ERROR;*/
+    /*event->err = exception;*/
+    /*gquic_sem_list_push(&client->sec_conn_events, event);*/
 
-    return NULL;
+    /*return NULL;*/
 }
 
 static int gquic_client_on_handshake_completed(void *const client_) {

@@ -35,6 +35,7 @@ size_t gquic_transport_parameters_size(const gquic_transport_parameters_t *const
     if (params == NULL) {
         return 0;
     }
+    ret += 2;
     ret += 2 + 2 + gquic_varint_size(&params->init_max_data);
     ret += 2 + 2 + gquic_varint_size(&params->init_max_stream_data_uni);
     ret += 2 + 2 + gquic_varint_size(&params->init_max_stream_data_bidi_local);
@@ -71,51 +72,51 @@ int gquic_transport_parameters_serialize(const gquic_transport_parameters_t *con
     }
     
     gquic_list_head_init(&prefix_len_stack);
-    __gquic_store_prefix_len(&prefix_len_stack, writer, 2);
+    GQUIC_ASSERT_FAST_RETURN(__gquic_store_prefix_len(&prefix_len_stack, writer, 2));
 
-    __serialize_var(writer, &prefix_len_stack,
-                    GQUIC_TRANSPORT_PARAM_INITIAL_MAX_STREAM_DATA_BIDI_LOCAL, params->init_max_stream_data_bidi_local);
-    __serialize_var(writer, &prefix_len_stack,
-                    GQUIC_TRANSPORT_PARAM_INITIAL_MAX_STREAM_DATA_BIDI_REMOTE, params->init_max_stream_data_bidi_remote);
-    __serialize_var(writer, &prefix_len_stack,
-                    GQUIC_TRANSPORT_PARAM_INITIAL_MAX_STREAMS_UNI, params->init_max_stream_data_uni);
-    __serialize_var(writer, &prefix_len_stack,
-                    GQUIC_TRANSPORT_PARAM_INITIAL_MAX_DATA, params->init_max_data);
-    __serialize_var(writer, &prefix_len_stack,
-                    GQUIC_TRANSPORT_PARAM_INITIAL_MAX_STREAMS_BIDI, params->max_streams_bidi);
-    __serialize_var(writer, &prefix_len_stack,
-                    GQUIC_TRANSPORT_PARAM_INITIAL_MAX_STREAMS_UNI, params->max_streams_uni);
-    __serialize_var(writer, &prefix_len_stack,
-                    GQUIC_TRANSPORT_PARAM_IDLE_TIMEOUT, params->idle_timeout);
-    __serialize_var(writer, &prefix_len_stack,
-                    GQUIC_TRANSPORT_PARAM_MAX_PACKET_SIZE, params->max_packet_size);
+    GQUIC_ASSERT_FAST_RETURN(__serialize_var(writer, &prefix_len_stack,
+                                             GQUIC_TRANSPORT_PARAM_INITIAL_MAX_DATA, params->init_max_data));
+    GQUIC_ASSERT_FAST_RETURN(__serialize_var(writer, &prefix_len_stack,
+                                             GQUIC_TRANSPORT_PARAM_INITIAL_MAX_STREAM_DATA_BIDI_LOCAL, params->init_max_stream_data_bidi_local));
+    GQUIC_ASSERT_FAST_RETURN(__serialize_var(writer, &prefix_len_stack,
+                                             GQUIC_TRANSPORT_PARAM_INITIAL_MAX_STREAM_DATA_BIDI_REMOTE, params->init_max_stream_data_bidi_remote));
+    GQUIC_ASSERT_FAST_RETURN(__serialize_var(writer, &prefix_len_stack,
+                                             GQUIC_TRANSPORT_PARAM_INITIAL_MAX_STREAMS_UNI, params->init_max_stream_data_uni));
+    GQUIC_ASSERT_FAST_RETURN(__serialize_var(writer, &prefix_len_stack,
+                                             GQUIC_TRANSPORT_PARAM_INITIAL_MAX_STREAMS_BIDI, params->max_streams_bidi));
+    GQUIC_ASSERT_FAST_RETURN(__serialize_var(writer, &prefix_len_stack,
+                                             GQUIC_TRANSPORT_PARAM_INITIAL_MAX_STREAMS_UNI, params->max_streams_uni));
+    GQUIC_ASSERT_FAST_RETURN(__serialize_var(writer, &prefix_len_stack,
+                                             GQUIC_TRANSPORT_PARAM_IDLE_TIMEOUT, params->idle_timeout));
+    GQUIC_ASSERT_FAST_RETURN(__serialize_var(writer, &prefix_len_stack,
+                                             GQUIC_TRANSPORT_PARAM_MAX_PACKET_SIZE, params->max_packet_size));
     if (params->max_ack_delay != 25 * 1000) {
-        __serialize_var(writer, &prefix_len_stack,
-                        GQUIC_TRANSPORT_PARAM_MAX_ACK_DELAY, params->max_ack_delay / 1000);
+        GQUIC_ASSERT_FAST_RETURN(__serialize_var(writer, &prefix_len_stack,
+                                                 GQUIC_TRANSPORT_PARAM_MAX_ACK_DELAY, params->max_ack_delay / 1000));
     }
     if (params->ack_delay_exponent != 3) {
-        __serialize_var(writer, &prefix_len_stack,
-                        GQUIC_TRANSPORT_PARAM_ACK_DELAY_EXPONENT, params->ack_delay_exponent);
+        GQUIC_ASSERT_FAST_RETURN(__serialize_var(writer, &prefix_len_stack,
+                                                 GQUIC_TRANSPORT_PARAM_ACK_DELAY_EXPONENT, params->ack_delay_exponent));
     }
     if (params->disable_migration) {
-        gquic_big_endian_writer_2byte(writer, GQUIC_TRANSPORT_PARAM_DISABLE_MIGRATION);
-        gquic_big_endian_writer_2byte(writer, 0);
+        GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, GQUIC_TRANSPORT_PARAM_DISABLE_MIGRATION));
+        GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, 0));
     }
     if (GQUIC_STR_SIZE(&params->stateless_reset_token) != 0) {
-        gquic_big_endian_writer_2byte(writer, GQUIC_TRANSPORT_PARAM_STATELESS_RESET_TOKEN);
-        __gquic_fill_str(writer, &params->stateless_reset_token, 2);
+        GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, GQUIC_TRANSPORT_PARAM_STATELESS_RESET_TOKEN));
+        GQUIC_ASSERT_FAST_RETURN(__gquic_fill_str(writer, &params->stateless_reset_token, 2));
     }
     if (GQUIC_STR_SIZE(&params->original_conn_id) != 0) {
-        gquic_big_endian_writer_2byte(writer, GQUIC_TRANSPORT_PARAM_ORIGINAL_CONNID);
-        __gquic_fill_str(writer, &params->original_conn_id, 2);
+        GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, GQUIC_TRANSPORT_PARAM_ORIGINAL_CONNID));
+        GQUIC_ASSERT_FAST_RETURN(__gquic_fill_str(writer, &params->original_conn_id, 2));
     }
-    __serialize_var(writer, &prefix_len_stack,
-                    GQUIC_TRANSPORT_PARAM_ACTIVE_CONN_ID_LIMIT, params->active_conn_id_limit);
+    GQUIC_ASSERT_FAST_RETURN(__serialize_var(writer, &prefix_len_stack,
+                                             GQUIC_TRANSPORT_PARAM_ACTIVE_CONN_ID_LIMIT, params->active_conn_id_limit));
 
     gquic_str_t tmp_writer = *writer;
     tmp_writer.val -= 2;
     tmp_writer.size += 2;
-    __gquic_fill_prefix_len(&prefix_len_stack, &tmp_writer);
+    GQUIC_ASSERT_FAST_RETURN(__gquic_fill_prefix_len(&prefix_len_stack, &tmp_writer));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -127,7 +128,7 @@ int gquic_transport_parameters_deserialize(gquic_transport_parameters_t *const p
     if (params == NULL || reader == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    __gquic_recovery_bytes(&len, 2, reader);
+    GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&len, 2, reader));
     if (len > GQUIC_STR_SIZE(reader) - 2) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
@@ -135,8 +136,8 @@ int gquic_transport_parameters_deserialize(gquic_transport_parameters_t *const p
     while (GQUIC_STR_SIZE(&inner_reader) >= 4) {
         id = 0;
         param_len = 0;
-        __gquic_recovery_bytes(&id, 2, &inner_reader);
-        __gquic_recovery_bytes(&param_len, 2, &inner_reader);
+        GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&id, 2, &inner_reader));
+        GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&param_len, 2, &inner_reader));
         switch (id) {
         case GQUIC_TRANSPORT_PARAM_ACK_DELAY_EXPONENT:
             GQUIC_ASSERT_FAST_RETURN(gquic_varint_deserialize((u_int64_t *) &params->ack_delay_exponent, &inner_reader));
@@ -195,10 +196,10 @@ static inline int __serialize_var(gquic_writer_str_t *const writer,
     if (writer == NULL || prefix_len_stack == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    gquic_big_endian_writer_2byte(writer, id);
-    __gquic_store_prefix_len(prefix_len_stack, writer, 2);
+    GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, id));
+    GQUIC_ASSERT_FAST_RETURN(__gquic_store_prefix_len(prefix_len_stack, writer, 2));
     GQUIC_ASSERT_FAST_RETURN(gquic_varint_serialize(&val, writer));
-    __gquic_fill_prefix_len(prefix_len_stack, writer);
+    GQUIC_ASSERT_FAST_RETURN(__gquic_fill_prefix_len(prefix_len_stack, writer));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

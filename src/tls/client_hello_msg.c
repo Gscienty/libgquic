@@ -184,11 +184,11 @@ static int gquic_tls_client_hello_msg_serialize(const void *const msg, gquic_wri
     }
     gquic_list_head_init(&prefix_len_stack);
     // client_hello
-    gquic_big_endian_writer_1byte(writer, GQUIC_TLS_HANDSHAKE_MSG_TYPE_CLIENT_HELLO);
+    GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_1byte(writer, GQUIC_TLS_HANDSHAKE_MSG_TYPE_CLIENT_HELLO));
 
-    __gquic_store_prefix_len(&prefix_len_stack, writer, 3);
+    GQUIC_ASSERT_FAST_RETURN(__gquic_store_prefix_len(&prefix_len_stack, writer, 3));
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_client_hello_payload_serialize(msg, writer));
-    __gquic_fill_prefix_len(&prefix_len_stack, writer);
+    GQUIC_ASSERT_FAST_RETURN(__gquic_fill_prefix_len(&prefix_len_stack, writer));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -202,7 +202,7 @@ static int gquic_tls_client_hello_msg_deserialize(void *const msg, gquic_reader_
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_TLS_RECORD_TYPE_INVALID_UNEXCEPTED);
     }
 
-    __gquic_recovery_bytes(&ret, 3, reader);
+    GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&ret, 3, reader));
     if ((size_t) ret > GQUIC_STR_SIZE(reader)) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
@@ -303,30 +303,30 @@ static int gquic_tls_client_hello_payload_serialize(const gquic_tls_client_hello
     gquic_list_head_init(&prefix_len_stack);
 
     // vers
-    gquic_big_endian_writer_2byte(writer, msg->vers);
+    GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, msg->vers));
 
     // random
     if (msg->random.size != 32) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INTERNAL_ERROR);
     }
-    gquic_writer_str_write(writer, &msg->random);
+    GQUIC_ASSERT_FAST_RETURN(gquic_writer_str_write(writer, &msg->random));
 
     // sess_id
-    __gquic_fill_str(writer, &msg->sess_id, 1);
+    GQUIC_ASSERT_FAST_RETURN(__gquic_fill_str(writer, &msg->sess_id, 1));
 
     // cipher_suites
-    __gquic_store_prefix_len(&prefix_len_stack, writer, 2);
+    GQUIC_ASSERT_FAST_RETURN(__gquic_store_prefix_len(&prefix_len_stack, writer, 2));
     u_int16_t *suite;
-    GQUIC_LIST_FOREACH(suite, &msg->cipher_suites) gquic_big_endian_writer_2byte(writer, *suite);
-    __gquic_fill_prefix_len(&prefix_len_stack, writer);
+    GQUIC_LIST_FOREACH(suite, &msg->cipher_suites) GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, *suite));
+    GQUIC_ASSERT_FAST_RETURN(__gquic_fill_prefix_len(&prefix_len_stack, writer));
 
     // compression_methods
-    __gquic_fill_str(writer, &msg->compression_methods, 1);
+    GQUIC_ASSERT_FAST_RETURN(__gquic_fill_str(writer, &msg->compression_methods, 1));
 
     // optional prefix len
-    __gquic_store_prefix_len(&prefix_len_stack, writer, 2);
+    GQUIC_ASSERT_FAST_RETURN(__gquic_store_prefix_len(&prefix_len_stack, writer, 2));
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_client_hello_optional_serialize(msg, writer));
-    __gquic_fill_prefix_len(&prefix_len_stack, writer);
+    GQUIC_ASSERT_FAST_RETURN(__gquic_fill_prefix_len(&prefix_len_stack, writer));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -345,161 +345,161 @@ static int gquic_tls_client_hello_optional_serialize(const gquic_tls_client_hell
 
     // next proto msg
     if (msg->next_proto_neg) {
-        gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_NEXT_PROTO_NEG);
-        gquic_big_endian_writer_2byte(writer, 0);
+        GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_NEXT_PROTO_NEG));
+        GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, 0));
     }
 
     // ser_name
     if (msg->ser_name.size > 0) {
-        gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_SERVER_NAME);
-        for (_lazy = 0; _lazy < 2; _lazy++) __gquic_store_prefix_len(&prefix_len_stack, writer, 2);
-        gquic_big_endian_writer_1byte(writer, 0);
-        __gquic_fill_str(writer, &msg->ser_name, 2);
-        for (_lazy = 0; _lazy < 2; _lazy++) __gquic_fill_prefix_len(&prefix_len_stack, writer);
+        GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_SERVER_NAME));
+        for (_lazy = 0; _lazy < 2; _lazy++) GQUIC_ASSERT_FAST_RETURN(__gquic_store_prefix_len(&prefix_len_stack, writer, 2));
+        GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_1byte(writer, 0));
+        GQUIC_ASSERT_FAST_RETURN(__gquic_fill_str(writer, &msg->ser_name, 2));
+        for (_lazy = 0; _lazy < 2; _lazy++) GQUIC_ASSERT_FAST_RETURN(__gquic_fill_prefix_len(&prefix_len_stack, writer));
         
     }
 
     // ocsp_stapling
     if (msg->ocsp_stapling) {
-        gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_STATUS_REQUEST);
-        __gquic_store_prefix_len(&prefix_len_stack, writer, 2);
-        gquic_big_endian_writer_1byte(writer, 1);
-        gquic_big_endian_writer_2byte(writer, 0);
-        gquic_big_endian_writer_2byte(writer, 0);
-        __gquic_fill_prefix_len(&prefix_len_stack, writer);
+        GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_STATUS_REQUEST));
+        GQUIC_ASSERT_FAST_RETURN(__gquic_store_prefix_len(&prefix_len_stack, writer, 2));
+        GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_1byte(writer, 1));
+        GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, 0));
+        GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, 0));
+        GQUIC_ASSERT_FAST_RETURN(__gquic_fill_prefix_len(&prefix_len_stack, writer));
     }
 
     // supported_curves
     if (!gquic_list_head_empty(&msg->supported_curves)) {
-        gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_SUPPORTED_CURVES);
-        for (_lazy = 0; _lazy < 2; _lazy++) __gquic_store_prefix_len(&prefix_len_stack, writer, 2);
+        GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_SUPPORTED_CURVES));
+        for (_lazy = 0; _lazy < 2; _lazy++) GQUIC_ASSERT_FAST_RETURN(__gquic_store_prefix_len(&prefix_len_stack, writer, 2));
         u_int16_t *curve;
-        GQUIC_LIST_FOREACH(curve, &msg->supported_curves) gquic_big_endian_writer_2byte(writer, *curve);
-        for (_lazy = 0; _lazy < 2; _lazy++) __gquic_fill_prefix_len(&prefix_len_stack, writer);
+        GQUIC_LIST_FOREACH(curve, &msg->supported_curves) GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, *curve));
+        for (_lazy = 0; _lazy < 2; _lazy++) GQUIC_ASSERT_FAST_RETURN(__gquic_fill_prefix_len(&prefix_len_stack, writer));
     }
 
     // supported_points
     if (msg->supported_points.size > 0) {
-        gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_SUPPORTED_POINTS);
-        __gquic_store_prefix_len(&prefix_len_stack, writer, 2);
-        __gquic_fill_str(writer, &msg->supported_points, 1);
-        __gquic_fill_prefix_len(&prefix_len_stack, writer);
+        GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_SUPPORTED_POINTS));
+        GQUIC_ASSERT_FAST_RETURN(__gquic_store_prefix_len(&prefix_len_stack, writer, 2));
+        GQUIC_ASSERT_FAST_RETURN(__gquic_fill_str(writer, &msg->supported_points, 1));
+        GQUIC_ASSERT_FAST_RETURN(__gquic_fill_prefix_len(&prefix_len_stack, writer));
     }
 
     // ticket_support
     if (msg->ticket_supported) {
-        gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_SESS_TICKET);
-        __gquic_fill_str(writer, &msg->sess_ticket, 2);
+        GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_SESS_TICKET));
+        GQUIC_ASSERT_FAST_RETURN(__gquic_fill_str(writer, &msg->sess_ticket, 2));
     }
 
     // supported_sign_algos
     if (!gquic_list_head_empty(&msg->supported_sign_algos)) {
-        gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_SIGN_ALGOS);
-        for (_lazy = 0; _lazy < 2; _lazy++) __gquic_store_prefix_len(&prefix_len_stack, writer, 2);
+        GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_SIGN_ALGOS));
+        for (_lazy = 0; _lazy < 2; _lazy++) GQUIC_ASSERT_FAST_RETURN(__gquic_store_prefix_len(&prefix_len_stack, writer, 2));
         u_int16_t *sig;
-        GQUIC_LIST_FOREACH(sig, &msg->supported_sign_algos) gquic_big_endian_writer_2byte(writer, *sig);
-        for (_lazy = 0; _lazy < 2; _lazy++) __gquic_fill_prefix_len(&prefix_len_stack, writer);
+        GQUIC_LIST_FOREACH(sig, &msg->supported_sign_algos) GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, *sig));
+        for (_lazy = 0; _lazy < 2; _lazy++) GQUIC_ASSERT_FAST_RETURN(__gquic_fill_prefix_len(&prefix_len_stack, writer));
     }
 
     // supported_sign_algos_cert
     if (!gquic_list_head_empty(&msg->supported_sign_algos_cert)) {
-        gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_SIGN_ALGOS_CERT);
-        for (_lazy = 0; _lazy < 2; _lazy++) __gquic_store_prefix_len(&prefix_len_stack, writer, 2);
+        GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_SIGN_ALGOS_CERT));
+        for (_lazy = 0; _lazy < 2; _lazy++) GQUIC_ASSERT_FAST_RETURN(__gquic_store_prefix_len(&prefix_len_stack, writer, 2));
         u_int16_t *sig;
-        GQUIC_LIST_FOREACH(sig, &msg->supported_sign_algos_cert) gquic_big_endian_writer_2byte(writer, *sig);
-        for (_lazy = 0; _lazy < 2; _lazy++) __gquic_fill_prefix_len(&prefix_len_stack, writer);
+        GQUIC_LIST_FOREACH(sig, &msg->supported_sign_algos_cert) GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, *sig));
+        for (_lazy = 0; _lazy < 2; _lazy++) GQUIC_ASSERT_FAST_RETURN(__gquic_fill_prefix_len(&prefix_len_stack, writer));
     }
 
     // secure_regegotation
     if (msg->secure_regegotiation_supported) {
-        gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_RENEGOTIATION_INFO);
-        __gquic_store_prefix_len(&prefix_len_stack, writer, 2);
-        __gquic_fill_str(writer, &msg->secure_regegotation, 1);
-        __gquic_fill_prefix_len(&prefix_len_stack, writer);
+        GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_RENEGOTIATION_INFO));
+        GQUIC_ASSERT_FAST_RETURN(__gquic_store_prefix_len(&prefix_len_stack, writer, 2));
+        GQUIC_ASSERT_FAST_RETURN(__gquic_fill_str(writer, &msg->secure_regegotation, 1));
+        GQUIC_ASSERT_FAST_RETURN(__gquic_fill_prefix_len(&prefix_len_stack, writer));
     }
 
     // alpn
     if (!gquic_list_head_empty(&msg->alpn_protos)) {
-        gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_ALPN);
-        for (_lazy = 0; _lazy < 2; _lazy++) __gquic_store_prefix_len(&prefix_len_stack, writer, 2);
+        GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_ALPN));
+        for (_lazy = 0; _lazy < 2; _lazy++) GQUIC_ASSERT_FAST_RETURN(__gquic_store_prefix_len(&prefix_len_stack, writer, 2));
         gquic_str_t *proto;
-        GQUIC_LIST_FOREACH(proto, &msg->alpn_protos) __gquic_fill_str(writer, proto, 1);
-        for (_lazy = 0; _lazy < 2; _lazy++) __gquic_fill_prefix_len(&prefix_len_stack, writer);
+        GQUIC_LIST_FOREACH(proto, &msg->alpn_protos) GQUIC_ASSERT_FAST_RETURN(__gquic_fill_str(writer, proto, 1));
+        for (_lazy = 0; _lazy < 2; _lazy++) GQUIC_ASSERT_FAST_RETURN(__gquic_fill_prefix_len(&prefix_len_stack, writer));
     }
 
     // scts
     if (msg->scts) {
-        gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_SCT);
-        gquic_big_endian_writer_2byte(writer, 0);
+        GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_SCT));
+        GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, 0));
     }
 
     // supported_versions
     if (!gquic_list_head_empty(&msg->supported_versions)) {
-        gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_SUPPORTED_VERSIONS);
-        __gquic_store_prefix_len(&prefix_len_stack, writer, 2);
-        __gquic_store_prefix_len(&prefix_len_stack, writer, 1);
+        GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_SUPPORTED_VERSIONS));
+        GQUIC_ASSERT_FAST_RETURN(__gquic_store_prefix_len(&prefix_len_stack, writer, 2));
+        GQUIC_ASSERT_FAST_RETURN(__gquic_store_prefix_len(&prefix_len_stack, writer, 1));
         u_int16_t *vers;
-        GQUIC_LIST_FOREACH(vers, &msg->supported_versions) gquic_big_endian_writer_2byte(writer, *vers);
-        for (_lazy = 0; _lazy < 2; _lazy++) __gquic_fill_prefix_len(&prefix_len_stack, writer);
+        GQUIC_LIST_FOREACH(vers, &msg->supported_versions) GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, *vers));
+        for (_lazy = 0; _lazy < 2; _lazy++) GQUIC_ASSERT_FAST_RETURN(__gquic_fill_prefix_len(&prefix_len_stack, writer));
     }
 
     // cookie
     if (msg->cookie.size > 0) {
-        gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_COOKIE);
-        __gquic_store_prefix_len(&prefix_len_stack, writer, 2);
-        __gquic_fill_str(writer, &msg->cookie, 2);
-        __gquic_fill_prefix_len(&prefix_len_stack, writer);
+        GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_COOKIE));
+        GQUIC_ASSERT_FAST_RETURN(__gquic_store_prefix_len(&prefix_len_stack, writer, 2));
+        GQUIC_ASSERT_FAST_RETURN(__gquic_fill_str(writer, &msg->cookie, 2));
+        GQUIC_ASSERT_FAST_RETURN(__gquic_fill_prefix_len(&prefix_len_stack, writer));
     }
 
     // key_shares
     if (!gquic_list_head_empty(&msg->key_shares)) {
-        gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_KEY_SHARE);
-        for (_lazy = 0; _lazy < 2; _lazy++) __gquic_store_prefix_len(&prefix_len_stack, writer, 2);
+        GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_KEY_SHARE));
+        for (_lazy = 0; _lazy < 2; _lazy++) GQUIC_ASSERT_FAST_RETURN(__gquic_store_prefix_len(&prefix_len_stack, writer, 2));
         gquic_tls_key_share_t *ks;
         GQUIC_LIST_FOREACH(ks, &msg->key_shares) {
-            gquic_big_endian_writer_2byte(writer, ks->group);
-            __gquic_fill_str(writer, &ks->data, 2);
+            GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, ks->group));
+            GQUIC_ASSERT_FAST_RETURN(__gquic_fill_str(writer, &ks->data, 2));
         }
-        for (_lazy = 0; _lazy < 2; _lazy++) __gquic_fill_prefix_len(&prefix_len_stack, writer);
+        for (_lazy = 0; _lazy < 2; _lazy++) GQUIC_ASSERT_FAST_RETURN(__gquic_fill_prefix_len(&prefix_len_stack, writer));
     }
 
     // early_data
     if (msg->early_data) {
-        gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_EARLY_DATA);
-        gquic_big_endian_writer_2byte(writer, 0);
+        GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_EARLY_DATA));
+        GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, 0));
     }
 
     // psk_modes
     if (msg->psk_modes.size > 0) {
-        gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_PSK_MODES);
-        __gquic_store_prefix_len(&prefix_len_stack, writer, 2);
-        __gquic_fill_str(writer, &msg->psk_modes, 1);
-        __gquic_fill_prefix_len(&prefix_len_stack, writer);
+        GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_PSK_MODES));
+        GQUIC_ASSERT_FAST_RETURN(__gquic_store_prefix_len(&prefix_len_stack, writer, 2));
+        GQUIC_ASSERT_FAST_RETURN(__gquic_fill_str(writer, &msg->psk_modes, 1));
+        GQUIC_ASSERT_FAST_RETURN(__gquic_fill_prefix_len(&prefix_len_stack, writer));
     }
 
     // exts
     gquic_tls_extension_t *ext;
     GQUIC_LIST_FOREACH(ext, &msg->extensions) {
-        gquic_big_endian_writer_2byte(writer, ext->type);
-        __gquic_fill_str(writer, &ext->data, 2);
+        GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, ext->type));
+        GQUIC_ASSERT_FAST_RETURN(__gquic_fill_str(writer, &ext->data, 2));
     }
 
     // psk_identities
     if (!gquic_list_head_empty(&msg->psk_identities)) {
-        gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_PRE_SHARED_KEY);
-        for (_lazy = 0; _lazy < 2; _lazy++) __gquic_store_prefix_len(&prefix_len_stack, writer, 2);
+        GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_PRE_SHARED_KEY));
+        for (_lazy = 0; _lazy < 2; _lazy++) GQUIC_ASSERT_FAST_RETURN(__gquic_store_prefix_len(&prefix_len_stack, writer, 2));
         gquic_tls_psk_identity_t *psk;
         GQUIC_LIST_FOREACH(psk, &msg->psk_identities) {
-            __gquic_fill_str(writer, &psk->label, 2);
-            gquic_big_endian_writer_4byte(writer, psk->obfuscated_ticket_age);
+            GQUIC_ASSERT_FAST_RETURN(__gquic_fill_str(writer, &psk->label, 2));
+            GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_4byte(writer, psk->obfuscated_ticket_age));
         }
-        __gquic_fill_prefix_len(&prefix_len_stack, writer);
-        __gquic_store_prefix_len(&prefix_len_stack, writer, 2);
+        GQUIC_ASSERT_FAST_RETURN(__gquic_fill_prefix_len(&prefix_len_stack, writer));
+        GQUIC_ASSERT_FAST_RETURN(__gquic_store_prefix_len(&prefix_len_stack, writer, 2));
         gquic_str_t *binder;
         GQUIC_LIST_FOREACH(binder, &msg->psk_binders) {
-            __gquic_fill_str(writer, binder, 1);
+            GQUIC_ASSERT_FAST_RETURN(__gquic_fill_str(writer, binder, 1));
         }
-        for (_lazy = 0; _lazy < 2; _lazy++) __gquic_fill_prefix_len(&prefix_len_stack, writer);
+        for (_lazy = 0; _lazy < 2; _lazy++) GQUIC_ASSERT_FAST_RETURN(__gquic_fill_prefix_len(&prefix_len_stack, writer));
     }
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
@@ -546,7 +546,7 @@ static int gquic_tls_client_hello_payload_deserialize(gquic_tls_client_hello_msg
     }
     gquic_reader_str_t opt_reader = { prefix_len, GQUIC_STR_VAL(reader) };
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_client_hello_optional_deserialize(msg, &opt_reader));
-    gquic_reader_str_readed_size(reader, GQUIC_STR_VAL(&opt_reader) - GQUIC_STR_VAL(reader));
+    GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_readed_size(reader, GQUIC_STR_VAL(&opt_reader) - GQUIC_STR_VAL(reader)));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -567,7 +567,7 @@ static int gquic_tls_client_hello_optional_deserialize(gquic_tls_client_hello_ms
 
         case GQUIC_TLS_EXTENSION_NEXT_PROTO_NEG:
             msg->next_proto_neg = 1;
-            gquic_reader_str_readed_size(reader, 2);
+            GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_readed_size(reader, 2));
             break;
 
         case GQUIC_TLS_EXTENSION_SERVER_NAME:
@@ -577,11 +577,11 @@ static int gquic_tls_client_hello_optional_deserialize(gquic_tls_client_hello_ms
 
         case GQUIC_TLS_EXTENSION_STATUS_REQUEST:
             msg->ocsp_stapling = 1;
-            gquic_reader_str_readed_size(reader, 2 + 1 + 2 + 2);
+            GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_readed_size(reader, 2 + 1 + 2 + 2));
             break;
 
         case GQUIC_TLS_EXTENSION_SUPPORTED_CURVES:
-            gquic_reader_str_readed_size(reader, 2);
+            GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_readed_size(reader, 2));
             prefix_len = 0;
             GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&prefix_len, 2, reader));
             for (_ = GQUIC_STR_VAL(reader); (size_t) (GQUIC_STR_VAL(reader) - _) < prefix_len;) {
@@ -593,7 +593,7 @@ static int gquic_tls_client_hello_optional_deserialize(gquic_tls_client_hello_ms
             break;
 
         case GQUIC_TLS_EXTENSION_SUPPORTED_POINTS:
-            gquic_reader_str_readed_size(reader, 2);
+            GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_readed_size(reader, 2));
             GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_str(&msg->supported_points, 1, reader));
             break;
 
@@ -603,7 +603,7 @@ static int gquic_tls_client_hello_optional_deserialize(gquic_tls_client_hello_ms
             break;
 
         case GQUIC_TLS_EXTENSION_SIGN_ALGOS:
-            gquic_reader_str_readed_size(reader, 2);
+            GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_readed_size(reader, 2));
             prefix_len = 0;
             GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&prefix_len, 2, reader));
             for (_ = GQUIC_STR_VAL(reader); (size_t) (GQUIC_STR_VAL(reader) - _) < prefix_len;) {
@@ -615,7 +615,7 @@ static int gquic_tls_client_hello_optional_deserialize(gquic_tls_client_hello_ms
             break;
 
         case GQUIC_TLS_EXTENSION_SIGN_ALGOS_CERT:
-            gquic_reader_str_readed_size(reader, 2);
+            GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_readed_size(reader, 2));
             prefix_len = 0;
             GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&prefix_len, 2, reader));
             for (_ = GQUIC_STR_VAL(reader); (size_t) (GQUIC_STR_VAL(reader) - _) < prefix_len;) {
@@ -627,13 +627,13 @@ static int gquic_tls_client_hello_optional_deserialize(gquic_tls_client_hello_ms
             break;
 
         case GQUIC_TLS_EXTENSION_RENEGOTIATION_INFO:
-            gquic_reader_str_readed_size(reader, 2);
+            GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_readed_size(reader, 2));
             msg->secure_regegotiation_supported = 1;
             GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_str(&msg->secure_regegotation, 1, reader));
             break;
 
         case GQUIC_TLS_EXTENSION_ALPN:
-            gquic_reader_str_readed_size(reader, 2);
+            GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_readed_size(reader, 2));
             prefix_len = 0;
             GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&prefix_len, 2, reader));
             for (_ = GQUIC_STR_VAL(reader); (size_t) (GQUIC_STR_VAL(reader) - _) < prefix_len;) {
@@ -645,12 +645,12 @@ static int gquic_tls_client_hello_optional_deserialize(gquic_tls_client_hello_ms
             break;
 
         case GQUIC_TLS_EXTENSION_SCT:
-            gquic_reader_str_readed_size(reader, 2);
+            GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_readed_size(reader, 2));
             msg->scts = 1;
             break;
 
         case GQUIC_TLS_EXTENSION_SUPPORTED_VERSIONS:
-            gquic_reader_str_readed_size(reader, 2);
+            GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_readed_size(reader, 2));
             prefix_len = 0;
             GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&prefix_len, 1, reader));
             for (_ = GQUIC_STR_VAL(reader); (size_t) (GQUIC_STR_VAL(reader) - _) < prefix_len;) {
@@ -662,12 +662,12 @@ static int gquic_tls_client_hello_optional_deserialize(gquic_tls_client_hello_ms
             break;
 
         case GQUIC_TLS_EXTENSION_COOKIE:
-            gquic_reader_str_readed_size(reader, 2);
+            GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_readed_size(reader, 2));
             GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_str(&msg->cookie, 2, reader));
             break;
 
         case GQUIC_TLS_EXTENSION_KEY_SHARE:
-            gquic_reader_str_readed_size(reader, 2);
+            GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_readed_size(reader, 2));
             prefix_len = 0;
             GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&prefix_len, 2, reader));
             for (_ = GQUIC_STR_VAL(reader); (size_t) (GQUIC_STR_VAL(reader) - _) < prefix_len;) {
@@ -680,17 +680,17 @@ static int gquic_tls_client_hello_optional_deserialize(gquic_tls_client_hello_ms
             break;
 
         case GQUIC_TLS_EXTENSION_EARLY_DATA:
-            gquic_reader_str_readed_size(reader, 2);
+            GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_readed_size(reader, 2));
             msg->early_data = 1;
             break;
 
         case GQUIC_TLS_EXTENSION_PSK_MODES:
-            gquic_reader_str_readed_size(reader, 2);
+            GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_readed_size(reader, 2));
             GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_str(&msg->psk_modes, 1, reader));
             break;
 
         case GQUIC_TLS_EXTENSION_PRE_SHARED_KEY:
-            gquic_reader_str_readed_size(reader, 2);
+            GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_readed_size(reader, 2));
             prefix_len = 0;
             GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&prefix_len, 2, reader));
             for (_ = GQUIC_STR_VAL(reader); (size_t) (GQUIC_STR_VAL(reader) - _) < prefix_len;) {

@@ -5,6 +5,8 @@
 #include "tls/auth.h"
 #include "tls/finished_msg.h"
 #include "tls/meta.h"
+#include "global_schedule.h"
+#include "unit_test.h"
 #include <openssl/rand.h>
 #include <openssl/pem.h>
 #include <openssl/x509.h>
@@ -21,7 +23,8 @@ static int write_client_hello_record(const gquic_str_t *const chello_buf) {
         printf("client say CHELLO: \n");
         gquic_str_test_echo(chello_buf);
 
-        gquic_tls_client_hello_msg_t *chello = gquic_tls_client_hello_msg_alloc();
+        gquic_tls_client_hello_msg_t *chello;
+        gquic_tls_client_hello_msg_alloc(&chello);
         GQUIC_TLS_MSG_INIT(chello);
         gquic_writer_str_t writer = *chello_buf;
         GQUIC_TLS_MSG_DESERIALIZE(chello, &writer);
@@ -46,7 +49,8 @@ static int write_record(size_t *const size, void *const self, const gquic_str_t 
 }
 
 static int server_hello_handshake_msg(gquic_str_t *const msg) {
-    gquic_tls_server_hello_msg_t *hello = gquic_tls_server_hello_msg_alloc();
+    gquic_tls_server_hello_msg_t *hello;
+    gquic_tls_server_hello_msg_alloc(&hello);
     GQUIC_TLS_MSG_INIT(hello);
 
     hello->vers = GQUIC_TLS_VERSION_13;
@@ -88,7 +92,8 @@ static int server_hello_handshake_msg(gquic_str_t *const msg) {
 }
 
 static int encrypted_exts_handshake_msg(gquic_str_t *const msg) {
-    gquic_tls_encrypt_ext_msg_t *ext = gquic_tls_encrypt_ext_msg_alloc();
+    gquic_tls_encrypt_ext_msg_t *ext;
+    gquic_tls_encrypt_ext_msg_alloc(&ext);
     GQUIC_TLS_MSG_INIT(ext);
 
     gquic_tls_msg_combine_serialize(msg, ext);
@@ -100,10 +105,12 @@ static int encrypted_exts_handshake_msg(gquic_str_t *const msg) {
 }
 
 static int cert_msg(gquic_str_t *const msg) {
-    gquic_tls_cert_msg_t *cert = gquic_tls_cert_msg_alloc();
+    gquic_tls_cert_msg_t *cert; 
+    gquic_tls_cert_msg_alloc(&cert);
     GQUIC_TLS_MSG_INIT(cert);
 
-    X509 **x509_storage = gquic_list_alloc(sizeof(X509 *));
+    X509 **x509_storage;
+    gquic_list_alloc((void **) &x509_storage, sizeof(X509 *));
     X509 *x509 = NULL;
     FILE *x509_f = fopen("test_certs/ed25519_req.pem", "r");
     PEM_read_X509(x509_f, &x509, NULL, NULL);
@@ -125,7 +132,8 @@ static int verify_msg(gquic_str_t *const msg) {
     gquic_str_t verify_msg = { 0, NULL };
     gquic_tls_mac_md_sum(&sum, &transport);
 
-    gquic_tls_cert_verify_msg_t *verify = gquic_tls_cert_verify_msg_alloc();
+    gquic_tls_cert_verify_msg_t *verify;
+    gquic_tls_cert_verify_msg_alloc(&verify);
     GQUIC_TLS_MSG_INIT(verify);
 
     verify->sign_algo = GQUIC_SIGALG_ED25519;
@@ -154,7 +162,8 @@ static int verify_msg(gquic_str_t *const msg) {
 }
 
 static int finish_msg(gquic_str_t *const msg) {
-    gquic_tls_finished_msg_t *finished = gquic_tls_finished_msg_alloc();
+    gquic_tls_finished_msg_t *finished;
+    gquic_tls_finished_msg_alloc(&finished);
     GQUIC_TLS_MSG_INIT(finished);
 
     const gquic_tls_cipher_suite_t *cipher_suite = NULL;
@@ -170,7 +179,8 @@ static int finish_msg(gquic_str_t *const msg) {
     return 0;
 }
 
-static int read_handshake_msg(gquic_str_t *const msg, void *self) {
+static int read_handshake_msg(gquic_str_t *const msg, void *self, gquic_coroutine_t *const co) {
+    (void) co;
     switch (*(int *) self) {
     case 0:
         server_hello_handshake_msg(msg);
@@ -193,8 +203,11 @@ static int read_handshake_msg(gquic_str_t *const msg, void *self) {
     return 0;
 }
 
-int main() {
-    int ret;
+int gquic_tls_client_handshake_co(gquic_coroutine_t *const co, void *const conn_) {
+    return gquic_tls_client_handshake(conn_, co);
+}
+
+GQUIC_UNIT_TEST(handshake_client) {
     gquic_net_addr_t addr;
     gquic_net_str_to_addr_v4(&addr, "127.0.0.1");
     gquic_tls_config_t cfg;
@@ -216,8 +229,11 @@ int main() {
     gquic_tls_get_cipher_suite(&cipher_suite, GQUIC_TLS_CIPHER_SUITE_AES_128_GCM_SHA256);
     cipher_suite->mac(&transport, 0, NULL);
 
-    ret = gquic_tls_client_handshake(&conn);
-    printf("%d\n", ret);
+    gquic_coroutine_t *co = NULL;
+    gquic_coroutine_alloc(&co);
+    gquic_coroutine_ctor(co, 1024 * 1024, gquic_tls_client_handshake_co, &conn);
+    gquic_coroutine_schedule_join(gquic_get_global_schedule(), co);
+    gquic_coroutine_schedule_resume(gquic_get_global_schedule());
 
     return 0;
 }

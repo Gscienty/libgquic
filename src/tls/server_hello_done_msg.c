@@ -54,9 +54,9 @@ static int gquic_tls_server_hello_done_msg_serialize(const void *const msg, gqui
     if ((size_t) gquic_tls_server_hello_done_msg_size(msg) > GQUIC_STR_SIZE(writer)) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
-    gquic_big_endian_writer_1byte(writer, GQUIC_TLS_HANDSHAKE_MSG_TYPE_SER_HELLO_DONE);
-    gquic_big_endian_writer_1byte(writer, 0);
-    gquic_big_endian_writer_2byte(writer, 0);
+    GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_1byte(writer, GQUIC_TLS_HANDSHAKE_MSG_TYPE_SER_HELLO_DONE));
+    GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_1byte(writer, 0));
+    GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, 0));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

@@ -52,9 +52,9 @@ static int gquic_tls_hello_req_msg_serialize(const void *const msg, gquic_writer
     if ((size_t) gquic_tls_hello_req_msg_size(msg) > GQUIC_STR_SIZE(writer)) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
-    gquic_big_endian_writer_1byte(writer, GQUIC_TLS_HANDSHAKE_MSG_TYPE_HELLO_REQ);
-    gquic_big_endian_writer_1byte(writer, 0);
-    gquic_big_endian_writer_2byte(writer, 0);
+    GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_1byte(writer, GQUIC_TLS_HANDSHAKE_MSG_TYPE_HELLO_REQ));
+    GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_1byte(writer, 0));
+    GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, 0));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

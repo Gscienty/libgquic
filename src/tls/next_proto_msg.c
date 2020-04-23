@@ -63,10 +63,10 @@ static int gquic_tls_next_proto_msg_serialize(const void *const msg, gquic_write
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
     gquic_list_head_init(&prefix_len_stack);
-    gquic_big_endian_writer_1byte(writer, GQUIC_TLS_HANDSHAKE_MSG_TYPE_NEXT_PROTO);
-    __gquic_store_prefix_len(&prefix_len_stack, writer, 3);
-    __gquic_fill_str(writer, &spec->verify, 1);
-    __gquic_fill_prefix_len(&prefix_len_stack, writer);
+    GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_1byte(writer, GQUIC_TLS_HANDSHAKE_MSG_TYPE_NEXT_PROTO));
+    GQUIC_ASSERT_FAST_RETURN(__gquic_store_prefix_len(&prefix_len_stack, writer, 3));
+    GQUIC_ASSERT_FAST_RETURN(__gquic_fill_str(writer, &spec->verify, 1));
+    GQUIC_ASSERT_FAST_RETURN(__gquic_fill_prefix_len(&prefix_len_stack, writer));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

@@ -6,6 +6,8 @@
 #include "tls/finished_msg.h"
 #include "tls/key_schedule.h"
 #include "tls/meta.h"
+#include "unit_test.h"
+#include "global_schedule.h"
 #include <openssl/rand.h>
 #include <openssl/pem.h>
 #include <openssl/x509.h>
@@ -27,7 +29,8 @@ static int write_record(size_t *const size, void *const self, const gquic_str_t 
     gquic_tls_mac_md_update(&transport, buf);
 
     if (step == 0) {
-        gquic_tls_server_hello_msg_t *hello = gquic_tls_server_hello_msg_alloc();
+        gquic_tls_server_hello_msg_t *hello;
+        gquic_tls_server_hello_msg_alloc(&hello);
         GQUIC_TLS_MSG_INIT(hello);
         gquic_reader_str_t reader = *buf;
         GQUIC_TLS_MSG_DESERIALIZE(hello, &reader);
@@ -73,7 +76,8 @@ static int client_hello_handshake_msg(gquic_str_t *const msg) {
         GQUIC_SIGALG_ECDSA_SHA1
     };
 
-    gquic_tls_client_hello_msg_t *hello = gquic_tls_client_hello_msg_alloc();
+    gquic_tls_client_hello_msg_t *hello;
+    gquic_tls_client_hello_msg_alloc(&hello);
     GQUIC_TLS_MSG_INIT(hello);
     hello->vers = GQUIC_TLS_VERSION_13;
     gquic_str_alloc(&hello->compression_methods, 1);
@@ -90,7 +94,8 @@ static int client_hello_handshake_msg(gquic_str_t *const msg) {
     size_t count = sizeof(__cipher_suites) / sizeof(u_int16_t);
     size_t i;
     for (i = 0; i < count; i++) {
-        u_int16_t *cipher_suite = gquic_list_alloc(sizeof(u_int16_t));
+        u_int16_t *cipher_suite;
+        gquic_list_alloc((void **) &cipher_suite, sizeof(u_int16_t));
         *cipher_suite = __cipher_suites[i];
         gquic_list_insert_before(&hello->cipher_suites, cipher_suite);
     }
@@ -98,14 +103,16 @@ static int client_hello_handshake_msg(gquic_str_t *const msg) {
     RAND_bytes(GQUIC_STR_VAL(&hello->sess_id), GQUIC_STR_SIZE(&hello->sess_id));
     count = sizeof(__supported_sign_algos) / sizeof(u_int16_t);
     for (i = 0; i < count; i++) {
-        u_int16_t *sigalg = gquic_list_alloc(sizeof(u_int16_t));
+        u_int16_t *sigalg;
+        gquic_list_alloc((void **) &sigalg, sizeof(u_int16_t));
         *sigalg = __supported_sign_algos[i];
         gquic_list_insert_before(&hello->supported_sign_algos, sigalg);
     }
 
     gquic_tls_ecdhe_params_init(&ecdhe_params);
     gquic_tls_ecdhe_params_generate(&ecdhe_params, GQUIC_TLS_CURVE_X25519);
-    gquic_tls_key_share_t *key_share = gquic_list_alloc(sizeof(gquic_tls_key_share_t));
+    gquic_tls_key_share_t *key_share;
+    gquic_list_alloc((void **) &key_share, sizeof(gquic_tls_key_share_t));
     key_share->group = GQUIC_TLS_CURVE_X25519;
     gquic_str_init(&key_share->data);
     GQUIC_TLS_ECDHE_PARAMS_PUBLIC_KEY(&ecdhe_params, &key_share->data);
@@ -118,7 +125,8 @@ static int client_hello_handshake_msg(gquic_str_t *const msg) {
 
 
 static int read_cli_finished(gquic_str_t *const msg) {
-    gquic_tls_finished_msg_t *finished = gquic_tls_finished_msg_alloc();
+    gquic_tls_finished_msg_t *finished;
+    gquic_tls_finished_msg_alloc(&finished);
     GQUIC_TLS_MSG_INIT(finished);
 
     const gquic_tls_cipher_suite_t *cipher_suite = NULL;
@@ -129,7 +137,8 @@ static int read_cli_finished(gquic_str_t *const msg) {
     return 0;
 }
 
-static int read_handshake_msg(gquic_str_t *const msg, void *self) {
+static int read_handshake_msg(gquic_str_t *const msg, void *self, gquic_coroutine_t *const co) {
+    (void) co;
     switch (*(int *) self) {
     case 0:
         client_hello_handshake_msg(msg);
@@ -154,8 +163,12 @@ static int get_cert(PKCS12 **const p12_storage, const gquic_tls_client_hello_msg
     return 0;
 }
 
-int main() {
-    int ret;
+int gquic_tls_server_handshake_co(gquic_coroutine_t *const co, void *const conn_) {
+    gquic_tls_server_handshake(conn_, co);
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}
+
+GQUIC_UNIT_TEST(handshake_server) {
     int step = 0;
     gquic_net_addr_t addr;
     gquic_net_str_to_addr_v4(&addr, "127.0.0.1");
@@ -174,8 +187,11 @@ int main() {
     gquic_tls_get_cipher_suite(&cipher_suite, GQUIC_TLS_CIPHER_SUITE_AES_128_GCM_SHA256);
     cipher_suite->mac(&transport, 0, NULL);
 
-    ret = gquic_tls_server_handshake(&conn);
-    printf("%d\n", ret);
+    gquic_coroutine_t *co = NULL;
+    gquic_coroutine_alloc(&co);
+    gquic_coroutine_ctor(co, 1024 * 1024, gquic_tls_server_handshake_co, &conn);
+    gquic_coroutine_schedule_join(gquic_get_global_schedule(), co);
+    gquic_coroutine_schedule_resume(gquic_get_global_schedule());
 
     return 0;
 }

@@ -62,11 +62,11 @@ static int gquic_tls_cert_msg_serialize(const void *const msg, gquic_writer_str_
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
     gquic_list_head_init(&prefix_len_stack);
-    gquic_big_endian_writer_1byte(writer, GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT);
-    __gquic_store_prefix_len(&prefix_len_stack, writer, 3);
-    gquic_big_endian_writer_1byte(writer, 0);
+    GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_1byte(writer, GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT));
+    GQUIC_ASSERT_FAST_RETURN(__gquic_store_prefix_len(&prefix_len_stack, writer, 3));
+    GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_1byte(writer, 0));
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_cert_serialize(&spec->cert, writer));
-    __gquic_fill_prefix_len(&prefix_len_stack, writer);
+    GQUIC_ASSERT_FAST_RETURN(__gquic_fill_prefix_len(&prefix_len_stack, writer));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -82,9 +82,9 @@ static int gquic_tls_cert_msg_deserialize(void *const msg, gquic_reader_str_t *c
     }
     GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&cert_len, 3, reader));
     gquic_reader_str_t cert_reader = { cert_len, GQUIC_STR_VAL(reader) };
-    gquic_reader_str_read_byte(&cert_reader);
+    GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_read_byte(&cert_reader));
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_cert_deserialize(&spec->cert, &cert_reader));
-    gquic_reader_str_readed_size(reader, GQUIC_STR_VAL(&cert_reader) - GQUIC_STR_VAL(reader));
+    GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_readed_size(reader, GQUIC_STR_VAL(&cert_reader) - GQUIC_STR_VAL(reader)));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

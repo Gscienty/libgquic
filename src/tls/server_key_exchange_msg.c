@@ -63,8 +63,8 @@ static int gquic_tls_server_key_exchange_msg_serialize(const void *const msg, gq
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
     gquic_list_head_init(&prefix_len_stack);
-    gquic_big_endian_writer_1byte(writer, GQUIC_TLS_HANDSHAKE_MSG_TYPE_SER_KEY_EXCHANGE);
-    __gquic_fill_str(writer, &spec->key, 3);
+    GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_1byte(writer, GQUIC_TLS_HANDSHAKE_MSG_TYPE_SER_KEY_EXCHANGE));
+    GQUIC_ASSERT_FAST_RETURN(__gquic_fill_str(writer, &spec->key, 3));
     
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
