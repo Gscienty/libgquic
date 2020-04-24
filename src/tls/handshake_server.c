@@ -30,8 +30,8 @@ static u_int16_t __supported_sign_algos[] = {
     GQUIC_SIGALG_ECDSA_SHA1
 };
 
-static int gquic_tls_handshake_server_state_process_cli_hello(gquic_tls_handshake_server_state_t *const, gquic_coroutine_t *const);
-static int gquic_tls_handshake_server_state_do_hello_retry_req(gquic_tls_handshake_server_state_t *const, const u_int16_t, gquic_coroutine_t *const);
+static int gquic_tls_handshake_server_state_process_cli_hello(gquic_coroutine_t *const, gquic_tls_handshake_server_state_t *const);
+static int gquic_tls_handshake_server_state_do_hello_retry_req(gquic_coroutine_t *const, gquic_tls_handshake_server_state_t *const, const u_int16_t);
 static int gquic_tls_handshake_server_state_send_dummy_change_cipher_spec(gquic_tls_handshake_server_state_t *const);
 static int gquic_tls_handshake_server_state_check_for_resumption(gquic_tls_handshake_server_state_t *const);
 static int gquic_tls_handshake_server_state_pick_cert(gquic_tls_handshake_server_state_t *const);
@@ -39,7 +39,7 @@ static int gquic_tls_handshake_server_state_send_ser_params(gquic_tls_handshake_
 static int gquic_tls_handshake_server_state_send_ser_cert(gquic_tls_handshake_server_state_t *const);
 static int gquic_tls_handshake_server_state_send_ser_finished(gquic_tls_handshake_server_state_t *const);
 static int gquic_tls_handshake_server_state_read_cli_cert(gquic_tls_handshake_server_state_t *const);
-static int gquic_tls_handshake_server_state_read_cli_finished(gquic_tls_handshake_server_state_t *const, gquic_coroutine_t *const);
+static int gquic_tls_handshake_server_state_read_cli_finished(gquic_coroutine_t *const, gquic_tls_handshake_server_state_t *const);
 static int gquic_tls_handshake_server_state_illegal_client_hello_change(gquic_tls_client_hello_msg_t *const, gquic_tls_client_hello_msg_t *const);
 static int gquic_tls_handshake_server_state_send_session_tickets(gquic_tls_handshake_server_state_t *const);
 static int gquic_tls_handshake_server_state_should_send_session_tickets(gquic_tls_handshake_server_state_t *const);
@@ -99,7 +99,7 @@ int gquic_tls_handshake_server_state_release(gquic_tls_handshake_server_state_t 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_server_handshake(gquic_tls_conn_t *const conn, gquic_coroutine_t *const co) {
+int gquic_tls_server_handshake(gquic_coroutine_t *const co, gquic_tls_conn_t *const conn) {
     int exception = GQUIC_SUCCESS;
     gquic_tls_handshake_server_state_t ser_state;
     if (conn == NULL || co == NULL) {
@@ -108,12 +108,12 @@ int gquic_tls_server_handshake(gquic_tls_conn_t *const conn, gquic_coroutine_t *
     gquic_tls_handshake_server_state_init(&ser_state);
     ser_state.conn = conn;
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_conn_set_alt_record(conn));
-    if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_conn_read_handshake((void **) &ser_state.c_hello, conn, co))
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_conn_read_handshake(co, (void **) &ser_state.c_hello, conn))
         || GQUIC_TLS_MSG_META(ser_state.c_hello).type != GQUIC_TLS_HANDSHAKE_MSG_TYPE_CLIENT_HELLO) {
         gquic_tls_msg_release(ser_state.c_hello);
         GQUIC_PROCESS_DONE(exception);
     }
-    if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_server_handshake_state_handshake(&ser_state, co))) {
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_server_handshake_state_handshake(co, &ser_state))) {
         gquic_tls_handshake_server_state_release(&ser_state);
         GQUIC_PROCESS_DONE(exception);
     }
@@ -122,12 +122,12 @@ int gquic_tls_server_handshake(gquic_tls_conn_t *const conn, gquic_coroutine_t *
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_server_handshake_state_handshake(gquic_tls_handshake_server_state_t *const ser_state, gquic_coroutine_t *const co) {
-    if (ser_state == NULL) {
+int gquic_tls_server_handshake_state_handshake(gquic_coroutine_t *const co, gquic_tls_handshake_server_state_t *const ser_state) {
+    if (co == NULL || ser_state == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
 
-    GQUIC_ASSERT_FAST_RETURN(gquic_tls_handshake_server_state_process_cli_hello(ser_state, co));
+    GQUIC_ASSERT_FAST_RETURN(gquic_tls_handshake_server_state_process_cli_hello(co, ser_state));
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_handshake_server_state_check_for_resumption(ser_state));
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_handshake_server_state_pick_cert(ser_state));
     ser_state->conn->buffering = 1;
@@ -135,13 +135,13 @@ int gquic_tls_server_handshake_state_handshake(gquic_tls_handshake_server_state_
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_handshake_server_state_send_ser_cert(ser_state));
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_handshake_server_state_send_ser_finished(ser_state));
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_handshake_server_state_read_cli_cert(ser_state));
-    GQUIC_ASSERT_FAST_RETURN(gquic_tls_handshake_server_state_read_cli_finished(ser_state, co));
+    GQUIC_ASSERT_FAST_RETURN(gquic_tls_handshake_server_state_read_cli_finished(co, ser_state));
     ser_state->conn->handshake_status = 1;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_tls_handshake_server_state_process_cli_hello(gquic_tls_handshake_server_state_t *const ser_state, gquic_coroutine_t *const co) {
+static int gquic_tls_handshake_server_state_process_cli_hello(gquic_coroutine_t *const co, gquic_tls_handshake_server_state_t *const ser_state) {
     size_t count;
     size_t i;
     int exception = GQUIC_SUCCESS;
@@ -261,7 +261,7 @@ select_curve_perfers:
         goto failure;
     }
     if (cli_key_share == NULL) {
-        if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_handshake_server_state_do_hello_retry_req(ser_state, selected_group, co))) {
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_handshake_server_state_do_hello_retry_req(co, ser_state, selected_group))) {
             goto failure;
         }
         cli_key_share = GQUIC_LIST_FIRST(&ser_state->c_hello->key_shares);
@@ -317,9 +317,8 @@ failure:
     GQUIC_PROCESS_DONE(exception);
 }
 
-static int gquic_tls_handshake_server_state_do_hello_retry_req(gquic_tls_handshake_server_state_t *const ser_state,
-                                                               const u_int16_t selected_group,
-                                                               gquic_coroutine_t *const co) {
+static int gquic_tls_handshake_server_state_do_hello_retry_req(gquic_coroutine_t *const co,
+                                                               gquic_tls_handshake_server_state_t *const ser_state, const u_int16_t selected_group) {
     int exception = GQUIC_SUCCESS;
     gquic_str_t buf = { 0, NULL };
     gquic_str_t c_hash = { 0, NULL };
@@ -389,7 +388,7 @@ static int gquic_tls_handshake_server_state_do_hello_retry_req(gquic_tls_handsha
     if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_handshake_server_state_send_dummy_change_cipher_spec(ser_state))) {
         goto failure;
     }
-    if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_conn_read_handshake((void **) &c_hello, ser_state->conn, co))
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_conn_read_handshake(co, (void **) &c_hello, ser_state->conn))
         || GQUIC_TLS_MSG_META(c_hello).type != GQUIC_TLS_HANDSHAKE_MSG_TYPE_CLIENT_HELLO) {
         gquic_tls_msg_release(c_hello);
         gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_UNSUPPORTED_EXTENSION);
@@ -1113,13 +1112,13 @@ static int gquic_tls_handshake_server_state_read_cli_cert(gquic_tls_handshake_se
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_tls_handshake_server_state_read_cli_finished(gquic_tls_handshake_server_state_t *const ser_state, gquic_coroutine_t *const co) {
+static int gquic_tls_handshake_server_state_read_cli_finished(gquic_coroutine_t *const co, gquic_tls_handshake_server_state_t *const ser_state) {
     int exception = GQUIC_SUCCESS;
     gquic_tls_finished_msg_t *finished = NULL;
     if (ser_state == NULL || co == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_conn_read_handshake((void **) &finished, ser_state->conn, co))
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_conn_read_handshake(co, (void **) &finished, ser_state->conn))
         || GQUIC_TLS_MSG_META(finished).type != GQUIC_TLS_HANDSHAKE_MSG_TYPE_FINISHED) {
         gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_UNEXPECTED_MESSAGE);
         goto failure;

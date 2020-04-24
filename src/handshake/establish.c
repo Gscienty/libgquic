@@ -14,13 +14,13 @@ static int gquic_establish_ser_handle_msg(gquic_handshake_establish_t *const, gq
 static int gquic_establish_waiting_ser_handle_cmp(const void *const, const void *const);
 static int gquic_establish_drop_initial_keys_wrap(void *const);
 
-static int gquic_establish_record_layer_read_handshake_msg_wrap(gquic_str_t *const, void *const, gquic_coroutine_t *const);
+static int gquic_establish_record_layer_read_handshake_msg_wrap(gquic_coroutine_t *const, gquic_str_t *const, void *const);
 static int gquic_establish_record_layer_set_rkey(void *const, const u_int8_t, const gquic_tls_cipher_suite_t *const, const gquic_str_t *const);
 static int gquic_establish_record_layer_set_wkey(void *const, const u_int8_t, const gquic_tls_cipher_suite_t *const, const gquic_str_t *const);
 static int gquic_establish_record_layer_write_record(size_t *const, void *const, const gquic_str_t *const);
 static int gquic_establish_record_layer_send_alert(void *const, const u_int8_t);
 
-static int gquic_establish_handle_post_handshake_msg(gquic_handshake_establish_t *const, gquic_coroutine_t *const);
+static int gquic_establish_handle_post_handshake_msg(gquic_coroutine_t *const co, gquic_handshake_establish_t *const);
 
 static int gquic_establish_try_send_sess_ticket(gquic_handshake_establish_t *const);
 
@@ -220,7 +220,7 @@ static int __establish_run(gquic_coroutine_t *const co, void *const est_) {
     if (est == NULL) {
         goto finish;
     }
-    if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_conn_handshake(&est->conn, co))) {
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_conn_handshake(co, &est->conn))) {
         if (GQUIC_ASSERT(GQUIC_MALLOC_STRUCT(&err_event, gquic_establish_err_event_t))) {
             goto finish;
         }
@@ -245,8 +245,8 @@ int gquic_handshake_establish_close(gquic_handshake_establish_t *const est) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_handshake_establish_handle_msg(gquic_handshake_establish_t *const est,
-                                         gquic_coroutine_t *const co, const gquic_str_t *const data, const u_int8_t enc_level) {
+int gquic_handshake_establish_handle_msg(gquic_coroutine_t *const co,
+                                         gquic_handshake_establish_t *const est, const gquic_str_t *const data, const u_int8_t enc_level) {
     int exception = GQUIC_SUCCESS;
     u_int8_t type = 0;
     if (est == NULL || co == NULL || GQUIC_STR_SIZE(data) == 0) {
@@ -259,7 +259,7 @@ int gquic_handshake_establish_handle_msg(gquic_handshake_establish_t *const est,
     }
     gquic_coroutine_chain_send(&est->msg_chain, gquic_get_global_schedule(), (void *) data);
     if (enc_level == GQUIC_ENC_LV_1RTT) {
-        gquic_establish_handle_post_handshake_msg(est, co);
+        gquic_establish_handle_post_handshake_msg(co, est);
     }
 
     if (est->is_client) {
@@ -434,7 +434,7 @@ static int gquic_establish_waiting_ser_handle_cmp(const void *const event, const
     return 1;
 }
 
-int gquic_handshake_establish_read_handshake_msg(gquic_str_t *const msg, gquic_handshake_establish_t *const est, gquic_coroutine_t *const co) {
+int gquic_handshake_establish_read_handshake_msg(gquic_coroutine_t *const co, gquic_str_t *const msg, gquic_handshake_establish_t *const est) {
     gquic_str_t *tmp = NULL;
     if (msg == NULL || est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -638,8 +638,8 @@ int gquic_handshake_establish_set_record_layer(gquic_tls_record_layer_t *const r
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_establish_record_layer_read_handshake_msg_wrap(gquic_str_t *const ret, void *const self, gquic_coroutine_t *const co) {
-    return gquic_handshake_establish_read_handshake_msg(ret, self, co);
+static int gquic_establish_record_layer_read_handshake_msg_wrap(gquic_coroutine_t *const co, gquic_str_t *const ret, void *const self) {
+    return gquic_handshake_establish_read_handshake_msg(co, ret, self);
 }
 
 static int gquic_establish_record_layer_set_rkey(void *const self,
@@ -664,16 +664,16 @@ static int gquic_establish_record_layer_send_alert(void *const self, const u_int
     return gquic_handshake_establish_send_alert(self, alert);
 }
 
-static int gquic_establish_handle_post_handshake_msg(gquic_handshake_establish_t *const est, gquic_coroutine_t *const co) {
+static int gquic_establish_handle_post_handshake_msg(gquic_coroutine_t *const co, gquic_handshake_establish_t *const est) {
     gquic_establish_err_event_t *err_event = NULL;
     gquic_establish_ending_event_t *ending_event = NULL;
     void *done = NULL;
-    if (est == NULL) {
+    if (co == NULL || est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_coroutine_chain_recv(&done, co, 1, &est->done_chain, NULL);
 
-    if (GQUIC_ASSERT(gquic_tls_conn_handle_post_handshake_msg(&est->conn, co))) {
+    if (GQUIC_ASSERT(gquic_tls_conn_handle_post_handshake_msg(co, &est->conn))) {
         gquic_coroutine_chain_recv((void **) &ending_event, co, 1, &est->alert_chain, NULL);
         gquic_coroutine_chain_recv((void **) &err_event, co, 1, &est->err_chain, NULL);
         if (GQUIC_ASSERT(GQUIC_HANDSHAKE_EVENT_ON_ERR(&est->events, ending_event->payload.alert_code, err_event->ret))) {

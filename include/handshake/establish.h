@@ -150,9 +150,9 @@ int gquic_handshake_establish_1rtt_set_last_acked(gquic_handshake_establish_t *c
                                                   const u_int64_t pn);
 int gquic_handshake_establish_run(gquic_coroutine_t *const co, gquic_handshake_establish_t *const est);
 int gquic_handshake_establish_close(gquic_handshake_establish_t *const est);
-int gquic_handshake_establish_handle_msg(gquic_handshake_establish_t *const est,
-                                         gquic_coroutine_t *const co, const gquic_str_t *const data, const u_int8_t enc_level);
-int gquic_handshake_establish_read_handshake_msg(gquic_str_t *const msg, gquic_handshake_establish_t *const est, gquic_coroutine_t *const co);
+int gquic_handshake_establish_handle_msg(gquic_coroutine_t *const co,
+                                         gquic_handshake_establish_t *const est, const gquic_str_t *const data, const u_int8_t enc_level);
+int gquic_handshake_establish_read_handshake_msg(gquic_coroutine_t *const co, gquic_str_t *const msg, gquic_handshake_establish_t *const est);
 int gquic_handshake_establish_set_rkey(gquic_handshake_establish_t *const est,
                                        const u_int8_t enc_level,
                                        const gquic_tls_cipher_suite_t *const suite,

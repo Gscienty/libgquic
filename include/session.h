@@ -127,6 +127,6 @@ int gquic_session_handle_packet(gquic_session_t *const sess, gquic_received_pack
 int gquic_session_close(gquic_session_t *const sess);
 int gquic_session_destroy(gquic_session_t *const sess, const int err);
 int gquic_session_queue_control_frame(gquic_session_t *const sess, void *const frame);
-int gquic_session_run(gquic_session_t *const sess, gquic_coroutine_t *const co);
+int gquic_session_run(gquic_coroutine_t *const co, gquic_session_t *const sess);
 
 #endif

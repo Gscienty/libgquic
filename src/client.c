@@ -122,7 +122,7 @@ static int __gquic_client_session_run_co(gquic_coroutine_t *const co, void *cons
     if (co == NULL || client == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if (GQUIC_ASSERT_CAUSE(exception, gquic_session_run(&client->sess, co))) {
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_session_run(co, &client->sess))) {
         gquic_packet_handler_map_close(client->packet_handlers);
     }
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);

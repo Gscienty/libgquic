@@ -43,15 +43,15 @@ static int gquic_session_schedule_sending(gquic_session_t *const);
 static int gquic_session_destroy_inner(gquic_session_t *const, const int);
 static int gquic_session_handle_handshake_completed(gquic_session_t *const);
 static int gquic_session_try_reset_deadline(gquic_session_t *const);
-static int gquic_session_handle_packet_inner(gquic_session_t *const, gquic_coroutine_t *const co, gquic_received_packet_t *const);
-static int gquic_session_handle_single_packet(gquic_session_t *const, gquic_coroutine_t *const, gquic_received_packet_t *const);
+static int gquic_session_handle_packet_inner(gquic_coroutine_t *const, gquic_session_t *const, gquic_received_packet_t *const);
+static int gquic_session_handle_single_packet(gquic_coroutine_t *const, gquic_session_t *const, gquic_received_packet_t *const);
 static int gquic_session_handle_retry_packet(gquic_session_t *const, const gquic_str_t *const);
 static int gquic_session_try_queue_undecryptable_packet(gquic_session_t *const, gquic_received_packet_t *const);
 static int gquic_session_try_decrypting_queued_packets(gquic_session_t *const);
-static int gquic_session_handle_unpacked_packet(gquic_session_t *const, gquic_coroutine_t *const, gquic_unpacked_packet_t *const, const u_int64_t);
-static int gquic_session_handle_frame(gquic_session_t *const, gquic_coroutine_t *const, void *const, const u_int8_t);
+static int gquic_session_handle_unpacked_packet(gquic_coroutine_t *const, gquic_session_t *const, gquic_unpacked_packet_t *const, const u_int64_t);
+static int gquic_session_handle_frame(gquic_coroutine_t *const, gquic_session_t *const, void *const, const u_int8_t);
 static int gquic_session_handle_stream_frame(gquic_session_t *const, gquic_frame_stream_t *const);
-static int gquic_session_handle_crypto_frame(gquic_session_t *const, gquic_coroutine_t *const, gquic_frame_crypto_t *const, const u_int8_t); 
+static int gquic_session_handle_crypto_frame(gquic_coroutine_t *const, gquic_session_t *const, gquic_frame_crypto_t *const, const u_int8_t); 
 static int gquic_session_handle_ack_frame(gquic_session_t *const, gquic_frame_ack_t *const, const u_int8_t);
 static int gquic_session_handle_connection_close_frame(gquic_session_t *const, gquic_frame_connection_close_t *const);
 static int gquic_session_handle_reset_stream_frame(gquic_session_t *const, gquic_frame_reset_stream_t *const);
@@ -96,7 +96,7 @@ static int gquic_initial_stream_write_wrapper(void *const, gquic_writer_str_t *c
 static int gquic_handshake_stream_write_wrapper(void *const, gquic_writer_str_t *const);
 static int gquic_one_rtt_stream_write_wrapper(void *const, gquic_writer_str_t *const);
 
-static int gquic_handshake_establish_handle_msg_wrapper(void *const, gquic_coroutine_t *const, const gquic_str_t *const, const u_int8_t);
+static int gquic_handshake_establish_handle_msg_wrapper(gquic_coroutine_t *const, void *const, const gquic_str_t *const, const u_int8_t);
 static int gquic_conn_id_manager_get_wrapper(gquic_str_t *const, void *const);
 static int gquic_framer_queue_control_frame_wrapper(void *const, void *const);
 
@@ -440,9 +440,9 @@ static int gquic_one_rtt_stream_write_wrapper(void *const str, gquic_writer_str_
     return gquic_post_handshake_crypto_write(str, writer);
 }
 
-static int gquic_handshake_establish_handle_msg_wrapper(void *const est,
-                                                        gquic_coroutine_t *const co, const gquic_str_t *const data, const u_int8_t enc_lv) {
-    return gquic_handshake_establish_handle_msg(est, co, data, enc_lv);
+static int gquic_handshake_establish_handle_msg_wrapper(gquic_coroutine_t *const co,
+                                                        void *const est, const gquic_str_t *const data, const u_int8_t enc_lv) {
+    return gquic_handshake_establish_handle_msg(co, est, data, enc_lv);
 }
 
 static int gquic_conn_id_manager_get_wrapper(gquic_str_t *const ret, void *const manager) {
@@ -666,7 +666,7 @@ int gquic_session_queue_control_frame(gquic_session_t *const sess, void *const f
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_session_run(gquic_session_t *const sess, gquic_coroutine_t *const co) {
+int gquic_session_run(gquic_coroutine_t *const co, gquic_session_t *const sess) {
     int exception = GQUIC_SUCCESS;
     gquic_coroutine_t *handshake_co = NULL;
     gquic_coroutine_t *send_queue_co = NULL;
@@ -749,7 +749,7 @@ int gquic_session_run(gquic_session_t *const sess, gquic_coroutine_t *const co) 
                 gquic_list_release(event);
                 break;
             case GQUIC_SESSION_EVENT_RECEIVED_PACKAET:
-                if (!gquic_session_handle_packet_inner(sess, co, event->payload.rp)) {
+                if (!gquic_session_handle_packet_inner(co, sess, event->payload.rp)) {
                     continue;
                 }
                 gquic_list_release(event);
@@ -1038,7 +1038,7 @@ static inline u_int64_t gquic_session_idle_timeout_start_time(gquic_session_t *c
         : sess->first_ack_eliciting_packet;
 }
 
-static int gquic_session_handle_packet_inner(gquic_session_t *const sess, gquic_coroutine_t *const co, gquic_received_packet_t *const rp) {
+static int gquic_session_handle_packet_inner(gquic_coroutine_t *const co, gquic_session_t *const sess, gquic_received_packet_t *const rp) {
     int counter = 0;
     gquic_str_t last_conn_id = { 0, NULL };
     int processed = 0;
@@ -1074,7 +1074,7 @@ static int gquic_session_handle_packet_inner(gquic_session_t *const sess, gquic_
            p->buffer->ref++;
        }
        counter++;
-       processed = gquic_session_handle_single_packet(sess, co, p);
+       processed = gquic_session_handle_single_packet(co, sess, p);
     }
 
     gquic_packet_buffer_try_put(buffer);
@@ -1082,7 +1082,7 @@ static int gquic_session_handle_packet_inner(gquic_session_t *const sess, gquic_
     return processed;
 }
 
-static int gquic_session_handle_single_packet(gquic_session_t *const sess, gquic_coroutine_t *const co, gquic_received_packet_t *const rp) {
+static int gquic_session_handle_single_packet(gquic_coroutine_t *const co, gquic_session_t *const sess, gquic_received_packet_t *const rp) {
     int ret = 0;
     int exception = GQUIC_SUCCESS;
     int was_queued = 0;
@@ -1126,7 +1126,7 @@ static int gquic_session_handle_single_packet(gquic_session_t *const sess, gquic
         goto free_rp_finished;
     }
 
-    if (GQUIC_ASSERT_CAUSE(exception, gquic_session_handle_unpacked_packet(sess, co, &packet, rp->recv_time))) {
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_session_handle_unpacked_packet(co, sess, &packet, rp->recv_time))) {
         gquic_session_close_local(sess, exception);
         goto free_rp_finished;
     }
@@ -1226,8 +1226,8 @@ static int gquic_session_try_queue_undecryptable_packet(gquic_session_t *const s
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_session_handle_unpacked_packet(gquic_session_t *const sess,
-                                                gquic_coroutine_t *const co, gquic_unpacked_packet_t *const up, const u_int64_t recv_time) {
+static int gquic_session_handle_unpacked_packet(gquic_coroutine_t *const co,
+                                                gquic_session_t *const sess, gquic_unpacked_packet_t *const up, const u_int64_t recv_time) {
     void *frame = NULL;
     int is_ack_eliciting = 0;
     gquic_reader_str_t reader = { 0, NULL };
@@ -1264,7 +1264,7 @@ static int gquic_session_handle_unpacked_packet(gquic_session_t *const sess,
         if (GQUIC_FRAME_META(frame).type != 0x02 && GQUIC_FRAME_META(frame).type != 0x03) {
             is_ack_eliciting = 1;
         }
-        GQUIC_ASSERT_FAST_RETURN(gquic_session_handle_frame(sess, co, frame, up->enc_lv));
+        GQUIC_ASSERT_FAST_RETURN(gquic_session_handle_frame(co, sess, frame, up->enc_lv));
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_packet_received_packet_handlers_received_packet(&sess->recv_packet_handler,
                                                                                    up->pn, recv_time, is_ack_eliciting, up->enc_lv));
@@ -1272,7 +1272,7 @@ static int gquic_session_handle_unpacked_packet(gquic_session_t *const sess,
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_session_handle_frame(gquic_session_t *const sess, gquic_coroutine_t *const co, void *const frame, const u_int8_t enc_lv) {
+static int gquic_session_handle_frame(gquic_coroutine_t *const co, gquic_session_t *const sess, void *const frame, const u_int8_t enc_lv) {
     int exception = GQUIC_SUCCESS;
     if (sess == NULL || frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -1282,7 +1282,7 @@ static int gquic_session_handle_frame(gquic_session_t *const sess, gquic_corouti
     }
     else switch (GQUIC_FRAME_META(frame).type) {
     case  0x06:
-        GQUIC_EXCEPTION_ASSIGN(exception, gquic_session_handle_crypto_frame(sess, co, frame, enc_lv));
+        GQUIC_EXCEPTION_ASSIGN(exception, gquic_session_handle_crypto_frame(co, sess, frame, enc_lv));
         break;
     case 0x02:
     case 0x03:
@@ -1347,13 +1347,13 @@ static int gquic_session_handle_stream_frame(gquic_session_t *const sess, gquic_
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_session_handle_crypto_frame(gquic_session_t *const sess,
-                                             gquic_coroutine_t *const co, gquic_frame_crypto_t *const frame, const u_int8_t enc_lv) {
+static int gquic_session_handle_crypto_frame(gquic_coroutine_t *const co,
+                                             gquic_session_t *const sess, gquic_frame_crypto_t *const frame, const u_int8_t enc_lv) {
     int changed = 0;
     if (sess == NULL || co == NULL || frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    GQUIC_ASSERT_FAST_RETURN(gquic_crypto_stream_manager_handle_crypto_frame(&changed, &sess->crypto_stream_manager, co, frame, enc_lv));
+    GQUIC_ASSERT_FAST_RETURN(gquic_crypto_stream_manager_handle_crypto_frame(co, &changed, &sess->crypto_stream_manager, frame, enc_lv));
 
     if (changed) {
         gquic_session_try_decrypting_queued_packets(sess);

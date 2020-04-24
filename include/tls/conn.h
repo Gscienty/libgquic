@@ -86,16 +86,16 @@ int gquic_tls_conn_load_session(gquic_str_t *const cache_key,
 int gquic_tls_conn_write_max_write_size(size_t *const ret, const gquic_tls_conn_t *const conn, const u_int8_t record_type);
 int gquic_tls_conn_set_alt_record(gquic_tls_conn_t *const conn);
 int gquic_tls_conn_write_record(size_t *const len, gquic_tls_conn_t *const conn, u_int8_t record_type, const gquic_str_t *const data);
-int gquic_tls_conn_read_handshake(void **const msg, gquic_tls_conn_t *const conn, gquic_coroutine_t *const co);
+int gquic_tls_conn_read_handshake(gquic_coroutine_t *const co, void **const msg, gquic_tls_conn_t *const conn);
 int gquic_tls_conn_send_alert(gquic_tls_conn_t *const conn, u_int8_t alert);
 int gquic_tls_conn_verify_ser_cert(gquic_tls_conn_t *const conn, const gquic_list_t *const certs);
 
-int gquic_tls_conn_handshake(gquic_tls_conn_t *const conn, gquic_coroutine_t *const co);
+int gquic_tls_conn_handshake(gquic_coroutine_t *const co, gquic_tls_conn_t *const conn);
 
 int gquic_tls_conn_decrypt_ticket(gquic_str_t *const plain, int *const is_oldkey, gquic_tls_conn_t *const conn, const gquic_str_t *const encrypted);
 int gquic_tls_conn_encrypt_ticket(gquic_str_t *const encrypted, gquic_tls_conn_t *const conn, const gquic_str_t *const state);
 int gquic_tls_conn_get_sess_ticket(gquic_str_t *const msg, gquic_tls_conn_t *const conn);
 
-int gquic_tls_conn_handle_post_handshake_msg(gquic_tls_conn_t *const conn, gquic_coroutine_t *const co);
+int gquic_tls_conn_handle_post_handshake_msg(gquic_coroutine_t *const co, gquic_tls_conn_t *const conn);
 
 #endif

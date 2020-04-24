@@ -37,7 +37,7 @@ int gquic_tls_handshake_client_hello_init(gquic_tls_client_hello_msg_t **const m
                                           gquic_tls_ecdhe_params_t *const params,
                                           const gquic_tls_conn_t *conn);
 
-int gquic_tls_client_handshake(gquic_tls_conn_t *const conn, gquic_coroutine_t *const co);
-int gquic_tls_client_handshake_state_handshake(gquic_tls_handshake_client_state_t *const cli_state, gquic_coroutine_t *const co);
+int gquic_tls_client_handshake(gquic_coroutine_t *const co, gquic_tls_conn_t *const conn);
+int gquic_tls_client_handshake_state_handshake(gquic_coroutine_t *const co, gquic_tls_handshake_client_state_t *const cli_state);
 
 #endif

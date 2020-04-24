@@ -192,35 +192,35 @@ static int gquic_handshake_mock_server_run_co(gquic_coroutine_t *const co, void 
     server_hello_handshake_msg(&msg);
     GQUIC_MALLOC_STRUCT(&tmp, gquic_str_t);
     gquic_str_copy(tmp, &msg);
-    gquic_handshake_establish_handle_msg(&est, co, tmp, GQUIC_ENC_LV_INITIAL);
+    gquic_handshake_establish_handle_msg(co, &est, tmp, GQUIC_ENC_LV_INITIAL);
 
     printf("server inner\n");
 
     encrypted_exts_handshake_msg(&msg);
     GQUIC_MALLOC_STRUCT(&tmp, gquic_str_t);
     gquic_str_copy(tmp, &msg);
-    gquic_handshake_establish_handle_msg(&est, co, tmp, GQUIC_ENC_LV_HANDSHAKE);
+    gquic_handshake_establish_handle_msg(co, &est, tmp, GQUIC_ENC_LV_HANDSHAKE);
 
     printf("server inner\n");
 
     cert_msg(&msg);
     GQUIC_MALLOC_STRUCT(&tmp, gquic_str_t);
     gquic_str_copy(tmp, &msg);
-    gquic_handshake_establish_handle_msg(&est, co, tmp, GQUIC_ENC_LV_HANDSHAKE);
+    gquic_handshake_establish_handle_msg(co, &est, tmp, GQUIC_ENC_LV_HANDSHAKE);
 
     printf("server inner\n");
 
     verify_msg(&msg);
     GQUIC_MALLOC_STRUCT(&tmp, gquic_str_t);
     gquic_str_copy(tmp, &msg);
-    gquic_handshake_establish_handle_msg(&est, co, tmp, GQUIC_ENC_LV_HANDSHAKE);
+    gquic_handshake_establish_handle_msg(co, &est, tmp, GQUIC_ENC_LV_HANDSHAKE);
 
     printf("server inner\n");
 
     finish_msg(&msg);
     GQUIC_MALLOC_STRUCT(&tmp, gquic_str_t);
     gquic_str_copy(tmp, &msg);
-    gquic_handshake_establish_handle_msg(&est, co, tmp, GQUIC_ENC_LV_HANDSHAKE);
+    gquic_handshake_establish_handle_msg(co, &est, tmp, GQUIC_ENC_LV_HANDSHAKE);
 
     printf("server inner\n");
 
