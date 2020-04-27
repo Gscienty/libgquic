@@ -60,8 +60,7 @@ int gquic_handshake_establish_init(gquic_handshake_establish_t *const est) {
     gquic_coroutine_chain_init(&est->received_wkey_chain);
     est->cli_hello_written = 0;
     est->is_client = 0;
-    sem_init(&est->client_written_sem, 0, 0);
-    sem_init(&est->mtx, 0, 1);
+    pthread_mutex_init(&est->mtx, NULL);
     est->read_enc_level = GQUIC_ENC_LV_INITIAL;
     est->write_enc_level = GQUIC_ENC_LV_INITIAL;
     gquic_io_init(&est->init_output);
@@ -78,7 +77,6 @@ int gquic_handshake_establish_init(gquic_handshake_establish_t *const est) {
     gquic_handshake_extension_handler_init(&est->extension_handler);
 
     est->handshake_done = 0;
-    sem_init(&est->handshake_done_notify, 0, 0);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -167,6 +165,7 @@ int gquic_handshake_establish_run(gquic_coroutine_t *const co, gquic_handshake_e
     void *ending = NULL;
     gquic_establish_err_event_t *err_event = NULL;
     gquic_coroutine_t *establish_run_co = NULL;
+    gquic_coroutine_chain_t *recv_chain = NULL;
     if (co == NULL || est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -174,24 +173,21 @@ int gquic_handshake_establish_run(gquic_coroutine_t *const co, gquic_handshake_e
     gquic_coroutine_ctor(establish_run_co, 1024 * 1024, __establish_run, est);
     gquic_coroutine_schedule_join(gquic_get_global_schedule(), establish_run_co);
     GQUIC_EXCEPTION_ASSIGN(exception,
-                           gquic_coroutine_chain_recv(&ending, co, 1,
+                           gquic_coroutine_chain_recv(&ending, &recv_chain, co, 1,
                                                       &est->alert_chain, &est->complete_chain, &est->close_chain, NULL));
-    if (exception == GQUIC_EXCEPTION_CLOSED) {
-        if (ending == &est->complete_chain) {
-            GQUIC_HANDSHAKE_EVENT_ON_HANDSHAKE_COMPLETE(&est->events);
-            if (!est->is_client) {
-                gquic_establish_try_send_sess_ticket(est);
-            }
-        }
-        else if (ending == &est->close_chain) {
-            gquic_coroutine_chain_boradcast_close(&est->msg_chain, gquic_get_global_schedule());
-            gquic_coroutine_chain_recv(&ending, co, 1, &est->done_chain, NULL);
+    if (recv_chain == &est->complete_chain) {
+        GQUIC_HANDSHAKE_EVENT_ON_HANDSHAKE_COMPLETE(&est->events);
+        if (!est->is_client) {
+            gquic_establish_try_send_sess_ticket(est);
         }
     }
-    else {
-        // alert
+    else if (recv_chain == &est->close_chain) {
+        gquic_coroutine_chain_boradcast_close(&est->msg_chain, gquic_get_global_schedule());
+        gquic_coroutine_chain_recv(&ending, NULL, co, 1, &est->done_chain, NULL);
+    }
+    else if (recv_chain == &est->alert_chain) {
         ending_event = ending;
-        if (GQUIC_ASSERT_CAUSE(exception, gquic_coroutine_chain_recv((void **) &err_event, co, 1, est->err_chain, NULL))) {
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_coroutine_chain_recv((void **) &err_event, NULL, co, 1, est->err_chain, NULL))) {
             goto failure;
         }
         if (GQUIC_ASSERT_CAUSE(exception, GQUIC_HANDSHAKE_EVENT_ON_ERR(&est->events, ending_event->payload.alert_code, err_event->ret))) {
@@ -199,7 +195,6 @@ int gquic_handshake_establish_run(gquic_coroutine_t *const co, gquic_handshake_e
         }
     }
     est->handshake_done = 1;
-    sem_post(&est->handshake_done_notify);
 
     if (ending_event != NULL) {
         gquic_list_release(ending_event);
@@ -311,24 +306,25 @@ static int gquic_establish_waiting_handshake_done_cmp(const void *const a, const
 
 static int gquic_establish_cli_handle_msg(gquic_handshake_establish_t *const est, gquic_coroutine_t *const co, const u_int8_t msg_type) {
     void *event = NULL;
+    gquic_coroutine_chain_t *recv_chain = NULL;
     if (est == NULL || co == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     switch (msg_type) {
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_SERVER_HELLO:
-        gquic_coroutine_chain_recv(&event, co, 1, &est->done_chain, &est->write_record_chain, &est->received_wkey_chain, NULL);
-        if (event == &est->done_chain || event == &est->write_record_chain) {
+        gquic_coroutine_chain_recv(&event, &recv_chain, co, 1, &est->done_chain, &est->write_record_chain, &est->received_wkey_chain, NULL);
+        if (recv_chain == &est->done_chain || recv_chain == &est->write_record_chain) {
             return 0;
         }
-        gquic_coroutine_chain_recv(&event, co, 1, &est->done_chain, &est->received_rkey_chain, NULL);
-        if (event == &est->done_chain) {
+        gquic_coroutine_chain_recv(&event, &recv_chain, co, 1, &est->done_chain, &est->received_rkey_chain, NULL);
+        if (recv_chain == &est->done_chain) {
             return 0;
         }
         return 1;
 
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_ENCRYPTED_EXTS:
-        gquic_coroutine_chain_recv(&event, co, 1, &est->done_chain, &est->param_chain, NULL);
-        if (event == &est->done_chain) {
+        gquic_coroutine_chain_recv(&event, &recv_chain, co, 1, &est->done_chain, &est->param_chain, NULL);
+        if (recv_chain == &est->done_chain) {
             return 0;
         }
         GQUIC_HANDSHAKE_EVENT_ON_RECV_PARAMS(&est->events, &((gquic_establish_process_event_t *) event)->param);
@@ -342,12 +338,12 @@ static int gquic_establish_cli_handle_msg(gquic_handshake_establish_t *const est
         return 0;
 
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_FINISHED:
-        gquic_coroutine_chain_recv(&event, co, 1, &est->done_chain, &est->received_rkey_chain, NULL);
-        if (event == &est->done_chain) {
+        gquic_coroutine_chain_recv(&event, &recv_chain, co, 1, &est->done_chain, &est->received_rkey_chain, NULL);
+        if (recv_chain == &est->done_chain) {
             return 0;
         }
-        gquic_coroutine_chain_recv(&event, co, 1, &est->done_chain, &est->received_wkey_chain, NULL);
-        if (event == &est->done_chain) {
+        gquic_coroutine_chain_recv(&event, &recv_chain, co, 1, &est->done_chain, &est->received_wkey_chain, NULL);
+        if (recv_chain == &est->done_chain) {
             return 0;
         }
         return 1;
@@ -357,13 +353,14 @@ static int gquic_establish_cli_handle_msg(gquic_handshake_establish_t *const est
 
 static int gquic_establish_ser_handle_msg(gquic_handshake_establish_t *const est, gquic_coroutine_t *const co, const u_int8_t msg_type) {
     void *event = NULL;
+    gquic_coroutine_chain_t *recv_chain = NULL;
     if (est == NULL || co == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     switch (msg_type) {
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_CLIENT_HELLO:
-        gquic_coroutine_chain_recv(&event, co, 1, &est->done_chain, &est->write_record_chain, &est->param_chain, NULL);
-        if (event == &est->done_chain || event == &est->write_record_chain) {
+        gquic_coroutine_chain_recv(&event, &recv_chain, co, 1, &est->done_chain, &est->write_record_chain, &est->param_chain, NULL);
+        if (recv_chain == &est->done_chain || recv_chain == &est->write_record_chain) {
             return 0;
         }
         GQUIC_HANDSHAKE_EVENT_ON_RECV_PARAMS(&est->events, &((gquic_establish_process_event_t *) event)->param);
@@ -371,25 +368,25 @@ static int gquic_establish_ser_handle_msg(gquic_handshake_establish_t *const est
         free(event);
 
 ignore_shello:
-        gquic_coroutine_chain_recv(&event, co, 1, &est->done_chain, &est->write_record_chain, &est->received_rkey_chain, NULL);
-        if (event == &est->write_record_chain) {
+        gquic_coroutine_chain_recv(&event, &recv_chain, co, 1, &est->done_chain, &est->write_record_chain, &est->received_rkey_chain, NULL);
+        if (recv_chain == &est->write_record_chain) {
             goto ignore_shello;
         }
-        if (event == &est->done_chain) {
+        if (recv_chain == &est->done_chain) {
             return 0;
         }
 
 ignore_ext:
-        gquic_coroutine_chain_recv(&event, co, 1, &est->done_chain, &est->write_record_chain, &est->received_wkey_chain, NULL);
-        if (event == &est->write_record_chain) {
+        gquic_coroutine_chain_recv(&event, &recv_chain, co, 1, &est->done_chain, &est->write_record_chain, &est->received_wkey_chain, NULL);
+        if (recv_chain == &est->write_record_chain) {
             goto ignore_ext;
         }
-        if (event == &est->done_chain) {
+        if (recv_chain == &est->done_chain) {
             return 0;
         }
 
-        gquic_coroutine_chain_recv(&event, co, 1, &est->done_chain, &est->received_wkey_chain, NULL);
-        if (event == &est->done_chain) {
+        gquic_coroutine_chain_recv(&event, &recv_chain, co, 1, &est->done_chain, &est->received_wkey_chain, NULL);
+        if (recv_chain == &est->done_chain) {
             return 0;
         }
         return 1;
@@ -399,8 +396,8 @@ ignore_ext:
         return 0;
 
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_FINISHED:
-        gquic_coroutine_chain_recv(&event, co, 1, &est->done_chain, &est->received_rkey_chain, NULL);
-        if (event == &est->done_chain) {
+        gquic_coroutine_chain_recv(&event, &recv_chain, co, 1, &est->done_chain, &est->received_rkey_chain, NULL);
+        if (recv_chain == &est->done_chain) {
             return 0;
         }
         return 1;
@@ -439,7 +436,7 @@ int gquic_handshake_establish_read_handshake_msg(gquic_coroutine_t *const co, gq
     if (msg == NULL || est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_chain_recv((void **) &tmp, co, 1, &est->msg_chain, NULL));
+    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_chain_recv((void **) &tmp, NULL, co, 1, &est->msg_chain, NULL));
     *msg = *tmp;
     free(tmp);
 
@@ -454,7 +451,7 @@ int gquic_handshake_establish_set_rkey(gquic_handshake_establish_t *const est,
     if (est == NULL || suite == NULL || traffic_sec == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    sem_wait(&est->mtx);
+    pthread_mutex_lock(&est->mtx);
     switch (enc_level) {
     case GQUIC_ENC_LV_HANDSHAKE:
         est->read_enc_level = GQUIC_ENC_LV_HANDSHAKE;
@@ -477,14 +474,14 @@ int gquic_handshake_establish_set_rkey(gquic_handshake_establish_t *const est,
         break;
 
     default:
-        sem_post(&est->mtx);
+        pthread_mutex_unlock(&est->mtx);
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INVALID_ENC_LV);
     }
-    sem_post(&est->mtx);
+    pthread_mutex_unlock(&est->mtx);
     GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_chain_send(&est->received_rkey_chain, gquic_get_global_schedule(), &est->received_rkey_chain));
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 failure:
-    sem_post(&est->mtx);
+    pthread_mutex_unlock(&est->mtx);
     GQUIC_PROCESS_DONE(exception);
 }
 
@@ -496,7 +493,7 @@ int gquic_handshake_establish_set_wkey(gquic_handshake_establish_t *const est,
     if (est == NULL || suite == NULL || traffic_sec == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    sem_wait(&est->mtx);
+    pthread_mutex_lock(&est->mtx);
     switch (enc_level) {
     case GQUIC_ENC_LV_HANDSHAKE:
         est->write_enc_level = GQUIC_ENC_LV_HANDSHAKE;
@@ -519,14 +516,14 @@ int gquic_handshake_establish_set_wkey(gquic_handshake_establish_t *const est,
         break;
 
     default:
-        sem_post(&est->mtx);
+        pthread_mutex_unlock(&est->mtx);
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INVALID_ENC_LV);
     }
-    sem_post(&est->mtx);
+    pthread_mutex_unlock(&est->mtx);
     GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_chain_send(&est->received_wkey_chain, gquic_get_global_schedule(), &est->received_wkey_chain));
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 failure:
-    sem_post(&est->mtx);
+    pthread_mutex_unlock(&est->mtx);
     GQUIC_PROCESS_DONE(exception);
 }
 
@@ -534,10 +531,10 @@ int gquic_handshake_establish_drop_initial_keys(gquic_handshake_establish_t *con
     if (est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    sem_wait(&est->mtx);
+    pthread_mutex_lock(&est->mtx);
     gquic_common_long_header_opener_dtor(&est->initial_opener);
     gquic_common_long_header_sealer_dtor(&est->initial_sealer);
-    sem_post(&est->mtx);
+    pthread_mutex_unlock(&est->mtx);
     GQUIC_HANDSHAKE_EVENT_DROP_KEYS(&est->events, GQUIC_ENC_LV_INITIAL);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
@@ -548,13 +545,13 @@ int gquic_handshake_establish_drop_handshake_keys(gquic_handshake_establish_t *c
     if (est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    sem_wait(&est->mtx);
+    pthread_mutex_lock(&est->mtx);
     if (est->handshake_opener.available) {
         gquic_common_long_header_opener_dtor(&est->handshake_opener);
         gquic_common_long_header_sealer_dtor(&est->handshake_sealer);
         dropped = 1;
     }
-    sem_post(&est->mtx);
+    pthread_mutex_unlock(&est->mtx);
     if (dropped) {
         GQUIC_HANDSHAKE_EVENT_DROP_KEYS(&est->events, GQUIC_ENC_LV_HANDSHAKE);
     }
@@ -571,7 +568,7 @@ int gquic_handshake_establish_write_record(size_t *const size, gquic_handshake_e
     if (size == NULL || est == NULL || data == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    sem_wait(&est->mtx);
+    pthread_mutex_lock(&est->mtx);
     gquic_writer_str_t writer = *data;
     switch (est->write_enc_level) {
     case GQUIC_ENC_LV_INITIAL:
@@ -580,12 +577,7 @@ int gquic_handshake_establish_write_record(size_t *const size, gquic_handshake_e
         }
         if (!est->cli_hello_written && est->is_client) {
             est->cli_hello_written = 1;
-            if (est->chello_written.self == NULL) {
-                sem_post(&est->client_written_sem);
-            }
-            else {
-                GQUIC_HANDSHAKE_ESTABLISH_CHELLO_WRITTEN(est);
-            }
+            GQUIC_HANDSHAKE_ESTABLISH_CHELLO_WRITTEN(est);
         }
         else {
             if (GQUIC_ASSERT_CAUSE(exception,
@@ -600,14 +592,14 @@ int gquic_handshake_establish_write_record(size_t *const size, gquic_handshake_e
         }
         break;
     default:
-        sem_post(&est->mtx);
+        pthread_mutex_unlock(&est->mtx);
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INVALID_ENC_LV);
     }
-    sem_post(&est->mtx);
+    pthread_mutex_unlock(&est->mtx);
     *size = GQUIC_STR_VAL(&writer) - GQUIC_STR_VAL(data);
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 failure:
-    sem_post(&est->mtx);
+    pthread_mutex_unlock(&est->mtx);
     GQUIC_PROCESS_DONE(exception);
 }
 
@@ -671,11 +663,11 @@ static int gquic_establish_handle_post_handshake_msg(gquic_coroutine_t *const co
     if (co == NULL || est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    gquic_coroutine_chain_recv(&done, co, 1, &est->done_chain, NULL);
+    gquic_coroutine_chain_recv(&done, NULL, co, 1, &est->done_chain, NULL);
 
     if (GQUIC_ASSERT(gquic_tls_conn_handle_post_handshake_msg(co, &est->conn))) {
-        gquic_coroutine_chain_recv((void **) &ending_event, co, 1, &est->alert_chain, NULL);
-        gquic_coroutine_chain_recv((void **) &err_event, co, 1, &est->err_chain, NULL);
+        gquic_coroutine_chain_recv((void **) &ending_event, NULL, co, 1, &est->alert_chain, NULL);
+        gquic_coroutine_chain_recv((void **) &err_event, NULL, co, 1, &est->err_chain, NULL);
         if (GQUIC_ASSERT(GQUIC_HANDSHAKE_EVENT_ON_ERR(&est->events, ending_event->payload.alert_code, err_event->ret))) {
             goto finished;
         }
@@ -721,7 +713,7 @@ int gquic_handshake_establish_get_initial_opener(gquic_header_protector_t **cons
     if (protector == NULL || opener == NULL || est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    sem_wait(&est->mtx);
+    pthread_mutex_lock(&est->mtx);
     if (!est->initial_opener.available) {
         GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_KEY_DROPPED);
     }
@@ -729,7 +721,7 @@ int gquic_handshake_establish_get_initial_opener(gquic_header_protector_t **cons
         GQUIC_ASSERT_CAUSE(exception, gquic_common_long_header_opener_get_header_opener(protector, &est->initial_opener));
     }
     *opener = &est->initial_opener;
-    sem_post(&est->mtx);
+    pthread_mutex_unlock(&est->mtx);
 
     GQUIC_PROCESS_DONE(exception);
 }
@@ -741,20 +733,20 @@ int gquic_handshake_establish_get_handshake_opener(gquic_header_protector_t **co
     if (protector == NULL || opener == NULL || est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    sem_wait(&est->mtx);
+    pthread_mutex_lock(&est->mtx);
     if (!est->handshake_opener.available) {
         if (est->initial_opener.available) {
-            sem_post(&est->mtx);
+            pthread_mutex_unlock(&est->mtx);
             GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_KEY_UNAVAILABLE);
         }
-        sem_post(&est->mtx);
+        pthread_mutex_unlock(&est->mtx);
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_KEY_DROPPED);
     }
     else {
         GQUIC_ASSERT_CAUSE(exception, gquic_common_long_header_opener_get_header_opener(protector, &est->handshake_opener));
     }
     *opener = &est->handshake_opener;
-    sem_post(&est->mtx);
+    pthread_mutex_unlock(&est->mtx);
 
     GQUIC_PROCESS_DONE(exception);
 }
@@ -766,7 +758,7 @@ int gquic_handshake_establish_get_1rtt_opener(gquic_header_protector_t **const p
     if (protector == NULL || opener == NULL || est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    sem_wait(&est->mtx);
+    pthread_mutex_lock(&est->mtx);
     if (!est->has_1rtt_opener) {
         GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_KEY_UNAVAILABLE);
     }
@@ -774,7 +766,7 @@ int gquic_handshake_establish_get_1rtt_opener(gquic_header_protector_t **const p
         *protector = &est->aead.header_dec;
     }
     *opener = &est->aead;
-    sem_post(&est->mtx);
+    pthread_mutex_unlock(&est->mtx);
 
     GQUIC_PROCESS_DONE(exception);
 }
@@ -786,7 +778,7 @@ int gquic_handshake_establish_get_initial_sealer(gquic_header_protector_t **cons
     if (protector == NULL || sealer == NULL || est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    sem_wait(&est->mtx);
+    pthread_mutex_lock(&est->mtx);
     if (!est->initial_sealer.available) {
         GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_KEY_DROPPED);
     }
@@ -794,7 +786,7 @@ int gquic_handshake_establish_get_initial_sealer(gquic_header_protector_t **cons
         GQUIC_ASSERT_CAUSE(exception, gquic_common_long_header_sealer_get_header_sealer(protector, &est->initial_sealer));
     }
     *sealer = &est->initial_sealer;
-    sem_post(&est->mtx);
+    pthread_mutex_unlock(&est->mtx);
 
     GQUIC_PROCESS_DONE(exception);
 }
@@ -806,20 +798,20 @@ int gquic_handshake_establish_get_handshake_sealer(gquic_header_protector_t **co
     if (protector == NULL || sealer == NULL || est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    sem_wait(&est->mtx);
+    pthread_mutex_lock(&est->mtx);
     if (!est->handshake_sealer.available) {
         if (est->initial_sealer.available) {
-            sem_post(&est->mtx);
+            pthread_mutex_unlock(&est->mtx);
             GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_KEY_UNAVAILABLE);
         }
-        sem_post(&est->mtx);
+        pthread_mutex_unlock(&est->mtx);
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_KEY_DROPPED);
     }
     else {
         GQUIC_ASSERT_CAUSE(exception, gquic_common_long_header_sealer_get_header_sealer(protector, &est->handshake_sealer));
     }
     *sealer = &est->handshake_sealer;
-    sem_post(&est->mtx);
+    pthread_mutex_unlock(&est->mtx);
 
     GQUIC_PROCESS_DONE(exception);
 }
@@ -831,7 +823,7 @@ int gquic_handshake_establish_get_1rtt_sealer(gquic_header_protector_t **const p
     if (protector == NULL || sealer == NULL || est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    sem_wait(&est->mtx);
+    pthread_mutex_lock(&est->mtx);
     if (!est->has_1rtt_sealer) {
         GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_KEY_UNAVAILABLE);
     }
@@ -839,7 +831,7 @@ int gquic_handshake_establish_get_1rtt_sealer(gquic_header_protector_t **const p
         *protector = &est->aead.header_enc;
     }
     *sealer = &est->aead;
-    sem_post(&est->mtx);
+    pthread_mutex_unlock(&est->mtx);
 
     GQUIC_PROCESS_DONE(exception);
 }

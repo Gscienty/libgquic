@@ -25,14 +25,14 @@ struct gquic_closed_local_session_s {
 #define GQUIC_CLOSED_LOCAL_SESSION_EVENT_RECEIVED_PACKET 0x02
 
 static int gquic_closed_remote_session_handle_packet(void *const, gquic_received_packet_t *const);
-static int gquic_closed_remote_session_close(void *const);
-static int gquic_closed_remote_session_destory(void *const, const int);
+static int gquic_closed_remote_session_close(gquic_coroutine_t *const, void *const);
+static int gquic_closed_remote_session_destory(gquic_coroutine_t *const, void *const, const int);
 static int gquic_closed_remote_session_client_is_client(void *const);
 static int gquic_closed_remote_session_server_is_client(void *const);
 
 static int gquic_closed_local_session_handle_packet(void *const, gquic_received_packet_t *const);
-static int gquic_closed_local_session_close(void *const);
-static int gquic_closed_local_session_destory(void *const, const int);
+static int gquic_closed_local_session_close(gquic_coroutine_t *const co, void *const);
+static int gquic_closed_local_session_destory(gquic_coroutine_t *const, void *const, const int);
 static int gquic_closed_local_session_is_client(void *const);
 static int gquic_closed_local_session_dtor(gquic_closed_local_session_t *const);
 
@@ -83,13 +83,15 @@ static int gquic_closed_remote_session_handle_packet(void *const _, gquic_receiv
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_closed_remote_session_close(void *const _) {
+static int gquic_closed_remote_session_close(gquic_coroutine_t *const co, void *const _) {
+    (void) co;
     (void) _;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_closed_remote_session_destory(void *const _, const int __) {
+static int gquic_closed_remote_session_destory(gquic_coroutine_t *const co, void *const _, const int __) {
+    (void) co;
     (void) _;
     (void) __;
     
@@ -141,11 +143,13 @@ static int gquic_closed_local_session_is_client(void *const sess_) {
     return sess->is_client;
 }
 
-static int gquic_closed_local_session_close(void *const sess_) {
-    return gquic_closed_local_session_destory(sess_, 0);
+static int gquic_closed_local_session_close(gquic_coroutine_t *const co, void *const sess_) {
+    return gquic_closed_local_session_destory(co, sess_, 0);
 }
 
-static int gquic_closed_local_session_destory(void *const sess_, const int _) {
+static int gquic_closed_local_session_destory(gquic_coroutine_t *const co, void *const sess_, const int _) {
+    // TODO
+    (void) co;
     (void) _;
     int exception = GQUIC_SUCCESS;
     gquic_closed_local_session_t *const sess = sess_;

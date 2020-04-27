@@ -122,8 +122,8 @@ int gquic_packet_unpacker_unpack(gquic_unpacked_packet_t *const unpacked_packet,
         payload.opener.cb.one_rtt_cb = gquic_1rtt_opener_open_wrapper;
         payload.header_opener = &unpacker->est->aead.header_dec;
         GQUIC_ASSERT_FAST_RETURN(gquic_handshake_establish_get_1rtt_opener(&payload.header_opener,
-                                                             (gquic_auto_update_aead_t **) &payload.opener.self,
-                                                             unpacker->est));
+                                                                           (gquic_auto_update_aead_t **) &payload.opener.self,
+                                                                           unpacker->est));
         unpacked_packet->hdr.is_long = 0;
     }
     else {

@@ -54,7 +54,7 @@ int gquic_packet_send_queue_run(gquic_coroutine_t *const co, gquic_packet_send_q
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     for ( ;; ) {
-        GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_chain_recv((void **) &packed_packet, co, 1, &queue->queue_chain, NULL));
+        GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_chain_recv((void **) &packed_packet, NULL, co, 1, &queue->queue_chain, NULL));
         GQUIC_ASSERT_FAST_RETURN(gquic_net_conn_write(queue->conn, &packed_packet->raw));
         gquic_packed_packet_dtor_without_frames(packed_packet);
         free(packed_packet);

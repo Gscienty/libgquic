@@ -23,6 +23,7 @@
 #include "handshake/establish.h"
 #include "handshake/transport_parameters.h"
 #include "tls/config.h"
+#include "coroutine/chain.h"
 
 typedef struct gquic_session_s gquic_session_t;
 struct gquic_session_s {
@@ -60,7 +61,12 @@ struct gquic_session_s {
     gquic_frame_parser_t frame_parser;
 
     gquic_handshake_establish_t est;
-    gquic_sem_list_t run_event_list;
+
+    gquic_coroutine_chain_t close_chain;
+    gquic_coroutine_chain_t handshake_completed_chain;
+    gquic_coroutine_chain_t sending_schedule_chain;
+    gquic_coroutine_chain_t recevied_packet_chain;
+    gquic_coroutine_chain_t client_hello_writen_chain;
 
     int undecryptable_packets_count;
     gquic_list_t undecryptable_packets; /* received_packet * */
@@ -89,14 +95,11 @@ struct gquic_session_s {
     gquic_crypto_stream_t handshake_stream;
     gquic_post_handshake_crypto_stream_t one_rtt_stream;
 
-    sem_t done_signal;
-    sem_t close_mtx;
+    gquic_coroutine_chain_t done_chain;
+    pthread_mutex_t close_mtx;
     int close_flag;
 
     sem_t early_sess_ready;
-
-    pthread_t handshake_thread;
-    pthread_t send_queue_thread;
 
     gquic_tls_config_t tls_config;
 
@@ -124,8 +127,8 @@ int gquic_session_ctor(gquic_session_t *const sess,
                        const u_int64_t initial_pn,
                        const int is_client);
 int gquic_session_handle_packet(gquic_session_t *const sess, gquic_received_packet_t *const rp);
-int gquic_session_close(gquic_session_t *const sess);
-int gquic_session_destroy(gquic_session_t *const sess, const int err);
+int gquic_session_close(gquic_coroutine_t *const co, gquic_session_t *const sess);
+int gquic_session_destroy(gquic_coroutine_t *const co, gquic_session_t *const sess, const int err);
 int gquic_session_queue_control_frame(gquic_session_t *const sess, void *const frame);
 int gquic_session_run(gquic_coroutine_t *const co, gquic_session_t *const sess);
 

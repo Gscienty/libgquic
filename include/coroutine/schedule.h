@@ -3,6 +3,7 @@
 
 #include "coroutine/context.h"
 #include "coroutine/coroutine.h"
+#include "coroutine/timer.h"
 #include "util/list.h"
 #include <pthread.h>
 
@@ -14,6 +15,7 @@ struct gquic_coroutine_schedule_s {
     pthread_cond_t cond;
 
     gquic_list_t ready; /* gquic_coroutine_t * */
+    gquic_coroutine_timer_t timer;
 };
 
 #define GQUIC_COROUTINE_GET_SCHEDULE(co) \
@@ -23,5 +25,6 @@ int gquic_coroutine_schedule_init(gquic_coroutine_schedule_t *const sche);
 int gquic_coroutine_schedule_join(gquic_coroutine_schedule_t *const sche, gquic_coroutine_t *const co);
 int gquic_coroutine_schedule_resume(gquic_coroutine_schedule_t *const sche);
 int gquic_coroutine_schedule_yield(gquic_coroutine_schedule_t *const sche, gquic_coroutine_t *const co);
+int gquic_coroutine_schedule_timeout_join(gquic_coroutine_schedule_t *const sche, gquic_coroutine_t *const co, u_int64_t timeout);
 
 #endif

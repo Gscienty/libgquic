@@ -1,7 +1,9 @@
 #ifndef _LIBGQUIC_UTIL_IO_H
 #define _LIBGQUIC_UTIL_IO_H
 
+#include "coroutine/coroutine.h"
 #include "util/str.h"
+#include "exception.h"
 
 typedef struct gquic_io_s gquic_io_t;
 struct gquic_io_s {
@@ -17,16 +19,16 @@ struct gquic_io_s {
     
     struct {
         void *self;
-        int (*cb) (void *const);
+        int (*cb) (gquic_coroutine_t *const, void *const);
     } closer;
 };
 
 #define GQUIC_IO_WRITE(p, w) (((p) == NULL || (p)->writer.self == NULL || (p)->writer.self == NULL) \
-                              ? -1 \
+                              ? GQUIC_EXCEPTION_NOT_IMPLEMENTED \
                               : ((p)->writer.cb((p)->writer.self, (w))))
-#define GQUIC_IO_CLOSE(p) (((p) == NULL || (p)->closer.self == NULL || (p)->closer.self == NULL) \
-                           ? -1 \
-                           : ((p)->closer.cb((p)->closer.self)))
+#define GQUIC_IO_CLOSE(co, p) (((p) == NULL || (p)->closer.self == NULL || (p)->closer.self == NULL) \
+                           ? GQUIC_EXCEPTION_NOT_IMPLEMENTED \
+                           : ((p)->closer.cb((co), (p)->closer.self)))
 
 int gquic_io_init(gquic_io_t *const output);
 int gquic_io_writer_implement(gquic_io_t *const output,

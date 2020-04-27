@@ -17,7 +17,7 @@ struct gquic_coroutine_chain_s {
 };
 
 int gquic_coroutine_chain_init(gquic_coroutine_chain_t *const chain);
-int gquic_coroutine_chain_recv(void **const result, gquic_coroutine_t *const co, const int waiting, ...);
+int gquic_coroutine_chain_recv(void **const result, gquic_coroutine_chain_t **const, gquic_coroutine_t *const co, const int waiting, ...);
 int gquic_coroutine_chain_send(gquic_coroutine_chain_t *const chain, gquic_coroutine_schedule_t *const sche, void *const message);
 int gquic_coroutine_chain_boradcast_close(gquic_coroutine_chain_t *const chain, gquic_coroutine_schedule_t *const sche);
 

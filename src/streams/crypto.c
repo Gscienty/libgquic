@@ -1,7 +1,7 @@
 #include "streams/crypto.h"
 #include "tls/common.h"
 #include "exception.h"
-#include <malloc.h>
+#include "util/malloc.h"
 
 static int gquic_crypto_stream_calc_readed_bytes(u_int64_t *const, gquic_crypto_stream_t *const);
 static int gquic_crypto_stream_calc_writed_bytes(u_int64_t *const, gquic_crypto_stream_t *const);
@@ -265,7 +265,7 @@ int gquic_crypto_stream_manager_handle_crypto_frame(gquic_coroutine_t *const co,
                                                     const u_int8_t enc_lv) {
     int ret = 0;
     gquic_crypto_stream_t *str = NULL;
-    gquic_str_t data = { 0, NULL };
+    gquic_str_t *data = NULL;
     if (changed == NULL || co == NULL || manager == NULL || frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -286,12 +286,15 @@ int gquic_crypto_stream_manager_handle_crypto_frame(gquic_coroutine_t *const co,
     GQUIC_ASSERT_FAST_RETURN(gquic_crypto_stream_handle_crypto_frame(str, frame));
 
     for ( ;; ) {
-        gquic_str_init(&data);
-        gquic_crypto_stream_get_data(&data, str);
-        if (GQUIC_STR_SIZE(&data) == 0) {
+        GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&data, gquic_str_t));
+        GQUIC_ASSERT_FAST_RETURN(gquic_str_init(data));
+
+        gquic_crypto_stream_get_data(data, str);
+        if (GQUIC_STR_SIZE(data) == 0) {
+            free(data);
             GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
         }
-        if ((ret = GQUIC_CRYPTO_STREAM_MANAGER_HANDLE_MSG(co, manager, &data, enc_lv)) < 0) {
+        if ((ret = GQUIC_CRYPTO_STREAM_MANAGER_HANDLE_MSG(co, manager, data, enc_lv)) < 0) {
             return ret;
         }
         else if (ret) {

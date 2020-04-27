@@ -10,7 +10,7 @@
 #include "handshake/aead.h"
 #include "handshake/transport_parameters.h"
 #include "handshake/extension_handler.h"
-#include <semaphore.h>
+#include <pthread.h>
 
 typedef struct gquic_establish_ending_event_s gquic_establish_ending_event_t;
 struct gquic_establish_ending_event_s {
@@ -99,8 +99,7 @@ struct gquic_handshake_establish_s {
     gquic_coroutine_chain_t received_wkey_chain;
     int cli_hello_written;
     int is_client;
-    sem_t mtx;
-    sem_t client_written_sem;
+    pthread_mutex_t mtx;
     u_int8_t read_enc_level;
     u_int8_t write_enc_level;
     gquic_io_t init_output;
@@ -117,7 +116,6 @@ struct gquic_handshake_establish_s {
     gquic_handshake_extension_handler_t extension_handler;
 
     int handshake_done;
-    sem_t handshake_done_notify;
 
     struct {
         void *self;
@@ -125,7 +123,10 @@ struct gquic_handshake_establish_s {
     } chello_written;
 };
 
-#define GQUIC_HANDSHAKE_ESTABLISH_CHELLO_WRITTEN(est) ((est)->chello_written.cb((est)->chello_written.self))
+#define GQUIC_HANDSHAKE_ESTABLISH_CHELLO_WRITTEN(est) \
+    ((est)->chello_written.cb == NULL \
+    ? GQUIC_EXCEPTION_NOT_IMPLEMENTED \
+    : (est)->chello_written.cb((est)->chello_written.self))
 
 int gquic_handshake_establish_init(gquic_handshake_establish_t *const est);
 int gquic_handshake_establish_ctor(gquic_handshake_establish_t *const est,

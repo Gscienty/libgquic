@@ -26,12 +26,50 @@ int gquic_coroutine_release(gquic_coroutine_t *const co) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
+int gquic_coroutine_try_release(gquic_coroutine_t *const co) {
+    if (co == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+    if (co->joined_times == 0) {
+        GQUIC_PROCESS_DONE(gquic_coroutine_release(co));
+    }
+    else if (co->joined_times < 0) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INTERNAL_ERROR);
+    }
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}
+
+int gquic_coroutine_join_ref(gquic_coroutine_t *const co) {
+    if (co == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+    pthread_mutex_lock(&co->mtx);
+    co->joined_times++;
+    pthread_mutex_unlock(&co->mtx);
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}
+
+int gquic_coroutine_join_unref(gquic_coroutine_t *const co) {
+    if (co == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+    pthread_mutex_lock(&co->mtx);
+    co->joined_times--;
+    pthread_mutex_unlock(&co->mtx);
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}
+
 int gquic_coroutine_init(gquic_coroutine_t *const co) {
     if (co == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     co->cb.args = NULL;
     co->cb.func = NULL;
+    co->joined_times = 0;
+    pthread_mutex_init(&co->mtx, NULL);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

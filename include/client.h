@@ -33,7 +33,7 @@ struct gquic_client_s {
 int gquic_client_init(gquic_client_t *const client);
 int gquic_client_create(gquic_client_t *const client, int fd, gquic_net_addr_t *const addr, gquic_config_t *const config, const int created);
 int gquic_client_done(gquic_client_t *const client);
-int gquic_client_close(gquic_client_t *const client);
-int gquic_client_destory(gquic_client_t *const client, const int err);
+int gquic_client_close(gquic_coroutine_t *const co, gquic_client_t *const client);
+int gquic_client_destory(gquic_coroutine_t *const co, gquic_client_t *const client, const int err);
 
 #endif

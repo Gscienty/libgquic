@@ -25,8 +25,8 @@ static int gquic_client_connect(gquic_client_t *const);
 
 static int gquic_client_handle_packet_wrapper(void *const, gquic_received_packet_t *const);
 static int gquic_client_is_client_wrapper(void *const);
-static int gquic_client_close_wrapper(void *const);
-static int gquic_client_destroy_wrapper(void *const, const int);
+static int gquic_client_close_wrapper(gquic_coroutine_t *const, void *const);
+static int gquic_client_destroy_wrapper(gquic_coroutine_t *const co, void *const, const int);
 
 int gquic_client_init(gquic_client_t *const client) {
     if (client == NULL) {
@@ -100,7 +100,8 @@ static int gquic_client_establish_sec_conn(gquic_client_t *const client) {
     GQUIC_ASSERT_FAST_RETURN(gquic_sem_list_pop((void **) &event, &client->sec_conn_events));
     switch (event->type) {
     case GQUIC_CLIENT_SEC_CONN_EVENT_TYPE_CLOSE:
-        GQUIC_EXCEPTION_ASSIGN(exception, gquic_session_close(&client->sess));
+        // TODO
+        GQUIC_EXCEPTION_ASSIGN(exception, gquic_session_close(co, &client->sess));
         break;
 
     case GQUIC_CLIENT_SEC_CONN_EVENT_TYPE_ERROR:
@@ -162,28 +163,28 @@ int gquic_client_done(gquic_client_t *const client) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_client_close(gquic_client_t *const client) {
+int gquic_client_close(gquic_coroutine_t *const co, gquic_client_t *const client) {
     int exception = GQUIC_SUCCESS;
-    if (client == NULL) {
+    if (co == NULL || client == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     sem_wait(&client->mtx);
     if (client->sess_created) {
-        GQUIC_EXCEPTION_ASSIGN(exception, gquic_session_close(&client->sess));
+        GQUIC_EXCEPTION_ASSIGN(exception, gquic_session_close(co, &client->sess));
     }
     sem_post(&client->mtx);
 
     GQUIC_PROCESS_DONE(exception);
 }
 
-int gquic_client_destory(gquic_client_t *const client, const int err) {
+int gquic_client_destory(gquic_coroutine_t *const co, gquic_client_t *const client, const int err) {
     int exception = GQUIC_SUCCESS;
-    if (client == NULL) {
+    if (co == NULL || client == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     sem_wait(&client->mtx);
     if (client->sess_created) {
-        GQUIC_EXCEPTION_ASSIGN(exception, gquic_session_destroy(&client->sess, err));
+        GQUIC_EXCEPTION_ASSIGN(exception, gquic_session_destroy(co, &client->sess, err));
     }
     sem_post(&client->mtx);
 
@@ -251,12 +252,12 @@ static int gquic_client_is_client_wrapper(void *const client) {
     return 1;
 }
 
-static int gquic_client_close_wrapper(void *const client) {
-    return gquic_client_close(client);
+static int gquic_client_close_wrapper(gquic_coroutine_t *const co, void *const client) {
+    return gquic_client_close(co, client);
 }
 
-static int gquic_client_destroy_wrapper(void *const client, const int err) {
-    return gquic_client_destory(client, err);
+static int gquic_client_destroy_wrapper(gquic_coroutine_t *const co, void *const client, const int err) {
+    return gquic_client_destory(co, client, err);
 }
 
 static int gquic_client_connect(gquic_client_t *const client) {
