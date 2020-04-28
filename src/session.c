@@ -731,7 +731,6 @@ int gquic_session_run(gquic_coroutine_t *const co, gquic_session_t *const sess) 
         }
         gquic_coroutine_schedule_timeout_join(gquic_get_global_schedule(), timeout_co, sess->deadline);
 
-        // TODO log recv waiting register
         GQUIC_EXCEPTION_ASSIGN(exception, gquic_coroutine_chain_recv(&event, &recv_chain, co, 1,
                                                                      &sess->close_chain,
                                                                      &sess->sending_schedule_chain,
@@ -816,7 +815,6 @@ closed:
 finished:
     GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_chain_boradcast_close(&sess->done_chain, gquic_get_global_schedule()));
 
-    printf("%d\n", err_msg.err);
     GQUIC_PROCESS_DONE(err_msg.err);
 }
 
@@ -875,6 +873,9 @@ static int gquic_session_try_reset_deadline(gquic_session_t *const sess) {
         sess->deadline = tmp < sess->deadline ? tmp : sess->deadline;
     }
     if ((tmp = sess->sent_packet_handler.alarm) != 0) {
+        sess->deadline = tmp < sess->deadline ? tmp : sess->deadline;
+    }
+    if ((tmp = sess->pacing_deadline) != 0) {
         sess->deadline = tmp < sess->deadline ? tmp : sess->deadline;
     }
     if (sess->handshake_completed && (tmp = sess->pacing_deadline) != 0) {
@@ -1696,10 +1697,7 @@ static int gquic_session_send_packed_packet(gquic_session_t *const sess, gquic_p
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (sess->first_ack_eliciting_packet == 0 && gquic_packed_packet_is_ack_eliciting(packed_packet)) {
-        struct timeval tv;
-        struct timezone tz;
-        gettimeofday(&tv, &tz);
-        sess->first_ack_eliciting_packet = tv.tv_sec * 1000 * 1000 + tv.tv_usec;
+        sess->first_ack_eliciting_packet = gquic_time_now();
     }
     sess->conn_id_manager.packets_since_last_change++;
     gquic_packet_send_queue_send(&sess->send_queue, packed_packet);
@@ -1725,10 +1723,8 @@ static int gquic_session_send_packet(int *const sent_packet, gquic_session_t *co
 
     gquic_wnd_update_queue_queue_all(&sess->wnd_update_queue);
 
-    if ((packet = malloc(sizeof(gquic_packet_t))) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
-    if ((packed_packet = malloc(sizeof(gquic_packed_packet_t))) == NULL) {
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&packet, gquic_packet_t));
+    if (GQUIC_ASSERT_CAUSE(exception, GQUIC_MALLOC_STRUCT(&packed_packet, gquic_packed_packet_t))) {
         free(packet);
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
     }
@@ -1745,7 +1741,6 @@ static int gquic_session_send_packet(int *const sent_packet, gquic_session_t *co
         free(packet);
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
-
     gquic_packed_packet_get_ack_packet(packet, packed_packet, &sess->retransmission);
     gquic_packet_sent_packet_handler_sent_packet(&sess->sent_packet_handler, packet);
     gquic_session_send_packed_packet(sess, packed_packet);

@@ -1,8 +1,12 @@
 #include "session.h"
 #include "frame/meta.h"
+#include "util/malloc.h"
+#include "global_schedule.h"
+#include "unit_test.h"
 #include <pthread.h>
 #include <stdio.h>
 #include <openssl/pkcs12.h>
+#include <fcntl.h>
 
 gquic_str_t token = { 5, "token" };
 gquic_str_t odci = { 4, "odci" };
@@ -28,11 +32,8 @@ gquic_rtt_t client_rtt;
 gquic_handshake_establish_t client_establish;
 pthread_t thread;
 
-void handle_shello(const gquic_str_t *const raw) {
-    struct timeval tv;
-    struct timezone tz;
-    gettimeofday(&tv, &tz);
-    u_int64_t now = tv.tv_sec * 1000 * 1000 + tv.tv_usec;
+int handle_shello(gquic_coroutine_t *const co, void *const raw) {
+    u_int64_t now = gquic_time_now();
     gquic_unpacked_packet_t packet;
     gquic_packet_unpacker_init(&unpacker);
     gquic_packet_unpacker_ctor(&unpacker, &client_establish);
@@ -49,17 +50,18 @@ void handle_shello(const gquic_str_t *const raw) {
 
     ret = gquic_crypto_stream_handle_crypto_frame(&initial, frame);
 
-    gquic_str_t recv_data = { 0, NULL };
-    gquic_crypto_stream_get_data(&recv_data, &initial);
+    gquic_str_t *recv_data = NULL;
+    GQUIC_MALLOC_STRUCT(&recv_data, gquic_str_t);
+    gquic_str_init(recv_data);
+    gquic_crypto_stream_get_data(recv_data, &initial);
 
-    gquic_handshake_establish_handle_msg(&client_establish, &recv_data, packet.enc_lv);
+    gquic_handshake_establish_handle_msg(co, &client_establish, recv_data, packet.enc_lv);
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-void handle_handshake(const gquic_str_t *const raw) {
-    struct timeval tv;
-    struct timezone tz;
-    gettimeofday(&tv, &tz);
-    u_int64_t now = tv.tv_sec * 1000 * 1000 + tv.tv_usec;
+int handle_handshake(gquic_coroutine_t *const co, void *const raw) {
+    u_int64_t now = gquic_time_now();
     gquic_unpacked_packet_t packet;
     gquic_packet_unpacker_init(&unpacker);
     gquic_packet_unpacker_ctor(&unpacker, &client_establish);
@@ -73,30 +75,60 @@ void handle_handshake(const gquic_str_t *const raw) {
     while (GQUIC_STR_SIZE(&reader) != 0) {
         gquic_frame_parser_next(&frame, &parser, &reader, packet.enc_lv);
         if (frame == NULL) {
-            return;
+            GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
         }
         if (GQUIC_FRAME_META(frame).type == 0x06) {
             ret = gquic_crypto_stream_handle_crypto_frame(&handshake, frame);
         }
     }
-    gquic_str_t recv_data = { 0, NULL };
-    gquic_crypto_stream_get_data(&recv_data, &handshake);
 
-    gquic_handshake_establish_handle_msg(&client_establish, &recv_data, packet.enc_lv);
+    gquic_str_t *recv_data = NULL;
+    GQUIC_MALLOC_STRUCT(&recv_data, gquic_str_t);
+    gquic_str_init(recv_data);
+    GQUIC_ASSERT(gquic_crypto_stream_get_data(recv_data, &handshake));
+    gquic_handshake_establish_handle_msg(co, &client_establish, recv_data, packet.enc_lv);
+
+    GQUIC_MALLOC_STRUCT(&recv_data, gquic_str_t);
+    gquic_str_init(recv_data);
+    GQUIC_ASSERT(gquic_crypto_stream_get_data(recv_data, &handshake));
+    gquic_str_test_echo(recv_data);
+    gquic_handshake_establish_handle_msg(co, &client_establish, recv_data, packet.enc_lv);
+
+    GQUIC_MALLOC_STRUCT(&recv_data, gquic_str_t);
+    gquic_str_init(recv_data);
+    GQUIC_ASSERT(gquic_crypto_stream_get_data(recv_data, &handshake));
+    gquic_str_test_echo(recv_data);
+    gquic_handshake_establish_handle_msg(co, &client_establish, recv_data, packet.enc_lv);
+
+    GQUIC_MALLOC_STRUCT(&recv_data, gquic_str_t);
+    gquic_str_init(recv_data);
+    GQUIC_ASSERT(gquic_crypto_stream_get_data(recv_data, &handshake));
+    gquic_str_test_echo(recv_data);
+    gquic_handshake_establish_handle_msg(co, &client_establish, recv_data, packet.enc_lv);
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int conn_write(void *const _, const gquic_str_t *const raw) {
+    gquic_str_t *tmp = NULL;
     (void) _;
     static int times = 0;
     times++;
 
     switch (times) {
     case 1: // shello
-        handle_shello(raw);
+        GQUIC_MALLOC_STRUCT(&tmp, gquic_str_t);
+        gquic_str_init(tmp);
+        gquic_str_copy(tmp, raw);
+        gquic_coroutine_fast_join(gquic_get_global_schedule(), 1024 * 1024, handle_shello, tmp);
         break;
     default:
         if (!client_establish.handshake_done) {
-            handle_handshake(raw);
+            GQUIC_MALLOC_STRUCT(&tmp, gquic_str_t);
+            gquic_str_init(tmp);
+            gquic_str_copy(tmp, raw);
+
+            gquic_coroutine_fast_join(gquic_get_global_schedule(), 1024 * 1024, handle_handshake, tmp);
         }
     }
     return 0;
@@ -110,22 +142,22 @@ static int gquic_session_is_client_wrapper(void *const sess_) {
     return sess->is_client;
 }
 
-static int gquic_session_destroy_wrapper(void *const sess, const int err) {
-    return gquic_session_destroy(sess, 10 * err - 1);
+static int gquic_session_destroy_wrapper(gquic_coroutine_t *const co, void *const sess, const int err) {
+    return gquic_session_destroy(co, sess, 10 * err - 1);
 }
 
-static int gquic_session_close_wrapper(void *const sess) {
-    return gquic_session_close(sess);
+static int gquic_session_close_wrapper(gquic_coroutine_t *const co, void *const sess) {
+    return gquic_session_close(co, sess);
 }
 
 static int gquic_session_handle_packet_wrapper(void *const sess, gquic_received_packet_t *const rp) {
     return gquic_session_handle_packet(sess, rp);
 }
 
-static void *__client_run(void *const _) {
+static int __client_run(gquic_coroutine_t *const co, void *const _) {
     (void) _;
-    gquic_handshake_establish_run(&client_establish);
-    return NULL;
+    GQUIC_ASSERT_FAST_RETURN(gquic_handshake_establish_run(co, &client_establish));
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int init_write(void *const _, gquic_writer_str_t *const writer) {
@@ -206,7 +238,8 @@ static int init_write(void *const _, gquic_writer_str_t *const writer) {
     return 0;
 }
 
-static void *__handshake_write_thread(void *const _) {
+static int __handshake_write_thread(gquic_coroutine_t *const co, void *const _) {
+    (void) co;
     (void) _;
     gquic_packet_long_header_t *hdr = gquic_packet_long_header_alloc();
     memcpy(hdr->dcid, GQUIC_STR_VAL(&sci), GQUIC_STR_SIZE(&sci));
@@ -274,14 +307,13 @@ static void *__handshake_write_thread(void *const _) {
     printf("send cfin\n");
     ret = gquic_packet_handler_map_handle_packet(&handler_map, rp);
 
-    return NULL;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int handshake_write(void *const _, gquic_writer_str_t *const writer) {
     (void) _;
     gquic_crypto_stream_write(&handshake, writer);
-    pthread_t thread;
-    pthread_create(&thread, NULL, __handshake_write_thread, writer);
+    gquic_coroutine_fast_join(gquic_get_global_schedule(), 1024 * 1024, __handshake_write_thread, writer);
     return 0;
 }
 
@@ -291,7 +323,7 @@ static int onertt_write(void *const _, gquic_writer_str_t *const writer) {
     return 0;
 }
 
-void send_chello() {
+int send_chello() {
     gquic_handshake_establish_init(&client_establish);
     gquic_transport_parameters_init(&client_params);
     gquic_rtt_init(&client_rtt);
@@ -310,7 +342,9 @@ void send_chello() {
                                    NULL, NULL,
                                    &cli_cfg, &dci, &client_params, &client_rtt, &client_addr, 1);
 
-    pthread_create(&thread, NULL, &__client_run, NULL);
+    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_fast_join(gquic_get_global_schedule(), 1024 * 1024, __client_run, send_chello));
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int get_cert(PKCS12 **const cert_s, const gquic_tls_client_hello_msg_t *const hello) {
@@ -321,7 +355,12 @@ static int get_cert(PKCS12 **const cert_s, const gquic_tls_client_hello_msg_t *c
     return 0;
 }
 
-int main() {
+int server_session_run_co(gquic_coroutine_t *const co, void *const sess) {
+    GQUIC_ASSERT_FAST_RETURN(gquic_session_run(co, sess));
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}
+
+GQUIC_UNIT_TEST(session_server) {
     printf("START client_est\n");
     int fd = socket(AF_INET, SOCK_DGRAM, 0);
     struct sockaddr_in addr;
@@ -329,6 +368,9 @@ int main() {
     addr.sin_port = htons(1234);
     addr.sin_addr.s_addr = inet_addr("127.0.0.1");
     bind(fd, (struct sockaddr *) &addr, sizeof(addr));
+
+    int flag = fcntl(fd, F_GETFL, 0);
+    fcntl(fd, F_SETFL, flag | O_NONBLOCK);
 
     int ret = 0;
     gquic_net_conn_t conn;
@@ -377,8 +419,12 @@ int main() {
 
     send_chello();
 
-    ret = gquic_session_run(&sess);
-    printf("session run: %d\n", ret);
+    gquic_coroutine_fast_join(gquic_get_global_schedule(), 1024 * 1024, server_session_run_co, &sess);
+
+    int i = 0;
+    for (i = 0; i < 150; i++) {
+        gquic_coroutine_schedule_resume(gquic_get_global_schedule());
+    }
 
     return 0;
 }
