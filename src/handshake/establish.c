@@ -11,7 +11,6 @@ static int gquic_establish_check_enc_level(const u_int8_t, const u_int8_t);
 static int gquic_establish_waiting_handshake_done_cmp(const void *const, const void *const);
 static int gquic_establish_cli_handle_msg(gquic_handshake_establish_t *const, gquic_coroutine_t *const, const u_int8_t);
 static int gquic_establish_ser_handle_msg(gquic_handshake_establish_t *const, gquic_coroutine_t *const, const u_int8_t);
-static int gquic_establish_waiting_ser_handle_cmp(const void *const, const void *const);
 static int gquic_establish_drop_initial_keys_wrap(void *const);
 
 static int gquic_establish_record_layer_read_handshake_msg_wrap(gquic_coroutine_t *const, gquic_str_t *const, void *const);
@@ -359,7 +358,7 @@ static int gquic_establish_ser_handle_msg(gquic_handshake_establish_t *const est
     }
     switch (msg_type) {
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_CLIENT_HELLO:
-        gquic_coroutine_chain_recv(&event, &recv_chain, co, 1, &est->done_chain, &est->write_record_chain, &est->param_chain, NULL);
+        gquic_coroutine_chain_recv(&event, &recv_chain, co, 1, &est->done_chain, &est->param_chain, &est->write_record_chain, NULL);
         if (recv_chain == &est->done_chain || recv_chain == &est->write_record_chain) {
             return 0;
         }
@@ -403,32 +402,6 @@ ignore_ext:
         return 1;
     }
     return 0;
-}
-
-static int gquic_establish_waiting_ser_handle_cmp(const void *const event, const void *const type) {
-    const gquic_establish_process_event_t *process_event = event;
-    if (event == NULL || type == NULL) {
-        return -1;
-    }
-
-    switch (*(u_int8_t *) type) {
-    case GQUIC_TLS_HANDSHAKE_MSG_TYPE_CLIENT_HELLO:
-        if (process_event->type == GQUIC_ESTABLISH_PROCESS_EVENT_PARAM
-            || process_event->type == GQUIC_ESTABLISH_PROCESS_EVENT_DONE
-            || process_event->type == GQUIC_ESTABLISH_PROCESS_EVENT_WRITE_RECORD
-            || process_event->type == GQUIC_ESTABLISH_PROCESS_EVENT_RECV_RKEY
-            || process_event->type == GQUIC_ESTABLISH_PROCESS_EVENT_RECV_WKEY) {
-            return 0;
-        }
-        break;
-    case GQUIC_TLS_HANDSHAKE_MSG_TYPE_FINISHED:
-        if (process_event->type == GQUIC_ESTABLISH_PROCESS_EVENT_RECV_RKEY
-            || process_event->type == GQUIC_ESTABLISH_PROCESS_EVENT_DONE) {
-            return 0;
-        }
-        break;
-    }
-    return 1;
 }
 
 int gquic_handshake_establish_read_handshake_msg(gquic_coroutine_t *const co, gquic_str_t *const msg, gquic_handshake_establish_t *const est) {
