@@ -23,6 +23,7 @@ int gquic_coroutine_release(gquic_coroutine_t *const co) {
     gquic_coroutine_dtor(co);
     free(co);
 
+
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 

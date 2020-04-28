@@ -24,11 +24,13 @@ int gquic_coroutine_timer_push(gquic_coroutine_timer_t *const timer, gquic_corou
     GQUIC_LIST_FOREACH(eachor_unit, &timer->waiting) {
         if (unit->timeout < eachor_unit->timeout) {
             inserted = 1;
+            gquic_coroutine_join_ref(co);
             gquic_list_insert_before(&GQUIC_LIST_META(eachor_unit), unit);
             break;
         }
     }
     if (!inserted) {
+        gquic_coroutine_join_ref(co);
         gquic_list_insert_before(&timer->waiting, unit);
     }
 
@@ -44,6 +46,7 @@ int gquic_coroutine_timer_pop(gquic_coroutine_t **const co_storage, gquic_corout
     }
     *co_storage = ((gquic_coroutine_timer_unit_t *) GQUIC_LIST_FIRST(&timer->waiting))->co;
     gquic_list_release(GQUIC_LIST_FIRST(&timer->waiting));
+    gquic_coroutine_join_unref(*co_storage);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

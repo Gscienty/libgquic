@@ -43,6 +43,7 @@ int gquic_coroutine_chain_recv(void **const result, gquic_coroutine_chain_t **co
     va_end(chains);
 
     if (waiting) {
+        // TODO co unregistry chains
         gquic_coroutine_yield(co);
         va_start(chains, waiting);
         while ((chain = va_arg(chains, gquic_coroutine_chain_t *const)) != NULL) {
@@ -85,6 +86,7 @@ int gquic_coroutine_chain_send(gquic_coroutine_chain_t *const chain, gquic_corou
     if (!gquic_list_head_empty(&chain->waiting)) {
         co = *(gquic_coroutine_t **) GQUIC_LIST_FIRST(&chain->waiting);
         gquic_list_release(GQUIC_LIST_FIRST(&chain->waiting));
+        gquic_coroutine_join_unref(co);
     }
     pthread_mutex_unlock(&chain->mtx);
     if (co != NULL) {
@@ -149,8 +151,8 @@ int gquic_coroutine_chain_boradcast_close(gquic_coroutine_chain_t *const chain, 
      while (!gquic_list_head_empty(&chain->waiting)) {
         co = *(gquic_coroutine_t **) GQUIC_LIST_FIRST(&chain->waiting);
         gquic_list_release(GQUIC_LIST_FIRST(&chain->waiting));
-        pthread_mutex_unlock(&chain->mtx);
         gquic_coroutine_join_unref(co);
+        pthread_mutex_unlock(&chain->mtx);
         gquic_coroutine_schedule_join(sche, co);
         pthread_mutex_lock(&chain->mtx);
      }

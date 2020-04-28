@@ -2,6 +2,7 @@
 #define _LIBGQUIC_COROUTINE_H
 
 #include "coroutine/context.h"
+#include "exception.h"
 #include <pthread.h>
 
 #define GQUIC_COROUTINE_STATUS_STARTING 0x01

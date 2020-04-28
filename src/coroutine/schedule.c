@@ -51,8 +51,8 @@ int gquic_coroutine_schedule_join(gquic_coroutine_schedule_t *const sche, gquic_
     }
     *co_storage = co;
 
-    gquic_coroutine_join_ref(co);
     co->status = GQUIC_COROUTINE_STATUS_READYING;
+    gquic_coroutine_join_ref(co);
     GQUIC_EXCEPTION_ASSIGN(exception, gquic_list_insert_before(&sche->ready, co_storage));
     pthread_mutex_unlock(&sche->mtx);
     pthread_cond_signal(&sche->cond);
@@ -65,6 +65,10 @@ int gquic_coroutine_schedule_timeout_join(gquic_coroutine_schedule_t *const sche
     if (sche == NULL || co == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
+    if (timeout <= gquic_time_now()) {
+        return gquic_coroutine_schedule_join(sche, co);
+    }
+
     pthread_mutex_lock(&sche->mtx);
     if (gquic_coroutine_timer_exist(&sche->timer, co)) {
         pthread_mutex_unlock(&sche->mtx);
