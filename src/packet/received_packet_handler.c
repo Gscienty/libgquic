@@ -1,6 +1,7 @@
 #include "packet/received_packet_handler.h"
 #include "frame/meta.h"
 #include "tls/common.h"
+#include "util/time.h"
 #include "exception.h"
 
 static int gquic_packet_received_mem_add(gquic_packet_received_mem_t *const, const u_int64_t);
@@ -261,11 +262,17 @@ int gquic_packet_received_mem_get_blocks(gquic_list_t *const blocks, const gquic
 }
 
 int gquic_packet_received_packet_handler_get_ack_frame(gquic_frame_ack_t **const ack, gquic_packet_received_packet_handler_t *const handler) {
+    u_int64_t now;
     int exception = GQUIC_SUCCESS;
     gquic_list_t blocks;
     if (ack == NULL || handler == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
+    now = gquic_time_now();
+    if (!handler->ack_queued && (handler->ack_alarm == 0 || now < handler->ack_alarm)) {
+        GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+    }
+
     gquic_list_head_init(&blocks);
     GQUIC_ASSERT_FAST_RETURN(gquic_packet_received_mem_get_blocks(&blocks, &handler->mem));
     if (gquic_list_head_empty(&blocks)) {
@@ -278,10 +285,7 @@ int gquic_packet_received_packet_handler_get_ack_frame(gquic_frame_ack_t **const
         GQUIC_PROCESS_DONE(exception);
     }
     GQUIC_FRAME_INIT(*ack);
-    struct timeval tv;
-    struct timezone tz;
-    gettimeofday(&tv, &tz);
-    (*ack)->delay = tv.tv_sec * 1000 * 1000 + tv.tv_usec - handler->largest_obeserved_time;
+    (*ack)->delay = now - handler->largest_obeserved_time;
     gquic_frame_ack_ranges_from_blocks(*ack, &blocks);
 
     handler->last_ack = *ack;

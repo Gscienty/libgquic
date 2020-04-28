@@ -3,6 +3,7 @@
 #include "frame/meta.h"
 #include "frame/ping.h"
 #include "util/time.h"
+#include "util/malloc.h"
 #include "exception.h"
 
 static int gquic_retransmission_queue_add_initial_wrapper(void *const, void *const);
@@ -660,8 +661,7 @@ static int gquic_packet_packer_get_sealer_and_header(gquic_packed_packet_payload
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_packer_try_pack_initial_packet(gquic_packed_packet_t *const packed_packet,
-                                                gquic_packet_packer_t *const packer) {
+int gquic_packet_packer_try_pack_initial_packet(gquic_packed_packet_t *const packed_packet, gquic_packet_packer_t *const packer) {
     int exception = GQUIC_SUCCESS;
     gquic_packed_packet_payload_t payload;
     int has_retransmission = 0;
@@ -671,7 +671,7 @@ int gquic_packet_packer_try_pack_initial_packet(gquic_packed_packet_t *const pac
     gquic_packed_packet_payload_init(&payload);
 
     GQUIC_ASSERT_FAST_RETURN(gquic_handshake_establish_get_initial_sealer(&payload.header_sealer,
-                                                            (gquic_common_long_header_sealer_t **) &payload.sealer.self, packer->est));
+                                                                          (gquic_common_long_header_sealer_t **) &payload.sealer.self, packer->est));
     payload.sealer.cb = gquic_common_long_header_sealer_seal_wrapper;
     GQUIC_ASSERT_FAST_RETURN(gquic_packet_received_packet_handlers_get_ack_frame(&payload.ack, packer->acks, GQUIC_ENC_LV_INITIAL));
     if (payload.ack != NULL) {
@@ -682,9 +682,9 @@ int gquic_packet_packer_try_pack_initial_packet(gquic_packed_packet_t *const pac
         gquic_packed_packet_payload_dtor(&payload);
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
-    if ((payload.frames = malloc(sizeof(gquic_list_t))) == NULL) {
+    if (GQUIC_ASSERT_CAUSE(exception, GQUIC_MALLOC_STRUCT(&payload.frames, gquic_list_t))) {
         gquic_packed_packet_payload_dtor(&payload);
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
+        GQUIC_PROCESS_DONE(exception);
     }
     gquic_list_head_init(payload.frames);
     payload.enc_lv = GQUIC_ENC_LV_INITIAL;
@@ -696,8 +696,7 @@ int gquic_packet_packer_try_pack_initial_packet(gquic_packed_packet_t *const pac
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_packer_try_pack_handshake_packet(gquic_packed_packet_t *const packed_packet,
-                                                  gquic_packet_packer_t *const packer) {
+int gquic_packet_packer_try_pack_handshake_packet(gquic_packed_packet_t *const packed_packet, gquic_packet_packer_t *const packer) {
     int exception = GQUIC_SUCCESS;
     gquic_packed_packet_payload_t payload;
     int has_retransmission = 0;
@@ -715,13 +714,13 @@ int gquic_packet_packer_try_pack_handshake_packet(gquic_packed_packet_t *const p
         payload.len = GQUIC_FRAME_SIZE(payload.ack);
     }
     has_retransmission = gquic_retransmission_queue_has_initial(packer->retransmission_queue);
-    if (!gquic_crypto_stream_has_data(packer->initial_stream) && !has_retransmission && payload.ack == NULL) {
+    if (!gquic_crypto_stream_has_data(packer->handshake_stream) && !has_retransmission && payload.ack == NULL) {
         gquic_packed_packet_payload_dtor(&payload);
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
-    if ((payload.frames = malloc(sizeof(gquic_list_t))) == NULL) {
+    if (GQUIC_ASSERT_CAUSE(exception, GQUIC_MALLOC_STRUCT(&payload.frames, gquic_list_t))) {
         gquic_packed_packet_payload_dtor(&payload);
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
+        GQUIC_PROCESS_DONE(exception);
     }
     gquic_list_head_init(payload.frames);
     payload.enc_lv = GQUIC_ENC_LV_HANDSHAKE;
@@ -854,6 +853,7 @@ int gquic_packet_packer_try_pack_crypto_packet(gquic_packed_packet_t *const pack
     else if (exception != GQUIC_SUCCESS || packed_packet->valid == 1) {
         GQUIC_PROCESS_DONE(exception);
     }
+
 
     GQUIC_ASSERT_CAUSE(exception, gquic_packet_packer_try_pack_handshake_packet(packed_packet, packer));
     if (exception == GQUIC_EXCEPTION_KEY_DROPPED) {

@@ -90,7 +90,6 @@ int gquic_packet_handler_map_ctor(gquic_packet_handler_map_t *const handler,
                                   const int conn_fd,
                                   const int conn_id_len,
                                   const gquic_str_t *const stateless_reset_token) {
-    gquic_coroutine_t *co = NULL;
     if (handler == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -100,10 +99,7 @@ int gquic_packet_handler_map_ctor(gquic_packet_handler_map_t *const handler,
     handler->stateless_reset_enabled = GQUIC_STR_SIZE(stateless_reset_token) > 0;
     gquic_str_copy(&handler->stateless_reset_key, stateless_reset_token);
 
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_alloc(&co));
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_init(co));
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_ctor(co, 1024 * 1024, __packet_handler_map_listen, handler));
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_schedule_join(gquic_get_global_schedule(), co));
+    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_fast_join(gquic_get_global_schedule(), 1024 * 1024, __packet_handler_map_listen, handler));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
