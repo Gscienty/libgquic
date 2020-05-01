@@ -117,6 +117,7 @@
 #define GQUIC_EXCEPTION_IDLE_TIMEOUT                            -10000114
 #define GQUIC_EXCEPTION_HANDSHAKE_TIMEOUT                       -10000115
 #define GQUIC_EXCEPTION_NOT_IMPLEMENTED                         -10000116
+#define GQUIC_EXCEPTION_BUSY                                    -10000117
 #define GQUIC_SUCCESS 0
 
 #ifdef DEBUG

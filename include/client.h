@@ -7,11 +7,10 @@
 #include "net/conn.h"
 #include "config.h"
 #include "session.h"
-#include <semaphore.h>
+#include <pthread.h>
 
 typedef struct gquic_client_s gquic_client_t;
 struct gquic_client_s {
-    sem_t mtx;
     gquic_net_conn_t conn;
     int created_conn;
     gquic_packet_handler_map_t *packet_handlers;
@@ -27,7 +26,12 @@ struct gquic_client_s {
     gquic_session_t sess;
     pthread_t sess_run_thread;
     
-    gquic_sem_list_t sec_conn_events;
+    gquic_coroutine_chain_t err_chain;
+    gquic_coroutine_chain_t handshake_complete_chain;
+    gquic_coroutine_chain_t done_chain;
+
+    pthread_mutex_t mtx;
+    _Atomic int connected;
 };
 
 int gquic_client_init(gquic_client_t *const client);

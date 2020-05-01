@@ -90,7 +90,6 @@ static int gquic_packet_handler_map_remove_wrapper(void *const, const gquic_str_
 static int gquic_packet_handler_map_retire_wrapper(void *const, const gquic_str_t *const);
 static int gquic_packet_handler_map_replace_with_closed_wrapper(void *const, const gquic_str_t *const, gquic_packet_handler_t *const);
 
-static inline gquic_packet_handler_t *gquic_session_implement_packet_handler(gquic_session_t *const);
 static int gquic_session_implement_stream_sender(gquic_stream_sender_t *const, void *const);
 
 static int gquic_initial_stream_write_wrapper(void *const, gquic_writer_str_t *const);
@@ -216,12 +215,7 @@ int gquic_session_ctor(gquic_session_t *const sess,
         || cfg == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if (!is_client &&
-        (
-         origin_dst_conn_id == NULL
-         || cli_dst_conn_id == NULL
-         || stateless_reset_token == NULL
-        )) {
+    if (!is_client && cli_dst_conn_id == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_str_copy(&sess->cli_dst_conn_id, cli_dst_conn_id);
@@ -349,7 +343,7 @@ static int gquic_session_add_wrapper(gquic_str_t *const token, void *const sess_
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static inline gquic_packet_handler_t *gquic_session_implement_packet_handler(gquic_session_t *const sess) {
+gquic_packet_handler_t *gquic_session_implement_packet_handler(gquic_session_t *const sess) {
     gquic_packet_handler_t *handler = NULL;
     if ((handler = malloc(sizeof(gquic_packet_handler_t))) == NULL) {
         return NULL;
@@ -668,6 +662,9 @@ int gquic_session_run(gquic_coroutine_t *const co, gquic_session_t *const sess) 
     if (GQUIC_ASSERT_CAUSE(exception, gquic_coroutine_alloc(&handshake_co))) {
         goto finished;
     }
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_coroutine_init(handshake_co))) {
+        goto finished;
+    }
     if (GQUIC_ASSERT_CAUSE(exception, gquic_coroutine_ctor(handshake_co, 1024 * 1024, gquic_session_run_handshake_co, sess))) {
         goto finished;
     }
@@ -675,6 +672,9 @@ int gquic_session_run(gquic_coroutine_t *const co, gquic_session_t *const sess) 
         goto finished;
     }
     if (GQUIC_ASSERT_CAUSE(exception, gquic_coroutine_alloc(&send_queue_co))) {
+        goto finished;
+    }
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_coroutine_init(send_queue_co))) {
         goto finished;
     }
     if (GQUIC_ASSERT_CAUSE(exception, gquic_coroutine_ctor(send_queue_co, 1024 * 1024, gquic_session_run_send_queue_co, sess))) {
