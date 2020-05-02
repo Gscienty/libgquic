@@ -41,8 +41,8 @@ int gquic_cong_cubic_ctor(gquic_cong_cubic_t *const cubic, const gquic_rtt_t *co
     cubic->initial_max_cwnd = initial_max_cwnd;
     cubic->cwnd = initial_cwnd;
     cubic->min_cwnd = 1460 * 2;
-    cubic->slow_start_threshold = initial_cwnd;
-    cubic->max_cwnd = initial_cwnd;
+    cubic->slow_start_threshold = initial_max_cwnd;
+    cubic->max_cwnd = initial_max_cwnd;
     cubic->conn_count = 1;
     cubic->rtt = rtt;
     gquic_cubic_ctor(&cubic->cubic);
@@ -100,7 +100,7 @@ int gquic_cong_cubic_on_packet_acked(gquic_cong_cubic_t *const cubic,
     if (cubic == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    cubic->largest_acked_pn = pn > cubic->largest_acked_pn ? pn : cubic->largest_acked_pn;
+    cubic->largest_acked_pn = cubic->largest_acked_pn == (u_int64_t) -1 && pn > cubic->largest_acked_pn ? pn : cubic->largest_acked_pn;
     if (gquic_cong_cubic_in_recovery(cubic)) {
         if (!cubic->disable_prr) {
             cubic->prr.delivered_bytes += acked_bytes;
@@ -163,7 +163,7 @@ int gquic_cong_cubic_on_packet_lost(gquic_cong_cubic_t *const cubic,
     if (cubic == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if (pn <= cubic->largest_sent_last_cut) {
+    if (cubic->largest_sent_last_cut != (u_int64_t) -1 && pn <= cubic->largest_sent_last_cut) {
         if (cubic->last_cut_slow_start_exited) {
             cubic->stat.lost_packets++;
             cubic->stat.lost_bytes += lost_bytes;

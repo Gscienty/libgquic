@@ -27,9 +27,10 @@ int gquic_coroutine_schedule_resume(gquic_coroutine_schedule_t *const sche);
 int gquic_coroutine_schedule_yield(gquic_coroutine_schedule_t *const sche, gquic_coroutine_t *const co);
 int gquic_coroutine_schedule_timeout_join(gquic_coroutine_schedule_t *const sche, gquic_coroutine_t *const co, u_int64_t timeout);
 
-static inline int gquic_coroutine_fast_join(gquic_coroutine_schedule_t *const sche, size_t stack_size, int (*func) (gquic_coroutine_t *const, void *const), void *args) {
+static inline int gquic_coroutine_fast_join(gquic_coroutine_schedule_t *const sche, size_t stack_size,
+                                            int (*func) (gquic_coroutine_t *const, void *const), void *args) {
     gquic_coroutine_t *co = NULL;
-    if (func == NULL || args == NULL) {
+    if (sche == NULL || func == NULL || args == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_alloc(&co));
