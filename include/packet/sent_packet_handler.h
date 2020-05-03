@@ -6,7 +6,6 @@
 #include "util/list.h"
 #include "util/rbtree.h"
 #include "cong/cubic.h"
-#include "event/event.h"
 #include "frame/ack.h"
 
 typedef struct gquic_packet_sent_mem_s gquic_packet_sent_mem_t;
@@ -53,20 +52,10 @@ struct gquic_packet_sent_packet_handler_s {
     u_int8_t pto_mode;
     int num_probes_to_send;
     u_int64_t alarm;
-    struct {
-        void *self;
-        int (*cb)(void *const, gquic_event_t *const);
-    } event_cb;
 };
 
-#define GQUIC_PACKET_SENT_PACKET_HANDLER_EVENT_CALLBACK(handler, event) ((handler)->event_cb.cb(((handler)->event_cb.self), (event)))
-
 int gquic_packet_sent_packet_handler_init(gquic_packet_sent_packet_handler_t *const handler);
-int gquic_packet_sent_packet_handler_ctor(gquic_packet_sent_packet_handler_t *const handler,
-                                          const u_int64_t initial_pn,
-                                          gquic_rtt_t *const rtt,
-                                          void *const event_self,
-                                          int (*event_cb)(void *const, gquic_event_t *const));
+int gquic_packet_sent_packet_handler_ctor(gquic_packet_sent_packet_handler_t *const handler, const u_int64_t initial_pn, gquic_rtt_t *const rtt);
 int gquic_packet_sent_packet_handler_dtor(gquic_packet_sent_packet_handler_t *const handler);
 int gquic_packet_sent_packet_handler_drop_packets(gquic_packet_sent_packet_handler_t *const handler,
                                                   const u_int8_t enc_lv);

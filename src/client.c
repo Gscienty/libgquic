@@ -255,8 +255,14 @@ static int gquic_client_connect(gquic_client_t *const client) {
     GQUIC_ASSERT_FAST_RETURN(gquic_client_create_sess(client));
     GQUIC_ASSERT_FAST_RETURN(gquic_global_schedule_join(&co, 1024 * 1024, gquic_client_establish_sec_conn, client));
 
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_await(co));
-    gquic_schedule_coroutine_executed_finally(gquic_get_global_schedule(), co);
+    for ( ;; ) {
+        GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_await(co));
+        if (co->status == GQUIC_COROUTINE_STATUS_TERMIATE) {
+            gquic_coroutine_next(co);
+            break;
+        }
+        gquic_coroutine_next(co);
+    }
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

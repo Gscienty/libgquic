@@ -72,6 +72,8 @@ int gquic_coroutine_init(gquic_coroutine_t *const co) {
     co->joined_times = 0;
     pthread_mutex_init(&co->mtx, NULL);
 
+    co->result = GQUIC_SUCCESS;
+
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
@@ -102,33 +104,28 @@ int gquic_coroutine_dtor(gquic_coroutine_t *const co) {
 }
 
 int gquic_coroutine_yield(gquic_coroutine_t *const co) {
-    gquic_coroutine_schedule_t *sche = NULL;
     if (co == NULL || co->ctx.link == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (co->status == GQUIC_COROUTINE_STATUS_RUNNING) {
         co->status = GQUIC_COROUTINE_STATUS_READYING;
     }
-    sche = (gquic_coroutine_schedule_t *) (((void *) co->ctx.link) - ((void *) &((gquic_coroutine_schedule_t *) 0)->schedule_ctx));
-    gquic_coroutine_schedule_yield(sche, co);
+    gquic_coroutine_schedule_yield(GQUIC_COROUTINE_GET_SCHEDULE(co), co);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_coroutine_await(gquic_coroutine_t *const co) {
     gquic_coroutine_t *resumed_co = NULL;
-    gquic_coroutine_schedule_t *sche = NULL;
     if (co == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-
-    sche = (gquic_coroutine_schedule_t *) (((void *) co->ctx.link) - ((void *) &((gquic_coroutine_schedule_t *) 0)->schedule_ctx));
     for ( ;; ) {
-        gquic_coroutine_schedule_resume(&resumed_co, sche);
-        gquic_schedule_coroutine_executed_finally(sche, resumed_co);
+        gquic_coroutine_schedule_resume(&resumed_co, GQUIC_COROUTINE_GET_SCHEDULE(co));
         if (co == resumed_co) {
             break;
         }
+        gquic_coroutine_next(resumed_co);
     }
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);

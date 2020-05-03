@@ -242,7 +242,7 @@ int gquic_session_ctor(gquic_session_t *const sess,
                                                     runner, gquic_packet_handler_map_replace_with_closed_wrapper,
                                                     sess, gquic_session_queue_control_frame_wrapper));
     GQUIC_ASSERT_FAST_RETURN(gquic_session_pre_setup(sess));
-    GQUIC_ASSERT_FAST_RETURN(gquic_packet_sent_packet_handler_ctor(&sess->sent_packet_handler, initial_pn, &sess->rtt, NULL, NULL));
+    GQUIC_ASSERT_FAST_RETURN(gquic_packet_sent_packet_handler_ctor(&sess->sent_packet_handler, initial_pn, &sess->rtt));
     GQUIC_ASSERT_FAST_RETURN(gquic_crypto_stream_ctor(&sess->initial_stream));
     GQUIC_ASSERT_FAST_RETURN(gquic_crypto_stream_ctor(&sess->handshake_stream));
     GQUIC_ASSERT_FAST_RETURN(gquic_post_handshake_crypto_ctor(&sess->one_rtt_stream, &sess->framer));

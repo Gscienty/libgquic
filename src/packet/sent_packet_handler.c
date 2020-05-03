@@ -2,7 +2,6 @@
 #include "tls/common.h"
 #include "packet/send_mode.h"
 #include "frame/meta.h"
-#include "event/event.h"
 #include "exception.h"
 #include <malloc.h>
 #include <time.h>
@@ -171,18 +170,12 @@ int gquic_packet_sent_packet_handler_init(gquic_packet_sent_packet_handler_t *co
     handler->pto_mode = 0;
     handler->num_probes_to_send = 0;
     handler->alarm = 0;
-    handler->event_cb.self = NULL;
-    handler->event_cb.cb = NULL;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_sent_packet_handler_ctor(gquic_packet_sent_packet_handler_t *const handler,
-                                          const u_int64_t initial_pn,
-                                          gquic_rtt_t *const rtt,
-                                          void *const event_self,
-                                          int (*event_cb)(void *const, gquic_event_t *const)) {
-    if (handler == NULL) {
+int gquic_packet_sent_packet_handler_ctor(gquic_packet_sent_packet_handler_t *const handler, const u_int64_t initial_pn, gquic_rtt_t *const rtt) {
+    if (handler == NULL || rtt == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_cong_cubic_ctor(&handler->cong, rtt, 32 * 1460, 1000 * 1460);
@@ -202,8 +195,6 @@ int gquic_packet_sent_packet_handler_ctor(gquic_packet_sent_packet_handler_t *co
     gquic_packet_sent_pn_ctor(handler->handshake_packets, 0);
     gquic_packet_sent_pn_ctor(handler->one_rtt_packets, 0);
     handler->rtt = rtt;
-    handler->event_cb.self = event_self;
-    handler->event_cb.cb = event_cb;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -643,26 +634,6 @@ static int gquic_packet_sent_packet_handler_detect_lost_packets(gquic_packet_sen
             gquic_cong_cubic_on_packet_lost(&handler->cong, (*lost_packet_storage)->pn, (*lost_packet_storage)->len, infly);
         }
         gquic_packet_sent_mem_remove(&pn_spec->mem, (*lost_packet_storage)->pn, gquic_packet_sent_packet_handler_packet_release);
-        if (handler->event_cb.self != NULL) {
-            gquic_event_t event = {
-                now,
-                GQUIC_EVENT_PACKET_LOST,
-                {
-                    handler->rtt->min,
-                    handler->rtt->smooth,
-                    handler->rtt->latest,
-                    handler->infly_bytes,
-                    handler->cong.cwnd,
-                    gquic_cong_cubic_in_slow_start(&handler->cong),
-                    gquic_cong_cubic_in_recovery(&handler->cong)
-                },
-                (*lost_packet_storage)->enc_lv,
-                (*lost_packet_storage)->pn,
-                (*lost_packet_storage)->len,
-                (*lost_packet_storage)->frames
-            };
-            GQUIC_PACKET_SENT_PACKET_HANDLER_EVENT_CALLBACK(handler, &event);
-        }
     }
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);

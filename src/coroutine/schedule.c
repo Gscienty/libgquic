@@ -5,6 +5,7 @@
 #include <stdio.h>
 
 static int gquic_schedule_coroutine_execute_wrapper(void *const);
+static int gquic_coroutine_schedule_wake_up(gquic_coroutine_t **const, gquic_coroutine_schedule_t *const);
 
 int gquic_coroutine_schedule_init(gquic_coroutine_schedule_t *const sche) {
     if (sche == NULL) {
@@ -88,10 +89,19 @@ int gquic_coroutine_schedule_timeout_join(gquic_coroutine_schedule_t *const sche
 }
 
 int gquic_coroutine_schedule_resume(gquic_coroutine_t **const co_storage, gquic_coroutine_schedule_t *const sche) {
+    gquic_coroutine_t *waked_co = NULL;
     if (co_storage == NULL || sche == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     pthread_mutex_lock(&sche->mtx);
+    gquic_coroutine_schedule_wake_up(&waked_co, sche);
+    if (waked_co != NULL) {
+        pthread_mutex_unlock(&sche->mtx);
+        gquic_coroutine_schedule_join(sche, waked_co);
+        pthread_mutex_lock(&sche->mtx);
+        waked_co = NULL;
+    }
+
     while (gquic_list_head_empty(&sche->ready)) {
         if (gquic_coroutine_timer_empty(&sche->timer)) {
             pthread_cond_wait(&sche->cond, &sche->mtx);
@@ -101,14 +111,12 @@ int gquic_coroutine_schedule_resume(gquic_coroutine_t **const co_storage, gquic_
             struct timespec timeout = { deadline / (1000 * 1000), deadline % (1000 * 1000) };
             pthread_cond_timedwait(&sche->cond, &sche->mtx, &timeout);
 
-            if (gquic_time_now() >= deadline) {
-                gquic_coroutine_t *co = NULL;
-                gquic_coroutine_timer_pop(&co, &sche->timer);
-
+            gquic_coroutine_schedule_wake_up(&waked_co, sche);
+            if (waked_co != NULL) {
                 pthread_mutex_unlock(&sche->mtx);
-                co->status = GQUIC_COROUTINE_STATUS_READYING;
-                gquic_coroutine_schedule_join(sche, co);
+                gquic_coroutine_schedule_join(sche, waked_co);
                 pthread_mutex_lock(&sche->mtx);
+                waked_co = NULL;
             }
         }
     }
@@ -137,9 +145,27 @@ static int gquic_schedule_coroutine_execute_wrapper(void *const co_) {
     if (co == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    GQUIC_COROUTINE_CALL(co);
+    GQUIC_EXCEPTION_ASSIGN(co->result, GQUIC_COROUTINE_CALL(co));
 
     co->status = GQUIC_COROUTINE_STATUS_TERMIATE;
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
+static int gquic_coroutine_schedule_wake_up(gquic_coroutine_t **const co_storage, gquic_coroutine_schedule_t *const sche) {
+    if (co_storage == NULL || sche == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+    if (gquic_coroutine_timer_empty(&sche->timer)) {
+        GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+    }
+    u_int64_t deadline = gquic_coroutine_timer_late(&sche->timer);
+    if (gquic_time_now() >= deadline) {
+        gquic_coroutine_t *co = NULL;
+        gquic_coroutine_timer_pop(&co, &sche->timer);
+
+        co->status = GQUIC_COROUTINE_STATUS_READYING;
+        *co_storage = co;
+    }
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}

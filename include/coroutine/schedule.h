@@ -26,10 +26,12 @@ int gquic_coroutine_schedule_join(gquic_coroutine_schedule_t *const sche, gquic_
 int gquic_coroutine_schedule_resume(gquic_coroutine_t **const co_storage, gquic_coroutine_schedule_t *const sche);
 int gquic_coroutine_schedule_yield(gquic_coroutine_schedule_t *const sche, gquic_coroutine_t *const co);
 int gquic_coroutine_schedule_timeout_join(gquic_coroutine_schedule_t *const sche, gquic_coroutine_t *const co, u_int64_t timeout);
-static inline int gquic_schedule_coroutine_executed_finally(gquic_coroutine_schedule_t *const sche, gquic_coroutine_t *const co) {
+static inline int gquic_coroutine_next(gquic_coroutine_t *const co) {
+    gquic_coroutine_schedule_t *sche = NULL;
     if (co == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
+    sche = GQUIC_COROUTINE_GET_SCHEDULE(co);
     switch (co->status) {
     case GQUIC_COROUTINE_STATUS_RUNNING:
         co->status = GQUIC_COROUTINE_STATUS_READYING;

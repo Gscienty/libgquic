@@ -24,6 +24,8 @@ struct gquic_coroutine_s {
         void *args;
         int (*func) (gquic_coroutine_t *const, void *const);
     } cb;
+
+    int result;
 };
 
 #define GQUIC_COROUTINE_CALL(co) ((co)->cb.func((co), (co)->cb.args))
