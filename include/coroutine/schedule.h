@@ -23,20 +23,29 @@ struct gquic_coroutine_schedule_s {
 
 int gquic_coroutine_schedule_init(gquic_coroutine_schedule_t *const sche);
 int gquic_coroutine_schedule_join(gquic_coroutine_schedule_t *const sche, gquic_coroutine_t *const co);
-int gquic_coroutine_schedule_resume(gquic_coroutine_schedule_t *const sche);
+int gquic_coroutine_schedule_resume(gquic_coroutine_t **const co_storage, gquic_coroutine_schedule_t *const sche);
 int gquic_coroutine_schedule_yield(gquic_coroutine_schedule_t *const sche, gquic_coroutine_t *const co);
 int gquic_coroutine_schedule_timeout_join(gquic_coroutine_schedule_t *const sche, gquic_coroutine_t *const co, u_int64_t timeout);
-
-static inline int gquic_coroutine_fast_join(gquic_coroutine_schedule_t *const sche, size_t stack_size,
-                                            int (*func) (gquic_coroutine_t *const, void *const), void *args) {
-    gquic_coroutine_t *co = NULL;
-    if (sche == NULL || func == NULL || args == NULL) {
+static inline int gquic_schedule_coroutine_executed_finally(gquic_coroutine_schedule_t *const sche, gquic_coroutine_t *const co) {
+    if (co == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_alloc(&co));
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_init(co));
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_ctor(co, stack_size, func, args));
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_schedule_join(sche, co));
+    switch (co->status) {
+    case GQUIC_COROUTINE_STATUS_RUNNING:
+        co->status = GQUIC_COROUTINE_STATUS_READYING;
+
+    case GQUIC_COROUTINE_STATUS_READYING:
+        gquic_coroutine_schedule_join(sche, co);
+        break;
+
+    case GQUIC_COROUTINE_STATUS_TERMIATE:
+        gquic_coroutine_try_release(co);
+        break;
+
+    case GQUIC_COROUTINE_STATUS_WAITING:
+    case GQUIC_COROUTINE_STATUS_STARTING:
+        break;
+    }
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

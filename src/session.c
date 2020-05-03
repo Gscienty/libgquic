@@ -659,28 +659,10 @@ int gquic_session_run(gquic_coroutine_t *const co, gquic_session_t *const sess) 
     if (sess == NULL || co == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if (GQUIC_ASSERT_CAUSE(exception, gquic_coroutine_alloc(&handshake_co))) {
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_global_schedule_join(&handshake_co, 1024 * 1024, gquic_session_run_handshake_co, sess))) {
         goto finished;
     }
-    if (GQUIC_ASSERT_CAUSE(exception, gquic_coroutine_init(handshake_co))) {
-        goto finished;
-    }
-    if (GQUIC_ASSERT_CAUSE(exception, gquic_coroutine_ctor(handshake_co, 1024 * 1024, gquic_session_run_handshake_co, sess))) {
-        goto finished;
-    }
-    if (GQUIC_ASSERT_CAUSE(exception, gquic_coroutine_schedule_join(gquic_get_global_schedule(), handshake_co))) {
-        goto finished;
-    }
-    if (GQUIC_ASSERT_CAUSE(exception, gquic_coroutine_alloc(&send_queue_co))) {
-        goto finished;
-    }
-    if (GQUIC_ASSERT_CAUSE(exception, gquic_coroutine_init(send_queue_co))) {
-        goto finished;
-    }
-    if (GQUIC_ASSERT_CAUSE(exception, gquic_coroutine_ctor(send_queue_co, 1024 * 1024, gquic_session_run_send_queue_co, sess))) {
-        goto finished;
-    }
-    if (GQUIC_ASSERT_CAUSE(exception, gquic_coroutine_schedule_join(gquic_get_global_schedule(), send_queue_co))) {
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_global_schedule_join(&send_queue_co, 1024 * 1024, gquic_session_run_send_queue_co, sess))) {
         goto finished;
     }
 
@@ -720,16 +702,10 @@ int gquic_session_run(gquic_coroutine_t *const co, gquic_session_t *const sess) 
         }
         gquic_coroutine_chain_init(timeout_chain);
         gquic_coroutine_t *timeout_co = NULL;
-        if (GQUIC_ASSERT_CAUSE(exception, gquic_coroutine_alloc(&timeout_co))) {
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_global_schedule_timeout_join(&timeout_co, sess->deadline, 4096,
+                                                                             gquic_session_run_timeout_co, timeout_chain))) {
             goto finished;
         }
-        if (GQUIC_ASSERT_CAUSE(exception, gquic_coroutine_init(timeout_co))) {
-            goto finished;
-        }
-        if (GQUIC_ASSERT_CAUSE(exception, gquic_coroutine_ctor(timeout_co, 4096, gquic_session_run_timeout_co, timeout_chain))) {
-            goto finished;
-        }
-        gquic_coroutine_schedule_timeout_join(gquic_get_global_schedule(), timeout_co, sess->deadline);
 
         GQUIC_EXCEPTION_ASSIGN(exception, gquic_coroutine_chain_recv(&event, &recv_chain, co, 1,
                                                                      &sess->close_chain,

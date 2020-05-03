@@ -168,9 +168,7 @@ int gquic_handshake_establish_run(gquic_coroutine_t *const co, gquic_handshake_e
     if (co == NULL || est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_alloc(&establish_run_co));
-    gquic_coroutine_ctor(establish_run_co, 1024 * 1024, __establish_run, est);
-    gquic_coroutine_schedule_join(gquic_get_global_schedule(), establish_run_co);
+    GQUIC_ASSERT_FAST_RETURN(gquic_global_schedule_join(&establish_run_co, 1024 * 1024, __establish_run, est));
     GQUIC_EXCEPTION_ASSIGN(exception,
                            gquic_coroutine_chain_recv(&ending, &recv_chain, co, 1,
                                                       &est->alert_chain, &est->complete_chain, &est->close_chain, NULL));

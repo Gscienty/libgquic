@@ -114,3 +114,22 @@ int gquic_coroutine_yield(gquic_coroutine_t *const co) {
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
+
+int gquic_coroutine_await(gquic_coroutine_t *const co) {
+    gquic_coroutine_t *resumed_co = NULL;
+    gquic_coroutine_schedule_t *sche = NULL;
+    if (co == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+
+    sche = (gquic_coroutine_schedule_t *) (((void *) co->ctx.link) - ((void *) &((gquic_coroutine_schedule_t *) 0)->schedule_ctx));
+    for ( ;; ) {
+        gquic_coroutine_schedule_resume(&resumed_co, sche);
+        gquic_schedule_coroutine_executed_finally(sche, resumed_co);
+        if (co == resumed_co) {
+            break;
+        }
+    }
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}

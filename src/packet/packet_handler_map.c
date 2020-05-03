@@ -90,6 +90,7 @@ int gquic_packet_handler_map_ctor(gquic_packet_handler_map_t *const handler,
                                   const int conn_fd,
                                   const int conn_id_len,
                                   const gquic_str_t *const stateless_reset_token) {
+    gquic_coroutine_t *co = NULL;
     if (handler == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -98,8 +99,7 @@ int gquic_packet_handler_map_ctor(gquic_packet_handler_map_t *const handler,
     handler->delete_retired_session_after = 5 * 1000 * 1000;
     handler->stateless_reset_enabled = GQUIC_STR_SIZE(stateless_reset_token) > 0;
     gquic_str_copy(&handler->stateless_reset_key, stateless_reset_token);
-
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_fast_join(gquic_get_global_schedule(), 1024 * 1024, __packet_handler_map_listen, handler));
+    GQUIC_ASSERT_FAST_RETURN(gquic_global_schedule_join(&co, 1024 * 1024, __packet_handler_map_listen, handler));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -218,16 +218,7 @@ int gquic_packet_handler_map_handle_packet(gquic_packet_handler_map_t *const han
             }
             param->handler = handler;
             param->recv_packet = recv_packet;
-            if (GQUIC_ASSERT(gquic_coroutine_alloc(&co))) {
-                break;
-            }
-            if (GQUIC_ASSERT(gquic_coroutine_init(co))) {
-                break;
-            }
-            if (GQUIC_ASSERT(gquic_coroutine_ctor(co, 1024 * 1024, __packet_handler_map_try_send_stateless_reset_co, param))) {
-                break;
-            }
-            if (GQUIC_ASSERT(gquic_coroutine_schedule_join(gquic_get_global_schedule(), co))) {
+            if (GQUIC_ASSERT(gquic_global_schedule_join(&co, 1024 * 1024, __packet_handler_map_try_send_stateless_reset_co, param))) {
                 gquic_packet_buffer_put(recv_packet->buffer);
                 free(recv_packet);
                 GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_CREATE_THREAD_FAILED);
@@ -264,16 +255,7 @@ static int gquic_packet_handler_map_try_handle_stateless_reset(gquic_packet_hand
         }
         param->handler = *(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt);
         param->err = -1001;
-        if (GQUIC_ASSERT(gquic_coroutine_alloc(&co))) {
-            return 0;
-        }
-        if (GQUIC_ASSERT(gquic_coroutine_init(co))) {
-            return 0;
-        }
-        if (GQUIC_ASSERT(gquic_coroutine_ctor(co, 1024 * 1024, __packet_handler_map_reset_token_destory_co, param))) {
-            return 0;
-        }
-        if (GQUIC_ASSERT(gquic_coroutine_schedule_join(gquic_get_global_schedule(), co))) {
+        if (GQUIC_ASSERT(gquic_global_schedule_join(&co, 1024 * 1024, __packet_handler_map_reset_token_destory_co, param))) {
             return 0;
         }
         return 1;
@@ -458,17 +440,12 @@ int gquic_packet_handler_map_retire(gquic_packet_handler_map_t *const handler, c
     if (handler == NULL || conn_id == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-
-    if ((param = malloc(sizeof(__retire_timeout_param_t))) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&param, __retire_timeout_param_t));
     param->handler = handler;
     gquic_str_copy(&param->conn_id, conn_id);
 
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_alloc(&co));
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_init(co));
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_ctor(co, 1024 * 1024, __retire_timeout_cb, param));
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_schedule_timeout_join(gquic_get_global_schedule(), co, gquic_time_now() + handler->delete_retired_session_after));
+    GQUIC_ASSERT_FAST_RETURN(gquic_global_schedule_timeout_join(&co, gquic_time_now() + handler->delete_retired_session_after, 1024 * 1024,
+                                                                __retire_timeout_cb, param));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -527,10 +504,8 @@ int gquic_packet_handler_map_replace_with_closed(gquic_packet_handler_map_t *con
     param->handler = handler;
     param->ph = ph;
 
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_alloc(&co));
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_init(co));
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_ctor(co, 1024 * 1024, __replace_with_closed_timeout_cb, param));
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_schedule_timeout_join(gquic_get_global_schedule(), co, gquic_time_now() + handler->delete_retired_session_after));
+    GQUIC_ASSERT_FAST_RETURN(gquic_global_schedule_timeout_join(&co, gquic_time_now() + handler->delete_retired_session_after, 1024 * 1024,
+                                                                __replace_with_closed_timeout_cb, param));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -606,16 +581,11 @@ int gquic_packet_handler_map_retire_reset_token(gquic_packet_handler_map_t *cons
     if (handler == NULL || token == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if ((param = malloc(sizeof(__retire_reset_token_timeout_param_t))) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&param, __retire_reset_token_timeout_param_t));
     param->handler = handler;
     gquic_str_copy(&param->token, token);
-
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_alloc(&co));
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_init(co));
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_ctor(co, 1024 * 1024, __retire_reset_token_timeout_cb, handler));
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_schedule_timeout_join(gquic_get_global_schedule(), co, gquic_time_now() + handler->delete_retired_session_after));
+    GQUIC_ASSERT_FAST_RETURN(gquic_global_schedule_timeout_join(&co, gquic_time_now() + handler->delete_retired_session_after, 1024 * 1024,
+                                                                __retire_reset_token_timeout_cb, handler));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

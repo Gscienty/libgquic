@@ -1,10 +1,10 @@
 #include "coroutine/schedule.h"
+#include "global_schedule.h"
 #include "exception.h"
 #include "util/time.h"
 #include <stdio.h>
 
 static int gquic_schedule_coroutine_execute_wrapper(void *const);
-static int gquic_schedule_coroutine_executed_finally(gquic_coroutine_schedule_t *const, gquic_coroutine_t *const);
 
 int gquic_coroutine_schedule_init(gquic_coroutine_schedule_t *const sche) {
     if (sche == NULL) {
@@ -87,9 +87,8 @@ int gquic_coroutine_schedule_timeout_join(gquic_coroutine_schedule_t *const sche
     GQUIC_PROCESS_DONE(exception);
 }
 
-int gquic_coroutine_schedule_resume(gquic_coroutine_schedule_t *const sche) {
-    gquic_coroutine_t *co = NULL;
-    if (sche == NULL) {
+int gquic_coroutine_schedule_resume(gquic_coroutine_t **const co_storage, gquic_coroutine_schedule_t *const sche) {
+    if (co_storage == NULL || sche == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     pthread_mutex_lock(&sche->mtx);
@@ -113,14 +112,13 @@ int gquic_coroutine_schedule_resume(gquic_coroutine_schedule_t *const sche) {
             }
         }
     }
-    co = *(gquic_coroutine_t **) GQUIC_LIST_FIRST(&sche->ready);
+    *co_storage = *(gquic_coroutine_t **) GQUIC_LIST_FIRST(&sche->ready);
     gquic_list_release(GQUIC_LIST_FIRST(&sche->ready));
-    gquic_coroutine_join_unref(co);
+    gquic_coroutine_join_unref(*co_storage);
     pthread_mutex_unlock(&sche->mtx);
 
-    co->status = GQUIC_COROUTINE_STATUS_RUNNING;
-    gquic_coroutine_swap_context(&sche->schedule_ctx, &co->ctx);
-    gquic_schedule_coroutine_executed_finally(sche, co);
+    (*co_storage)->status = GQUIC_COROUTINE_STATUS_RUNNING;
+    gquic_coroutine_swap_context(&sche->schedule_ctx, &(*co_storage)->ctx);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -145,26 +143,3 @@ static int gquic_schedule_coroutine_execute_wrapper(void *const co_) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_schedule_coroutine_executed_finally(gquic_coroutine_schedule_t *const sche, gquic_coroutine_t *const co) {
-    if (co == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
-    }
-    switch (co->status) {
-    case GQUIC_COROUTINE_STATUS_RUNNING:
-        co->status = GQUIC_COROUTINE_STATUS_READYING;
-
-    case GQUIC_COROUTINE_STATUS_READYING:
-        gquic_coroutine_schedule_join(sche, co);
-        break;
-
-    case GQUIC_COROUTINE_STATUS_TERMIATE:
-        gquic_coroutine_try_release(co);
-        break;
-
-    case GQUIC_COROUTINE_STATUS_WAITING:
-    case GQUIC_COROUTINE_STATUS_STARTING:
-        break;
-    }
-
-    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
-}

@@ -159,11 +159,7 @@ int gquic_server_handle_packet(gquic_server_t *const server, gquic_received_pack
     GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&handle_packet, gquic_server_handle_packet_t));
     handle_packet->received_packet = rp;
     handle_packet->server = server;
-
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_alloc(&co));
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_init(co));
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_ctor(co, 1024 * 1024, gquic_server_handle_packet_inner_co, handle_packet));
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_schedule_join(gquic_get_global_schedule(), co));
+    GQUIC_ASSERT_FAST_RETURN(gquic_global_schedule_join(&co, 1024 * 1024, gquic_server_handle_packet_inner_co, handle_packet));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -239,19 +235,12 @@ static int gquic_server_handle_packet_initial(gquic_session_t **const session_st
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_packet_handler_map_add(NULL, server->packet_handlers, &conn_id,
                                                           gquic_session_implement_packet_handler(*session_storage)));
-
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_alloc(&session_run_co));
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_init(session_run_co));
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_ctor(session_run_co, 1024 * 1024, gquic_server_session_run_co, *session_storage));
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_schedule_join(gquic_get_global_schedule(), session_run_co));
+    GQUIC_ASSERT_FAST_RETURN(gquic_global_schedule_join(&session_run_co, 1024 * 1024, gquic_server_session_run_co, *session_storage));
 
     GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&handle_new_session, gquic_server_handle_new_session_t));
     handle_new_session->server = server;
     handle_new_session->session = *session_storage;
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_alloc(&handle_new_session_co));
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_init(handle_new_session_co));
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_ctor(handle_new_session_co, 1024 * 1024, gquic_server_handle_new_session_co, handle_new_session));
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_schedule_join(gquic_get_global_schedule(), handle_new_session_co));
+    GQUIC_ASSERT_FAST_RETURN(gquic_global_schedule_join(&handle_new_session_co, 1024 * 1024, gquic_server_handle_new_session_co, handle_new_session));
 
     gquic_session_handle_packet(*session_storage, received_packet);
 
