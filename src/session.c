@@ -331,14 +331,10 @@ static int gquic_session_add_reset_token_wrapper(void *const sess_, const gquic_
 
 static int gquic_session_add_wrapper(gquic_str_t *const token, void *const sess_, const gquic_str_t *const conn_id) {
     gquic_session_t *const sess = sess_;
-    gquic_packet_handler_t *handler = NULL;
     if (sess == NULL || token == NULL || conn_id == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if ((handler = gquic_session_implement_packet_handler(sess)) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
-    gquic_packet_handler_map_add(token, sess->runner, conn_id, handler);
+    gquic_packet_handler_map_add(token, sess->runner, conn_id, gquic_session_implement_packet_handler(sess));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -1697,7 +1693,7 @@ static int gquic_session_send_packet(int *const sent_packet, gquic_session_t *co
         gquic_framer_queue_ctrl_frame(&sess->framer, blocked);
     }
 
-    gquic_wnd_update_queue_queue_all(&sess->wnd_update_queue);
+    GQUIC_ASSERT(gquic_wnd_update_queue_queue_all(&sess->wnd_update_queue));
 
     GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&packet, gquic_packet_t));
     if (GQUIC_ASSERT_CAUSE(exception, GQUIC_MALLOC_STRUCT(&packed_packet, gquic_packed_packet_t))) {
