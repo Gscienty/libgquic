@@ -46,7 +46,7 @@ static int __packet_handler_map_listen(gquic_coroutine_t *const, void *const);
 static int __packet_handler_map_try_send_stateless_reset_co(gquic_coroutine_t *const, void *const);
 static int gquic_packet_handler_map_try_handle_stateless_reset(gquic_packet_handler_map_t *const, const gquic_str_t *const);
 static int gquic_packet_handler_rb_str_cmp(void *const, void *const);
-static int __packet_handler_map_reset_token_destory_co(gquic_coroutine_t *const, void *const);
+static int __packet_handler_map_reset_token_destroy_co(gquic_coroutine_t *const, void *const);
 static int __retire_timeout_cb(gquic_coroutine_t *const, void *const);
 static int __replace_with_closed_timeout_cb(gquic_coroutine_t *const, void *const);
 static int __retire_reset_token_timeout_cb(gquic_coroutine_t *const, void *const);
@@ -255,7 +255,7 @@ static int gquic_packet_handler_map_try_handle_stateless_reset(gquic_packet_hand
         }
         param->handler = *(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt);
         param->err = -1001;
-        if (GQUIC_ASSERT(gquic_global_schedule_join(&co, 1024 * 1024, __packet_handler_map_reset_token_destory_co, param))) {
+        if (GQUIC_ASSERT(gquic_global_schedule_join(&co, 1024 * 1024, __packet_handler_map_reset_token_destroy_co, param))) {
             return 0;
         }
         return 1;
@@ -313,7 +313,7 @@ static int gquic_packet_handler_rb_str_cmp(void *const a, void *const b) {
     return gquic_str_cmp(a, b);
 }
 
-static int __packet_handler_map_reset_token_destory_co(gquic_coroutine_t *const co, void *const param_) {
+static int __packet_handler_map_reset_token_destroy_co(gquic_coroutine_t *const co, void *const param_) {
     __reset_token_param_t *param = param_;
     if (co == NULL || param == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -659,7 +659,7 @@ static int gquic_packet_handler_map_listen_close(gquic_coroutine_t *const co, gq
     sem_wait(&handler->mtx);
     
     GQUIC_RBTREE_EACHOR_BEGIN(rbt, handler->handlers)
-        GQUIC_PACKET_HANDLER_DESTROY(co, GQUIC_RBTREE_VALUE(rbt), err);
+        GQUIC_PACKET_HANDLER_DESTROY(co, *(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt), err);
     GQUIC_RBTREE_EACHOR_END(rbt)
     if (handler->server != NULL) {
         GQUIC_PACKET_UNKNOW_PACKET_HANDLER_SET_CLOSE_ERR(handler->server, err);
