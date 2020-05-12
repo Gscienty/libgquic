@@ -26,9 +26,11 @@ struct gquic_rbtree_s {
     gquic_list_t __$rbt_queue; \
     gquic_list_head_init(&__$rbt_queue); \
     void *__$tmp; \
-    gquic_list_alloc(&__$tmp, sizeof(gquic_rbtree_t *)); \
-    gquic_list_insert_after((&__$rbt_queue), __$tmp); \
-    *(gquic_rbtree_t **) gquic_list_next(GQUIC_LIST_PAYLOAD(&__$rbt_queue)) = (root); \
+    if (!gquic_rbtree_is_nil((root))) { \
+        gquic_list_alloc(&__$tmp, sizeof(gquic_rbtree_t *)); \
+        gquic_list_insert_after((&__$rbt_queue), __$tmp); \
+        *(gquic_rbtree_t **) gquic_list_next(GQUIC_LIST_PAYLOAD(&__$rbt_queue)) = (root); \
+    } \
     while (!gquic_list_head_empty(&__$rbt_queue)) { \
         do { \
             (payload) = *(gquic_rbtree_t **) gquic_list_prev(GQUIC_LIST_PAYLOAD(&__$rbt_queue));
