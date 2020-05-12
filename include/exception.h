@@ -118,6 +118,7 @@
 #define GQUIC_EXCEPTION_HANDSHAKE_TIMEOUT                       -10000115
 #define GQUIC_EXCEPTION_NOT_IMPLEMENTED                         -10000116
 #define GQUIC_EXCEPTION_BUSY                                    -10000117
+#define GQUIC_EXCEPTION_SENDTO_FAILED                           -10000118
 #define GQUIC_SUCCESS 0
 
 #ifdef DEBUG
@@ -125,7 +126,7 @@
 #include <stdio.h>
 
 #define GQUIC_ASSERT_CAUSE(exception, expression) \
-    (((exception) = (expression)) != GQUIC_SUCCESS && ({ printf("GQUIC_ASSERT_CAUSE " __FILE__ " %d\n", __LINE__); 1; }))
+    (((exception) = (expression)) != GQUIC_SUCCESS && ({ printf("GQUIC_ASSERT_CAUSE " __FILE__ " %d errcode: %d\n", __LINE__, (exception)); 1; }))
 #define GQUIC_ASSERT(expression) \
     ((expression) != GQUIC_SUCCESS && ({ printf("GQUIC_ASSERT " __FILE__ " %d\n", __LINE__); 1; }))
 #define GQUIC_ASSERT_FAST_RETURN(expression) \
@@ -139,7 +140,7 @@
 { \
     int __$exception = (expression); \
     if (__$exception != GQUIC_SUCCESS) {\
-        printf("GQUIC_PROCESS_DONE " __FILE__ " %d\n", __LINE__); \
+        printf("GQUIC_PROCESS_DONE " __FILE__ " %d errcode: %d\n", __LINE__, __$exception); \
     }\
     return __$exception; \
 }
@@ -147,7 +148,7 @@
 {\
     int __$exception = (expression); \
     if (__$exception != GQUIC_SUCCESS) {\
-        printf("GQUIC_EXCEPTION_ASSIGN " __FILE__ " %d\n", __LINE__); \
+        printf("GQUIC_EXCEPTION_ASSIGN " __FILE__ " %d errcode: %d\n", __LINE__, __$exception); \
     }\
     (exception) = __$exception; \
 }
