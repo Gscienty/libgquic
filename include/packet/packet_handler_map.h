@@ -32,8 +32,8 @@ struct gquic_packet_handler_map_s {
     int conn_fd;
     int conn_id_len;
 
-    gquic_rbtree_t *handlers; /* gquic_str_t: gquic_packet_handler_t */
-    gquic_rbtree_t *reset_tokens; /* gquic_str_t: gquic_packet_handler_t */
+    gquic_rbtree_t *handlers; /* gquic_str_t: gquic_packet_handler_t * */
+    gquic_rbtree_t *reset_tokens; /* gquic_str_t: gquic_packet_handler_t * */
     gquic_packet_unknow_packet_handler_t *server;
 
     sem_t listening;
