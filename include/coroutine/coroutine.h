@@ -40,5 +40,6 @@ int gquic_coroutine_ctor(gquic_coroutine_t *const co, size_t stack_size, int (*f
 int gquic_coroutine_dtor(gquic_coroutine_t *const co);
 int gquic_coroutine_yield(gquic_coroutine_t *const co);
 int gquic_coroutine_await(gquic_coroutine_t *const co);
+int gquic_coroutine_run_until_complete(gquic_coroutine_t *const co);
 
 #endif

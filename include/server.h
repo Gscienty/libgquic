@@ -30,7 +30,7 @@ struct gquic_server_s {
 
 int gquic_server_init(gquic_server_t *const server);
 int gquic_server_ctor(gquic_server_t *const server, int fd, gquic_net_addr_t *const addr, gquic_config_t *const config, const int accept_early);
-int gquic_server_accept(gquic_coroutine_t *const co, gquic_session_t **const session_storage, gquic_server_t *const server);
+int gquic_server_accept(gquic_session_t **const session_storage, gquic_server_t *const server);
 int gquic_server_close(gquic_coroutine_t *const co, gquic_server_t *const server);
 int gquic_server_set_close_err(gquic_server_t *const server, const int err);
 int gquic_server_handle_packet(gquic_server_t *const server, gquic_received_packet_t *const rp);

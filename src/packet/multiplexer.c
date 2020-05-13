@@ -1,22 +1,37 @@
+#include "event/epoll.h"
 #include "packet/multiplexer.h"
 #include "util/rbtree.h"
 #include "exception.h"
-#include <semaphore.h>
+#include "global_schedule.h"
+#include <pthread.h>
+
+#define GQUIC_DEFAULT_EPOLL_CONNECTION_SIZE 8
 
 typedef struct gquic_multiplexer_s gquic_multiplexer_t;
 struct gquic_multiplexer_s {
-    sem_t mtx;
+    pthread_mutex_t mtx;
     gquic_rbtree_t *conns;
+
+    gquic_event_epoll_t epoll;
+
+    pthread_t thread;
 };
 static void gquic_init_multiplexer();
+static void *gquic_multiplexer_thread(void *const);
+static int gquic_multiplexer_recv_event(void *const, void *const);
 
 static int __inited = 0;
 static gquic_multiplexer_t __ins;
 
 static void gquic_init_multiplexer() {
     if (__inited == 0) {
-        sem_init(&__ins.mtx, 0, 1);
+        pthread_mutex_init(&__ins.mtx, NULL);
         gquic_rbtree_root_init(&__ins.conns);
+
+        gquic_event_epoll_init(&__ins.epoll);
+        gquic_event_epoll_ctor(&__ins.epoll, &__ins, gquic_multiplexer_recv_event);
+
+        pthread_create(&__ins.thread, NULL, gquic_multiplexer_thread, NULL);
         __inited = 1;
     }
 }
@@ -32,7 +47,7 @@ int gquic_multiplexer_add_conn(gquic_packet_handler_map_t **const handler_storag
     }
     gquic_init_multiplexer();
 
-    sem_wait(&__ins.mtx);
+    pthread_mutex_lock(&__ins.mtx);
     if (gquic_rbtree_find((const gquic_rbtree_t **) &rbt, __ins.conns, &conn_fd, sizeof(int)) != 0) {
         if (GQUIC_ASSERT_CAUSE(exception, gquic_rbtree_alloc(&rbt, sizeof(int), sizeof(gquic_packet_handler_map_t)))) {
             goto finished;
@@ -41,6 +56,8 @@ int gquic_multiplexer_add_conn(gquic_packet_handler_map_t **const handler_storag
         gquic_packet_handler_map_init(GQUIC_RBTREE_VALUE(rbt));
         gquic_packet_handler_map_ctor(GQUIC_RBTREE_VALUE(rbt), conn_fd, conn_id_len, stateless_reset_token);
         gquic_rbtree_insert(&__ins.conns, rbt);
+
+        gquic_event_epoll_add(&__ins.epoll, conn_fd, GQUIC_RBTREE_VALUE(rbt));
     }
     if (((gquic_packet_handler_map_t *) GQUIC_RBTREE_VALUE(rbt))->conn_id_len != conn_id_len) {
         GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_RECV_CONN_ID_CONFLICT);
@@ -54,7 +71,7 @@ int gquic_multiplexer_add_conn(gquic_packet_handler_map_t **const handler_storag
     *handler_storage = GQUIC_RBTREE_VALUE(rbt);
 
 finished:
-    sem_post(&__ins.mtx);
+    pthread_mutex_unlock(&__ins.mtx);
     GQUIC_PROCESS_DONE(exception);
 }
 
@@ -62,7 +79,9 @@ int gquic_multiplexer_remove_conn(const int conn_fd) {
     int exception = GQUIC_SUCCESS;
     gquic_rbtree_t *rbt = NULL;
     gquic_init_multiplexer();
-    sem_wait(&__ins.mtx);
+    pthread_mutex_lock(&__ins.mtx);
+
+    gquic_event_epoll_remove(&__ins.epoll, conn_fd);
     
     if (gquic_rbtree_find((const gquic_rbtree_t **) &rbt, __ins.conns, &conn_fd, sizeof(int)) != 0) {
         GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_CONN_UNKNOW);
@@ -73,6 +92,27 @@ int gquic_multiplexer_remove_conn(const int conn_fd) {
     gquic_rbtree_release(rbt, NULL);
 
 finished:
-    sem_post(&__ins.mtx);
+    pthread_mutex_unlock(&__ins.mtx);
     GQUIC_PROCESS_DONE(exception);
+}
+
+static void *gquic_multiplexer_thread(void *const _) {
+    (void) _;
+
+    for ( ;; ) {
+        gquic_event_epoll_process(&__ins.epoll, 1000);
+    }
+
+    return NULL;
+}
+
+static int gquic_multiplexer_recv_event(void *const _, void *const handler_) {
+    (void) _;
+    gquic_packet_handler_map_t *const handler = handler_;
+    if (handler_ == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+    gquic_coroutine_chain_send(&handler->recv_event_chain, gquic_get_global_schedule(), &handler->recv_event_chain);
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

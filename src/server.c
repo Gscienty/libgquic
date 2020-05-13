@@ -6,6 +6,7 @@
 #include "global_schedule.h"
 #include <openssl/rand.h>
 
+static int gquic_server_accept_inner_co(gquic_coroutine_t *const, void *const);
 static int gquic_server_implement_unknow_packet_handler(gquic_packet_unknow_packet_handler_t **const, gquic_server_t *const);
 static int gquic_server_set_close_err_wrapper(void *const, const int);
 static int gquic_server_handle_packet_wrapper(void *const, gquic_received_packet_t *const);
@@ -18,6 +19,12 @@ typedef struct gquic_server_handle_packet_s gquic_server_handle_packet_t;
 struct gquic_server_handle_packet_s {
     gquic_server_t *server;
     gquic_received_packet_t *received_packet;
+};
+
+typedef struct gquic_server_accept_s gquic_server_accept_t;
+struct gquic_server_accept_s {
+    gquic_server_t *server;
+    gquic_session_t *session;
 };
 
 typedef struct gquic_server_handle_new_session_s gquic_server_handle_new_session_t;
@@ -62,29 +69,18 @@ int gquic_server_ctor(gquic_server_t *const server, int fd, gquic_net_addr_t *co
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_server_accept(gquic_coroutine_t *const co, gquic_session_t **const session_storage, gquic_server_t *const server) {
-    int exception = GQUIC_SUCCESS;
-    void *recv = NULL;
-    gquic_coroutine_chain_t *recv_chain = NULL;
-    if (co == NULL || session_storage == NULL || server == NULL) {
+int gquic_server_accept(gquic_session_t **const session_storage, gquic_server_t *const server) {
+    gquic_coroutine_t *co = NULL;
+    gquic_server_accept_t param;
+    if (session_storage == NULL || server == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    GQUIC_EXCEPTION_ASSIGN(exception, gquic_coroutine_chain_recv(&recv, &recv_chain, co, 1,
-                                                                 &server->done_chain,
-                                                                 &server->sess_chain,
-                                                                 &server->err_chain,
-                                                                 NULL));
-    if (recv_chain == &server->done_chain) {
-        GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
-    }
-    else if (recv_chain == &server->sess_chain) {
-        *session_storage = recv;
-        server->sess_count--;
-    }
-    else if (recv_chain == &server->err_chain) {
-        GQUIC_PROCESS_DONE(server->err);
-    }
+    param.server = server;
+    param.session = NULL;
+    GQUIC_ASSERT_FAST_RETURN(gquic_global_schedule_join(&co, 1024 * 1024, gquic_server_accept_inner_co, &param));
+    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_run_until_complete(co));
 
+    *session_storage = param.session;
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
@@ -277,6 +273,33 @@ static int gquic_server_handle_new_session_co(gquic_coroutine_t *const co, void 
     handle_new_session->server->sess_count++;
     gquic_coroutine_chain_send(&handle_new_session->server->sess_chain, gquic_get_global_schedule(), handle_new_session->session);
     free(handle_new_session);
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}
+
+static int gquic_server_accept_inner_co(gquic_coroutine_t *const co, void *const param_) {
+    int exception = GQUIC_SUCCESS;
+    gquic_server_accept_t *const param = param_;
+    void *recv = NULL;
+    gquic_coroutine_chain_t *recv_chain = NULL;
+    if (co == NULL || param_ == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+    GQUIC_EXCEPTION_ASSIGN(exception, gquic_coroutine_chain_recv(&recv, &recv_chain, co, 1,
+                                                                 &param->server ->done_chain,
+                                                                 &param->server->sess_chain,
+                                                                 &param->server->err_chain,
+                                                                 NULL));
+    if (recv_chain == &param->server->done_chain) {
+        GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+    }
+    else if (recv_chain == &param->server->sess_chain) {
+        param->session = recv;
+        param->server ->sess_count--;
+    }
+    else if (recv_chain == &param->server->err_chain) {
+        GQUIC_PROCESS_DONE(param->server->err);
+    }
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

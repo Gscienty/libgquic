@@ -119,6 +119,9 @@
 #define GQUIC_EXCEPTION_NOT_IMPLEMENTED                         -10000116
 #define GQUIC_EXCEPTION_BUSY                                    -10000117
 #define GQUIC_EXCEPTION_SENDTO_FAILED                           -10000118
+#define GQUIC_EXCEPTION_CREATE_EPOLL_FAILED                     -10000119
+#define GQUIC_EXCEPTION_CONNECTION_ADD_EPOLL_FAILED             -10000120
+#define GQUIC_EXCEPTION_EPOLL_WAIT_FAILED                       -10000121
 #define GQUIC_SUCCESS 0
 
 #ifdef DEBUG

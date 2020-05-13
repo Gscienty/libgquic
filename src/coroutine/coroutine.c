@@ -130,3 +130,20 @@ int gquic_coroutine_await(gquic_coroutine_t *const co) {
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
+
+int gquic_coroutine_run_until_complete(gquic_coroutine_t *const co) {
+    int exception = GQUIC_SUCCESS;
+    if (co == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+    for ( ;; ) {
+        GQUIC_EXCEPTION_ASSIGN(exception, gquic_coroutine_await(co));
+        if (co->status == GQUIC_COROUTINE_STATUS_TERMIATE) {
+            gquic_coroutine_next(co);
+            break;
+        }
+        gquic_coroutine_next(co);
+    }
+
+    GQUIC_PROCESS_DONE(exception);
+}

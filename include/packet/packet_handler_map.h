@@ -4,7 +4,8 @@
 #include "util/rbtree.h"
 #include "packet/received_packet.h"
 #include "packet/handler.h"
-#include <semaphore.h>
+#include "coroutine/chain.h"
+#include <pthread.h>
 #include <openssl/hmac.h>
 
 typedef struct gquic_packet_unknow_packet_handler_s gquic_packet_unknow_packet_handler_t;
@@ -27,7 +28,7 @@ int gquic_packet_unknow_packet_handler_init(gquic_packet_unknow_packet_handler_t
 
 typedef struct gquic_packet_handler_map_s gquic_packet_handler_map_t;
 struct gquic_packet_handler_map_s {
-    sem_t mtx;
+    pthread_mutex_t mtx;
 
     int conn_fd;
     int conn_id_len;
@@ -36,13 +37,17 @@ struct gquic_packet_handler_map_s {
     gquic_rbtree_t *reset_tokens; /* gquic_str_t: gquic_packet_handler_t * */
     gquic_packet_unknow_packet_handler_t *server;
 
-    sem_t listening;
+    gquic_coroutine_chain_t listen_chain;
     int closed;
+
+    gquic_coroutine_chain_t recv_event_chain;
+    gquic_coroutine_chain_t close_chain;
 
     u_int64_t delete_retired_session_after;
 
     int stateless_reset_enabled;
     gquic_str_t stateless_reset_key;
+
 };
 int gquic_packet_handler_map_init(gquic_packet_handler_map_t *const handler);
 int gquic_packet_handler_map_ctor(gquic_packet_handler_map_t *const handler,

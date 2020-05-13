@@ -248,22 +248,11 @@ static int gquic_client_destroy_wrapper(gquic_coroutine_t *const co, void *const
 }
 
 static int gquic_client_connect(gquic_client_t *const client) {
-    int exception = GQUIC_SUCCESS;
     gquic_coroutine_t *co = NULL;
     if (client == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_client_create_sess(client));
     GQUIC_ASSERT_FAST_RETURN(gquic_global_schedule_join(&co, 1024 * 1024, gquic_client_establish_sec_conn, client));
-
-    for ( ;; ) {
-        GQUIC_EXCEPTION_ASSIGN(exception, gquic_coroutine_await(co));
-        if (co->status == GQUIC_COROUTINE_STATUS_TERMIATE) {
-            gquic_coroutine_next(co);
-            break;
-        }
-        gquic_coroutine_next(co);
-    }
-
-    GQUIC_PROCESS_DONE(exception);
+    GQUIC_PROCESS_DONE(gquic_coroutine_run_until_complete(co));
 }
