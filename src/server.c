@@ -221,6 +221,7 @@ static int gquic_server_handle_packet_initial(gquic_session_t **const session_st
     remote_conn->fd = server->conn.fd;
 
     GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(session_storage, gquic_session_t));
+    GQUIC_ASSERT_FAST_RETURN(gquic_session_init(*session_storage));
     GQUIC_ASSERT_FAST_RETURN(gquic_session_ctor(*session_storage, remote_conn, server->packet_handlers,
                                                 NULL, &cli_dst_conn_id, &dst_conn_id, &conn_id, NULL, server->config, 0, 0));
     int added = gquic_packet_handler_map_add_if_not_taken(server->packet_handlers, &cli_dst_conn_id,
@@ -241,8 +242,6 @@ static int gquic_server_handle_packet_initial(gquic_session_t **const session_st
     gquic_session_handle_packet(*session_storage, received_packet);
 
     gquic_str_reset(&conn_id);
-    gquic_str_reset(&cli_dst_conn_id);
-    gquic_str_reset(&dst_conn_id);
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
