@@ -194,12 +194,12 @@ int gquic_handshake_establish_run(gquic_coroutine_t *const co, gquic_handshake_e
     est->handshake_done = 1;
 
     if (ending_event != NULL) {
-        gquic_list_release(ending_event);
+        free(ending_event);
     }
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 failure:
     if (ending_event != NULL) {
-        gquic_list_release(ending_event);
+        free(ending_event);
     }
     GQUIC_PROCESS_DONE(exception);
 }
@@ -646,10 +646,10 @@ static int gquic_establish_handle_post_handshake_msg(gquic_coroutine_t *const co
 
 finished:
     if (err_event != NULL) {
-        gquic_list_release(err_event);
+        free(err_event);
     }
     if (ending_event != NULL) {
-        gquic_list_release(ending_event);
+        free(ending_event);
     }
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
