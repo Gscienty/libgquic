@@ -167,7 +167,7 @@ static int gquic_packet_handler_map_listen(gquic_coroutine_t *const co, void *co
             break;
         }
         gquic_received_packet_t *recv_packet;
-        if ((recv_packet = malloc(sizeof(gquic_received_packet_t))) == NULL) {
+        if (GQUIC_MALLOC_STRUCT(&recv_packet, gquic_received_packet_t)) {
             break;
         }
         gquic_received_packet_init(recv_packet);
@@ -504,7 +504,7 @@ int gquic_packet_handler_map_replace_with_closed(gquic_packet_handler_map_t *con
     }
     pthread_mutex_unlock(&handler->mtx);
 
-    if ((param = malloc(sizeof(__replace_with_closed_timeout_param_t))) == NULL) {
+    if (GQUIC_MALLOC_STRUCT(&param, __replace_with_closed_timeout_param_t)) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
     }
     gquic_str_copy(&param->conn_id, conn_id);

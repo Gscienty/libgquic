@@ -1,7 +1,7 @@
 #include "handshake/header_protector.h"
 #include "tls/key_schedule.h"
 #include "exception.h"
-#include <malloc.h>
+#include "util/malloc.h"
 #include <openssl/evp.h>
 #include <openssl/aes.h>
 
@@ -13,16 +13,11 @@ struct gquic_aes_header_protector_s {
 };
 
 static int gquic_aes_header_protector_init(gquic_aes_header_protector_t *const);
-static int gquic_aes_header_protector_ctor(gquic_aes_header_protector_t *const,
-                                           const gquic_tls_cipher_suite_t *const,
-                                           const gquic_str_t *const,
-                                           int);
+static int gquic_aes_header_protector_ctor(gquic_aes_header_protector_t *const, const gquic_tls_cipher_suite_t *const, const gquic_str_t *const, int);
 static int gquic_aes_header_protector_set_key(void *const, gquic_str_t *const);
 static int gquic_aes_header_protector_encrypt(gquic_str_t *const, u_int8_t *const, void *const);
 static int gquic_aes_header_protector_decrypt(gquic_str_t *const, u_int8_t *const, void *const);
-static int gquic_aes_header_protector_apply(gquic_str_t *const,
-                                            u_int8_t *const,
-                                            gquic_aes_header_protector_t *const);
+static int gquic_aes_header_protector_apply(gquic_str_t *const, u_int8_t *const, gquic_aes_header_protector_t *const);
 static int gquic_aes_header_protector_dtor(void *const);
 
 int gquic_header_protector_init(gquic_header_protector_t *const protector) {
@@ -38,9 +33,7 @@ int gquic_header_protector_init(gquic_header_protector_t *const protector) {
 }
 
 int gquic_header_protector_ctor(gquic_header_protector_t *const protector,
-                                const gquic_tls_cipher_suite_t *const suite,
-                                const gquic_str_t *const traffic_sec,
-                                int is_long_header) {
+                                const gquic_tls_cipher_suite_t *const suite, const gquic_str_t *const traffic_sec, int is_long_header) {
     if (protector == NULL || suite == NULL || traffic_sec == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -48,9 +41,7 @@ int gquic_header_protector_ctor(gquic_header_protector_t *const protector,
     switch (suite->id) {
     case GQUIC_TLS_CIPHER_SUITE_AES_128_GCM_SHA256:
     case GQUIC_TLS_CIPHER_SUITE_AES_256_GCM_SHA384:
-        if ((protector->self = malloc(sizeof(gquic_aes_header_protector_t))) == NULL) {
-            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-        }
+        GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&protector->self, gquic_aes_header_protector_t));
         gquic_aes_header_protector_init(protector->self);
         GQUIC_ASSERT_FAST_RETURN(gquic_aes_header_protector_ctor(protector->self, suite, traffic_sec, is_long_header));
         protector->set_key = gquic_aes_header_protector_set_key;
@@ -79,9 +70,7 @@ static int gquic_aes_header_protector_init(gquic_aes_header_protector_t *const p
 }
 
 static int gquic_aes_header_protector_ctor(gquic_aes_header_protector_t *const protector,
-                                                     const gquic_tls_cipher_suite_t *const suite,
-                                                     const gquic_str_t *const traffic_sec,
-                                                     int is_long_header) {
+                                           const gquic_tls_cipher_suite_t *const suite, const gquic_str_t *const traffic_sec, int is_long_header) {
     gquic_tls_mac_t hash;
     gquic_str_t header_protector_key = { 0, NULL };
     static const gquic_str_t label = { 7, "quic hp" };
@@ -94,9 +83,7 @@ static int gquic_aes_header_protector_ctor(gquic_aes_header_protector_t *const p
     if (AES_set_encrypt_key(GQUIC_STR_VAL(&header_protector_key), suite->key_len * 8, &protector->key) < 0) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_SET_ENCRYPT_KEY_ERROR);
     }
-    if (gquic_str_alloc(&protector->mask, suite->key_len) != 0) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_str_alloc(&protector->mask, suite->key_len));
     protector->is_long_header = is_long_header;
 
     gquic_tls_mac_dtor(&hash);
@@ -117,21 +104,15 @@ static int gquic_aes_header_protector_set_key(void *const self_, gquic_str_t *co
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_aes_header_protector_encrypt(gquic_str_t *const header,
-                                              u_int8_t *const first_byte,
-                                              void *const self) {
+static int gquic_aes_header_protector_encrypt(gquic_str_t *const header, u_int8_t *const first_byte, void *const self) {
     return gquic_aes_header_protector_apply(header, first_byte, self);
 }
 
-static int gquic_aes_header_protector_decrypt(gquic_str_t *const header,
-                                              u_int8_t *const first_byte,
-                                              void *const self) {
+static int gquic_aes_header_protector_decrypt(gquic_str_t *const header, u_int8_t *const first_byte, void *const self) {
     return gquic_aes_header_protector_apply(header, first_byte, self);
 }
 
-static int gquic_aes_header_protector_apply(gquic_str_t *const header,
-                                            u_int8_t *const first_byte,
-                                            gquic_aes_header_protector_t *const self) {
+static int gquic_aes_header_protector_apply(gquic_str_t *const header, u_int8_t *const first_byte, gquic_aes_header_protector_t *const self) {
     size_t i;
     if (self == NULL || (header == NULL && first_byte == NULL)) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);

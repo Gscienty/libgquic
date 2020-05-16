@@ -19,7 +19,7 @@ int gquic_net_conn_write(gquic_net_conn_t *const conn, const gquic_str_t *const 
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (conn->write.self != NULL) {
-        return GQUIC_NET_CONN_WRITE(conn, raw);
+        GQUIC_PROCESS_DONE(GQUIC_NET_CONN_WRITE(conn, raw));
     }
 
     if (conn->addr.type == AF_INET) {

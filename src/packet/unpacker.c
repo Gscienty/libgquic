@@ -192,6 +192,8 @@ static int gquic_packet_unpacker_unpack_header_packet(gquic_unpacked_packet_t *c
     gquic_str_t tag = { 16, GQUIC_STR_VAL(payload->data) + header_len };
     gquic_str_t cipher_text = { GQUIC_STR_SIZE(payload->data) - header_len - 16, GQUIC_STR_VAL(payload->data) + header_len + 16 };
     gquic_str_t addata = { header_len, GQUIC_STR_VAL(payload->data) };
+
+
     GQUIC_ASSERT_FAST_RETURN(GQUIC_UNPACKED_PACKET_PAYLOAD_OPEN(&unpacked_packet->data,
                                                                 payload,
                                                                 payload->recv_time,
@@ -224,18 +226,12 @@ static int gquic_packet_unpacker_unpack_header(gquic_unpacked_packet_t *const un
         GQUIC_HEADER_PROTECTOR_DECRYPT(&header, &unpacked_packet->hdr.hdr.l_hdr->flag, payload->header_opener);
         pn_len = gquic_packet_number_flag_to_size(unpacked_packet->hdr.hdr.l_hdr->flag);
         GQUIC_ASSERT_FAST_RETURN(gquic_packet_long_header_deserialize_seal_part(unpacked_packet->hdr.hdr.l_hdr, reader));
-        if ((unpacked_packet->hdr.hdr.l_hdr->flag & 0x0c) != 0) {
-            GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_INVALID_RESERVED_BITS);
-        }
         *(u_int8_t *) GQUIC_STR_VAL(payload->data) = unpacked_packet->hdr.hdr.l_hdr->flag;
     }
     else {
         GQUIC_HEADER_PROTECTOR_DECRYPT(&header, &unpacked_packet->hdr.hdr.s_hdr->flag, payload->header_opener);
         pn_len = gquic_packet_number_flag_to_size(unpacked_packet->hdr.hdr.s_hdr->flag);
         GQUIC_ASSERT_FAST_RETURN(gquic_packet_short_header_deserialize_seal_part(unpacked_packet->hdr.hdr.s_hdr, reader));
-        if ((unpacked_packet->hdr.hdr.s_hdr->flag & 0x18) != 0) {
-            GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_INVALID_RESERVED_BITS);
-        }
         *(u_int8_t *) GQUIC_STR_VAL(payload->data) = unpacked_packet->hdr.hdr.s_hdr->flag;
     }
     if (pn_len != 4) {

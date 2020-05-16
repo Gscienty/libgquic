@@ -256,8 +256,7 @@ int gquic_packet_sent_packet_handler_drop_packets(gquic_packet_sent_packet_handl
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_sent_packet_handler_sent_packet(gquic_packet_sent_packet_handler_t *const handler,
-                                                 gquic_packet_t *const packet) {
+int gquic_packet_sent_packet_handler_sent_packet(gquic_packet_sent_packet_handler_t *const handler, gquic_packet_t *const packet) {
     gquic_packet_sent_pn_t *sent_pn = NULL;
     if (handler == NULL || packet == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);

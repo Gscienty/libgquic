@@ -526,12 +526,14 @@ int gquic_packet_packer_pack_with_padding(gquic_packed_packet_t *const packed_pa
         GQUIC_STR_VAL(&buffer->slice) + header_size
     };
     const gquic_str_t addata = { header_size, GQUIC_STR_VAL(&buffer->slice) };
+
     if (GQUIC_ASSERT_CAUSE(exception,
                            GQUIC_PACKED_PACKET_PAYLOAD_SEAL(&tag, &cipher_text,
                                                             payload,
                                                             gquic_packet_header_get_pn(&payload->hdr), &plain_text, &addata))) {
         goto failure;
     }
+
     if (header_size + GQUIC_STR_SIZE(&tag) + GQUIC_STR_SIZE(&cipher_text) > GQUIC_STR_SIZE(&buffer->slice)) {
         GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_INTERNAL_ERROR);
         goto failure;
@@ -840,8 +842,7 @@ int gquic_packet_packer_try_pack_app_packet(gquic_packed_packet_t *const packed_
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_packer_try_pack_crypto_packet(gquic_packed_packet_t *const packed_packet,
-                                               gquic_packet_packer_t *const packer) {
+int gquic_packet_packer_try_pack_crypto_packet(gquic_packed_packet_t *const packed_packet, gquic_packet_packer_t *const packer) {
     int exception = GQUIC_SUCCESS;
     if (packed_packet == NULL || packer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
