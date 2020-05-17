@@ -197,11 +197,11 @@ static int gquic_client_create_sess(gquic_client_t *const client) {
     }
     pthread_mutex_lock(&client->mtx);
     if (!GQUIC_ASSERT(gquic_session_ctor(&client->sess, &client->conn, client->packet_handlers,
-                       NULL, NULL, &client->dst_conn_id, &client->src_conn_id,
-                       NULL,
-                       client->config,
-                       client->initial_pn,
-                       1))) {
+                                         NULL, NULL, &client->dst_conn_id, &client->src_conn_id,
+                                         NULL,
+                                         client->config,
+                                         client->initial_pn,
+                                         1))) {
         client->sess_created = 1;
     }
     pthread_mutex_unlock(&client->mtx);

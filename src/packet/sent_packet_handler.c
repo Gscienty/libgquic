@@ -273,9 +273,7 @@ int gquic_packet_sent_packet_handler_sent_packet(gquic_packet_sent_packet_handle
 }
 
 int gquic_packet_sent_packet_handler_received_ack(gquic_packet_sent_packet_handler_t *const handler,
-                                                  const gquic_frame_ack_t *const ack_frame,
-                                                  const u_int8_t enc_lv,
-                                                  const u_int64_t recv_time) {
+                                                  const gquic_frame_ack_t *const ack_frame, const u_int8_t enc_lv, const u_int64_t recv_time) {
     int exception = GQUIC_SUCCESS;
     gquic_packet_sent_pn_t *pn_spec = NULL;
     const gquic_packet_t *packet = NULL;

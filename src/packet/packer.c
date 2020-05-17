@@ -855,7 +855,6 @@ int gquic_packet_packer_try_pack_crypto_packet(gquic_packed_packet_t *const pack
         GQUIC_PROCESS_DONE(exception);
     }
 
-
     GQUIC_ASSERT_CAUSE(exception, gquic_packet_packer_try_pack_handshake_packet(packed_packet, packer));
     if (exception == GQUIC_EXCEPTION_KEY_DROPPED) {
         packer->droped_handshake = 1;

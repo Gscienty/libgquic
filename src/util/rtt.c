@@ -43,9 +43,9 @@ int gquic_rtt_update(gquic_rtt_t *rtt, const u_int64_t send, const u_int64_t ack
 #define __MAX(a, b) ((a) > (b) ? (a) : (b))
 
 u_int64_t gquic_time_pto(const gquic_rtt_t *const rtt, const int inc_max_ack_delay) {
-    suseconds_t pto = 0;
+    u_int64_t pto = 0;
     if (rtt == NULL) {
-        return -1;
+        return 0;
     }
     if (rtt->smooth == 0) {
         return 2 * 100 * 1000;

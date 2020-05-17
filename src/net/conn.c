@@ -21,7 +21,6 @@ int gquic_net_conn_write(gquic_net_conn_t *const conn, const gquic_str_t *const 
     if (conn->write.self != NULL) {
         GQUIC_PROCESS_DONE(GQUIC_NET_CONN_WRITE(conn, raw));
     }
-
     if (conn->addr.type == AF_INET) {
         if (sendto(conn->fd, GQUIC_STR_VAL(raw), GQUIC_STR_SIZE(raw), 0, (struct sockaddr *) &conn->addr.addr.v4, sizeof(struct sockaddr_in)) < 0) {
             GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_SENDTO_FAILED);

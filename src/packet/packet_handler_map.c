@@ -151,7 +151,7 @@ static int gquic_packet_handler_map_listen(gquic_coroutine_t *const co, void *co
         if (recv_chain == &handler->close_chain) {
             break;
         }
-        addr_len = 0;
+        addr_len = sizeof(addr);
         if (GQUIC_ASSERT(gquic_packet_buffer_get(&buffer))) {
             break;
         }
