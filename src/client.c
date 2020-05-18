@@ -7,7 +7,7 @@
 #include <openssl/rand.h>
 
 static int gquic_client_on_handshake_completed(void *const);
-static int __gquic_client_session_run_co(gquic_coroutine_t *const, void *const);
+static int gquic_client_session_run_co(gquic_coroutine_t *const, void *const);
 static int gquic_client_implement_packet_handler(gquic_packet_handler_t **const, gquic_client_t *const);
 static int gquic_client_ctor(gquic_client_t *const, int, gquic_net_addr_t *const, gquic_config_t *const, const int);
 static int gquic_client_handle_packet(gquic_client_t *const, gquic_received_packet_t *const);
@@ -91,7 +91,7 @@ static int gquic_client_establish_sec_conn(gquic_coroutine_t *const co, void *co
     }
     ((gquic_client_t *) client)->sess.on_handshake_completed.self = client;
     ((gquic_client_t *) client)->sess.on_handshake_completed.cb = gquic_client_on_handshake_completed;
-    GQUIC_ASSERT_FAST_RETURN(gquic_global_schedule_join(&sess_run_co, 1024 * 1024, __gquic_client_session_run_co, client));
+    GQUIC_ASSERT_FAST_RETURN(gquic_global_schedule_join(&sess_run_co, 1024 * 1024, gquic_client_session_run_co, client));
 
     GQUIC_EXCEPTION_ASSIGN(exception, gquic_coroutine_chain_recv(&recv_event, &recv_chain, co, 1,
                                                                  &((gquic_client_t *) client)->done_chain,
@@ -117,7 +117,7 @@ static int gquic_client_establish_sec_conn(gquic_coroutine_t *const co, void *co
     GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INTERNAL_ERROR);
 }
 
-static int __gquic_client_session_run_co(gquic_coroutine_t *const co, void *const client_){
+static int gquic_client_session_run_co(gquic_coroutine_t *const co, void *const client_){
     int exception = GQUIC_SUCCESS;
     int *err = NULL;
     gquic_client_t *const client = client_;

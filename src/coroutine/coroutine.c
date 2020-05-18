@@ -1,6 +1,7 @@
 #include "coroutine/coroutine.h"
 #include "coroutine/schedule.h"
 #include "exception.h"
+#include "util/malloc.h"
 #include <malloc.h>
 #include <stddef.h>
 
@@ -8,12 +9,7 @@ int gquic_coroutine_alloc(gquic_coroutine_t **co_storage) {
     if (co_storage == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    *co_storage = malloc(sizeof(gquic_coroutine_t));
-    if (*co_storage == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
-
-    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+    GQUIC_PROCESS_DONE(GQUIC_MALLOC_STRUCT(co_storage, gquic_coroutine_t));
 }
 
 int gquic_coroutine_release(gquic_coroutine_t *const co) {
@@ -22,7 +18,6 @@ int gquic_coroutine_release(gquic_coroutine_t *const co) {
     }
     gquic_coroutine_dtor(co);
     free(co);
-
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -138,7 +133,7 @@ int gquic_coroutine_run_until_complete(gquic_coroutine_t *const co) {
     }
     for ( ;; ) {
         GQUIC_EXCEPTION_ASSIGN(exception, gquic_coroutine_await(co));
-        if (co->status == GQUIC_COROUTINE_STATUS_TERMIATE) {
+        if (co->status == GQUIC_COROUTINE_STATUS_TERMINATE) {
             gquic_coroutine_next(co);
             break;
         }

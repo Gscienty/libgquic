@@ -40,7 +40,7 @@ static inline int gquic_coroutine_next(gquic_coroutine_t *const co) {
         gquic_coroutine_schedule_join(sche, co);
         break;
 
-    case GQUIC_COROUTINE_STATUS_TERMIATE:
+    case GQUIC_COROUTINE_STATUS_TERMINATE:
         gquic_coroutine_try_release(co);
         break;
 

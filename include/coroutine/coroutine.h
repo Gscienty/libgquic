@@ -9,7 +9,7 @@
 #define GQUIC_COROUTINE_STATUS_READYING 0x02
 #define GQUIC_COROUTINE_STATUS_RUNNING 0x03
 #define GQUIC_COROUTINE_STATUS_WAITING 0x04
-#define GQUIC_COROUTINE_STATUS_TERMIATE 0x05
+#define GQUIC_COROUTINE_STATUS_TERMINATE 0x05
 
 typedef struct gquic_coroutine_s gquic_coroutine_t;
 struct gquic_coroutine_s {

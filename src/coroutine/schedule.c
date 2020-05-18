@@ -2,7 +2,6 @@
 #include "global_schedule.h"
 #include "exception.h"
 #include "util/time.h"
-#include <stdio.h>
 
 static int gquic_schedule_coroutine_execute_wrapper(void *const);
 static int gquic_coroutine_schedule_wake_up(gquic_coroutine_t **const, gquic_coroutine_schedule_t *const);
@@ -40,7 +39,7 @@ int gquic_coroutine_schedule_join(gquic_coroutine_schedule_t *const sche, gquic_
         gquic_coroutine_make_context(&co->ctx, gquic_schedule_coroutine_execute_wrapper, co);
         break;
 
-    case GQUIC_COROUTINE_STATUS_TERMIATE:
+    case GQUIC_COROUTINE_STATUS_TERMINATE:
         gquic_coroutine_try_release(co);
         pthread_mutex_unlock(&sche->mtx);
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_CLOSED);
@@ -125,6 +124,9 @@ int gquic_coroutine_schedule_resume(gquic_coroutine_t **const co_storage, gquic_
     gquic_coroutine_join_unref(*co_storage);
     pthread_mutex_unlock(&sche->mtx);
 
+    if ((*co_storage)->status == GQUIC_COROUTINE_STATUS_TERMINATE) {
+        GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+    }
     (*co_storage)->status = GQUIC_COROUTINE_STATUS_RUNNING;
     gquic_coroutine_swap_context(&sche->schedule_ctx, &(*co_storage)->ctx);
 
@@ -147,7 +149,7 @@ static int gquic_schedule_coroutine_execute_wrapper(void *const co_) {
     }
     GQUIC_EXCEPTION_ASSIGN(co->result, GQUIC_COROUTINE_CALL(co));
 
-    co->status = GQUIC_COROUTINE_STATUS_TERMIATE;
+    co->status = GQUIC_COROUTINE_STATUS_TERMINATE;
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
