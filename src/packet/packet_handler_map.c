@@ -156,10 +156,7 @@ static int gquic_packet_handler_map_listen(gquic_coroutine_t *const co, void *co
             break;
         }
         if ((recv_len = recvfrom(handler->conn_fd,
-                                 GQUIC_STR_VAL(&buffer->slice),
-                                 GQUIC_STR_SIZE(&buffer->slice),
-                                 0,
-                                 (struct sockaddr *) addr, &addr_len)) <= 0) {
+                                 GQUIC_STR_VAL(&buffer->slice), GQUIC_STR_SIZE(&buffer->slice), 0, (struct sockaddr *) addr, &addr_len)) <= 0) {
             if (recv_len == -1 && errno == EAGAIN) {
                 continue;
             }
@@ -358,9 +355,7 @@ int gquic_packet_handler_map_get_stateless_reset_token(gquic_str_t *const token,
 }
 
 int gquic_packet_handler_map_add(gquic_str_t *const token,
-                                 gquic_packet_handler_map_t *const handler,
-                                 const gquic_str_t *const conn_id,
-                                 gquic_packet_handler_t *const ph) {
+                                 gquic_packet_handler_map_t *const handler, const gquic_str_t *const conn_id, gquic_packet_handler_t *const ph) {
     gquic_rbtree_t *rbt = NULL;
     if (handler == NULL || conn_id == NULL || ph == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);

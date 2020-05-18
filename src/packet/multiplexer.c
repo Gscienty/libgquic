@@ -37,9 +37,7 @@ static void gquic_init_multiplexer() {
 }
 
 int gquic_multiplexer_add_conn(gquic_packet_handler_map_t **const handler_storage,
-                               const int conn_fd,
-                               const int conn_id_len,
-                               const gquic_str_t *const stateless_reset_token) {
+                               const int conn_fd, const int conn_id_len, const gquic_str_t *const stateless_reset_token) {
     int exception = GQUIC_SUCCESS;
     gquic_rbtree_t *rbt = NULL;
     if (handler_storage == NULL) {

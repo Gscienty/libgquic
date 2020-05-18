@@ -51,31 +51,24 @@ struct gquic_packet_handler_map_s {
 };
 int gquic_packet_handler_map_init(gquic_packet_handler_map_t *const handler);
 int gquic_packet_handler_map_ctor(gquic_packet_handler_map_t *const handler,
-                                  const int conn_fd,
-                                  const int conn_id_len,
-                                  const gquic_str_t *const stateless_reset_token);
+                                  const int conn_fd, const int conn_id_len, const gquic_str_t *const stateless_reset_token);
 int gquic_packet_handler_map_dtor(gquic_packet_handler_map_t *const handler);
 int gquic_packet_handler_map_add(gquic_str_t *const token,
-                                 gquic_packet_handler_map_t *const handler,
-                                 const gquic_str_t *const conn_id,
-                                 gquic_packet_handler_t *const ph);
+                                 gquic_packet_handler_map_t *const handler, const gquic_str_t *const conn_id, gquic_packet_handler_t *const ph);
 int gquic_packet_handler_map_handle_packet(gquic_packet_handler_map_t *const handle_map, gquic_received_packet_t *const rp);
 int gquic_packet_handler_map_add_if_not_taken(gquic_packet_handler_map_t *handler,
-                                              const gquic_str_t *const conn_id,
-                                              gquic_packet_handler_t *const ph);
+                                              const gquic_str_t *const conn_id, gquic_packet_handler_t *const ph);
 int gquic_packet_handler_map_remove(gquic_packet_handler_map_t *const handler, const gquic_str_t *const conn_id);
 int gquic_packet_handler_map_retire(gquic_packet_handler_map_t *const handler, const gquic_str_t *const conn_id);
 int gquic_packet_handler_map_replace_with_closed(gquic_packet_handler_map_t *const handler, const gquic_str_t *const conn_id, gquic_packet_handler_t *const ph);
 int gquic_packet_handler_map_add_reset_token(gquic_packet_handler_map_t *const handler,
-                                             const gquic_str_t *const token,
-                                             gquic_packet_handler_t *const ph);
+                                             const gquic_str_t *const token, gquic_packet_handler_t *const ph);
 int gquic_packet_handler_map_remove_reset_token(gquic_packet_handler_map_t *const handler, const gquic_str_t *const token);
 int gquic_packet_handler_map_retire_reset_token(gquic_packet_handler_map_t *const handler, const gquic_str_t *const token);
 int gquic_packet_handler_map_set_server(gquic_packet_handler_map_t *const handler, gquic_packet_unknow_packet_handler_t *const uph);
 int gquic_packet_handler_map_close_server(gquic_coroutine_t *const co, gquic_packet_handler_map_t *const handler);
 int gquic_packet_handler_map_close(gquic_packet_handler_map_t *const handler);
 int gquic_packet_handler_map_get_stateless_reset_token(gquic_str_t *const token,
-                                                       gquic_packet_handler_map_t *const handler,
-                                                       const gquic_str_t *const conn_id);
+                                                       gquic_packet_handler_map_t *const handler, const gquic_str_t *const conn_id);
 
 #endif

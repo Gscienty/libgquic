@@ -924,8 +924,7 @@ int gquic_packet_packer_pack_crypto_packet(gquic_packed_packet_t *const packed_p
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_packer_pack_packet(gquic_packed_packet_t *const packed_packet,
-                                    gquic_packet_packer_t *const packer) {
+int gquic_packet_packer_pack_packet(gquic_packed_packet_t *const packed_packet, gquic_packet_packer_t *const packer) {
     if (packed_packet == NULL || packer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }

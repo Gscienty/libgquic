@@ -1010,7 +1010,6 @@ static inline u_int64_t gquic_session_idle_timeout_start_time(gquic_session_t *c
 
 static int gquic_session_handle_packet_inner(gquic_coroutine_t *const co, gquic_session_t *const sess, gquic_received_packet_t *const rp) {
     int counter = 0;
-    gquic_str_t last_conn_id = { 0, NULL };
     int processed = 0;
     gquic_reader_str_t data = { 0, NULL };
     gquic_packet_buffer_t *buffer = NULL;
@@ -1039,7 +1038,6 @@ static int gquic_session_handle_packet_inner(gquic_coroutine_t *const co, gquic_
            free(p);
            break;
        }
-       last_conn_id = rp->dst_conn_id;
        if (counter > 0) {
            p->buffer->ref++;
        }

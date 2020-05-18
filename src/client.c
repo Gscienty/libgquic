@@ -182,7 +182,7 @@ int gquic_client_destory(gquic_coroutine_t *const co, gquic_client_t *const clie
 }
 
 static int gquic_client_handle_packet(gquic_client_t *const client, gquic_received_packet_t *const recv_packet) {
-    if (client == NULL) {
+    if (client == NULL || recv_packet == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_session_handle_packet(&client->sess, recv_packet));

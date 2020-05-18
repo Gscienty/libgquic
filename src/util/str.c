@@ -91,7 +91,7 @@ int gquic_str_test_echo(const gquic_str_t *const str) {
 }
 
 int gquic_str_cmp(const gquic_str_t *const str_a, const gquic_str_t *const str_b) {
-    if (str_a == NULL && str_b == NULL) {
+    if (GQUIC_STR_SIZE(str_a) == 0 && GQUIC_STR_SIZE(str_b) == 0) {
         return 0;
     }
     if (GQUIC_STR_SIZE(str_a) != GQUIC_STR_SIZE(str_b)) {
