@@ -4,6 +4,7 @@
 #include <stdio.h>
 
 static int gquic_coroutine_single_chain_recv(void **const, gquic_coroutine_t *const, gquic_coroutine_chain_t *const, const int waiting);
+static int gquic_coroutine_single_chain_unregister(gquic_coroutine_chain_t *const, gquic_coroutine_t *const);
 
 int gquic_coroutine_chain_init(gquic_coroutine_chain_t *const chain) {
     if (chain == NULL) {
@@ -37,13 +38,13 @@ int gquic_coroutine_chain_recv(void **const result, gquic_coroutine_chain_t **co
             if (recv_chain != NULL) {
                 *recv_chain = chain;
             }
-            GQUIC_PROCESS_DONE(exception);
+            goto unregister;
         }
     }
     va_end(chains);
 
     if (waiting) {
-        // TODO co unregistry chains
+        co->status = GQUIC_COROUTINE_STATUS_WAITING;
         gquic_coroutine_yield(co);
         va_start(chains, waiting);
         while ((chain = va_arg(chains, gquic_coroutine_chain_t *const)) != NULL) {
@@ -52,13 +53,20 @@ int gquic_coroutine_chain_recv(void **const result, gquic_coroutine_chain_t **co
                 if (recv_chain != NULL) {
                     *recv_chain = chain;
                 }
-                GQUIC_PROCESS_DONE(exception);
+                goto unregister;
             }
         }
         va_end(chains);
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INTERNAL_ERROR);
     }
-    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+
+unregister:
+    va_start(chains, waiting);
+    while ((chain = va_arg(chains, gquic_coroutine_chain_t *)) != NULL) {
+        gquic_coroutine_single_chain_unregister(chain, co);
+    }
+    va_end(chains);
+    GQUIC_PROCESS_DONE(exception);
 }
 
 int gquic_coroutine_chain_send(gquic_coroutine_chain_t *const chain, gquic_coroutine_schedule_t *const sche, void *const message) {
@@ -109,6 +117,7 @@ static int gquic_coroutine_single_chain_recv(void **const result, gquic_coroutin
         *result = chain;
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_CLOSED);
     }
+
     if (gquic_list_head_empty(&chain->elems) && waiting) {
         GQUIC_LIST_FOREACH(co_storage, &chain->waiting) {
             if (*co_storage == co) {
@@ -116,7 +125,6 @@ static int gquic_coroutine_single_chain_recv(void **const result, gquic_coroutin
                 GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
             }
         }
-
         if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &co_storage, sizeof(gquic_coroutine_t *)))) {
             pthread_mutex_unlock(&chain->mtx);
             GQUIC_PROCESS_DONE(exception);
@@ -158,4 +166,22 @@ int gquic_coroutine_chain_boradcast_close(gquic_coroutine_chain_t *const chain, 
      }
      pthread_mutex_unlock(&chain->mtx);
      GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}
+
+static int gquic_coroutine_single_chain_unregister(gquic_coroutine_chain_t *const chain, gquic_coroutine_t *const co) {
+    gquic_coroutine_t **co_storage = NULL;
+    if (chain == NULL || co == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+
+    pthread_mutex_lock(&chain->mtx);
+    GQUIC_LIST_FOREACH(co_storage, &chain->waiting) {
+        if (*co_storage == co) {
+            gquic_coroutine_join_unref(*co_storage);
+            gquic_list_remove(co_storage);
+            break;
+        }
+    }
+    pthread_mutex_unlock(&chain->mtx);
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

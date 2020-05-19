@@ -710,7 +710,6 @@ int gquic_session_run(gquic_coroutine_t *const co, gquic_session_t *const sess) 
                                                                      &sess->handshake_completed_chain,
                                                                      timeout_chain,
                                                                      NULL));
-
         if (recv_chain == timeout_chain) {
             free(timeout_chain);
             timeout_chain = NULL;
@@ -777,7 +776,6 @@ int gquic_session_run(gquic_coroutine_t *const co, gquic_session_t *const sess) 
             gquic_session_close_local(sess, exception);
             exception = GQUIC_SUCCESS;
         }
-        gquic_coroutine_yield(co);
     }
 closed:
     gquic_session_handle_close_err(sess, err_msg.err, err_msg.immediate, err_msg.remote);
