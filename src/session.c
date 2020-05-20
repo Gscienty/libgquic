@@ -190,9 +190,6 @@ int gquic_session_init(gquic_session_t *const sess) {
 
     gquic_tls_config_init(&sess->tls_config);
 
-    sess->on_handshake_completed.cb = NULL;
-    sess->on_handshake_completed.self = NULL;
-
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
@@ -451,6 +448,8 @@ static int gquic_session_on_handshake_complete_server_wrapper(void *const sess_)
     }
     gquic_packet_handler_map_retire(sess->runner, &sess->cli_dst_conn_id);
     GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_chain_boradcast_close(&sess->handshake_completed_chain, gquic_get_global_schedule()));
+
+    GQUIC_SESSION_ON_HANDSHAKE_COMPLETED(sess);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -848,9 +847,6 @@ static int gquic_session_try_reset_deadline(gquic_session_t *const sess) {
     if ((tmp = sess->pacing_deadline) != 0) {
         sess->deadline = tmp < sess->deadline ? tmp : sess->deadline;
     }
-    if (sess->handshake_completed && (tmp = sess->pacing_deadline) != 0) {
-        sess->deadline = tmp < sess->deadline ? tmp : sess->deadline;
-    }
     
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -994,8 +990,6 @@ static int gquic_session_handle_handshake_completed(gquic_session_t *const sess)
         // TODO gen token
         gquic_handshake_establish_drop_handshake_keys(&sess->est);
     }
-    
-    GQUIC_ASSERT_FAST_RETURN(GQUIC_SESSION_ON_HANDSHAKE_COMPLETED(sess));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -1725,9 +1719,7 @@ static int gquic_session_send_probe_packet(gquic_session_t *const sess, const u_
     if (sess == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if ((packed_packet = malloc(sizeof(gquic_packed_packet_t))) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&packed_packet, gquic_packed_packet_t));
     for ( ;; ) {
         gquic_packed_packet_init(packed_packet);
         if (!gquic_packet_sent_packet_handler_queue_probe_packet(&sess->sent_packet_handler, enc_lv)) {
@@ -1777,10 +1769,10 @@ static int gquic_session_send_probe_packet(gquic_session_t *const sess, const u_
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PACKED_PACKET_INVALID);
     }
 
-    if ((packet = malloc(sizeof(gquic_packet_t))) == NULL) {
+    if (GQUIC_ASSERT_CAUSE(exception, GQUIC_MALLOC_STRUCT(&packet, gquic_packet_t))) {
         gquic_packed_packet_dtor(packed_packet);
         free(packed_packet);
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
+        GQUIC_PROCESS_DONE(exception);
     }
     gquic_packed_packet_get_ack_packet(packet, packed_packet, &sess->retransmission);
     gquic_packet_sent_packet_handler_sent_packet(&sess->sent_packet_handler, packet);
