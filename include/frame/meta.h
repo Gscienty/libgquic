@@ -42,6 +42,7 @@ struct gquic_frame_meta_s {
 
 int gquic_frame_alloc(void **const result, size_t size);
 int gquic_frame_release(void *const frame);
+int gquic_frame_assign(void **const frame_storage, void *frame);
 
 #define GQUIC_FRAME_ALLOC(result, type) (gquic_frame_alloc((void **) (result), sizeof(type)))
 

@@ -471,7 +471,7 @@ static inline int gquic_packet_sent_packet_handler_sent_packet_inner(gquic_packe
         return 0;
     }
     pn_spc->largest_sent = packet->pn;
-    ack_eliciting = !gquic_list_head_empty(packet->frames);
+    ack_eliciting = !gquic_list_head_empty(GQUIC_CPTR_REF(packet->frames_cptr, gquic_list_t));
     if (ack_eliciting) {
         pn_spc->last_sent_ack_time = packet->send_time;
         packet->included_infly = 1;
@@ -552,7 +552,7 @@ static int gquic_packet_sent_packet_handler_on_packet_acked(gquic_packet_sent_pa
                                                             const gquic_packet_t *const packet) {
     gquic_packet_sent_pn_t *pn_spec = NULL;
     const gquic_packet_t *mem_packet = NULL;
-    void **frame = NULL;
+    void **frame_storage = NULL;
     if (handler == NULL || packet == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -563,9 +563,9 @@ static int gquic_packet_sent_packet_handler_on_packet_acked(gquic_packet_sent_pa
     if (mem_packet == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
-    GQUIC_LIST_FOREACH(frame, packet->frames) {
-        if (GQUIC_FRAME_META(*frame).on_acked.self != NULL) {
-            GQUIC_FRAME_ON_ACKED(*frame);
+    GQUIC_LIST_FOREACH(frame_storage, GQUIC_CPTR_REF(packet->frames_cptr, gquic_list_t)) {
+        if (GQUIC_FRAME_META(*frame_storage).on_acked.self != NULL) {
+            GQUIC_FRAME_ON_ACKED(*frame_storage);
         }
     }
     if (packet->included_infly) {
@@ -637,7 +637,7 @@ static int gquic_packet_sent_packet_handler_queue_frames_for_retrans(gquic_packe
     if (packet == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    GQUIC_LIST_FOREACH(frame_storage, packet->frames) {
+    GQUIC_LIST_FOREACH(frame_storage, GQUIC_CPTR_REF(packet->frames_cptr, gquic_list_t)) {
         GQUIC_FRAME_ON_LOST(*frame_storage);
     }
 

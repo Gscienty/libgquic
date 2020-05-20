@@ -22,8 +22,8 @@ static int gquic_1rtt_sealer_seal_wrapper(gquic_str_t *const,
                                           const u_int64_t,
                                           const gquic_str_t *const,
                                           const gquic_str_t *const);
-
 static int gquic_packet_packer_get_sealer_and_header(gquic_packed_packet_payload_t *const, gquic_packet_packer_t *const);
+static int gquic_frames_cptr_release(void *const);
 
 int gquic_packed_packet_init(gquic_packed_packet_t *const packed_packet) {
     if (packed_packet == NULL) {
@@ -33,7 +33,7 @@ int gquic_packed_packet_init(gquic_packed_packet_t *const packed_packet) {
     gquic_packet_header_init(&packed_packet->hdr);
     gquic_str_init(&packed_packet->raw);
     packed_packet->ack = NULL;
-    packed_packet->frames = NULL;
+    packed_packet->frames_cptr = NULL;
     packed_packet->buffer = NULL;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
@@ -56,12 +56,8 @@ int gquic_packed_packet_dtor(gquic_packed_packet_t *const packed_packet) {
     if (packed_packet->ack != NULL) {
         gquic_frame_release(packed_packet->ack);
     }
-    if (packed_packet->frames != NULL) {
-        while (!gquic_list_head_empty(packed_packet->frames)) {
-            gquic_frame_release(*(void **) GQUIC_LIST_FIRST(packed_packet->frames));
-            gquic_list_release(GQUIC_LIST_FIRST(packed_packet->frames));
-        }
-        free(packed_packet->frames);
+    if (packed_packet->frames_cptr != NULL) {
+        gquic_count_pointer_try_release(packed_packet->frames_cptr);
     }
     if (packed_packet->buffer != NULL) {
         gquic_packet_buffer_put(packed_packet->buffer);
@@ -111,7 +107,7 @@ int gquic_packed_packet_is_ack_eliciting(gquic_packed_packet_t *const packed_pac
         return 0;
     }
 
-    return gquic_frames_has_frame_ack(packed_packet->frames);
+    return gquic_frames_has_frame_ack(GQUIC_CPTR_REF(packed_packet->frames_cptr, gquic_list_t));
 }
 
 int gquic_packed_packet_get_ack_packet(gquic_packet_t *const packet,
@@ -128,7 +124,7 @@ int gquic_packed_packet_get_ack_packet(gquic_packet_t *const packet,
         largest_ack = packed_packet->ack->largest_ack;
     }
     enc_lv = gquic_packed_packet_enc_lv(packed_packet);
-    GQUIC_LIST_FOREACH(frame_storage, packed_packet->frames) {
+    GQUIC_LIST_FOREACH(frame_storage, GQUIC_CPTR_REF(packed_packet->frames_cptr, gquic_list_t)) {
         if (GQUIC_FRAME_META(*frame_storage).on_lost.self != NULL) {
             continue;
         }
@@ -149,7 +145,7 @@ int gquic_packed_packet_get_ack_packet(gquic_packet_t *const packet,
     }
     packet->pn = gquic_packet_header_get_pn(&packed_packet->hdr);
     packet->largest_ack = largest_ack;
-    packet->frames = packed_packet->frames;
+    gquic_count_pointer_assign(&packet->frames_cptr, packed_packet->frames_cptr);
     packet->len = GQUIC_STR_SIZE(&packed_packet->raw);
     packet->enc_lv = enc_lv;
     packet->send_time = gquic_time_now();
@@ -173,7 +169,7 @@ int gquic_packed_packet_payload_init(gquic_packed_packet_payload_t *const payloa
     if (payload == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    payload->frames = NULL;
+    payload->frames_cptr = NULL;
     payload->ack = NULL;
     payload->len = 0;
     payload->sealer.cb = NULL;
@@ -189,12 +185,8 @@ int gquic_packed_packet_payload_dtor(gquic_packed_packet_payload_t *const payloa
     if (payload == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if (payload->frames != NULL) {
-        while (!gquic_list_head_empty(payload->frames)) {
-            gquic_frame_release(*(void **) GQUIC_LIST_FIRST(payload->frames));
-            gquic_list_release(GQUIC_LIST_FIRST(payload->frames));
-        }
-        free(payload->frames);
+    if (payload->frames_cptr != NULL) {
+        gquic_count_pointer_try_release(payload->frames_cptr);
     }
     if (payload->ack != NULL) {
         gquic_frame_release(payload->ack);
@@ -295,16 +287,14 @@ int gquic_packet_packer_pack_conn_close(gquic_packed_packet_t *const packed_pack
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_packed_packet_payload_init(&payload);
-    if ((payload.frames = malloc(sizeof(gquic_list_t))) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
-    gquic_list_head_init(payload.frames);
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_CPTR_MALLOC_STRUCT(&payload.frames_cptr, gquic_list_t, gquic_frames_cptr_release));
+    gquic_list_head_init(GQUIC_CPTR_REF(payload.frames_cptr, gquic_list_t));
     if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &frame_storage, sizeof(void *)))) {
         gquic_packed_packet_payload_dtor(&payload);
         GQUIC_PROCESS_DONE(exception);
     }
     *frame_storage = conn_close;
-    gquic_list_insert_before(payload.frames, frame_storage);
+    gquic_list_insert_before(GQUIC_CPTR_REF(payload.frames_cptr, gquic_list_t), frame_storage);
     payload.len = GQUIC_FRAME_SIZE(conn_close);
 
     if (!GQUIC_ASSERT_CAUSE(exception,
@@ -507,8 +497,8 @@ int gquic_packet_packer_pack_with_padding(gquic_packed_packet_t *const packed_pa
             goto failure;
         }
     }
-    if (payload->frames != NULL) {
-        GQUIC_LIST_FOREACH(frame_storage, payload->frames) {
+    if (payload->frames_cptr != NULL) {
+        GQUIC_LIST_FOREACH(frame_storage, GQUIC_CPTR_REF(payload->frames_cptr, gquic_list_t)) {
             if (GQUIC_ASSERT_CAUSE(exception, GQUIC_FRAME_SERIALIZE(*frame_storage, &writer))) {
                 goto failure;
             }
@@ -566,7 +556,7 @@ int gquic_packet_packer_pack_with_padding(gquic_packed_packet_t *const packed_pa
     packed_packet->ack = payload->ack;
     packed_packet->buffer = buffer;
     packed_packet->hdr = payload->hdr;
-    packed_packet->frames = payload->frames;
+    packed_packet->frames_cptr = payload->frames_cptr; // because payload is auto variable
     gquic_str_t cnt = { GQUIC_STR_VAL(&buffer->writer) - GQUIC_STR_VAL(&buffer->slice), GQUIC_STR_VAL(&buffer->slice) };
     packed_packet->raw = cnt;
 
@@ -685,11 +675,11 @@ int gquic_packet_packer_try_pack_initial_packet(gquic_packed_packet_t *const pac
         gquic_packed_packet_payload_dtor(&payload);
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
-    if (GQUIC_ASSERT_CAUSE(exception, GQUIC_MALLOC_STRUCT(&payload.frames, gquic_list_t))) {
+    if (GQUIC_ASSERT_CAUSE(exception, GQUIC_CPTR_MALLOC_STRUCT(&payload.frames_cptr, gquic_list_t, gquic_frames_cptr_release))) {
         gquic_packed_packet_payload_dtor(&payload);
         GQUIC_PROCESS_DONE(exception);
     }
-    gquic_list_head_init(payload.frames);
+    gquic_list_head_init(GQUIC_CPTR_REF(payload.frames_cptr, gquic_list_t));
     payload.enc_lv = GQUIC_ENC_LV_INITIAL;
     if (GQUIC_ASSERT_CAUSE(exception, gquic_packet_packer_pack_crypto_packet(packed_packet, packer, &payload, has_retransmission))) {
         gquic_packed_packet_payload_dtor(&payload);
@@ -721,11 +711,11 @@ int gquic_packet_packer_try_pack_handshake_packet(gquic_packed_packet_t *const p
         gquic_packed_packet_payload_dtor(&payload);
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
-    if (GQUIC_ASSERT_CAUSE(exception, GQUIC_MALLOC_STRUCT(&payload.frames, gquic_list_t))) {
+    if (GQUIC_ASSERT_CAUSE(exception, GQUIC_CPTR_MALLOC_STRUCT(&payload.frames_cptr, gquic_list_t, gquic_frames_cptr_release))) {
         gquic_packed_packet_payload_dtor(&payload);
         GQUIC_PROCESS_DONE(exception);
     }
-    gquic_list_head_init(payload.frames);
+    gquic_list_head_init(GQUIC_CPTR_REF(payload.frames_cptr, gquic_list_t));
     payload.enc_lv = GQUIC_ENC_LV_HANDSHAKE;
     if (GQUIC_ASSERT_CAUSE(exception, gquic_packet_packer_pack_crypto_packet(packed_packet, packer, &payload, has_retransmission))) {
         gquic_packed_packet_payload_dtor(&payload);
@@ -755,10 +745,8 @@ int gquic_packet_packer_try_pack_app_packet(gquic_packed_packet_t *const packed_
     payload.sealer.cb = gquic_1rtt_sealer_seal_wrapper;
 
     payload.enc_lv = GQUIC_ENC_LV_1RTT;
-    if ((payload.frames = malloc(sizeof(gquic_list_t))) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
-    gquic_list_head_init(payload.frames);
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_CPTR_MALLOC_STRUCT(&payload.frames_cptr, gquic_list_t, gquic_frames_cptr_release));
+    gquic_list_head_init(GQUIC_CPTR_REF(payload.frames_cptr, gquic_list_t));
     if (gquic_packet_packer_get_short_header(&payload.hdr, packer, packer->est->aead.times) != 0) {
         gquic_packed_packet_payload_dtor(&payload);
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
@@ -789,28 +777,28 @@ int gquic_packet_packer_try_pack_app_packet(gquic_packed_packet_t *const packed_
             GQUIC_PROCESS_DONE(exception);
         }
         *frame_storage = frame;
-        gquic_list_insert_before(payload.frames, frame_storage);
+        gquic_list_insert_before(GQUIC_CPTR_REF(payload.frames_cptr, gquic_list_t), frame_storage);
         payload.len += GQUIC_FRAME_SIZE(frame);
     }
 
-    if (GQUIC_ASSERT_CAUSE(exception, gquic_framer_append_ctrl_frame(payload.frames, &added_size, packer->framer, max_size - payload.len))) {
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_framer_append_ctrl_frame(GQUIC_CPTR_REF(payload.frames_cptr, gquic_list_t), &added_size, packer->framer, max_size - payload.len))) {
         gquic_packed_packet_payload_dtor(&payload);
         GQUIC_PROCESS_DONE(exception);
     }
     payload.len += added_size;
     added_size = 0;
-    if (GQUIC_ASSERT_CAUSE(exception, gquic_framer_append_stream_frames(payload.frames, &added_size, packer->framer, max_size - payload.len))) {
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_framer_append_stream_frames(GQUIC_CPTR_REF(payload.frames_cptr, gquic_list_t), &added_size, packer->framer, max_size - payload.len))) {
         gquic_packed_packet_payload_dtor(&payload);
         GQUIC_PROCESS_DONE(exception);
     }
     payload.len += added_size;
 
-    if (gquic_list_head_empty(payload.frames) && payload.ack == NULL) {
+    if (gquic_list_head_empty(GQUIC_CPTR_REF(payload.frames_cptr, gquic_list_t)) && payload.ack == NULL) {
         gquic_packed_packet_payload_dtor(&payload);
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
     
-    if (gquic_list_head_empty(payload.frames)) {
+    if (gquic_list_head_empty(GQUIC_CPTR_REF(payload.frames_cptr, gquic_list_t))) {
         if (packer->non_ack_eliciting_acks_count >= 19) {
             if (GQUIC_ASSERT_CAUSE(exception, gquic_frame_ping_alloc((gquic_frame_ping_t **) &frame))) {
                 gquic_packed_packet_payload_dtor(&payload);
@@ -822,7 +810,7 @@ int gquic_packet_packer_try_pack_app_packet(gquic_packed_packet_t *const packed_
                 GQUIC_PROCESS_DONE(exception);
             }
             *frame_storage = frame;
-            gquic_list_insert_before(payload.frames, frame_storage);
+            gquic_list_insert_before(GQUIC_CPTR_REF(payload.frames_cptr, gquic_list_t), frame_storage);
             payload.len += GQUIC_FRAME_SIZE(frame);
             packer->non_ack_eliciting_acks_count = 0;
         }
@@ -908,7 +896,7 @@ int gquic_packet_packer_pack_crypto_packet(gquic_packed_packet_t *const packed_p
             }
             GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &frame_storage, sizeof(void *)));
             *frame_storage = frame;
-            gquic_list_insert_before(payload->frames, frame_storage);
+            gquic_list_insert_before(GQUIC_CPTR_REF(payload->frames_cptr, gquic_list_t), frame_storage);
             payload->len += GQUIC_FRAME_SIZE(frame);
         }
     }
@@ -917,7 +905,7 @@ int gquic_packet_packer_pack_crypto_packet(gquic_packed_packet_t *const packed_p
                                                                       str, packer->max_packet_size - header_len - 16 - payload->len));
         GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &frame_storage, sizeof(void *)));
         *frame_storage = frame;
-        gquic_list_insert_before(payload->frames, frame_storage);
+        gquic_list_insert_before(GQUIC_CPTR_REF(payload->frames_cptr, gquic_list_t), frame_storage);
         payload->len += GQUIC_FRAME_SIZE(frame);
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_packet_packer_pack(packed_packet, packer, payload));
@@ -961,6 +949,19 @@ int gquic_packet_packer_try_pack_probe_packet(gquic_packed_packet_t *const packe
 
     default:
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INVALID_ENC_LV);
+    }
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}
+
+static int gquic_frames_cptr_release(void *const frames_) {
+    gquic_list_t *const frames = frames_;
+    if (frames_ == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+    while (!gquic_list_head_empty(frames)) {
+        gquic_frame_release(*(void **) GQUIC_LIST_FIRST(frames));
+        gquic_list_release(GQUIC_LIST_FIRST(frames));
     }
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);

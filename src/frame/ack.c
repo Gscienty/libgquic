@@ -162,7 +162,7 @@ int gquic_frame_ack_acks_packet(const gquic_list_t *const blocks, const u_int64_
         || ((gquic_frame_ack_block_t *) GQUIC_LIST_FIRST(&blocks))->largest < pn) {
         return 0;
     }
-    GQUIC_LIST_FOREACH(block, &blocks) {
+    GQUIC_LIST_FOREACH(block, blocks) {
         if (pn >= block->smallest) {
             return pn <= block->largest;
         }

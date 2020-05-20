@@ -3,11 +3,12 @@
 
 #include <sys/types.h>
 #include "util/list.h"
+#include "util/count_pointer.h"
 
 typedef struct gquic_packet_s gquic_packet_t;
 struct gquic_packet_s {
     u_int64_t pn;
-    gquic_list_t *frames; /* void * */
+    gquic_count_pointer_t *frames_cptr; /* gquic_list_t (void *) */
     u_int64_t largest_ack;
     u_int64_t len;
     u_int8_t enc_lv;
