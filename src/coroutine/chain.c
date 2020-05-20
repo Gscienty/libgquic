@@ -115,7 +115,7 @@ static int gquic_coroutine_single_chain_recv(void **const result, gquic_coroutin
     if (chain->closed) {
         pthread_mutex_unlock(&chain->mtx);
         *result = chain;
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_CLOSED);
+        GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
 
     if (gquic_list_head_empty(&chain->elems) && waiting) {
