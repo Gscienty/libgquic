@@ -81,14 +81,14 @@ int gquic_retransmission_queue_get_initial(void **const frame, gquic_retransmiss
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (!gquic_list_head_empty(&queue->initial_crypto)) {
-        if (GQUIC_FRAME_SIZE(GQUIC_LIST_FIRST(&queue->initial_crypto)) <= size) {
+        if (GQUIC_FRAME_SIZE(*(void **) GQUIC_LIST_FIRST(&queue->initial_crypto)) <= size) {
             *frame = *(void **) GQUIC_LIST_FIRST(&queue->initial_crypto);
             gquic_list_release(GQUIC_LIST_FIRST(&queue->initial_crypto));
             GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
         }
     }
     if (!gquic_list_head_empty(&queue->initial)) {
-        if (GQUIC_FRAME_SIZE(GQUIC_LIST_FIRST(&queue->initial)) <= size) {
+        if (GQUIC_FRAME_SIZE(*(void **) GQUIC_LIST_FIRST(&queue->initial)) <= size) {
             *frame = *(void **) GQUIC_LIST_FIRST(&queue->initial);
             gquic_list_release(GQUIC_LIST_FIRST(&queue->initial));
         }
@@ -102,14 +102,14 @@ int gquic_retransmission_queue_get_handshake(void **const frame, gquic_retransmi
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (!gquic_list_head_empty(&queue->handshake_crypto)) {
-        if (GQUIC_FRAME_SIZE(GQUIC_LIST_FIRST(&queue->handshake_crypto)) <= size) {
+        if (GQUIC_FRAME_SIZE(*(void **) GQUIC_LIST_FIRST(&queue->handshake_crypto)) <= size) {
             *frame = *(void **) GQUIC_LIST_FIRST(&queue->handshake_crypto);
             gquic_list_release(GQUIC_LIST_FIRST(&queue->handshake_crypto));
             GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
         }
     }
     if (!gquic_list_head_empty(&queue->handshake)) {
-        if (GQUIC_FRAME_SIZE(GQUIC_LIST_FIRST(&queue->handshake)) <= size) {
+        if (GQUIC_FRAME_SIZE(*(void **) GQUIC_LIST_FIRST(&queue->handshake)) <= size) {
             *frame = *(void **) GQUIC_LIST_FIRST(&queue->handshake);
             gquic_list_release(GQUIC_LIST_FIRST(&queue->handshake));
         }
@@ -123,7 +123,7 @@ int gquic_retransmission_queue_get_app(void **const frame, gquic_retransmission_
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (!gquic_list_head_empty(&queue->app)) {
-        if (GQUIC_FRAME_SIZE(GQUIC_LIST_FIRST(&queue->app)) <= size) {
+        if (GQUIC_FRAME_SIZE(*(void **) GQUIC_LIST_FIRST(&queue->app)) <= size) {
             *frame = *(void **) GQUIC_LIST_FIRST(&queue->app);
             gquic_list_release(GQUIC_LIST_FIRST(&queue->app));
         }
