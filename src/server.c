@@ -285,7 +285,7 @@ static int gquic_server_accept_inner_co(gquic_coroutine_t *const co, void *const
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     GQUIC_EXCEPTION_ASSIGN(exception, gquic_coroutine_chain_recv(&recv, &recv_chain, co, 1,
-                                                                 &param->server ->done_chain,
+                                                                 &param->server->done_chain,
                                                                  &param->server->sess_chain,
                                                                  &param->server->err_chain,
                                                                  NULL));
