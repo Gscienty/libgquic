@@ -13,3 +13,11 @@ int gquic_malloc(void **const result, size_t size) {
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
+
+int gquic_free(void *const ptr) {
+    if (ptr == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+    free(ptr);
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}
