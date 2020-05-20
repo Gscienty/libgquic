@@ -63,7 +63,9 @@ int gquic_packed_packet_dtor(gquic_packed_packet_t *const packed_packet) {
         }
         free(packed_packet->frames);
     }
-    gquic_packet_buffer_put(packed_packet->buffer);
+    if (packed_packet->buffer != NULL) {
+        gquic_packet_buffer_put(packed_packet->buffer);
+    }
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -117,7 +119,7 @@ int gquic_packed_packet_get_ack_packet(gquic_packet_t *const packet,
                                        gquic_retransmission_queue_t *const queue) {
     u_int64_t largest_ack = (u_int64_t) -1;
     u_int8_t enc_lv = 0;
-    void *frame_storage = NULL;
+    void **frame_storage = NULL;
     if (packet == NULL || packed_packet == NULL || queue == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -127,21 +129,21 @@ int gquic_packed_packet_get_ack_packet(gquic_packet_t *const packet,
     }
     enc_lv = gquic_packed_packet_enc_lv(packed_packet);
     GQUIC_LIST_FOREACH(frame_storage, packed_packet->frames) {
-        if (GQUIC_FRAME_META(*(void **) frame_storage).on_lost.self != NULL) {
+        if (GQUIC_FRAME_META(*frame_storage).on_lost.self != NULL) {
             continue;
         }
         switch (enc_lv) {
         case GQUIC_ENC_LV_INITIAL:
-            GQUIC_FRAME_META(*(void **) frame_storage).on_lost.self = queue;
-            GQUIC_FRAME_META(*(void **) frame_storage).on_lost.cb = gquic_retransmission_queue_add_initial_wrapper;
+            GQUIC_FRAME_META(*frame_storage).on_lost.self = queue;
+            GQUIC_FRAME_META(*frame_storage).on_lost.cb = gquic_retransmission_queue_add_initial_wrapper;
             break;
         case GQUIC_ENC_LV_HANDSHAKE:
-            GQUIC_FRAME_META(*(void **) frame_storage).on_lost.self = queue;
-            GQUIC_FRAME_META(*(void **) frame_storage).on_lost.cb = gquic_retransmission_queue_add_handshake_wrapper;
+            GQUIC_FRAME_META(*frame_storage).on_lost.self = queue;
+            GQUIC_FRAME_META(*frame_storage).on_lost.cb = gquic_retransmission_queue_add_handshake_wrapper;
             break;
         case GQUIC_ENC_LV_1RTT:
-            GQUIC_FRAME_META(*(void **) frame_storage).on_lost.self = queue;
-            GQUIC_FRAME_META(*(void **) frame_storage).on_lost.cb = gquic_retransmission_queue_add_app_wrapper;
+            GQUIC_FRAME_META(*frame_storage).on_lost.self = queue;
+            GQUIC_FRAME_META(*frame_storage).on_lost.cb = gquic_retransmission_queue_add_app_wrapper;
             break;
         }
     }
@@ -580,8 +582,7 @@ failure:
     GQUIC_PROCESS_DONE(exception);
 }
 
-int gquic_packet_packer_try_pack_ack_packet(gquic_packed_packet_t *const packed_packet,
-                                            gquic_packet_packer_t *const packer) {
+int gquic_packet_packer_try_pack_ack_packet(gquic_packed_packet_t *const packed_packet, gquic_packet_packer_t *const packer) {
     int exception = GQUIC_SUCCESS;
     gquic_packed_packet_payload_t payload;
     if (packed_packet == NULL || packer == NULL) {

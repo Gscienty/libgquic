@@ -370,8 +370,7 @@ static inline gquic_packet_sent_pn_t *gquic_sent_packet_handler_get_sent_pn(gqui
 }
 
 static inline int gquic_sent_packet_handler_get_earliest_loss_time_space(u_int64_t *const loss_time,
-                                                                         u_int8_t *const enc_lv,
-                                                                         gquic_packet_sent_packet_handler_t *const handler) {
+                                                                         u_int8_t *const enc_lv, gquic_packet_sent_packet_handler_t *const handler) {
     if (handler == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -396,8 +395,7 @@ static inline int gquic_sent_packet_handler_get_earliest_loss_time_space(u_int64
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 static inline int gquic_sent_packet_handler_get_earliest_sent_time_space(u_int64_t *const sent_time,
-                                                                         u_int8_t *const enc_lv,
-                                                                         gquic_packet_sent_packet_handler_t *const handler) {
+                                                                         u_int8_t *const enc_lv, gquic_packet_sent_packet_handler_t *const handler) {
     if (handler == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -589,9 +587,7 @@ static int gquic_packet_sent_packet_handler_packet_release(gquic_packet_t *const
 }
 
 static int gquic_packet_sent_packet_handler_detect_lost_packets(gquic_packet_sent_packet_handler_t *const handler,
-                                                                const u_int64_t now,
-                                                                const u_int8_t enc_lv,
-                                                                const u_int64_t infly) {
+                                                                const u_int64_t now, const u_int8_t enc_lv, const u_int64_t infly) {
     double max_rtt = 0;
     double loss_delay = 0;
     u_int64_t lost_send_time = 0;
@@ -677,7 +673,7 @@ static int gquic_packet_sent_packet_handler_on_verified_loss_detection_timeout(g
                                                                                       enc_lv,
                                                                                       handler->infly_bytes));
     }
-    gquic_sent_packet_handler_get_earliest_loss_time_space(&_, &enc_lv, handler);
+    gquic_sent_packet_handler_get_earliest_sent_time_space(&_, &enc_lv, handler);
     handler->pto_count++;
     handler->num_probes_to_send += 2;
     switch (enc_lv) {
@@ -825,9 +821,7 @@ int gquic_packet_sent_packet_handler_reset_for_retry(gquic_packet_sent_packet_ha
     GQUIC_ASSERT_FAST_RETURN(gquic_packet_number_gen_next(&pn, &handler->initial_packets->pn_gen));
     GQUIC_ASSERT_FAST_RETURN(gquic_packet_sent_pn_dtor(handler->initial_packets));
     free(handler->initial_packets);
-    if ((handler->initial_packets = malloc(sizeof(gquic_packet_sent_pn_t))) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_FRAME_ALLOC(&handler->initial_packets, gquic_packet_sent_pn_t));
     gquic_packet_sent_pn_init(handler->initial_packets);
     gquic_packet_sent_pn_ctor(handler->initial_packets, pn);
     gquic_sent_packet_handler_set_loss_detection_timer(handler);
