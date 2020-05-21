@@ -291,7 +291,7 @@ int gquic_crypto_stream_manager_handle_crypto_frame(gquic_coroutine_t *const co,
 
         gquic_crypto_stream_get_data(data, str);
         if (GQUIC_STR_SIZE(data) == 0) {
-            free(data);
+            gquic_free(data);
             GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
         }
         if ((ret = GQUIC_CRYPTO_STREAM_MANAGER_HANDLE_MSG(co, manager, data, enc_lv)) < 0) {
