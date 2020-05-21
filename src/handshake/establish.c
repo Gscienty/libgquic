@@ -408,6 +408,9 @@ int gquic_handshake_establish_read_handshake_msg(gquic_coroutine_t *const co, gq
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_chain_recv((void **) &tmp, NULL, co, 1, &est->msg_chain, NULL));
+    if (est->msg_chain.closed) {
+        GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+    }
     *msg = *tmp;
     free(tmp);
 
