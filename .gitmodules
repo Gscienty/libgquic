@@ -1,0 +1,3 @@
+[submodule "liteco"]
+	path = liteco
+	url = git@github.com:Gscienty/liteco.git
