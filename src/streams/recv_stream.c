@@ -196,7 +196,7 @@ static int gquic_recv_stream_read_inner(int *const completed, gquic_recv_stream_
                 sem_wait(&str->read_sem);
             }
             else {
-                struct timespec timeout = { deadline / (1000 * 1000), deadline % (1000 * 1000) };
+                struct timespec timeout = { deadline / (1000 * 1000), (deadline % (1000 * 1000)) * 1000 };
                 sem_timedwait(&str->read_sem, &timeout);
             }
             sem_wait(&str->mtx);

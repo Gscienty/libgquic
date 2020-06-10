@@ -106,7 +106,7 @@ int gquic_send_stream_write(gquic_send_stream_t *const str, gquic_reader_str_t *
             sem_wait(&str->write_sem);
         }
         else {
-            struct timespec timeout = { deadline / (1000 * 1000), deadline % (1000 * 1000) };
+            struct timespec timeout = { deadline / (1000 * 1000), (deadline % (1000 * 1000)) * 1000 };
             sem_timedwait(&str->write_sem, &timeout);
         }
         sem_wait(&str->mtx);

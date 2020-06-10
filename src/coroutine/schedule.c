@@ -107,7 +107,7 @@ int gquic_coroutine_schedule_resume(gquic_coroutine_t **const co_storage, gquic_
         }
         else {
             u_int64_t deadline = gquic_coroutine_timer_late(&sche->timer);
-            struct timespec timeout = { deadline / (1000 * 1000), deadline % (1000 * 1000) };
+            struct timespec timeout = { deadline / (1000 * 1000), (deadline % (1000 * 1000)) * 1000 };
             pthread_cond_timedwait(&sche->cond, &sche->mtx, &timeout);
 
             gquic_coroutine_schedule_wake_up(&waked_co, sche);
