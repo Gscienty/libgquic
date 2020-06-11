@@ -7,9 +7,8 @@
 #include "tls/finished_msg.h"
 #include "tls/key_schedule.h"
 #include "tls/meta.h"
-#include "global_schedule.h"
-#include "coroutine/coroutine.h"
 #include "unit_test.h"
+#include "coglobal.h"
 #include "util/malloc.h"
 #include <openssl/rand.h>
 #include <openssl/pem.h>
@@ -182,7 +181,7 @@ static int client_hello_handshake_msg(gquic_str_t *const msg) {
     return 0;
 }
 
-static int client_co(gquic_coroutine_t *const co, void *const _) {
+static int client_co(void *const _) {
     (void) _;
     sleep(1);
 
@@ -193,14 +192,14 @@ static int client_co(gquic_coroutine_t *const co, void *const _) {
     GQUIC_MALLOC_STRUCT(&tmp, gquic_str_t);
     gquic_str_init(tmp);
     gquic_str_copy(tmp, &msg);
-    gquic_handshake_establish_handle_msg(co, &est, tmp, GQUIC_ENC_LV_INITIAL);
+    gquic_handshake_establish_handle_msg(&est, tmp, GQUIC_ENC_LV_INITIAL);
 
     sleep(1);
     read_cli_finished(&msg);
     GQUIC_MALLOC_STRUCT(&tmp, gquic_str_t);
     gquic_str_init(tmp);
     gquic_str_copy(tmp, &msg);
-    gquic_handshake_establish_handle_msg(co, &est, tmp, GQUIC_ENC_LV_HANDSHAKE);
+    gquic_handshake_establish_handle_msg(&est, tmp, GQUIC_ENC_LV_HANDSHAKE);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -212,11 +211,13 @@ static int one_rtt_write(void *const self, gquic_writer_str_t *const writer) {
     return 0;
 }
 
-int gquic_handshake_establish_run_co(gquic_coroutine_t *const co, void *const est_) {
-    return gquic_handshake_establish_run(co, est_);
+int gquic_handshake_establish_run_co(void *const est_) {
+    return gquic_handshake_establish_run(est_);
 }
 
 GQUIC_UNIT_TEST(establish_server) {
+    gquic_coglobal_thread_init(0);
+
     const gquic_tls_cipher_suite_t *cipher_suite = NULL;
     gquic_tls_get_cipher_suite(&cipher_suite, GQUIC_TLS_CIPHER_SUITE_AES_128_GCM_SHA256);
     cipher_suite->mac(&transport, 0, NULL);
@@ -246,21 +247,13 @@ GQUIC_UNIT_TEST(establish_server) {
                                    NULL, NULL,
                                    &cfg, &conn_id, &params, &rtt, &addr, 0);
 
-    gquic_coroutine_t *cco;
-    gquic_coroutine_alloc(&cco);
-    gquic_coroutine_init(cco);
-    gquic_coroutine_ctor(cco, 1024 * 1024, client_co, &est);
-    gquic_coroutine_schedule_join(gquic_get_global_schedule(), cco);
+    gquic_coglobal_execute(client_co, &est);
+    gquic_coglobal_execute(gquic_handshake_establish_run_co, &est);
 
-    gquic_coroutine_t *co;
-    gquic_coroutine_alloc(&co);
-    gquic_coroutine_init(co);
-    gquic_coroutine_ctor(co, 1024 * 1024, gquic_handshake_establish_run_co, &est);
-    gquic_coroutine_schedule_join(gquic_get_global_schedule(), co);
-
-    gquic_coroutine_schedule_resume(gquic_get_global_schedule());
-    gquic_coroutine_schedule_resume(gquic_get_global_schedule());
-    gquic_coroutine_schedule_resume(gquic_get_global_schedule());
+    int i = 0;
+    for (i = 0; i < 7; i++) {
+        gquic_coglobal_schedule();
+    }
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
