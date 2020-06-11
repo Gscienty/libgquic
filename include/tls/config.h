@@ -8,7 +8,6 @@
 #include "tls/cert_req_msg.h"
 #include "tls/common.h"
 #include "tls/cipher_suite.h"
-#include "coroutine/coroutine.h"
 #include <time.h>
 #include <openssl/x509.h>
 #include <openssl/pkcs12.h>
@@ -19,7 +18,7 @@ struct gquic_tls_record_layer_s {
     void *self;
     int (*set_rkey) (void *const, const u_int8_t, const gquic_tls_cipher_suite_t *const, const gquic_str_t *const);
     int (*set_wkey) (void *const, const u_int8_t, const gquic_tls_cipher_suite_t *const, const gquic_str_t *const);
-    int (*read_handshake_msg) (gquic_coroutine_t *const, gquic_str_t *const, void *const);
+    int (*read_handshake_msg) (gquic_str_t *const, void *const);
     int (*write_record) (size_t *const, void *const, const gquic_str_t *const);
     int (*send_alert) (void *const, const u_int8_t);
 };

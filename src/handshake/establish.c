@@ -3,23 +3,22 @@
 #include "tls/alert.h"
 #include "util/malloc.h"
 #include "exception.h"
-#include "global_schedule.h"
-#include <pthread.h>
+#include "coglobal.h"
 
-static int __establish_run(gquic_coroutine_t *const, void *const);
+static int gquic_establish_run(void *const);
 static int gquic_establish_check_enc_level(const u_int8_t, const u_int8_t);
 static int gquic_establish_waiting_handshake_done_cmp(const void *const, const void *const);
-static int gquic_establish_cli_handle_msg(gquic_handshake_establish_t *const, gquic_coroutine_t *const, const u_int8_t);
-static int gquic_establish_ser_handle_msg(gquic_handshake_establish_t *const, gquic_coroutine_t *const, const u_int8_t);
+static int gquic_establish_cli_handle_msg(gquic_handshake_establish_t *const, const u_int8_t);
+static int gquic_establish_ser_handle_msg(gquic_handshake_establish_t *const, const u_int8_t);
 static int gquic_establish_drop_initial_keys_wrap(void *const);
 
-static int gquic_establish_record_layer_read_handshake_msg_wrap(gquic_coroutine_t *const, gquic_str_t *const, void *const);
+static int gquic_establish_record_layer_read_handshake_msg_wrap(gquic_str_t *const, void *const);
 static int gquic_establish_record_layer_set_rkey(void *const, const u_int8_t, const gquic_tls_cipher_suite_t *const, const gquic_str_t *const);
 static int gquic_establish_record_layer_set_wkey(void *const, const u_int8_t, const gquic_tls_cipher_suite_t *const, const gquic_str_t *const);
 static int gquic_establish_record_layer_write_record(size_t *const, void *const, const gquic_str_t *const);
 static int gquic_establish_record_layer_send_alert(void *const, const u_int8_t);
 
-static int gquic_establish_handle_post_handshake_msg(gquic_coroutine_t *const co, gquic_handshake_establish_t *const);
+static int gquic_establish_handle_post_handshake_msg(gquic_handshake_establish_t *const);
 
 static int gquic_establish_try_send_sess_ticket(gquic_handshake_establish_t *const);
 
@@ -47,16 +46,16 @@ int gquic_handshake_establish_init(gquic_handshake_establish_t *const est) {
     est->cfg = NULL;
     gquic_tls_conn_init(&est->conn);
     gquic_handshake_event_init(&est->events);
-    gquic_coroutine_chain_init(&est->err_chain);
-    gquic_coroutine_chain_init(&est->msg_chain);
-    gquic_coroutine_chain_init(&est->param_chain);
-    gquic_coroutine_chain_init(&est->done_chain);
-    gquic_coroutine_chain_init(&est->complete_chain);
-    gquic_coroutine_chain_init(&est->close_chain);
-    gquic_coroutine_chain_init(&est->alert_chain);
-    gquic_coroutine_chain_init(&est->write_record_chain);
-    gquic_coroutine_chain_init(&est->received_rkey_chain);
-    gquic_coroutine_chain_init(&est->received_wkey_chain);
+    liteco_channel_init(&est->err_chain);
+    liteco_channel_init(&est->msg_chain);
+    liteco_channel_init(&est->param_chain);
+    liteco_channel_init(&est->done_chain);
+    liteco_channel_init(&est->complete_chain);
+    liteco_channel_init(&est->close_chain);
+    liteco_channel_init(&est->alert_chain);
+    liteco_channel_init(&est->write_record_chain);
+    liteco_channel_init(&est->received_rkey_chain);
+    liteco_channel_init(&est->received_wkey_chain);
     est->cli_hello_written = 0;
     est->is_client = 0;
     pthread_mutex_init(&est->mtx, NULL);
@@ -158,35 +157,31 @@ int gquic_handshake_establish_1rtt_set_last_acked(gquic_handshake_establish_t *c
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_handshake_establish_run(gquic_coroutine_t *const co, gquic_handshake_establish_t *const est) {
+int gquic_handshake_establish_run(gquic_handshake_establish_t *const est) {
     int exception = GQUIC_SUCCESS;
-    gquic_establish_ending_event_t *ending_event = NULL;
-    void *ending = NULL;
-    gquic_establish_err_event_t *err_event = NULL;
-    gquic_coroutine_t *establish_run_co = NULL;
-    gquic_coroutine_chain_t *recv_chain = NULL;
-    if (co == NULL || est == NULL) {
+    const gquic_establish_ending_event_t *ending_event = NULL;
+    const void *ending = NULL;
+    const gquic_establish_err_event_t *err_event = NULL;
+    const liteco_channel_t *recv_chan = NULL;
+    int liteco_channel_recv_event = 0;
+    if (est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    GQUIC_ASSERT_FAST_RETURN(gquic_global_schedule_join(&establish_run_co, 1024 * 1024, __establish_run, est));
-    GQUIC_EXCEPTION_ASSIGN(exception,
-                           gquic_coroutine_chain_recv(&ending, &recv_chain, co, 1,
-                                                      &est->alert_chain, &est->complete_chain, &est->close_chain, NULL));
-    if (recv_chain == &est->complete_chain) {
+    GQUIC_ASSERT_FAST_RETURN(gquic_coglobal_execute(gquic_establish_run, est));
+    liteco_channel_recv_event = GQUIC_COGLOBAL_CHANNEL_RECV(&ending, &recv_chan, 0, &est->alert_chain, &est->complete_chain, &est->close_chain);
+    if (recv_chan == &est->complete_chain) {
         GQUIC_HANDSHAKE_EVENT_ON_HANDSHAKE_COMPLETE(&est->events);
         if (!est->is_client) {
             gquic_establish_try_send_sess_ticket(est);
         }
     }
-    else if (recv_chain == &est->close_chain) {
-        gquic_coroutine_chain_boradcast_close(&est->msg_chain, gquic_get_global_schedule());
-        gquic_coroutine_chain_recv(&ending, NULL, co, 1, &est->done_chain, NULL);
+    else if (recv_chan == &est->close_chain) {
+        liteco_channel_close(&est->msg_chain);
+        GQUIC_COGLOBAL_CHANNEL_RECV(&ending, NULL, 0, &est->done_chain);
     }
-    else if (recv_chain == &est->alert_chain) {
+    else if (recv_chan == &est->alert_chain) {
         ending_event = ending;
-        if (GQUIC_ASSERT_CAUSE(exception, gquic_coroutine_chain_recv((void **) &err_event, NULL, co, 1, est->err_chain, NULL))) {
-            goto failure;
-        }
+        GQUIC_COGLOBAL_CHANNEL_RECV((const void **) &err_event, NULL, 0, &est->err_chain);
         if (GQUIC_ASSERT_CAUSE(exception, GQUIC_HANDSHAKE_EVENT_ON_ERR(&est->events, ending_event->payload.alert_code, err_event->ret))) {
             goto failure;
         }
@@ -194,37 +189,36 @@ int gquic_handshake_establish_run(gquic_coroutine_t *const co, gquic_handshake_e
     est->handshake_done = 1;
 
     if (ending_event != NULL) {
-        free(ending_event);
+        free((void *) ending_event);
     }
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 failure:
     if (ending_event != NULL) {
-        free(ending_event);
+        free((void *) ending_event);
     }
     GQUIC_PROCESS_DONE(exception);
 }
 
-static int __establish_run(gquic_coroutine_t *const co, void *const est_) {
-    (void) co;
+static int gquic_establish_run(void *const est_) {
     gquic_handshake_establish_t *const est = est_;
     int exception = GQUIC_SUCCESS;
     gquic_establish_err_event_t *err_event = NULL;
     if (est == NULL) {
         goto finish;
     }
-    if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_conn_handshake(co, &est->conn))) {
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_conn_handshake(&est->conn))) {
         if (GQUIC_ASSERT(GQUIC_MALLOC_STRUCT(&err_event, gquic_establish_err_event_t))) {
             goto finish;
         }
         err_event->ret = exception;
-        gquic_coroutine_chain_send(&est->err_chain, gquic_get_global_schedule(), err_event);
-        gquic_coroutine_chain_boradcast_close(&est->close_chain, gquic_get_global_schedule());
+        liteco_channel_send(&est->err_chain, err_event);
+        liteco_channel_close(&est->close_chain);
         goto finish;
     }
-    gquic_coroutine_chain_boradcast_close(&est->complete_chain, gquic_get_global_schedule());
+    liteco_channel_close(&est->complete_chain);
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 finish:
-    gquic_coroutine_chain_boradcast_close(&est->done_chain, gquic_get_global_schedule());
+    liteco_channel_close(&est->done_chain);
     GQUIC_PROCESS_DONE(exception);
 }
 
@@ -232,16 +226,15 @@ int gquic_handshake_establish_close(gquic_handshake_establish_t *const est) {
     if (est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    gquic_coroutine_chain_boradcast_close(&est->close_chain, gquic_get_global_schedule());
+    liteco_channel_close(&est->close_chain);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_handshake_establish_handle_msg(gquic_coroutine_t *const co,
-                                         gquic_handshake_establish_t *const est, const gquic_str_t *const data, const u_int8_t enc_level) {
+int gquic_handshake_establish_handle_msg(gquic_handshake_establish_t *const est, const gquic_str_t *const data, const u_int8_t enc_level) {
     int exception = GQUIC_SUCCESS;
     u_int8_t type = 0;
-    if (est == NULL || co == NULL || GQUIC_STR_SIZE(data) == 0) {
+    if (est == NULL || GQUIC_STR_SIZE(data) == 0) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     type = GQUIC_STR_FIRST_BYTE(data);
@@ -249,16 +242,16 @@ int gquic_handshake_establish_handle_msg(gquic_coroutine_t *const co,
         GQUIC_HANDSHAKE_EVENT_ON_ERR(&est->events, GQUIC_TLS_ALERT_UNEXPECTED_MESSAGE, exception);
         return 0;
     }
-    gquic_coroutine_chain_send(&est->msg_chain, gquic_get_global_schedule(), (void *) data);
+    liteco_channel_send(&est->msg_chain, data);
     if (enc_level == GQUIC_ENC_LV_1RTT) {
-        gquic_establish_handle_post_handshake_msg(co, est);
+        gquic_establish_handle_post_handshake_msg(est);
     }
 
     if (est->is_client) {
-        return gquic_establish_cli_handle_msg(est, co, type);
+        return gquic_establish_cli_handle_msg(est, type);
     }
     else {
-        return gquic_establish_ser_handle_msg(est, co, type);
+        return gquic_establish_ser_handle_msg(est, type);
     }
 }
 
@@ -301,32 +294,32 @@ static int gquic_establish_waiting_handshake_done_cmp(const void *const a, const
     return 0;
 }
 
-static int gquic_establish_cli_handle_msg(gquic_handshake_establish_t *const est, gquic_coroutine_t *const co, const u_int8_t msg_type) {
-    void *event = NULL;
-    gquic_coroutine_chain_t *recv_chain = NULL;
-    if (est == NULL || co == NULL) {
+static int gquic_establish_cli_handle_msg(gquic_handshake_establish_t *const est, const u_int8_t msg_type) {
+    const void *event = NULL;
+    const liteco_channel_t *recv_chan = NULL;
+    if (est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     switch (msg_type) {
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_SERVER_HELLO:
-        gquic_coroutine_chain_recv(&event, &recv_chain, co, 1, &est->done_chain, &est->write_record_chain, &est->received_wkey_chain, NULL);
-        if (recv_chain == &est->done_chain || recv_chain == &est->write_record_chain) {
+        GQUIC_COGLOBAL_CHANNEL_RECV(&event, &recv_chan, 0, &est->done_chain, &est->write_record_chain, &est->received_wkey_chain);
+        if (recv_chan == &est->done_chain || recv_chan == &est->write_record_chain) {
             return 0;
         }
-        gquic_coroutine_chain_recv(&event, &recv_chain, co, 1, &est->done_chain, &est->received_rkey_chain, NULL);
-        if (recv_chain == &est->done_chain) {
+        GQUIC_COGLOBAL_CHANNEL_RECV(&event, &recv_chan, 0, &est->done_chain, &est->received_rkey_chain);
+        if (recv_chan == &est->done_chain) {
             return 0;
         }
         return 1;
 
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_ENCRYPTED_EXTS:
-        gquic_coroutine_chain_recv(&event, &recv_chain, co, 1, &est->done_chain, &est->param_chain, NULL);
-        if (recv_chain == &est->done_chain) {
+        GQUIC_COGLOBAL_CHANNEL_RECV(&event, &recv_chan, 0, &est->done_chain, &est->param_chain);
+        if (recv_chan == &est->done_chain) {
             return 0;
         }
         GQUIC_HANDSHAKE_EVENT_ON_RECV_PARAMS(&est->events, &((gquic_establish_process_event_t *) event)->param);
         gquic_str_reset(&((gquic_establish_process_event_t *) event)->param);
-        free(event);
+        free((void *) event);
         return 0;
 
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT_REQ:
@@ -335,12 +328,12 @@ static int gquic_establish_cli_handle_msg(gquic_handshake_establish_t *const est
         return 0;
 
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_FINISHED:
-        gquic_coroutine_chain_recv(&event, &recv_chain, co, 1, &est->done_chain, &est->received_rkey_chain, NULL);
-        if (recv_chain == &est->done_chain) {
+        GQUIC_COGLOBAL_CHANNEL_RECV(&event, &recv_chan, 0, &est->done_chain, &est->received_rkey_chain);
+        if (recv_chan == &est->done_chain) {
             return 0;
         }
-        gquic_coroutine_chain_recv(&event, &recv_chain, co, 1, &est->done_chain, &est->received_wkey_chain, NULL);
-        if (recv_chain == &est->done_chain) {
+        GQUIC_COGLOBAL_CHANNEL_RECV(&event, &recv_chan, 0, &est->done_chain, &est->received_wkey_chain);
+        if (recv_chan == &est->done_chain) {
             return 0;
         }
         return 1;
@@ -348,42 +341,41 @@ static int gquic_establish_cli_handle_msg(gquic_handshake_establish_t *const est
     return 0;
 }
 
-static int gquic_establish_ser_handle_msg(gquic_handshake_establish_t *const est, gquic_coroutine_t *const co, const u_int8_t msg_type) {
-    void *event = NULL;
-    gquic_coroutine_chain_t *recv_chain = NULL;
-    if (est == NULL || co == NULL) {
+static int gquic_establish_ser_handle_msg(gquic_handshake_establish_t *const est, const u_int8_t msg_type) {
+    const void *event = NULL;
+    const liteco_channel_t *recv_chan = NULL;
+    if (est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     switch (msg_type) {
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_CLIENT_HELLO:
-        gquic_coroutine_chain_recv(&event, &recv_chain, co, 1, &est->done_chain, &est->param_chain, &est->write_record_chain, NULL);
-        if (recv_chain == &est->done_chain || recv_chain == &est->write_record_chain) {
+        GQUIC_COGLOBAL_CHANNEL_RECV(&event, &recv_chan, 0, &est->done_chain, &est->param_chain, &est->write_record_chain);
+        if (recv_chan == &est->done_chain || recv_chan == &est->write_record_chain) {
             return 0;
         }
         GQUIC_HANDSHAKE_EVENT_ON_RECV_PARAMS(&est->events, &((gquic_establish_process_event_t *) event)->param);
         gquic_str_reset(&((gquic_establish_process_event_t *) event)->param);
-        free(event);
+        free((void *) event);
 
 ignore_shello:
-        gquic_coroutine_chain_recv(&event, &recv_chain, co, 1, &est->done_chain, &est->write_record_chain, &est->received_rkey_chain, NULL);
-        if (recv_chain == &est->write_record_chain) {
+        GQUIC_COGLOBAL_CHANNEL_RECV(&event, &recv_chan, 0, &est->done_chain, &est->write_record_chain, &est->received_rkey_chain);
+        if (recv_chan == &est->write_record_chain) {
             goto ignore_shello;
         }
-        if (recv_chain == &est->done_chain) {
+        if (recv_chan == &est->done_chain) {
             return 0;
         }
 
 ignore_ext:
-        gquic_coroutine_chain_recv(&event, &recv_chain, co, 1, &est->done_chain, &est->write_record_chain, &est->received_wkey_chain, NULL);
-        if (recv_chain == &est->write_record_chain) {
+        GQUIC_COGLOBAL_CHANNEL_RECV(&event, &recv_chan, 0, &est->done_chain, &est->write_record_chain, &est->received_wkey_chain);
+        if (recv_chan == &est->write_record_chain) {
             goto ignore_ext;
         }
-        if (recv_chain == &est->done_chain) {
+        if (recv_chan == &est->done_chain) {
             return 0;
         }
-
-        gquic_coroutine_chain_recv(&event, &recv_chain, co, 1, &est->done_chain, &est->received_wkey_chain, NULL);
-        if (recv_chain == &est->done_chain) {
+        GQUIC_COGLOBAL_CHANNEL_RECV(&event, &recv_chan, 0, &est->done_chain, &est->received_wkey_chain);
+        if (recv_chan == &est->done_chain) {
             return 0;
         }
         return 1;
@@ -393,8 +385,8 @@ ignore_ext:
         return 0;
 
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_FINISHED:
-        gquic_coroutine_chain_recv(&event, &recv_chain, co, 1, &est->done_chain, &est->received_rkey_chain, NULL);
-        if (recv_chain == &est->done_chain) {
+        GQUIC_COGLOBAL_CHANNEL_RECV(&event, &recv_chan, 0, &est->done_chain, &est->received_rkey_chain);
+        if (recv_chan == &est->done_chain) {
             return 0;
         }
         return 1;
@@ -402,12 +394,12 @@ ignore_ext:
     return 0;
 }
 
-int gquic_handshake_establish_read_handshake_msg(gquic_coroutine_t *const co, gquic_str_t *const msg, gquic_handshake_establish_t *const est) {
+int gquic_handshake_establish_read_handshake_msg(gquic_str_t *const msg, gquic_handshake_establish_t *const est) {
     gquic_str_t *tmp = NULL;
     if (msg == NULL || est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_chain_recv((void **) &tmp, NULL, co, 1, &est->msg_chain, NULL));
+    GQUIC_COGLOBAL_CHANNEL_RECV((const void **) &tmp, NULL, 0, &est->msg_chain);
     if (est->msg_chain.closed) {
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
@@ -452,7 +444,7 @@ int gquic_handshake_establish_set_rkey(gquic_handshake_establish_t *const est,
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INVALID_ENC_LV);
     }
     pthread_mutex_unlock(&est->mtx);
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_chain_send(&est->received_rkey_chain, gquic_get_global_schedule(), &est->received_rkey_chain));
+    liteco_channel_send(&est->received_rkey_chain, &est->received_rkey_chain);
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 failure:
     pthread_mutex_unlock(&est->mtx);
@@ -494,7 +486,7 @@ int gquic_handshake_establish_set_wkey(gquic_handshake_establish_t *const est,
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INVALID_ENC_LV);
     }
     pthread_mutex_unlock(&est->mtx);
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_chain_send(&est->received_wkey_chain, gquic_get_global_schedule(), &est->received_wkey_chain));
+    liteco_channel_send(&est->received_wkey_chain, &est->received_wkey_chain);
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 failure:
     pthread_mutex_unlock(&est->mtx);
@@ -554,10 +546,7 @@ int gquic_handshake_establish_write_record(size_t *const size, gquic_handshake_e
             GQUIC_HANDSHAKE_ESTABLISH_CHELLO_WRITTEN(est);
         }
         else {
-            if (GQUIC_ASSERT_CAUSE(exception,
-                                   gquic_coroutine_chain_send(&est->write_record_chain, gquic_get_global_schedule(), &est->write_record_chain))) {
-                goto failure;
-            }
+            liteco_channel_send(&est->write_record_chain, &est->write_record_chain);
         }
         break;
     case GQUIC_ENC_LV_HANDSHAKE:
@@ -585,7 +574,7 @@ int gquic_handshake_establish_send_alert(gquic_handshake_establish_t *const est,
     GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&ending_event, gquic_establish_ending_event_t));
     ending_event->type = GQUIC_ESTABLISH_ENDING_EVENT_ALERT;
     ending_event->payload.alert_code = alert;
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_chain_send(&est->alert_chain, gquic_get_global_schedule(), ending_event));
+    liteco_channel_send(&est->alert_chain, ending_event);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -604,8 +593,8 @@ int gquic_handshake_establish_set_record_layer(gquic_tls_record_layer_t *const r
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_establish_record_layer_read_handshake_msg_wrap(gquic_coroutine_t *const co, gquic_str_t *const ret, void *const self) {
-    return gquic_handshake_establish_read_handshake_msg(co, ret, self);
+static int gquic_establish_record_layer_read_handshake_msg_wrap(gquic_str_t *const ret, void *const self) {
+    return gquic_handshake_establish_read_handshake_msg(ret, self);
 }
 
 static int gquic_establish_record_layer_set_rkey(void *const self,
@@ -630,18 +619,18 @@ static int gquic_establish_record_layer_send_alert(void *const self, const u_int
     return gquic_handshake_establish_send_alert(self, alert);
 }
 
-static int gquic_establish_handle_post_handshake_msg(gquic_coroutine_t *const co, gquic_handshake_establish_t *const est) {
+static int gquic_establish_handle_post_handshake_msg(gquic_handshake_establish_t *const est) {
     gquic_establish_err_event_t *err_event = NULL;
     gquic_establish_ending_event_t *ending_event = NULL;
-    void *done = NULL;
-    if (co == NULL || est == NULL) {
+    const void *done = NULL;
+    if (est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    gquic_coroutine_chain_recv(&done, NULL, co, 1, &est->done_chain, NULL);
+    GQUIC_COGLOBAL_CHANNEL_RECV(&done, NULL, 0, &est->done_chain);
 
-    if (GQUIC_ASSERT(gquic_tls_conn_handle_post_handshake_msg(co, &est->conn))) {
-        gquic_coroutine_chain_recv((void **) &ending_event, NULL, co, 1, &est->alert_chain, NULL);
-        gquic_coroutine_chain_recv((void **) &err_event, NULL, co, 1, &est->err_chain, NULL);
+    if (GQUIC_ASSERT(gquic_tls_conn_handle_post_handshake_msg(&est->conn))) {
+        GQUIC_COGLOBAL_CHANNEL_RECV((const void **) &ending_event, NULL, 0, &est->alert_chain);
+        GQUIC_COGLOBAL_CHANNEL_RECV((const void **) &err_event, NULL, 0, &est->err_chain);
         if (GQUIC_ASSERT(GQUIC_HANDSHAKE_EVENT_ON_ERR(&est->events, ending_event->payload.alert_code, err_event->ret))) {
             goto finished;
         }

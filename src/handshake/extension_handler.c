@@ -3,7 +3,6 @@
 #include "tls/common.h"
 #include "util/malloc.h"
 #include "exception.h"
-#include "global_schedule.h"
 
 static int get_extensions_wrap(gquic_list_t *const, void *const, const u_int8_t);
 static int received_extensions_wrap(void *const, const u_int8_t, gquic_list_t *const);
@@ -29,7 +28,7 @@ int gquic_handshake_extension_handler_dtor(gquic_handshake_extension_handler_t *
 }
 
 int gquic_handshake_extension_handler_ctor(gquic_handshake_extension_handler_t *const handler,
-                                           gquic_coroutine_chain_t *const param_chain,
+                                           liteco_channel_t *const param_chain,
                                            const gquic_transport_parameters_t *const params,
                                            const int is_client) {
     if (handler == NULL || param_chain == NULL || params == NULL) {
@@ -91,7 +90,7 @@ int gquic_handshake_extension_handler_recv_extensions(gquic_handshake_extension_
         process_event->type = GQUIC_ESTABLISH_PROCESS_EVENT_PARAM;
         gquic_str_init(&process_event->param);
     }
-    gquic_coroutine_chain_send(handler->param_chain, gquic_get_global_schedule(), process_event);
+    liteco_channel_send(handler->param_chain, process_event);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

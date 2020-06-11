@@ -405,14 +405,14 @@ int gquic_tls_conn_set_alt_record(gquic_tls_conn_t *const conn) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_conn_read_handshake(gquic_coroutine_t *const co, void **const msg, gquic_tls_conn_t *const conn) {
+int gquic_tls_conn_read_handshake(void **const msg, gquic_tls_conn_t *const conn) {
     int exception = GQUIC_SUCCESS;
     gquic_str_t data = { 0, NULL };
-    if (msg == NULL || conn == NULL || co == NULL) {
+    if (msg == NULL || conn == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (conn->cfg->alt_record.read_handshake_msg != NULL
-        && GQUIC_ASSERT_CAUSE(exception, conn->cfg->alt_record.read_handshake_msg(co, &data, conn->cfg->alt_record.self))) {
+        && GQUIC_ASSERT_CAUSE(exception, conn->cfg->alt_record.read_handshake_msg(&data, conn->cfg->alt_record.self))) {
         GQUIC_PROCESS_DONE(exception);
     }
     if (GQUIC_STR_SIZE(&data) == 0) {
@@ -689,16 +689,16 @@ int gquic_tls_conn_verify_ser_cert(gquic_tls_conn_t *const conn, const gquic_lis
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_conn_handshake(gquic_coroutine_t *const co, gquic_tls_conn_t *const conn) {
-    if (conn == NULL || co == NULL) {
+int gquic_tls_conn_handshake(gquic_tls_conn_t *const conn) {
+    if (conn == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     pthread_mutex_lock(&conn->mtx);
     if (conn->is_client) {
-        GQUIC_ASSERT_FAST_RETURN(gquic_tls_client_handshake(co, conn));
+        GQUIC_ASSERT_FAST_RETURN(gquic_tls_client_handshake(conn));
     }
     else {
-        GQUIC_ASSERT_FAST_RETURN(gquic_tls_server_handshake(co, conn));
+        GQUIC_ASSERT_FAST_RETURN(gquic_tls_server_handshake(conn));
     }
     conn->handshakes++;
     pthread_mutex_unlock(&conn->mtx);
@@ -917,13 +917,13 @@ failure:
     GQUIC_PROCESS_DONE(exception);
 }
 
-int gquic_tls_conn_handle_post_handshake_msg(gquic_coroutine_t *const co, gquic_tls_conn_t *const conn) {
+int gquic_tls_conn_handle_post_handshake_msg(gquic_tls_conn_t *const conn) {
     void *msg = NULL;
-    if (conn == NULL || co == NULL) {
+    if (conn == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
 
-    GQUIC_ASSERT_FAST_RETURN(gquic_tls_conn_read_handshake(co, &msg, conn));
+    GQUIC_ASSERT_FAST_RETURN(gquic_tls_conn_read_handshake(&msg, conn));
 
     switch (GQUIC_TLS_MSG_META(msg).type) {
     case GQUIC_TLS_HANDSHAKE_MSG_TYPE_NEW_SESS_TICKET:

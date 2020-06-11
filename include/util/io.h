@@ -1,7 +1,6 @@
 #ifndef _LIBGQUIC_UTIL_IO_H
 #define _LIBGQUIC_UTIL_IO_H
 
-#include "coroutine/coroutine.h"
 #include "util/str.h"
 #include "exception.h"
 
@@ -19,7 +18,7 @@ struct gquic_io_s {
     
     struct {
         void *self;
-        int (*cb) (gquic_coroutine_t *const, void *const);
+        int (*cb) (void *const);
     } closer;
 };
 
