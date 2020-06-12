@@ -2,7 +2,6 @@
 #include "packet/packet_number.h"
 #include "util/big_endian.h"
 #include "exception.h"
-#include <malloc.h>
 #include <string.h>
 
 gquic_packet_short_header_t *gquic_packet_short_header_alloc() {

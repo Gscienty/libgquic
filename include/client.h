@@ -7,6 +7,7 @@
 #include "net/conn.h"
 #include "config.h"
 #include "session.h"
+#include "liteco.h"
 #include <pthread.h>
 
 typedef struct gquic_client_s gquic_client_t;
@@ -26,9 +27,9 @@ struct gquic_client_s {
     gquic_session_t sess;
     pthread_t sess_run_thread;
     
-    gquic_coroutine_chain_t err_chain;
-    gquic_coroutine_chain_t handshake_complete_chain;
-    gquic_coroutine_chain_t done_chain;
+    liteco_channel_t err_chain;
+    liteco_channel_t handshake_complete_chain;
+    liteco_channel_t done_chain;
 
     pthread_mutex_t mtx;
     _Atomic int connected;
@@ -37,7 +38,7 @@ struct gquic_client_s {
 int gquic_client_init(gquic_client_t *const client);
 int gquic_client_create(gquic_client_t *const client, int fd, gquic_net_addr_t *const addr, gquic_config_t *const config, const int created);
 int gquic_client_done(gquic_client_t *const client);
-int gquic_client_close(gquic_coroutine_t *const co, gquic_client_t *const client);
-int gquic_client_destory(gquic_coroutine_t *const co, gquic_client_t *const client, const int err);
+int gquic_client_close(gquic_client_t *const client);
+int gquic_client_destory(gquic_client_t *const client, const int err);
 
 #endif

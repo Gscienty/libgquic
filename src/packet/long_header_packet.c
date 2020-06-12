@@ -1,7 +1,6 @@
 #include "packet/long_header_packet.h"
 #include "util/big_endian.h"
 #include "exception.h"
-#include <malloc.h>
 #include <string.h>
 
 #define __Max(x, y) ((x) > (y) ? (x) : (y))

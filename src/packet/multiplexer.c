@@ -2,7 +2,7 @@
 #include "packet/multiplexer.h"
 #include "util/rbtree.h"
 #include "exception.h"
-#include "global_schedule.h"
+#include "coglobal.h"
 #include <pthread.h>
 
 #define GQUIC_DEFAULT_EPOLL_CONNECTION_SIZE 8
@@ -110,7 +110,7 @@ static int gquic_multiplexer_recv_event(void *const _, void *const handler_) {
     if (handler_ == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    gquic_coroutine_chain_send(&handler->recv_event_chain, gquic_get_global_schedule(), &handler->recv_event_chain);
+    liteco_channel_send(&handler->recv_event_chain, &handler->recv_event_chain);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

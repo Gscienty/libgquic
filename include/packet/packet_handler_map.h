@@ -4,7 +4,7 @@
 #include "util/rbtree.h"
 #include "packet/received_packet.h"
 #include "packet/handler.h"
-#include "coroutine/chain.h"
+#include "liteco.h"
 #include <pthread.h>
 #include <openssl/hmac.h>
 
@@ -37,11 +37,11 @@ struct gquic_packet_handler_map_s {
     gquic_rbtree_t *reset_tokens; /* gquic_str_t: gquic_packet_handler_t * */
     gquic_packet_unknow_packet_handler_t *server;
 
-    gquic_coroutine_chain_t listen_chain;
+    liteco_channel_t listen_chain;
     int closed;
 
-    gquic_coroutine_chain_t recv_event_chain;
-    gquic_coroutine_chain_t close_chain;
+    liteco_channel_t recv_event_chain;
+    liteco_channel_t close_chain;
 
     u_int64_t delete_retired_session_after;
 
@@ -66,7 +66,7 @@ int gquic_packet_handler_map_add_reset_token(gquic_packet_handler_map_t *const h
 int gquic_packet_handler_map_remove_reset_token(gquic_packet_handler_map_t *const handler, const gquic_str_t *const token);
 int gquic_packet_handler_map_retire_reset_token(gquic_packet_handler_map_t *const handler, const gquic_str_t *const token);
 int gquic_packet_handler_map_set_server(gquic_packet_handler_map_t *const handler, gquic_packet_unknow_packet_handler_t *const uph);
-int gquic_packet_handler_map_close_server(gquic_coroutine_t *const co, gquic_packet_handler_map_t *const handler);
+int gquic_packet_handler_map_close_server(gquic_packet_handler_map_t *const handler);
 int gquic_packet_handler_map_close(gquic_packet_handler_map_t *const handler);
 int gquic_packet_handler_map_get_stateless_reset_token(gquic_str_t *const token,
                                                        gquic_packet_handler_map_t *const handler, const gquic_str_t *const conn_id);

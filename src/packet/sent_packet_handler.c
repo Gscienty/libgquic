@@ -3,8 +3,6 @@
 #include "packet/send_mode.h"
 #include "frame/meta.h"
 #include "exception.h"
-#include <malloc.h>
-#include <time.h>
 #include <math.h>
 
 static inline gquic_packet_sent_pn_t *gquic_sent_packet_handler_get_sent_pn(gquic_packet_sent_packet_handler_t *const,

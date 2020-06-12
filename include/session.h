@@ -23,7 +23,7 @@
 #include "handshake/establish.h"
 #include "handshake/transport_parameters.h"
 #include "tls/config.h"
-#include "coroutine/chain.h"
+#include "liteco.h"
 
 typedef struct gquic_session_s gquic_session_t;
 struct gquic_session_s {
@@ -62,11 +62,11 @@ struct gquic_session_s {
 
     gquic_handshake_establish_t est;
 
-    gquic_coroutine_chain_t close_chain;
-    gquic_coroutine_chain_t handshake_completed_chain;
-    gquic_coroutine_chain_t sending_schedule_chain;
-    gquic_coroutine_chain_t recevied_packet_chain;
-    gquic_coroutine_chain_t client_hello_writen_chain;
+    liteco_channel_t close_chain;
+    liteco_channel_t handshake_completed_chain;
+    liteco_channel_t sending_schedule_chain;
+    liteco_channel_t recevied_packet_chain;
+    liteco_channel_t client_hello_writen_chain;
 
     int undecryptable_packets_count;
     gquic_list_t undecryptable_packets; /* received_packet * */
@@ -95,7 +95,7 @@ struct gquic_session_s {
     gquic_crypto_stream_t handshake_stream;
     gquic_post_handshake_crypto_stream_t one_rtt_stream;
 
-    gquic_coroutine_chain_t done_chain;
+    liteco_channel_t done_chain;
     pthread_mutex_t close_mtx;
     int close_flag;
 
@@ -127,10 +127,10 @@ int gquic_session_ctor(gquic_session_t *const sess,
                        const u_int64_t initial_pn,
                        const int is_client);
 int gquic_session_handle_packet(gquic_session_t *const sess, gquic_received_packet_t *const rp);
-int gquic_session_close(gquic_coroutine_t *const co, gquic_session_t *const sess);
-int gquic_session_destroy(gquic_coroutine_t *const co, gquic_session_t *const sess, const int err);
+int gquic_session_close(gquic_session_t *const sess);
+int gquic_session_destroy(gquic_session_t *const sess, const int err);
 int gquic_session_queue_control_frame(gquic_session_t *const sess, void *const frame);
-int gquic_session_run(gquic_coroutine_t *const co, gquic_session_t *const sess);
+int gquic_session_run(gquic_session_t *const sess);
 
 gquic_packet_handler_t *gquic_session_implement_packet_handler(gquic_session_t *const sess);
 

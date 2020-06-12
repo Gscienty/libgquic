@@ -242,7 +242,7 @@ int gquic_crypto_stream_manager_init(gquic_crypto_stream_manager_t *const manage
 
 int gquic_crypto_stream_manager_ctor(gquic_crypto_stream_manager_t *const manager,
                                      void *handle_msg_self,
-                                     int (*handle_msg_cb) (gquic_coroutine_t *const, void *const, const gquic_str_t *const, const u_int8_t),
+                                     int (*handle_msg_cb) (void *const, const gquic_str_t *const, const u_int8_t),
                                      gquic_crypto_stream_t *const initial_stream,
                                      gquic_crypto_stream_t *const handshake_stream,
                                      gquic_post_handshake_crypto_stream_t *const one_rtt_stream) {
@@ -258,15 +258,14 @@ int gquic_crypto_stream_manager_ctor(gquic_crypto_stream_manager_t *const manage
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_crypto_stream_manager_handle_crypto_frame(gquic_coroutine_t *const co,
-                                                    int *const changed,
+int gquic_crypto_stream_manager_handle_crypto_frame(int *const changed,
                                                     gquic_crypto_stream_manager_t *const manager,
                                                     gquic_frame_crypto_t *const frame,
                                                     const u_int8_t enc_lv) {
     int ret = 0;
     gquic_crypto_stream_t *str = NULL;
     gquic_str_t *data = NULL;
-    if (changed == NULL || co == NULL || manager == NULL || frame == NULL) {
+    if (changed == NULL || manager == NULL || frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     *changed = 0;
@@ -294,7 +293,7 @@ int gquic_crypto_stream_manager_handle_crypto_frame(gquic_coroutine_t *const co,
             gquic_free(data);
             GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
         }
-        if ((ret = GQUIC_CRYPTO_STREAM_MANAGER_HANDLE_MSG(co, manager, data, enc_lv)) < 0) {
+        if ((ret = GQUIC_CRYPTO_STREAM_MANAGER_HANDLE_MSG(manager, data, enc_lv)) < 0) {
             return ret;
         }
         else if (ret) {

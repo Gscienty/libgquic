@@ -3,17 +3,17 @@
 #include "util/malloc.h"
 #include "server.h"
 #include "exception.h"
-#include "global_schedule.h"
+#include "coglobal.h"
 #include <openssl/rand.h>
 
-static int gquic_server_accept_inner_co(gquic_coroutine_t *const, void *const);
+static int gquic_server_accept_inner_co(void *const);
 static int gquic_server_implement_unknow_packet_handler(gquic_packet_unknow_packet_handler_t **const, gquic_server_t *const);
 static int gquic_server_set_close_err_wrapper(void *const, const int);
 static int gquic_server_handle_packet_wrapper(void *const, gquic_received_packet_t *const);
-static int gquic_server_handle_packet_inner_co(gquic_coroutine_t *const, void *const);
+static int gquic_server_handle_packet_inner_co(void *const);
 static int gquic_server_handle_packet_initial(gquic_session_t **const, gquic_server_t *const, gquic_received_packet_t *const);
-static int gquic_server_session_run_co(gquic_coroutine_t *const, void *const);
-static int gquic_server_handle_new_session_co(gquic_coroutine_t *const, void *const);
+static int gquic_server_session_run_co(void *const);
+static int gquic_server_handle_new_session_co(void *const);
 
 typedef struct gquic_server_handle_packet_s gquic_server_handle_packet_t;
 struct gquic_server_handle_packet_s {
@@ -43,9 +43,9 @@ int gquic_server_init(gquic_server_t *const server) {
     gquic_net_conn_init(&server->conn);
     server->config = NULL;
     server->packet_handlers = NULL;
-    gquic_coroutine_chain_init(&server->err_chain);
-    gquic_coroutine_chain_init(&server->sess_chain);
-    gquic_coroutine_chain_init(&server->done_chain);
+    liteco_channel_init(&server->err_chain);
+    liteco_channel_init(&server->sess_chain);
+    liteco_channel_init(&server->done_chain);
     server->sess_count = 0;
 
     pthread_mutex_init(&server->mtx, NULL);
@@ -70,21 +70,21 @@ int gquic_server_ctor(gquic_server_t *const server, int fd, gquic_net_addr_t *co
 }
 
 int gquic_server_accept(gquic_session_t **const session_storage, gquic_server_t *const server) {
-    gquic_coroutine_t *co = NULL;
     gquic_server_accept_t param;
+    liteco_coroutine_t *co = NULL;
     if (session_storage == NULL || server == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     param.server = server;
     param.session = NULL;
-    GQUIC_ASSERT_FAST_RETURN(gquic_global_schedule_join(&co, 1024 * 1024, gquic_server_accept_inner_co, &param));
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_run_until_complete(co));
+    gquic_coglobal_currmachine_execute(&co, gquic_server_accept_inner_co, &param);
+    GQUIC_ASSERT_FAST_RETURN(gquic_coglobal_schedule_until_completed(co));
 
     *session_storage = param.session;
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_server_close(gquic_coroutine_t *const co, gquic_server_t *const server) {
+int gquic_server_close(gquic_server_t *const server) {
     int exception = GQUIC_SUCCESS;
     if (server == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -94,7 +94,7 @@ int gquic_server_close(gquic_coroutine_t *const co, gquic_server_t *const server
         pthread_mutex_unlock(&server->mtx);
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
-    if (GQUIC_ASSERT_CAUSE(exception, gquic_packet_handler_map_close_server(co, server->packet_handlers))) {
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_packet_handler_map_close_server(server->packet_handlers))) {
         pthread_mutex_unlock(&server->mtx);
         GQUIC_PROCESS_DONE(exception);
     }
@@ -103,10 +103,7 @@ int gquic_server_close(gquic_coroutine_t *const co, gquic_server_t *const server
         GQUIC_PROCESS_DONE(exception);
     }
     server->closed = 1;
-    if (GQUIC_ASSERT_CAUSE(exception, gquic_coroutine_chain_boradcast_close(&server->err_chain, gquic_get_global_schedule()))) {
-        pthread_mutex_unlock(&server->mtx);
-        GQUIC_PROCESS_DONE(exception);
-    }
+    liteco_channel_close(&server->err_chain);
     pthread_mutex_unlock(&server->mtx);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
@@ -147,7 +144,6 @@ static int gquic_server_set_close_err_wrapper(void *const server, const int err)
 }
 
 int gquic_server_handle_packet(gquic_server_t *const server, gquic_received_packet_t *const rp) {
-    gquic_coroutine_t *co = NULL;
     gquic_server_handle_packet_t *handle_packet = NULL;
     if (server == NULL || rp == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -155,7 +151,7 @@ int gquic_server_handle_packet(gquic_server_t *const server, gquic_received_pack
     GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&handle_packet, gquic_server_handle_packet_t));
     handle_packet->received_packet = rp;
     handle_packet->server = server;
-    GQUIC_ASSERT_FAST_RETURN(gquic_global_schedule_join(&co, 1024 * 1024, gquic_server_handle_packet_inner_co, handle_packet));
+    gquic_coglobal_execute(gquic_server_handle_packet_inner_co, handle_packet);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -164,9 +160,9 @@ static int gquic_server_handle_packet_wrapper(void *const server, gquic_received
     return gquic_server_handle_packet(server, rp);
 }
 
-static int gquic_server_handle_packet_inner_co(gquic_coroutine_t *const co, void *const handle_packet) {
+static int gquic_server_handle_packet_inner_co(void *const handle_packet) {
     gquic_session_t *sess = NULL;
-    if (co == NULL || handle_packet == NULL) {
+    if (handle_packet == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_server_t *const server = ((gquic_server_handle_packet_t *) handle_packet)->server;
@@ -199,8 +195,6 @@ static int gquic_server_handle_packet_initial(gquic_session_t **const session_st
     gquic_str_t cli_dst_conn_id = { 0, NULL };
     gquic_str_t cli_src_conn_id = { 0, NULL };
     gquic_net_conn_t *remote_conn = NULL;
-    gquic_coroutine_t *session_run_co = NULL;
-    gquic_coroutine_t *handle_new_session_co = NULL;
     gquic_server_handle_new_session_t *handle_new_session = NULL;
     if (session_storage == NULL || server == NULL || received_packet == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -232,12 +226,12 @@ static int gquic_server_handle_packet_initial(gquic_session_t **const session_st
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_packet_handler_map_add(NULL, server->packet_handlers, &conn_id,
                                                           gquic_session_implement_packet_handler(*session_storage)));
-    GQUIC_ASSERT_FAST_RETURN(gquic_global_schedule_join(&session_run_co, 1024 * 1024, gquic_server_session_run_co, *session_storage));
+    gquic_coglobal_execute(gquic_server_session_run_co, *session_storage);
 
     GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&handle_new_session, gquic_server_handle_new_session_t));
     handle_new_session->server = server;
     handle_new_session->session = *session_storage;
-    GQUIC_ASSERT_FAST_RETURN(gquic_global_schedule_join(&handle_new_session_co, 1024 * 1024, gquic_server_handle_new_session_co, handle_new_session));
+    gquic_coglobal_execute(gquic_server_handle_new_session_co, handle_new_session);
 
     gquic_session_handle_packet(*session_storage, received_packet);
 
@@ -245,58 +239,55 @@ static int gquic_server_handle_packet_initial(gquic_session_t **const session_st
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_server_session_run_co(gquic_coroutine_t *const co, void *const sess) {
-    if (co == NULL || sess == NULL) {
+static int gquic_server_session_run_co(void *const sess) {
+    if (sess == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    GQUIC_ASSERT_FAST_RETURN(gquic_session_run(co, sess));
+    GQUIC_ASSERT_FAST_RETURN(gquic_session_run(sess));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_server_handle_new_session_co(gquic_coroutine_t *const co, void *const handle_new_session_) {
+static int gquic_server_handle_new_session_co(void *const handle_new_session_) {
     gquic_server_handle_new_session_t *const handle_new_session = handle_new_session_;
-    void *recv = NULL;
-    gquic_coroutine_chain_t *recv_chain = NULL;
-    if (co == NULL || handle_new_session == NULL) {
+    const void *recv = NULL;
+    const liteco_channel_t *recv_chan = NULL;
+    if (handle_new_session == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    gquic_coroutine_chain_recv(&recv, &recv_chain, co, 1,
-                               &handle_new_session->session->handshake_completed_chain,
-                               &handle_new_session->session->done_chain,
-                               NULL);
-    if (recv_chain == &handle_new_session->session->done_chain) {
+    GQUIC_COGLOBAL_CHANNEL_RECV(&recv, &recv_chan, 0,
+                                &handle_new_session->session->handshake_completed_chain,
+                                &handle_new_session->session->done_chain);
+    if (recv_chan == &handle_new_session->session->done_chain) {
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
 
     handle_new_session->server->sess_count++;
-    gquic_coroutine_chain_send(&handle_new_session->server->sess_chain, gquic_get_global_schedule(), handle_new_session->session);
+    liteco_channel_send(&handle_new_session->server->sess_chain, handle_new_session->session);
     free(handle_new_session);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_server_accept_inner_co(gquic_coroutine_t *const co, void *const param_) {
-    int exception = GQUIC_SUCCESS;
+static int gquic_server_accept_inner_co(void *const param_) {
     gquic_server_accept_t *const param = param_;
-    void *recv = NULL;
-    gquic_coroutine_chain_t *recv_chain = NULL;
-    if (co == NULL || param_ == NULL) {
+    const void *recv = NULL;
+    const liteco_channel_t *recv_chan = NULL;
+    if (param_ == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    GQUIC_EXCEPTION_ASSIGN(exception, gquic_coroutine_chain_recv(&recv, &recv_chain, co, 1,
-                                                                 &param->server->done_chain,
-                                                                 &param->server->sess_chain,
-                                                                 &param->server->err_chain,
-                                                                 NULL));
-    if (recv_chain == &param->server->done_chain) {
+    GQUIC_COGLOBAL_CHANNEL_RECV(&recv, &recv_chan, 0,
+                                &param->server->done_chain,
+                                &param->server->sess_chain,
+                                &param->server->err_chain);
+    if (recv_chan == &param->server->done_chain) {
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
-    else if (recv_chain == &param->server->sess_chain) {
-        param->session = recv;
-        param->server ->sess_count--;
+    else if (recv_chan == &param->server->sess_chain) {
+        param->session = (gquic_session_t *) recv;
+        param->server->sess_count--;
     }
-    else if (recv_chain == &param->server->err_chain) {
+    else if (recv_chan == &param->server->err_chain) {
         GQUIC_PROCESS_DONE(param->server->err);
     }
 

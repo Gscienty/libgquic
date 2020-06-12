@@ -12,10 +12,13 @@ struct gquic_coroutine_s {
     liteco_coroutine_t co;
     int (*fn) (void *const);
     void *args;
+    bool auto_finished;
+    bool lock_machine;
 };
 static int gquic_coroutine_func(liteco_coroutine_t *const, void *const);
 static int gquic_coroutine_finished(liteco_coroutine_t *const);
 static bool inited = false;
+static int gquic_coroutine_create(gquic_coroutine_t **const, int (*)(void *const), void *const);
 
 __thread liteco_machine_t *__GQUIC_CURR_MACHINE__ = NULL;
 
@@ -40,19 +43,42 @@ int gquic_coglobal_thread_init(int ith) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_coglobal_execute(int (*func) (void *const), void *args) {
+int gquic_coglobal_execute(int (*func) (void *const), void *const args) {
     gquic_coroutine_t *co = NULL;
-    void *stack = NULL;
     if (func == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT((void **) &co, gquic_coroutine_t));
-    GQUIC_ASSERT_FAST_RETURN(gquic_malloc(&stack, __GQUIC_CO_DEFAULT_STACK__));
-    co->fn = func;
-    co->args = args;
-    liteco_create(&co->co, stack, __GQUIC_CO_DEFAULT_STACK__, gquic_coroutine_func, co, gquic_coroutine_finished);
+    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_create(&co, func, args));
 
     liteco_machine_join(gquic_coglobal_select_machine(), &co->co);
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}
+
+int gquic_coglobal_currmachine_execute(liteco_coroutine_t **const co_storage, int (*func) (void *const), void *const args) {
+    gquic_coroutine_t *co = NULL;
+    if (func == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_create(&co, func, args));
+    co->lock_machine = true;
+    if (co_storage != NULL) {
+        *co_storage = &co->co;
+    }
+
+    liteco_machine_join(__GQUIC_CURR_MACHINE__, &co->co);
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}
+
+int gquic_coglobal_delay_execute(const u_int64_t timeout, int (*func) (void *const), void *const args) {
+    gquic_coroutine_t *co = NULL;
+    if (func == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_create(&co, func, args));
+
+    liteco_machine_delay_join(gquic_coglobal_select_machine(), timeout, &co->co);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -63,7 +89,9 @@ int gquic_coglobal_channel_recv(const void **const event, const liteco_channel_t
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
 
-    liteco_channel_recv(event, recv_channel, gquic_coglobal_select_machine(), __CURR_CO__, channels, timeout);
+    liteco_channel_recv(event, recv_channel,
+                        ((gquic_coroutine_t *) __CURR_CO__->args)->lock_machine ? __GQUIC_CURR_MACHINE__ : gquic_coglobal_select_machine(),
+                        __CURR_CO__, channels, timeout);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -75,8 +103,10 @@ static int gquic_coroutine_func(liteco_coroutine_t *const co, void *const args) 
 }
 
 static int gquic_coroutine_finished(liteco_coroutine_t *const co) {
-    gquic_free(((gquic_coroutine_t *) co->args)->co.stack);
-    gquic_free(co->args);
+    if (((gquic_coroutine_t *) co->args)->auto_finished) {
+        gquic_free(((gquic_coroutine_t *) co->args)->co.stack);
+        gquic_free(co->args);
+    }
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -87,3 +117,34 @@ int gquic_coglobal_schedule() {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
+int gquic_coglobal_schedule_until_completed(const liteco_coroutine_t *const co) {
+    if (co == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+    ((gquic_coroutine_t *) co->args)->auto_finished = false;
+
+    while (co->status == LITECO_TERMINATE) {
+        gquic_coglobal_schedule();
+    }
+
+    ((gquic_coroutine_t *) co->args)->auto_finished = true;
+    gquic_coroutine_finished((liteco_coroutine_t *) co);
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}
+
+static int gquic_coroutine_create(gquic_coroutine_t **const co_storage, int (*func)(void *const), void *const args) {
+    void *stack = NULL;
+    if (co_storage == NULL || func == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT((void **) co_storage, gquic_coroutine_t));
+    GQUIC_ASSERT_FAST_RETURN(gquic_malloc(&stack, __GQUIC_CO_DEFAULT_STACK__));
+    (*co_storage)->fn = func;
+    (*co_storage)->args = args;
+    (*co_storage)->auto_finished = true;
+    (*co_storage)->lock_machine = false;
+    liteco_create(&(*co_storage)->co, stack, __GQUIC_CO_DEFAULT_STACK__, gquic_coroutine_func, *co_storage, gquic_coroutine_finished);
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}

@@ -1,6 +1,5 @@
 #include "packet/header.h"
 #include "exception.h"
-#include <malloc.h>
 
 int gquic_packet_header_init(gquic_packet_header_t *const header) {
     if (header == NULL) {

@@ -11,14 +11,14 @@
 #include "util/malloc.h"
 #include "packet/send_mode.h"
 #include "exception.h"
-#include "global_schedule.h"
+#include "coglobal.h"
 
 static int gquic_session_config_transfer_tls_config(gquic_tls_config_t *const, gquic_config_t *const);
 static int gquic_session_add_reset_token_wrapper(void *const, const gquic_str_t *const);
 static int gquic_session_add_wrapper(gquic_str_t *const, void *const, const gquic_str_t *const);
 static int gquic_session_handle_packet_wrapper(void *const, gquic_received_packet_t *const);
-static int gquic_session_close_wrapper(gquic_coroutine_t *const, void *const);
-static int gquic_session_destroy_wrapper(gquic_coroutine_t *const, void *const, const int);
+static int gquic_session_close_wrapper(void *const);
+static int gquic_session_destroy_wrapper(void *const, const int);
 static int gquic_session_is_client_wrapper(void *const);
 static int gquic_session_queue_control_frame_wrapper(void *const, void *const);
 static int gquic_session_on_handshake_complete_client_wrapper(void *const);
@@ -44,15 +44,15 @@ static int gquic_session_schedule_sending(gquic_session_t *const);
 static int gquic_session_destroy_inner(gquic_session_t *const, const int);
 static int gquic_session_handle_handshake_completed(gquic_session_t *const);
 static int gquic_session_try_reset_deadline(gquic_session_t *const);
-static int gquic_session_handle_packet_inner(gquic_coroutine_t *const, gquic_session_t *const, gquic_received_packet_t *const);
-static int gquic_session_handle_single_packet(gquic_coroutine_t *const, gquic_session_t *const, gquic_received_packet_t *const);
+static int gquic_session_handle_packet_inner(gquic_session_t *const, gquic_received_packet_t *const);
+static int gquic_session_handle_single_packet(gquic_session_t *const, gquic_received_packet_t *const);
 static int gquic_session_handle_retry_packet(gquic_session_t *const, const gquic_str_t *const);
 static int gquic_session_try_queue_undecryptable_packet(gquic_session_t *const, gquic_received_packet_t *const);
 static int gquic_session_try_decrypting_queued_packets(gquic_session_t *const);
-static int gquic_session_handle_unpacked_packet(gquic_coroutine_t *const, gquic_session_t *const, gquic_unpacked_packet_t *const, const u_int64_t);
-static int gquic_session_handle_frame(gquic_coroutine_t *const, gquic_session_t *const, void *const, const u_int8_t);
+static int gquic_session_handle_unpacked_packet(gquic_session_t *const, gquic_unpacked_packet_t *const, const u_int64_t);
+static int gquic_session_handle_frame(gquic_session_t *const, void *const, const u_int8_t);
 static int gquic_session_handle_stream_frame(gquic_session_t *const, gquic_frame_stream_t *const);
-static int gquic_session_handle_crypto_frame(gquic_coroutine_t *const, gquic_session_t *const, gquic_frame_crypto_t *const, const u_int8_t); 
+static int gquic_session_handle_crypto_frame(gquic_session_t *const, gquic_frame_crypto_t *const, const u_int8_t); 
 static int gquic_session_handle_ack_frame(gquic_session_t *const, gquic_frame_ack_t *const, const u_int8_t);
 static int gquic_session_handle_connection_close_frame(gquic_session_t *const, gquic_frame_connection_close_t *const);
 static int gquic_session_handle_reset_stream_frame(gquic_session_t *const, gquic_frame_reset_stream_t *const);
@@ -96,15 +96,14 @@ static int gquic_initial_stream_write_wrapper(void *const, gquic_writer_str_t *c
 static int gquic_handshake_stream_write_wrapper(void *const, gquic_writer_str_t *const);
 static int gquic_one_rtt_stream_write_wrapper(void *const, gquic_writer_str_t *const);
 
-static int gquic_handshake_establish_handle_msg_wrapper(gquic_coroutine_t *const, void *const, const gquic_str_t *const, const u_int8_t);
+static int gquic_handshake_establish_handle_msg_wrapper(void *const, const gquic_str_t *const, const u_int8_t);
 static int gquic_conn_id_manager_get_wrapper(gquic_str_t *const, void *const);
 static int gquic_framer_queue_control_frame_wrapper(void *const, void *const);
 
 static int gquic_session_client_written_callback(void *const);
-static int gquic_session_run_handshake_co(gquic_coroutine_t *const, void *const);
-static int gquic_session_run_send_queue_co(gquic_coroutine_t *const, void *const);
+static int gquic_session_run_handshake_co(void *const);
+static int gquic_session_run_send_queue_co(void *const);
 
-static int gquic_session_run_timeout_co(gquic_coroutine_t *const, void *const);
 
 typedef struct gquic_session_close_event_s gquic_session_close_event_t;
 struct gquic_session_close_event_s {
@@ -149,11 +148,11 @@ int gquic_session_init(gquic_session_t *const sess) {
 
     gquic_handshake_establish_init(&sess->est);
 
-    gquic_coroutine_chain_init(&sess->client_hello_writen_chain);
-    gquic_coroutine_chain_init(&sess->close_chain);
-    gquic_coroutine_chain_init(&sess->sending_schedule_chain);
-    gquic_coroutine_chain_init(&sess->recevied_packet_chain);
-    gquic_coroutine_chain_init(&sess->handshake_completed_chain);
+    liteco_channel_init(&sess->client_hello_writen_chain);
+    liteco_channel_init(&sess->close_chain);
+    liteco_channel_init(&sess->sending_schedule_chain);
+    liteco_channel_init(&sess->recevied_packet_chain);
+    liteco_channel_init(&sess->handshake_completed_chain);
 
     sess->undecryptable_packets_count = 0;
     gquic_list_head_init(&sess->undecryptable_packets);
@@ -182,7 +181,7 @@ int gquic_session_init(gquic_session_t *const sess) {
     gquic_crypto_stream_init(&sess->handshake_stream);
     gquic_post_handshake_crypto_stream_init(&sess->one_rtt_stream);
 
-    gquic_coroutine_chain_init(&sess->done_chain);
+    liteco_channel_init(&sess->done_chain);
     sess->close_flag = 0;
     pthread_mutex_init(&sess->close_mtx, NULL);
 
@@ -357,12 +356,12 @@ static int gquic_session_handle_packet_wrapper(void *const sess, gquic_received_
     return gquic_session_handle_packet(sess, rp);
 }
 
-static int gquic_session_close_wrapper(gquic_coroutine_t *const co, void *const sess) {
-    return gquic_session_close(co, sess);
+static int gquic_session_close_wrapper(void *const sess) {
+    return gquic_session_close(sess);
 }
 
-static int gquic_session_destroy_wrapper(gquic_coroutine_t *const co, void *const sess, const int err) {
-    return gquic_session_destroy(co, sess, err);
+static int gquic_session_destroy_wrapper(void *const sess, const int err) {
+    return gquic_session_destroy(sess, err);
 }
 
 static int gquic_session_is_client_wrapper(void *const sess_) {
@@ -422,9 +421,8 @@ static int gquic_one_rtt_stream_write_wrapper(void *const str, gquic_writer_str_
     return gquic_post_handshake_crypto_write(str, writer);
 }
 
-static int gquic_handshake_establish_handle_msg_wrapper(gquic_coroutine_t *const co,
-                                                        void *const est, const gquic_str_t *const data, const u_int8_t enc_lv) {
-    return gquic_handshake_establish_handle_msg(co, est, data, enc_lv);
+static int gquic_handshake_establish_handle_msg_wrapper(void *const est, const gquic_str_t *const data, const u_int8_t enc_lv) {
+    return gquic_handshake_establish_handle_msg(est, data, enc_lv);
 }
 
 static int gquic_conn_id_manager_get_wrapper(gquic_str_t *const ret, void *const manager) {
@@ -436,7 +434,7 @@ static int gquic_session_on_handshake_complete_client_wrapper(void *const sess_)
     if (sess == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_chain_boradcast_close(&sess->handshake_completed_chain, gquic_get_global_schedule()));
+    liteco_channel_close(&sess->handshake_completed_chain);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -447,7 +445,7 @@ static int gquic_session_on_handshake_complete_server_wrapper(void *const sess_)
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_packet_handler_map_retire(sess->runner, &sess->cli_dst_conn_id);
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_chain_boradcast_close(&sess->handshake_completed_chain, gquic_get_global_schedule()));
+    liteco_channel_close(&sess->handshake_completed_chain);
 
     GQUIC_SESSION_ON_HANDSHAKE_COMPLETED(sess);
 
@@ -541,7 +539,7 @@ static int gquic_session_schedule_sending(gquic_session_t *const sess) {
     if (sess == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_chain_send(&sess->sending_schedule_chain, gquic_get_global_schedule(), &sess->sending_schedule_chain));
+    liteco_channel_send(&sess->sending_schedule_chain, &sess->sending_schedule_chain);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -550,29 +548,27 @@ int gquic_session_handle_packet(gquic_session_t *const sess, gquic_received_pack
     if (sess == NULL || rp == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_chain_send(&sess->recevied_packet_chain, gquic_get_global_schedule(), rp));
+    liteco_channel_send(&sess->recevied_packet_chain, rp);
     
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_session_close(gquic_coroutine_t *const co, gquic_session_t *const sess) {
-    void *_ = NULL;
-    if (co == NULL || sess == NULL) {
+int gquic_session_close(gquic_session_t *const sess) {
+    if (sess == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_session_close_local(sess, 0);
-    gquic_coroutine_chain_recv(&_, NULL, co, 1, &sess->done_chain, NULL);
+    GQUIC_COGLOBAL_CHANNEL_RECV(NULL, NULL, 0, &sess->done_chain);
     
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_session_destroy(gquic_coroutine_t *const co, gquic_session_t *const sess, const int err) {
-    void *_ = NULL;
+int gquic_session_destroy(gquic_session_t *const sess, const int err) {
     if (sess == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_session_destroy_inner(sess, err);
-    gquic_coroutine_chain_recv(&_, NULL, co, 1, &sess->done_chain, NULL);
+    GQUIC_COGLOBAL_CHANNEL_RECV(NULL, NULL, 0, &sess->done_chain);
     
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -598,7 +594,7 @@ static int gquic_session_destroy_inner(gquic_session_t *const sess, const int er
     event->remote = 0;
     pthread_mutex_unlock(&sess->close_mtx);
 
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_chain_send(&sess->close_chain, gquic_get_global_schedule(), event));
+    liteco_channel_send(&sess->close_chain, event);
     
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -624,7 +620,7 @@ static int gquic_session_close_local(gquic_session_t *const sess, const int err)
     event->remote = 0;
     pthread_mutex_unlock(&sess->close_mtx);
 
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_chain_send(&sess->close_chain, gquic_get_global_schedule(), event));
+    liteco_channel_send(&sess->close_chain, event);
     
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -639,99 +635,71 @@ int gquic_session_queue_control_frame(gquic_session_t *const sess, void *const f
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_session_run(gquic_coroutine_t *const co, gquic_session_t *const sess) {
+int gquic_session_run(gquic_session_t *const sess) {
     int exception = GQUIC_SUCCESS;
-    gquic_coroutine_t *handshake_co = NULL;
-    gquic_coroutine_t *send_queue_co = NULL;
     struct {
         int immediate;
         int err;
         int remote;
     } err_msg = { 0, 0, 0 };
     // TODO exception -> err
-    void *event = NULL;
-    gquic_coroutine_chain_t *recv_chain = NULL;
-    if (sess == NULL || co == NULL) {
+    const void *event = NULL;
+    const liteco_channel_t *recv_chan = NULL;
+    if (sess == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if (GQUIC_ASSERT_CAUSE(exception, gquic_global_schedule_join(&handshake_co, 1024 * 1024, gquic_session_run_handshake_co, sess))) {
-        goto finished;
-    }
-    if (GQUIC_ASSERT_CAUSE(exception, gquic_global_schedule_join(&send_queue_co, 1024 * 1024, gquic_session_run_send_queue_co, sess))) {
-        goto finished;
-    }
+    gquic_coglobal_execute(gquic_session_run_handshake_co, sess);
+    gquic_coglobal_execute(gquic_session_run_send_queue_co, sess);
 
     if (sess->is_client) {
-        GQUIC_EXCEPTION_ASSIGN(exception, gquic_coroutine_chain_recv(&event, &recv_chain, co, 1,
-                                                                     &sess->client_hello_writen_chain, &sess->close_chain, NULL));
-        if (recv_chain == &sess->client_hello_writen_chain) {
+        GQUIC_COGLOBAL_CHANNEL_RECV(&event, &recv_chan, 0, &sess->client_hello_writen_chain, &sess->close_chain);
+        if (recv_chan == &sess->client_hello_writen_chain) {
             gquic_session_schedule_sending(sess);
         }
-        else if (recv_chain == &sess->close_chain) {
-            if (GQUIC_ASSERT_CAUSE(exception, gquic_coroutine_chain_send(&sess->close_chain, gquic_get_global_schedule(), &sess->close_chain))) {
-                goto finished;
-            }
+        else if (recv_chan == &sess->close_chain) {
+            liteco_channel_send(&sess->close_chain, &sess->close_chain);
         }
     }
 
     for ( ;; ) {
         event = NULL;
-        GQUIC_EXCEPTION_ASSIGN(exception, gquic_coroutine_chain_recv(&event, &recv_chain, co, 0,
-                                                                     &sess->close_chain, &sess->handshake_completed_chain, NULL));
-        if (recv_chain == &sess->handshake_completed_chain) {
+        GQUIC_COGLOBAL_CHANNEL_RECV(&event, &recv_chan, 0, &sess->close_chain, &sess->handshake_completed_chain, &__CLOSED_CHAN__);
+        if (recv_chan == &sess->handshake_completed_chain) {
             gquic_session_handle_handshake_completed(sess);
         }
-        else if (recv_chain == &sess->close_chain) {
+        else if (recv_chan == &sess->close_chain) {
             err_msg.err = ((gquic_session_close_event_t *) event)->err;
             err_msg.immediate = ((gquic_session_close_event_t *) event)->immediate;
             err_msg.remote = ((gquic_session_close_event_t *) event)->remote;
-            free(event);
+            free((void *) event);
             goto closed;
         }
 
         event = NULL;
         gquic_session_try_reset_deadline(sess);
-        gquic_coroutine_chain_t *timeout_chain = NULL;
-        if (GQUIC_ASSERT_CAUSE(exception, GQUIC_MALLOC_STRUCT(&timeout_chain, gquic_coroutine_chain_t))) {
-            goto finished;
-        }
-        gquic_coroutine_chain_init(timeout_chain);
-        gquic_coroutine_t *timeout_co = NULL;
-        if (GQUIC_ASSERT_CAUSE(exception, gquic_global_schedule_timeout_join(&timeout_co, sess->deadline, 4096,
-                                                                             gquic_session_run_timeout_co, timeout_chain))) {
-            goto finished;
-        }
 
-        GQUIC_EXCEPTION_ASSIGN(exception, gquic_coroutine_chain_recv(&event, &recv_chain, co, 1,
-                                                                     &sess->close_chain,
-                                                                     &sess->sending_schedule_chain,
-                                                                     &sess->recevied_packet_chain,
-                                                                     &sess->handshake_completed_chain,
-                                                                     timeout_chain,
-                                                                     NULL));
-        if (recv_chain == timeout_chain) {
-            free(timeout_chain);
-            timeout_chain = NULL;
-        }
-        else if (recv_chain == &sess->handshake_completed_chain) {
-            gquic_session_handle_handshake_completed(sess);
-        }
-        else if (recv_chain == &sess->recevied_packet_chain) {
-            if (!gquic_session_handle_packet_inner(co, sess, event)) {
-                continue;
+        int coglobal_result = GQUIC_COGLOBAL_CHANNEL_RECV(&event, &recv_chan, sess->deadline,
+                                                          &sess->close_chain,
+                                                          &sess->sending_schedule_chain,
+                                                          &sess->recevied_packet_chain,
+                                                          &sess->handshake_completed_chain);
+
+        if (coglobal_result != LITECO_TIMEOUT) {
+
+            if (recv_chan == &sess->handshake_completed_chain) {
+                gquic_session_handle_handshake_completed(sess);
             }
-        }
-        else if (recv_chain == &sess->close_chain) {
-            err_msg.err = ((gquic_session_close_event_t *) event)->err;
-            err_msg.immediate = ((gquic_session_close_event_t *) event)->immediate;
-            err_msg.remote = ((gquic_session_close_event_t *) event)->remote;
-            free(event);
-            goto closed;
-        }
-
-        if (timeout_chain != NULL) {
-            if (GQUIC_ASSERT_CAUSE(exception, gquic_coroutine_chain_boradcast_close(timeout_chain, gquic_get_global_schedule()))) {
-                goto finished;
+            else if (recv_chan == &sess->recevied_packet_chain) {
+                if (!gquic_session_handle_packet_inner(sess, (gquic_received_packet_t *) event)) {
+                    continue;
+                }
+            }
+            else if (recv_chan == &sess->close_chain) {
+                err_msg.err = ((gquic_session_close_event_t *) event)->err;
+                err_msg.immediate = ((gquic_session_close_event_t *) event)->immediate;
+                err_msg.remote = ((gquic_session_close_event_t *) event)->remote;
+                free((void *) event);
+                goto closed;
             }
         }
 
@@ -781,32 +749,31 @@ closed:
     gquic_handshake_establish_close(&sess->est);
     gquic_packet_send_queue_close(&sess->send_queue);
 
-finished:
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_chain_boradcast_close(&sess->done_chain, gquic_get_global_schedule()));
+    liteco_channel_close(&sess->done_chain);
 
     GQUIC_PROCESS_DONE(err_msg.err);
 }
 
-static int gquic_session_run_handshake_co(gquic_coroutine_t *const co, void *const sess_) {
+static int gquic_session_run_handshake_co(void *const sess_) {
     int exception = GQUIC_SUCCESS;
     gquic_session_t *const sess = sess_;
     if (sess == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if (GQUIC_ASSERT_CAUSE(exception, gquic_handshake_establish_run(co, &sess->est))) {
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_handshake_establish_run(&sess->est))) {
         gquic_session_close_local(sess, exception);
     }
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_session_run_send_queue_co(gquic_coroutine_t *const co, void *const sess_) {
+static int gquic_session_run_send_queue_co(void *const sess_) {
     int exception = GQUIC_SUCCESS;
     gquic_session_t *const sess = sess_;
     if (sess == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if (GQUIC_ASSERT_CAUSE(exception, gquic_packet_send_queue_run(co, &sess->send_queue))) {
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_packet_send_queue_run(&sess->send_queue))) {
         gquic_session_close_local(sess, exception);
     }
 
@@ -818,7 +785,7 @@ static int gquic_session_client_written_callback(void *const sess_) {
     if (sess == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_chain_boradcast_close(&sess->client_hello_writen_chain, gquic_get_global_schedule()));
+    liteco_channel_close(&sess->client_hello_writen_chain);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -1000,13 +967,13 @@ static inline u_int64_t gquic_session_idle_timeout_start_time(gquic_session_t *c
         : sess->first_ack_eliciting_packet;
 }
 
-static int gquic_session_handle_packet_inner(gquic_coroutine_t *const co, gquic_session_t *const sess, gquic_received_packet_t *const rp) {
+static int gquic_session_handle_packet_inner(gquic_session_t *const sess, gquic_received_packet_t *const rp) {
     int counter = 0;
     int processed = 0;
     gquic_reader_str_t data = { 0, NULL };
     gquic_packet_buffer_t *buffer = NULL;
     gquic_received_packet_t *p = NULL;
-    if (sess == NULL || co == NULL || rp == NULL) {
+    if (sess == NULL || rp == NULL) {
         return 0;
     }
     data = rp->data;
@@ -1034,7 +1001,7 @@ static int gquic_session_handle_packet_inner(gquic_coroutine_t *const co, gquic_
            p->buffer->ref++;
        }
        counter++;
-       processed = gquic_session_handle_single_packet(co, sess, p);
+       processed = gquic_session_handle_single_packet(sess, p);
     }
 
     gquic_packet_buffer_try_put(buffer);
@@ -1042,13 +1009,13 @@ static int gquic_session_handle_packet_inner(gquic_coroutine_t *const co, gquic_
     return processed;
 }
 
-static int gquic_session_handle_single_packet(gquic_coroutine_t *const co, gquic_session_t *const sess, gquic_received_packet_t *const rp) {
+static int gquic_session_handle_single_packet(gquic_session_t *const sess, gquic_received_packet_t *const rp) {
     int ret = 0;
     int exception = GQUIC_SUCCESS;
     int was_queued = 0;
     gquic_packet_buffer_t *buffer = NULL;
     gquic_unpacked_packet_t packet;
-    if (sess == NULL || co == NULL || rp == NULL) {
+    if (sess == NULL || rp == NULL) {
         return 0;
     }
     gquic_unpacked_packet_init(&packet);
@@ -1086,7 +1053,7 @@ static int gquic_session_handle_single_packet(gquic_coroutine_t *const co, gquic
         goto free_rp_finished;
     }
 
-    if (GQUIC_ASSERT_CAUSE(exception, gquic_session_handle_unpacked_packet(co, sess, &packet, rp->recv_time))) {
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_session_handle_unpacked_packet(sess, &packet, rp->recv_time))) {
         gquic_session_close_local(sess, exception);
         goto free_rp_finished;
     }
@@ -1186,12 +1153,11 @@ static int gquic_session_try_queue_undecryptable_packet(gquic_session_t *const s
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_session_handle_unpacked_packet(gquic_coroutine_t *const co,
-                                                gquic_session_t *const sess, gquic_unpacked_packet_t *const up, const u_int64_t recv_time) {
+static int gquic_session_handle_unpacked_packet(gquic_session_t *const sess, gquic_unpacked_packet_t *const up, const u_int64_t recv_time) {
     void *frame = NULL;
     int is_ack_eliciting = 0;
     gquic_reader_str_t reader = { 0, NULL };
-    if (sess == NULL || co == NULL || up == NULL) {
+    if (sess == NULL || up == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (GQUIC_STR_SIZE(&up->data) == 0) {
@@ -1224,7 +1190,7 @@ static int gquic_session_handle_unpacked_packet(gquic_coroutine_t *const co,
         if (GQUIC_FRAME_META(frame).type != 0x02 && GQUIC_FRAME_META(frame).type != 0x03) {
             is_ack_eliciting = 1;
         }
-        GQUIC_ASSERT_FAST_RETURN(gquic_session_handle_frame(co, sess, frame, up->enc_lv));
+        GQUIC_ASSERT_FAST_RETURN(gquic_session_handle_frame(sess, frame, up->enc_lv));
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_packet_received_packet_handlers_received_packet(&sess->recv_packet_handler,
                                                                                    up->pn, recv_time, is_ack_eliciting, up->enc_lv));
@@ -1232,7 +1198,7 @@ static int gquic_session_handle_unpacked_packet(gquic_coroutine_t *const co,
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_session_handle_frame(gquic_coroutine_t *const co, gquic_session_t *const sess, void *const frame, const u_int8_t enc_lv) {
+static int gquic_session_handle_frame(gquic_session_t *const sess, void *const frame, const u_int8_t enc_lv) {
     int exception = GQUIC_SUCCESS;
     if (sess == NULL || frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -1242,7 +1208,7 @@ static int gquic_session_handle_frame(gquic_coroutine_t *const co, gquic_session
     }
     else switch (GQUIC_FRAME_META(frame).type) {
     case  0x06:
-        GQUIC_EXCEPTION_ASSIGN(exception, gquic_session_handle_crypto_frame(co, sess, frame, enc_lv));
+        GQUIC_EXCEPTION_ASSIGN(exception, gquic_session_handle_crypto_frame(sess, frame, enc_lv));
         break;
     case 0x02:
     case 0x03:
@@ -1307,13 +1273,12 @@ static int gquic_session_handle_stream_frame(gquic_session_t *const sess, gquic_
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_session_handle_crypto_frame(gquic_coroutine_t *const co,
-                                             gquic_session_t *const sess, gquic_frame_crypto_t *const frame, const u_int8_t enc_lv) {
+static int gquic_session_handle_crypto_frame(gquic_session_t *const sess, gquic_frame_crypto_t *const frame, const u_int8_t enc_lv) {
     int changed = 0;
-    if (sess == NULL || co == NULL || frame == NULL) {
+    if (sess == NULL || frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    GQUIC_ASSERT_FAST_RETURN(gquic_crypto_stream_manager_handle_crypto_frame(co, &changed, &sess->crypto_stream_manager, frame, enc_lv));
+    GQUIC_ASSERT_FAST_RETURN(gquic_crypto_stream_manager_handle_crypto_frame(&changed, &sess->crypto_stream_manager, frame, enc_lv));
 
     if (changed) {
         gquic_session_try_decrypting_queued_packets(sess);
@@ -1488,7 +1453,7 @@ static int gquic_session_close_remote(gquic_session_t *const sess, const int err
     event->remote = 1;
     pthread_mutex_unlock(&sess->close_mtx);
 
-    GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_chain_send(&sess->close_chain, gquic_get_global_schedule(), event));
+    liteco_channel_send(&sess->close_chain, event);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -1820,16 +1785,3 @@ static int gquic_session_config_transfer_tls_config(gquic_tls_config_t *const tl
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_session_run_timeout_co(gquic_coroutine_t *const co, void *const chain) {
-    if (co == NULL || chain == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
-    }
-    if (((gquic_coroutine_chain_t *) chain)->closed) {
-        free(chain);
-    }
-    else {
-        GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_chain_boradcast_close(chain, gquic_get_global_schedule()));
-    }
-
-    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
-}
