@@ -1,6 +1,6 @@
 #include "session.h"
 #include "frame/meta.h"
-#include "global_schedule.h"
+#include "coglobal.h"
 #include "unit_test.h"
 #include "util/malloc.h"
 #include <fcntl.h>
@@ -34,9 +34,9 @@ gquic_packet_handler_map_t handler_map;
 
 int client_write_times = 0;
 
-static int __server_run(gquic_coroutine_t *const co, void *const _) {
+static int __server_run(void *const _) {
     (void) _;
-    gquic_handshake_establish_run(co, &server_establish);
+    gquic_handshake_establish_run(&server_establish);
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
@@ -45,7 +45,8 @@ static int init_write(void *const _, gquic_writer_str_t *const writer) {
     /*printf("init write\n");*/
     gquic_crypto_stream_write(&initial, writer);
 
-    gquic_packet_long_header_t *hdr = gquic_packet_long_header_alloc();
+    gquic_packet_long_header_t *hdr = NULL;
+    gquic_packet_long_header_alloc(&hdr);
     
     memcpy(hdr->dcid, GQUIC_STR_VAL(&sci), GQUIC_STR_SIZE(&sci));
     hdr->dcid_len = GQUIC_STR_SIZE(&sci);
@@ -101,7 +102,7 @@ static int init_write(void *const _, gquic_writer_str_t *const writer) {
 
     gquic_str_t cnt = { GQUIC_STR_VAL(&buffer->writer) - GQUIC_STR_VAL(&buffer->slice), GQUIC_STR_VAL(&buffer->slice) };
     printf("send shello\n");
-    gquic_str_test_echo(&cnt);
+    /*gquic_str_test_echo(&cnt);*/
 
     gquic_received_packet_t *rp = malloc(sizeof(gquic_received_packet_t));
 
@@ -118,7 +119,8 @@ static int init_write(void *const _, gquic_writer_str_t *const writer) {
 
 static void handshake_packet() {
     static int pn = 12;
-    gquic_packet_long_header_t *hdr = gquic_packet_long_header_alloc();
+    gquic_packet_long_header_t *hdr = NULL;
+    gquic_packet_long_header_alloc(&hdr);
     
     memcpy(hdr->dcid, GQUIC_STR_VAL(&sci), GQUIC_STR_SIZE(&sci));
     hdr->dcid_len = GQUIC_STR_SIZE(&sci);
@@ -173,7 +175,7 @@ static void handshake_packet() {
 
     gquic_str_t cnt = { GQUIC_STR_VAL(&buffer->writer) - GQUIC_STR_VAL(&buffer->slice), GQUIC_STR_VAL(&buffer->slice) };
     printf("\nsend Ex Ca Ver Fn\n");
-    gquic_str_test_echo(&cnt);
+    /*gquic_str_test_echo(&cnt);*/
 
     gquic_received_packet_t *rp = malloc(sizeof(gquic_received_packet_t));
 
@@ -221,7 +223,7 @@ static int get_cert(PKCS12 **const cert_s, const gquic_tls_client_hello_msg_t *c
 }
 
 
-int server_process_client_hello_package(gquic_coroutine_t *const co, void *const raw) {
+int server_process_client_hello_package(void *const raw) {
     int ret = 0;
     gquic_str_t conn_id = { 0, NULL };
     gquic_handshake_establish_init(&server_establish);
@@ -248,12 +250,7 @@ int server_process_client_hello_package(gquic_coroutine_t *const co, void *const
     gquic_packet_unpacker_ctor(&server_unpacker, &server_establish);
     gquic_packet_packer_init(&server_packer);
 
-    gquic_coroutine_t *sco = NULL;
-    gquic_coroutine_alloc(&sco);
-    gquic_coroutine_init(co);
-    gquic_coroutine_ctor(sco, 1024 * 1024, __server_run, &sess);
-    gquic_coroutine_schedule_join(gquic_get_global_schedule(), sco);
-
+    gquic_coglobal_execute(__server_run, &sess);
 
     u_int64_t packet_length = 0;
     gquic_packet_header_deserialize_packet_len(&packet_length, raw, 0);
@@ -278,7 +275,7 @@ int server_process_client_hello_package(gquic_coroutine_t *const co, void *const
     gquic_str_t *tmp_data = NULL;
     GQUIC_MALLOC_STRUCT(&tmp_data, gquic_str_t);
     gquic_str_copy(tmp_data, &recv_data);
-    gquic_handshake_establish_handle_msg(co, &server_establish, tmp_data, packet.enc_lv);
+    gquic_handshake_establish_handle_msg(&server_establish, tmp_data, packet.enc_lv);
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
@@ -290,12 +287,12 @@ static int gquic_session_is_client_wrapper(void *const sess_) {
     return sess->is_client;
 }
 
-static int gquic_session_destroy_wrapper(gquic_coroutine_t *const co, void *const sess, const int err) {
-    return gquic_session_destroy(co, sess, 10 * err - 1);
+static int gquic_session_destroy_wrapper(void *const sess, const int err) {
+    return gquic_session_destroy(sess, 10 * err - 1);
 }
 
-static int gquic_session_close_wrapper(gquic_coroutine_t *const co, void *const sess) {
-    return gquic_session_close(co, sess);
+static int gquic_session_close_wrapper(void *const sess) {
+    return gquic_session_close(sess);
 }
 
 static int gquic_session_handle_packet_wrapper(void *const sess, gquic_received_packet_t *const rp) {
@@ -309,15 +306,12 @@ static void server_process_client_fin(const gquic_str_t *const raw) {
     u_int64_t packet_length = 0;
     gquic_packet_header_deserialize_packet_len(&packet_length, raw, 0);
     printf("client_fin\n");
-    gquic_str_test_echo(raw);
+    /*gquic_str_test_echo(raw);*/
     
     gquic_unpacked_packet_t packet;
     gquic_unpacked_packet_init(&packet);
-    struct timeval tv;
-    struct timezone tz;
-    gettimeofday(&tv, &tz);
-    u_int64_t now = tv.tv_sec * 1000 * 1000 + tv.tv_usec;
-    ret = gquic_packet_unpacker_unpack(&packet, &server_unpacker, raw, now);
+
+    GQUIC_ASSERT(gquic_packet_unpacker_unpack(&packet, &server_unpacker, raw, gquic_time_now()));
 
     gquic_frame_parser_t parser;
     gquic_frame_parser_init(&parser);
@@ -326,15 +320,17 @@ static void server_process_client_fin(const gquic_str_t *const raw) {
     gquic_reader_str_t reader = packet.data;
     /*gquic_str_test_echo(&reader);*/
     ret = gquic_frame_parser_next(&frame, &parser, &reader, packet.enc_lv);
+    if (GQUIC_FRAME_META(frame).type == 0x02) {
+        printf("ack??\n");
+    }
 
-    ret = gquic_crypto_stream_handle_crypto_frame(&handshake, frame);
-    gquic_frame_release(frame);
+    /*ret = gquic_crypto_stream_handle_crypto_frame(&handshake, frame);*/
+    /*gquic_frame_release(frame);*/
 
-    gquic_str_t recv_data = { 0, NULL };
-    gquic_crypto_stream_get_data(&recv_data, &handshake);
+    /*gquic_str_t recv_data = { 0, NULL };*/
+    /*gquic_crypto_stream_get_data(&recv_data, &handshake);*/
 
-
-    // TODO empty recv_data segmentation fault
+    /*// TODO empty recv_data segmentation fault*/
     /*gquic_handshake_establish_handle_msg(&server_establish, &recv_data, packet.enc_lv);*/
 }
 
@@ -343,22 +339,21 @@ int conn_write(void *const _, const gquic_str_t *const raw) {
     (void) raw;
     gquic_str_t *tmp_raw = NULL;
     client_write_times++;
-    gquic_coroutine_t *co = NULL;
-    gquic_coroutine_alloc(&co);
-    gquic_coroutine_init(co);
+
+    printf("conn write time: %ld\n", gquic_time_now());
 
     switch (client_write_times) {
     case 1:
         GQUIC_MALLOC_STRUCT(&tmp_raw, gquic_str_t);
         gquic_str_copy(tmp_raw, raw);
-        printf("chello\n");
-        gquic_str_test_echo(tmp_raw);
+        printf("recv chello\n");
+        /*gquic_str_test_echo(tmp_raw);*/
         // Client Hello Package
-        gquic_coroutine_ctor(co, 1024 * 1024, server_process_client_hello_package, tmp_raw);
-        gquic_coroutine_schedule_join(gquic_get_global_schedule(), co);
+        gquic_coglobal_execute(server_process_client_hello_package, tmp_raw);
         break;
     case 2:
-        server_process_client_fin(raw);
+        printf("recv ack\n");
+        /*server_process_client_fin(raw);*/
         break;
     /*default:*/
         /*printf("write times %d\n", client_write_times);*/
@@ -367,8 +362,8 @@ int conn_write(void *const _, const gquic_str_t *const raw) {
     return 0;
 }
 
-int gquic_client_sess_run_co(gquic_coroutine_t *const co, void *const sess) {
-    GQUIC_ASSERT_FAST_RETURN(gquic_session_run(co, sess));
+int gquic_client_sess_run_co(void *const sess) {
+    GQUIC_ASSERT_FAST_RETURN(gquic_session_run(sess));
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
@@ -425,15 +420,13 @@ GQUIC_UNIT_TEST(session_client) {
     gquic_str_t ignore = { 0, NULL };
     gquic_packet_handler_map_add(&ignore, &handler_map, &sci, abs_sess);
 
-    gquic_coroutine_t *co = NULL;
-    gquic_coroutine_alloc(&co);
-    gquic_coroutine_init(co);
-    gquic_coroutine_ctor(co, 1024 * 1024, gquic_client_sess_run_co, &sess);
-    gquic_coroutine_schedule_join(gquic_get_global_schedule(), co);
+    gquic_coglobal_thread_init(0);
+
+    gquic_coglobal_execute(gquic_client_sess_run_co, &sess);
 
     int i = 0;
     for (i = 0; i < 50; i++) {
-        gquic_coroutine_schedule_resume(gquic_get_global_schedule());
+        gquic_coglobal_schedule();
     }
 
     return 0;

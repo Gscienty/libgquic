@@ -1,20 +1,22 @@
 #include "packet/short_header_packet.h"
 #include "packet/packet_number.h"
 #include "util/big_endian.h"
+#include "util/malloc.h"
 #include "exception.h"
 #include <string.h>
 
-gquic_packet_short_header_t *gquic_packet_short_header_alloc() {
-    gquic_packet_short_header_t *header = malloc(sizeof(gquic_packet_short_header_t));
-    if (header == NULL) {
-        return NULL;
+int gquic_packet_short_header_alloc(gquic_packet_short_header_t **const header_storage) {
+    if (header_storage == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    memset(header->dcid, 0, sizeof(header->dcid));
-    header->dcid_len = 0;
-    header->flag = 0;
-    header->pn = 0;
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(header_storage, gquic_packet_short_header_t));
 
-    return header;
+    memset((*header_storage)->dcid, 0, sizeof((*header_storage)->dcid));
+    (*header_storage)->dcid_len = 0;
+    (*header_storage)->flag = 0;
+    (*header_storage)->pn = 0;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 ssize_t gquic_packet_short_header_size(const gquic_packet_short_header_t *const header) {

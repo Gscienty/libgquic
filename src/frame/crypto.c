@@ -1,8 +1,8 @@
 #include "frame/crypto.h"
 #include "frame/meta.h"
+#include "util/malloc.h"
 #include "exception.h"
 #include <string.h>
-#include <malloc.h>
 
 static size_t gquic_frame_crypto_size(const void *const);
 static int gquic_frame_crypto_serialize(const void *const, gquic_writer_str_t *const);
@@ -71,9 +71,7 @@ static int gquic_frame_crypto_deserialize(void *const frame, gquic_reader_str_t 
     if (spec->len > GQUIC_STR_SIZE(reader)) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
-    if ((spec->data = malloc(spec->len)) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_malloc((void **) &spec->data, spec->len));
     gquic_str_t data = { spec->len, spec->data };
     GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_read(&data, reader));
 
@@ -98,7 +96,7 @@ static int gquic_frame_crypto_dtor(void *const frame) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (spec->data != NULL) {
-        free(spec->data);
+        gquic_free(spec->data);
     }
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);

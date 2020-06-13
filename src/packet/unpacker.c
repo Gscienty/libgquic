@@ -1,5 +1,6 @@
 #include "packet/unpacker.h"
 #include "packet/packet_number.h"
+#include "util/malloc.h"
 #include "exception.h"
 
 static int gquic_common_long_header_opener_open_wrapper(gquic_str_t *const,
@@ -171,16 +172,12 @@ static int gquic_packet_unpacker_unpack_header_packet(gquic_unpacked_packet_t *c
     }
     reader = *payload->data;
     if (unpacked_packet->hdr.is_long) {
-        if ((unpacked_packet->hdr.hdr.l_hdr = gquic_packet_long_header_alloc()) == NULL) {
-            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-        }
+        GQUIC_ASSERT_FAST_RETURN(gquic_packet_long_header_alloc(&unpacked_packet->hdr.hdr.l_hdr));
         GQUIC_ASSERT_FAST_RETURN(gquic_packet_long_header_deserialize_unseal_part(unpacked_packet->hdr.hdr.l_hdr, &reader));
         
     }
     else {
-        if ((unpacked_packet->hdr.hdr.s_hdr = malloc(sizeof(gquic_packet_short_header_t))) == NULL) {
-            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-        }
+        GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&unpacked_packet->hdr.hdr.s_hdr, gquic_packet_short_header_t));
         GQUIC_ASSERT_FAST_RETURN(gquic_packet_short_header_deserialize_unseal_part(unpacked_packet->hdr.hdr.s_hdr, &reader));
     }
     GQUIC_ASSERT_CAUSE(exception, gquic_packet_unpacker_unpack_header(unpacked_packet, unpacker, payload, &reader));

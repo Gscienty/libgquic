@@ -2,6 +2,7 @@
 #include "tls/key_schedule.h"
 #include "util/str.h"
 #include "util/big_endian.h"
+#include "util/malloc.h"
 #include "exception.h"
 #include <openssl/evp.h>
 #include <openssl/kdf.h>
@@ -55,7 +56,7 @@ int gquic_tls_ecdhe_params_dtor(gquic_tls_ecdhe_params_t *param) {
     }
     if (param->dtor != NULL) {
         GQUIC_TLS_ECDHE_PARAMS_DTOR(param);
-        free(param->self);
+        gquic_free(param->self);
     }
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
@@ -66,10 +67,8 @@ static int gquic_tls_ecdhe_params_x25519_generate(gquic_tls_ecdhe_params_t *para
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
 
-    gquic_tls_x25519_params_t *x25519_param = malloc(sizeof(gquic_tls_ecdhe_params_t));
-    if (x25519_param == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    gquic_tls_x25519_params_t *x25519_param = NULL;
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&x25519_param, gquic_tls_ecdhe_params_t));
     param->self = x25519_param;
     param->curve_id = gquic_x25519_params_curve_id;
     param->public_key = gquic_x25519_params_public_key;

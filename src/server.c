@@ -170,18 +170,18 @@ static int gquic_server_handle_packet_inner_co(void *const handle_packet) {
 
     if (GQUIC_STR_SIZE(&rp->data) < 1200) {
         gquic_packet_buffer_put(rp->buffer);
-        free(rp);
+        gquic_free(rp);
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
     if (gquic_packet_header_deserlialize_type(&rp->data) != GQUIC_LONG_HEADER_INITIAL) {
         gquic_packet_buffer_put(rp->buffer);
-        free(rp);
+        gquic_free(rp);
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_server_handle_packet_initial(&sess, server, rp));
     if (sess == NULL){
         gquic_packet_buffer_put(rp->buffer);
-        free(rp);
+        gquic_free(rp);
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
 
@@ -221,7 +221,7 @@ static int gquic_server_handle_packet_initial(gquic_session_t **const session_st
     int added = gquic_packet_handler_map_add_if_not_taken(server->packet_handlers, &cli_dst_conn_id,
                                                           gquic_session_implement_packet_handler(*session_storage));
     if (!added) {
-        free(*session_storage);
+        gquic_free(*session_storage);
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_packet_handler_map_add(NULL, server->packet_handlers, &conn_id,
@@ -252,10 +252,11 @@ static int gquic_server_handle_new_session_co(void *const handle_new_session_) {
     gquic_server_handle_new_session_t *const handle_new_session = handle_new_session_;
     const void *recv = NULL;
     const liteco_channel_t *recv_chan = NULL;
+    int exception = GQUIC_SUCCESS;
     if (handle_new_session == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    GQUIC_COGLOBAL_CHANNEL_RECV(&recv, &recv_chan, 0,
+    GQUIC_COGLOBAL_CHANNEL_RECV(exception, &recv, &recv_chan, 0,
                                 &handle_new_session->session->handshake_completed_chain,
                                 &handle_new_session->session->done_chain);
     if (recv_chan == &handle_new_session->session->done_chain) {
@@ -264,7 +265,7 @@ static int gquic_server_handle_new_session_co(void *const handle_new_session_) {
 
     handle_new_session->server->sess_count++;
     liteco_channel_send(&handle_new_session->server->sess_chain, handle_new_session->session);
-    free(handle_new_session);
+    gquic_free(handle_new_session);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -273,10 +274,11 @@ static int gquic_server_accept_inner_co(void *const param_) {
     gquic_server_accept_t *const param = param_;
     const void *recv = NULL;
     const liteco_channel_t *recv_chan = NULL;
+    int exception = GQUIC_SUCCESS;
     if (param_ == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    GQUIC_COGLOBAL_CHANNEL_RECV(&recv, &recv_chan, 0,
+    GQUIC_COGLOBAL_CHANNEL_RECV(exception, &recv, &recv_chan, 0,
                                 &param->server->done_chain,
                                 &param->server->sess_chain,
                                 &param->server->err_chain);

@@ -1,7 +1,7 @@
 #include "util/rbtree.h"
+#include "util/malloc.h"
 #include "exception.h"
 #include <unistd.h>
-#include <malloc.h>
 
 static int gquic_rbtree_left_rotate(gquic_rbtree_t **, gquic_rbtree_t *);
 static int gquic_rbtree_right_rotate(gquic_rbtree_t **, gquic_rbtree_t *);
@@ -41,9 +41,7 @@ int gquic_rbtree_alloc(gquic_rbtree_t **const rb, const size_t key_len, const si
     if (rb == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if ((ret = malloc(sizeof(gquic_rbtree_t) + key_len + val_len)) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_malloc((void **) &ret, sizeof(gquic_rbtree_t) + key_len + val_len));
     ret->color = GQUIC_RBTREE_COLOR_RED;
     ret->left = &nil;
     ret->parent = &nil;
@@ -64,7 +62,7 @@ int gquic_rbtree_release(gquic_rbtree_t *const rb, int (*release_val)(void *cons
     if (release_val != NULL && GQUIC_ASSERT_CAUSE(exception, release_val(GQUIC_RBTREE_VALUE(rb)))) {
         return exception;
     }
-    free(rb);
+    gquic_free(rb);
     
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

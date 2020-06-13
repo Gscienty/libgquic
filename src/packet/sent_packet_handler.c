@@ -2,6 +2,7 @@
 #include "tls/common.h"
 #include "packet/send_mode.h"
 #include "frame/meta.h"
+#include "util/malloc.h"
 #include "exception.h"
 #include <math.h>
 
@@ -177,18 +178,14 @@ int gquic_packet_sent_packet_handler_ctor(gquic_packet_sent_packet_handler_t *co
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_cong_cubic_ctor(&handler->cong, rtt, 32 * 1460, 1000 * 1460);
-    if ((handler->initial_packets = malloc(sizeof(gquic_packet_sent_pn_t))) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
-    if ((handler->handshake_packets = malloc(sizeof(gquic_packet_sent_pn_t))) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
-    if ((handler->one_rtt_packets = malloc(sizeof(gquic_packet_sent_pn_t))) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&handler->initial_packets, gquic_packet_sent_pn_t));
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&handler->handshake_packets, gquic_packet_sent_pn_t));
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&handler->one_rtt_packets, gquic_packet_sent_pn_t));
+
     gquic_packet_sent_pn_init(handler->initial_packets);
     gquic_packet_sent_pn_init(handler->handshake_packets);
     gquic_packet_sent_pn_init(handler->one_rtt_packets);
+
     gquic_packet_sent_pn_ctor(handler->initial_packets, initial_pn);
     gquic_packet_sent_pn_ctor(handler->handshake_packets, 0);
     gquic_packet_sent_pn_ctor(handler->one_rtt_packets, 0);
@@ -203,15 +200,15 @@ int gquic_packet_sent_packet_handler_dtor(gquic_packet_sent_packet_handler_t *co
     }
     if (handler->initial_packets != NULL) {
         gquic_packet_sent_pn_dtor(handler->initial_packets);
-        free(handler->initial_packets);
+        gquic_free(handler->initial_packets);
     }
     if (handler->handshake_packets != NULL) {
         gquic_packet_sent_pn_dtor(handler->handshake_packets);
-        free(handler->handshake_packets);
+        gquic_free(handler->handshake_packets);
     }
     if (handler->one_rtt_packets != NULL) {
         gquic_packet_sent_pn_dtor(handler->one_rtt_packets);
-        free(handler->one_rtt_packets);
+        gquic_free(handler->one_rtt_packets);
     }
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
@@ -234,14 +231,14 @@ int gquic_packet_sent_packet_handler_drop_packets(gquic_packet_sent_packet_handl
     case GQUIC_ENC_LV_INITIAL:
         if (handler->initial_packets != NULL) {
             gquic_packet_sent_pn_dtor(handler->initial_packets);
-            free(handler->initial_packets);
+            gquic_free(handler->initial_packets);
             handler->initial_packets = NULL;
         }
         break;
     case GQUIC_ENC_LV_HANDSHAKE:
         if (handler->handshake_packets != NULL) {
             gquic_packet_sent_pn_dtor(handler->handshake_packets);
-            free(handler->handshake_packets);
+            gquic_free(handler->handshake_packets);
             handler->handshake_packets = NULL;
         }
         break;
@@ -264,6 +261,7 @@ int gquic_packet_sent_packet_handler_sent_packet(gquic_packet_sent_packet_handle
             GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INVALID_ENC_LV);
         }
         gquic_packet_sent_mem_sent_packet(&sent_pn->mem, packet);
+
         gquic_sent_packet_handler_set_loss_detection_timer(handler);
     }
 
@@ -579,7 +577,7 @@ static int gquic_packet_sent_packet_handler_packet_release(gquic_packet_t *const
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_packet_dtor(packet);
-    free(packet);
+    /*gquic_free(packet);*/
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -818,7 +816,7 @@ int gquic_packet_sent_packet_handler_reset_for_retry(gquic_packet_sent_packet_ha
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_packet_number_gen_next(&pn, &handler->initial_packets->pn_gen));
     GQUIC_ASSERT_FAST_RETURN(gquic_packet_sent_pn_dtor(handler->initial_packets));
-    free(handler->initial_packets);
+    gquic_free(handler->initial_packets);
     GQUIC_ASSERT_FAST_RETURN(GQUIC_FRAME_ALLOC(&handler->initial_packets, gquic_packet_sent_pn_t));
     gquic_packet_sent_pn_init(handler->initial_packets);
     gquic_packet_sent_pn_ctor(handler->initial_packets, pn);

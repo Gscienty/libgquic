@@ -1,8 +1,8 @@
 #include "frame/connection_close.h"
 #include "frame/meta.h"
+#include "util/malloc.h"
 #include "exception.h"
 #include <string.h>
-#include <malloc.h>
 
 static size_t gquic_frame_connection_close_size(const void *const);
 static int gquic_frame_connection_close_serialize(const void *const, gquic_writer_str_t *const);
@@ -80,9 +80,7 @@ static int gquic_frame_connection_close_deserialize(void *const frame, gquic_rea
         }
         GQUIC_ASSERT_FAST_RETURN(gquic_varint_deserialize(vars[i], reader));
     }
-    if ((spec->phase = malloc(spec->phase_len)) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_malloc((void **) &spec->phase, spec->phase_len));
     gquic_str_t phase = { spec->phase_len, spec->phase };
     GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_read(&phase, reader));
 
@@ -108,7 +106,7 @@ static int gquic_frame_connection_close_dtor(void *const frame) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (spec->phase != NULL) {
-        free(spec->phase);
+        gquic_free(spec->phase);
     }
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);

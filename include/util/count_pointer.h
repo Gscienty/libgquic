@@ -16,6 +16,6 @@ int gquic_count_pointer_try_release(gquic_count_pointer_t *const cptr);
 
 #define GQUIC_CPTR_REF(cptr, type) ((cptr) == NULL ? NULL : ((type *) (cptr)->ptr))
 #define GQUIC_CPTR_MALLOC_STRUCT(cptr_storage, type, release_cb) gquic_count_pointer_alloc((cptr_storage), sizeof(type), (release_cb))
-#define GQUIC_CPTR_META(p) (*(gquic_count_pointer_t *) ((void *) (p) - (void *) &((gquic_count_pointer_t *) 0)->ptr))
+#define GQUIC_CPTR_META(p) (*(gquic_count_pointer_t *) ((void *) (p) - (size_t) &((gquic_count_pointer_t *) 0)->ptr))
 
 #endif

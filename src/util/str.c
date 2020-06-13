@@ -1,7 +1,7 @@
 #include "util/str.h"
+#include "util/malloc.h"
 #include "exception.h"
 #include <unistd.h>
-#include <malloc.h>
 #include <string.h>
 
 int gquic_str_init(gquic_str_t *str) {
@@ -19,9 +19,7 @@ int gquic_str_alloc(gquic_str_t *str, size_t size) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (size > 0) {
-        if ((str->val = malloc(size)) == NULL) {
-            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-        }
+        GQUIC_ASSERT_FAST_RETURN(gquic_malloc((void **) &str->val, size));
         str->size = size;
     }
 
@@ -33,7 +31,7 @@ int gquic_str_reset(gquic_str_t *str) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (str->val != NULL) {
-        free(str->val);
+        gquic_free(str->val);
     }
     gquic_str_init(str);
 

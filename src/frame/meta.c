@@ -1,6 +1,7 @@
 #include "frame/meta.h"
-#include "exception.h"
+#include "util/malloc.h"
 #include "util/count_pointer.h"
+#include "exception.h"
 
 static int gquic_frame_cptr_release(void *const);
 
@@ -23,7 +24,7 @@ int gquic_frame_alloc(void **const result, size_t size) {
     GQUIC_CPTR_REF(frame_cptr, gquic_frame_meta_t)->on_lost.self = NULL;
     GQUIC_CPTR_REF(frame_cptr, gquic_frame_meta_t)->on_lost.cb = NULL;
 
-    *result = GQUIC_CPTR_REF(frame_cptr, void) + sizeof(gquic_frame_meta_t);
+    *result = (void *) GQUIC_CPTR_REF(frame_cptr, gquic_frame_meta_t) + sizeof(gquic_frame_meta_t);
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
@@ -52,7 +53,7 @@ static int gquic_frame_cptr_release(void *const frame) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     GQUIC_FRAME_DTOR(frame);
-    free(&GQUIC_FRAME_META(frame));
+    gquic_free(&GQUIC_FRAME_META(frame));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

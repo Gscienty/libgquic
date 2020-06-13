@@ -2,6 +2,7 @@
 #define _LIBGQUIC_COGLOBAL_H
 
 #include "liteco.h"
+#include "exception.h"
 
 int gquic_coglobal_execute(int (*func) (void *const), void *const args);
 int gquic_coglobal_currmachine_execute(liteco_coroutine_t **const co_storage, int (*func) (void *const), void *const args);
@@ -12,10 +13,10 @@ int gquic_coglobal_schedule();
 int gquic_coglobal_schedule_until_completed(const liteco_coroutine_t *const co);
 int gquic_coglobal_thread_init(int ith);
 
-#define GQUIC_COGLOBAL_CHANNEL_RECV(event, recv_channel, timeout, ...) \
-({\
+#define GQUIC_COGLOBAL_CHANNEL_RECV(exception, event, recv_channel, timeout, ...) \
+(({\
     liteco_channel_t *const recv_channels[] = { __VA_ARGS__, NULL }; \
-    gquic_coglobal_channel_recv(event, recv_channel, recv_channels, timeout); \
-})
+    GQUIC_EXCEPTION_ASSIGN(exception, gquic_coglobal_channel_recv(event, recv_channel, recv_channels, timeout)); \
+}), exception)
 
 #endif

@@ -1,7 +1,7 @@
 #include "frame/new_token.h"
 #include "frame/meta.h"
+#include "util/malloc.h"
 #include "exception.h"
-#include <malloc.h>
 #include <string.h>
 
 static size_t gquic_frame_new_token_size(const void *const);
@@ -63,9 +63,7 @@ static int gquic_frame_new_token_deserialize(void *const frame, gquic_reader_str
     if (spec->len > GQUIC_STR_SIZE(reader)) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
-    if ((spec->token = malloc(spec->len)) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_malloc((void **) &spec->token, spec->len));
     gquic_str_t token = { spec->len, spec->token };
     GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_read(&token, reader));
 
@@ -89,7 +87,7 @@ static int gquic_frame_new_token_dtor(void *const frame) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (spec->token != NULL) {
-        free(spec->token);
+        gquic_free(spec->token);
     }
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);

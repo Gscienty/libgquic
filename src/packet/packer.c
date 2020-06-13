@@ -50,7 +50,7 @@ int gquic_packed_packet_dtor(gquic_packed_packet_t *const packed_packet) {
     }
     else {
         if (packed_packet->hdr.hdr.s_hdr != NULL) {
-            free(packed_packet->hdr.hdr.s_hdr);
+            gquic_free(packed_packet->hdr.hdr.s_hdr);
         }
     }
     if (packed_packet->ack != NULL) {
@@ -70,6 +70,7 @@ int gquic_packed_packet_dtor_without_frames(gquic_packed_packet_t *const packed_
     if (packed_packet == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
+    printf("HERE\n");
     if (packed_packet->hdr.is_long) {
         if (packed_packet->hdr.hdr.l_hdr != NULL) {
             gquic_packet_long_header_release(packed_packet->hdr.hdr.l_hdr);
@@ -77,10 +78,10 @@ int gquic_packed_packet_dtor_without_frames(gquic_packed_packet_t *const packed_
     }
     else {
         if (packed_packet->hdr.hdr.s_hdr != NULL) {
-            free(packed_packet->hdr.hdr.s_hdr);
+            gquic_free(packed_packet->hdr.hdr.s_hdr);
         }
     }
-    gquic_packet_buffer_put(packed_packet->buffer);
+    /*gquic_packet_buffer_put(packed_packet->buffer);*/
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -195,7 +196,7 @@ int gquic_packed_packet_payload_dtor(gquic_packed_packet_payload_t *const payloa
         gquic_packet_long_header_release(payload->hdr.hdr.l_hdr);
     }
     if (!payload->hdr.is_long && payload->hdr.hdr.s_hdr != NULL) {
-        free(payload->hdr.hdr.s_hdr);
+        gquic_free(payload->hdr.hdr.s_hdr);
     }
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
@@ -358,9 +359,7 @@ int gquic_packet_packer_get_short_header(gquic_packet_header_t *const hdr, gquic
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     hdr->is_long = 0;
-    if ((hdr->hdr.s_hdr = gquic_packet_short_header_alloc()) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_packet_short_header_alloc(&hdr->hdr.s_hdr));
     GQUIC_ASSERT_FAST_RETURN(gquic_packet_sent_packet_handler_peek_pn(&hdr->hdr.s_hdr->pn, &pn_len, packer->pn_gen, GQUIC_ENC_LV_1RTT));
     hdr->hdr.s_hdr->flag = 0x40 | (0x03 & (pn_len - 1)) | (((times % 2) == 1) ? 0x04 : 0);
     GQUIC_ASSERT_FAST_RETURN(GQUIC_PACKET_PACKER_GET_CONN_ID(&dcid, packer));
@@ -379,9 +378,7 @@ int gquic_packet_packer_get_long_header(gquic_packet_header_t *const hdr, gquic_
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     hdr->is_long = 1;
-    if ((hdr->hdr.l_hdr = gquic_packet_long_header_alloc()) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_packet_long_header_alloc(&hdr->hdr.l_hdr));
     GQUIC_ASSERT_FAST_RETURN(gquic_packet_sent_packet_handler_peek_pn(&pn, &pn_len, packer->pn_gen, enc_lv));
     GQUIC_ASSERT_FAST_RETURN(GQUIC_PACKET_PACKER_GET_CONN_ID(&dcid, packer));
     memcpy(hdr->hdr.l_hdr->dcid, GQUIC_STR_VAL(&dcid), GQUIC_STR_SIZE(&dcid));
@@ -394,7 +391,8 @@ int gquic_packet_packer_get_long_header(gquic_packet_header_t *const hdr, gquic_
         ((gquic_packet_initial_header_t *) GQUIC_LONG_HEADER_SPEC(hdr->hdr.l_hdr))->pn = pn;
         ((gquic_packet_initial_header_t *) GQUIC_LONG_HEADER_SPEC(hdr->hdr.l_hdr))->len = packer->max_packet_size;
         ((gquic_packet_initial_header_t *) GQUIC_LONG_HEADER_SPEC(hdr->hdr.l_hdr))->token_len = GQUIC_STR_SIZE(&packer->token);
-        if ((((gquic_packet_initial_header_t *) GQUIC_LONG_HEADER_SPEC(hdr->hdr.l_hdr))->token = malloc(GQUIC_STR_SIZE(&packer->token))) == NULL) {
+        if (GQUIC_ASSERT(gquic_malloc(&((gquic_packet_initial_header_t *) GQUIC_LONG_HEADER_SPEC(hdr->hdr.l_hdr))->token,
+                                      GQUIC_STR_SIZE(&packer->token)))) {
             gquic_str_reset(&dcid);
             GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
         }

@@ -45,7 +45,7 @@ struct gquic_packet_retry_header_s {
 #define GQUIC_LONG_HEADER_SPEC(h) ((void *) (((void *) (h)) + sizeof(gquic_packet_long_header_t)))
 #define GQUIC_LONG_HEADER_COMMON(h) (*((gquic_packet_long_header_t *) (((void *) (h)) - sizeof(gquic_packet_long_header_t))))
 
-gquic_packet_long_header_t *gquic_packet_long_header_alloc();
+int gquic_packet_long_header_alloc(gquic_packet_long_header_t **const header_storage);
 int gquic_packet_long_header_release(gquic_packet_long_header_t *const header);
 size_t gquic_packet_long_header_size(const gquic_packet_long_header_t *const header);
 int gquic_packet_long_header_serialize(const gquic_packet_long_header_t *const header, gquic_writer_str_t *const writer);

@@ -1,5 +1,5 @@
 #include "util/list.h"
-#include <malloc.h>
+#include "util/malloc.h"
 #include <string.h>
 #include "exception.h"
 
@@ -7,10 +7,8 @@ int gquic_list_alloc(void **const result, size_t size) {
     if (result == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    gquic_list_t *meta = (gquic_list_t *) malloc(sizeof(gquic_list_t) + size);
-    if (meta == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    gquic_list_t *meta = NULL;
+    GQUIC_ASSERT_FAST_RETURN(gquic_malloc((void **) &meta, sizeof(gquic_list_t) + size));
     gquic_list_head_init(meta);
     meta->payload_size = size;
     *result = GQUIC_LIST_PAYLOAD(meta);
@@ -41,7 +39,7 @@ int gquic_list_release(void *const list) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_list_remove(list);
-    free(&GQUIC_LIST_META(list));
+    gquic_free(&GQUIC_LIST_META(list));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

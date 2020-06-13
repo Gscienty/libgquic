@@ -1,5 +1,6 @@
 #include "packet/long_header_packet.h"
 #include "util/big_endian.h"
+#include "util/malloc.h"
 #include "exception.h"
 #include <string.h>
 
@@ -31,13 +32,11 @@ const static size_t SUB_MAX_SIZE = __Max(
                                          __Max(sizeof(gquic_packet_initial_header_t),
                                                sizeof(gquic_packet_handshake_header_t)));
 
-gquic_packet_long_header_t *gquic_packet_long_header_alloc() {
-    gquic_packet_long_header_t *header = malloc(sizeof(gquic_packet_long_header_t) + SUB_MAX_SIZE);
-    if (header == NULL) {
-        return NULL;
+int gquic_packet_long_header_alloc(gquic_packet_long_header_t **const header_storage) {
+    if (header_storage == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-
-    return header;
+    GQUIC_PROCESS_DONE(gquic_malloc((void **) header_storage, sizeof(gquic_packet_long_header_t) + SUB_MAX_SIZE));
 }
 
 size_t gquic_packet_long_header_size(const gquic_packet_long_header_t *const header) {
@@ -68,12 +67,12 @@ int gquic_packet_long_header_release(gquic_packet_long_header_t *const header) {
     case 0x00:
         initial_header_spec = GQUIC_LONG_HEADER_SPEC(header);
         if (initial_header_spec->token != NULL) {
-            free(initial_header_spec->token);
+            gquic_free(initial_header_spec->token);
         }
         break;
     }
 
-    free(header);
+    gquic_free(header);
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
@@ -318,9 +317,7 @@ static int gquic_packet_initial_header_deserialize(gquic_packet_initial_header_t
     if (header->token_len > GQUIC_STR_SIZE(reader)) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
-    if ((header->token = malloc(header->token_len)) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_malloc((void **) &header->token, header->token_len));
     gquic_str_t token = { header->token_len, header->token };
     GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_read(&token, reader));
     GQUIC_ASSERT_FAST_RETURN(gquic_varint_deserialize(&header->len, reader));
@@ -436,9 +433,7 @@ static int gquic_packet_initial_header_deserialize_unseal_part(gquic_packet_init
     if (header->token_len > GQUIC_STR_SIZE(reader)) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
-    if ((header->token = malloc(header->token_len)) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_malloc((void **) &header->token, header->token_len));
     gquic_str_t token = { header->token_len, header->token };
     GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_read(&token, reader));
     GQUIC_ASSERT_FAST_RETURN(gquic_varint_deserialize(&header->len, reader));

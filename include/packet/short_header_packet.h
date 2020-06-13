@@ -12,7 +12,7 @@ struct gquic_packet_short_header_s {
     u_int64_t pn;
 };
 
-gquic_packet_short_header_t *gquic_packet_short_header_alloc();
+int gquic_packet_short_header_alloc(gquic_packet_short_header_t **const);
 ssize_t gquic_packet_short_header_size(const gquic_packet_short_header_t *const header);
 int gquic_packet_short_header_serialize(const gquic_packet_short_header_t *const header, gquic_writer_str_t *const writer);
 int gquic_packet_short_header_deserialize(gquic_packet_short_header_t *const header, gquic_reader_str_t *const reader);

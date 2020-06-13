@@ -150,7 +150,7 @@ int gquic_header_protector_dtor(gquic_header_protector_t *const protector) {
 
     if (protector->dtor != NULL && protector->self != NULL) {
         GQUIC_ASSERT_FAST_RETURN(protector->dtor(protector->self));
-        free(protector->self);
+        gquic_free(protector->self);
     }
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);

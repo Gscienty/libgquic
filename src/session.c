@@ -337,7 +337,7 @@ static int gquic_session_add_wrapper(gquic_str_t *const token, void *const sess_
 
 gquic_packet_handler_t *gquic_session_implement_packet_handler(gquic_session_t *const sess) {
     gquic_packet_handler_t *handler = NULL;
-    if ((handler = malloc(sizeof(gquic_packet_handler_t))) == NULL) {
+    if (GQUIC_ASSERT(GQUIC_MALLOC_STRUCT(&handler, gquic_packet_handler_t))) {
         return NULL;
     }
     handler->handle_packet.cb = gquic_session_handle_packet_wrapper;
@@ -554,21 +554,23 @@ int gquic_session_handle_packet(gquic_session_t *const sess, gquic_received_pack
 }
 
 int gquic_session_close(gquic_session_t *const sess) {
+    int exception = GQUIC_SUCCESS;
     if (sess == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_session_close_local(sess, 0);
-    GQUIC_COGLOBAL_CHANNEL_RECV(NULL, NULL, 0, &sess->done_chain);
+    GQUIC_COGLOBAL_CHANNEL_RECV(exception, NULL, NULL, 0, &sess->done_chain);
     
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_session_destroy(gquic_session_t *const sess, const int err) {
+    int exception = GQUIC_SUCCESS;
     if (sess == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_session_destroy_inner(sess, err);
-    GQUIC_COGLOBAL_CHANNEL_RECV(NULL, NULL, 0, &sess->done_chain);
+    GQUIC_COGLOBAL_CHANNEL_RECV(exception, NULL, NULL, 0, &sess->done_chain);
     
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -652,7 +654,9 @@ int gquic_session_run(gquic_session_t *const sess) {
     gquic_coglobal_execute(gquic_session_run_send_queue_co, sess);
 
     if (sess->is_client) {
-        GQUIC_COGLOBAL_CHANNEL_RECV(&event, &recv_chan, 0, &sess->client_hello_writen_chain, &sess->close_chain);
+        GQUIC_COGLOBAL_CHANNEL_RECV(exception, &event, &recv_chan, 0,
+                                    &sess->client_hello_writen_chain,
+                                    &sess->close_chain);
         if (recv_chan == &sess->client_hello_writen_chain) {
             gquic_session_schedule_sending(sess);
         }
@@ -663,7 +667,10 @@ int gquic_session_run(gquic_session_t *const sess) {
 
     for ( ;; ) {
         event = NULL;
-        GQUIC_COGLOBAL_CHANNEL_RECV(&event, &recv_chan, 0, &sess->close_chain, &sess->handshake_completed_chain, &__CLOSED_CHAN__);
+        GQUIC_COGLOBAL_CHANNEL_RECV(exception, &event, &recv_chan, 0,
+                                    &sess->close_chain,
+                                    &sess->handshake_completed_chain,
+                                    &__CLOSED_CHAN__);
         if (recv_chan == &sess->handshake_completed_chain) {
             gquic_session_handle_handshake_completed(sess);
         }
@@ -671,21 +678,19 @@ int gquic_session_run(gquic_session_t *const sess) {
             err_msg.err = ((gquic_session_close_event_t *) event)->err;
             err_msg.immediate = ((gquic_session_close_event_t *) event)->immediate;
             err_msg.remote = ((gquic_session_close_event_t *) event)->remote;
-            free((void *) event);
+            gquic_free((void *) event);
             goto closed;
         }
 
         event = NULL;
         gquic_session_try_reset_deadline(sess);
 
-        int coglobal_result = GQUIC_COGLOBAL_CHANNEL_RECV(&event, &recv_chan, sess->deadline,
-                                                          &sess->close_chain,
-                                                          &sess->sending_schedule_chain,
-                                                          &sess->recevied_packet_chain,
-                                                          &sess->handshake_completed_chain);
-
-        if (coglobal_result != LITECO_TIMEOUT) {
-
+        GQUIC_COGLOBAL_CHANNEL_RECV(exception, &event, &recv_chan, 0,
+                                    &sess->close_chain,
+                                    &sess->sending_schedule_chain,
+                                    &sess->recevied_packet_chain,
+                                    &sess->handshake_completed_chain);
+        if (exception != GQUIC_EXCEPTION_TIMEOUT) {
             if (recv_chan == &sess->handshake_completed_chain) {
                 gquic_session_handle_handshake_completed(sess);
             }
@@ -698,7 +703,7 @@ int gquic_session_run(gquic_session_t *const sess) {
                 err_msg.err = ((gquic_session_close_event_t *) event)->err;
                 err_msg.immediate = ((gquic_session_close_event_t *) event)->immediate;
                 err_msg.remote = ((gquic_session_close_event_t *) event)->remote;
-                free((void *) event);
+                gquic_free((void *) event);
                 goto closed;
             }
         }
@@ -715,6 +720,7 @@ int gquic_session_run(gquic_session_t *const sess) {
         if (sess->pacing_deadline == 0) {
             pacing_deadline = sess->sent_packet_handler.next_send_time;
         }
+
         if (sess->cfg->keep_alive
             && !sess->keep_alive_ping_sent
             && sess->handshake_completed
@@ -981,11 +987,11 @@ static int gquic_session_handle_packet_inner(gquic_session_t *const sess, gquic_
     buffer = p->buffer;
     while (GQUIC_STR_SIZE(&data) != 0) {
         if (counter > 0) {
-            p = gquic_received_packet_copy(p);
+            gquic_received_packet_copy(&p, p);
             p->data = data;
         }
        if (GQUIC_ASSERT(gquic_packet_header_deserialize_packet_len(&p->data.size, &data, sess->src_conn_id_len))) {
-           free(p);
+           gquic_free(p);
            break;
        }
        if (gquic_packet_header_deserlialize_type(&p->data) == GQUIC_LONG_HEADER_RETRY) {
@@ -994,17 +1000,14 @@ static int gquic_session_handle_packet_inner(gquic_session_t *const sess, gquic_
        gquic_reader_str_readed_size(&data, GQUIC_STR_SIZE(&p->data));
 
        if (GQUIC_ASSERT(gquic_packet_header_deserialize_conn_id(&p->dst_conn_id, &p->data, sess->src_conn_id_len))) {
-           free(p);
+           gquic_free(p);
            break;
-       }
-       if (counter > 0) {
-           p->buffer->ref++;
        }
        counter++;
        processed = gquic_session_handle_single_packet(sess, p);
     }
 
-    gquic_packet_buffer_try_put(buffer);
+    gquic_packet_buffer_put(p->buffer);
 
     return processed;
 }
@@ -1060,11 +1063,11 @@ static int gquic_session_handle_single_packet(gquic_session_t *const sess, gquic
     ret = 1;
 
 free_rp_finished:
-    free(rp);
+    gquic_free(rp);
 finished:
     gquic_unpacked_packet_dtor(&packet);
     if (!was_queued) {
-        buffer->ref--;
+        gquic_packet_buffer_put(buffer);
     }
 
     return ret;
@@ -1080,7 +1083,7 @@ static int gquic_session_handle_retry_packet(gquic_session_t *const sess, const 
     if (!sess->is_client) {
         return 0;
     }
-    if ((header = gquic_packet_long_header_alloc()) == NULL) {
+    if (GQUIC_ASSERT(gquic_packet_long_header_alloc(&header))) {
         return 0;
     }
     reader = *data;
@@ -1124,7 +1127,7 @@ static int gquic_session_handle_retry_packet(gquic_session_t *const sess, const 
     gquic_session_schedule_sending(sess);
     ret = 1;
 finished:
-    free(header);
+    gquic_free(header);
     return ret;
 }
 
@@ -1135,15 +1138,15 @@ static int gquic_session_try_queue_undecryptable_packet(gquic_session_t *const s
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (sess->handshake_completed) {
-        free(rp);
+        gquic_free(rp);
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_HANDSHAKE_DONE);
     }
     if (sess->undecryptable_packets_count + 1 > 10) {
-        free(rp);
+        gquic_free(rp);
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_TOO_MANY_UNDECRYPTABLE_PACKETS);
     }
     if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &rp_storage, sizeof(gquic_received_packet_t *)))) {
-        free(rp);
+        gquic_free(rp);
         GQUIC_PROCESS_DONE(exception);
     }
     *rp_storage = rp;
@@ -1582,36 +1585,34 @@ static int gquic_session_try_send_only_ack_packet(gquic_session_t *const sess) {
     if (sess == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if ((packet = malloc(sizeof(gquic_packet_t))) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
-    if ((packed_packet = malloc(sizeof(gquic_packed_packet_t))) == NULL) {
-        free(packet);
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&packet, gquic_packet_t));
+    if (GQUIC_ASSERT(GQUIC_MALLOC_STRUCT(&packed_packet, gquic_packed_packet_t))) {
+        gquic_free(packet);
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
     }
     gquic_packed_packet_init(packed_packet);
     if (GQUIC_ASSERT_CAUSE(exception, gquic_packet_packer_try_pack_ack_packet(packed_packet, &sess->packer))) {
-        free(packet);
-        free(packed_packet);
+        gquic_free(packet);
+        gquic_free(packed_packet);
         GQUIC_PROCESS_DONE(exception);
     }
     if (!packed_packet->valid) {
-        free(packet);
+        gquic_free(packet);
         gquic_packed_packet_dtor(packed_packet);
-        free(packed_packet);
+        gquic_free(packed_packet);
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
     if (GQUIC_ASSERT_CAUSE(exception, gquic_packed_packet_get_ack_packet(packet, packed_packet, &sess->retransmission))) {
-        free(packet);
+        gquic_free(packet);
         gquic_packed_packet_dtor(packed_packet);
-        free(packed_packet);
+        gquic_free(packed_packet);
         GQUIC_PROCESS_DONE(exception);
     }
     if (GQUIC_ASSERT_CAUSE(exception, gquic_packet_sent_packet_handler_sent_packet(&sess->sent_packet_handler, packet))) {
         gquic_packet_dtor(packet);
-        free(packet);
+        gquic_free(packet);
         gquic_packed_packet_dtor(packed_packet);
-        free(packed_packet);
+        gquic_free(packed_packet);
         GQUIC_PROCESS_DONE(exception);
     }
     gquic_session_send_packed_packet(sess, packed_packet);
@@ -1652,20 +1653,20 @@ static int gquic_session_send_packet(int *const sent_packet, gquic_session_t *co
 
     GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&packet, gquic_packet_t));
     if (GQUIC_ASSERT_CAUSE(exception, GQUIC_MALLOC_STRUCT(&packed_packet, gquic_packed_packet_t))) {
-        free(packet);
+        gquic_free(packet);
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
     }
     gquic_packet_init(packet);
     gquic_packed_packet_init(packed_packet);
     if (GQUIC_ASSERT_CAUSE(exception, gquic_packet_packer_pack_packet(packed_packet, &sess->packer))) {
-        free(packet);
-        free(packed_packet);
+        gquic_free(packet);
+        gquic_free(packed_packet);
         GQUIC_PROCESS_DONE(exception);
     }
     if (!packed_packet->valid) {
         gquic_packed_packet_dtor(packed_packet);
-        free(packed_packet);
-        free(packet);
+        gquic_free(packed_packet);
+        gquic_free(packet);
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
     gquic_packed_packet_get_ack_packet(packet, packed_packet, &sess->retransmission);
@@ -1691,7 +1692,7 @@ static int gquic_session_send_probe_packet(gquic_session_t *const sess, const u_
             break;
         }
         if (GQUIC_ASSERT_CAUSE(exception, gquic_packet_packer_try_pack_probe_packet(packed_packet, &sess->packer, enc_lv))) {
-            free(packed_packet);
+            gquic_free(packed_packet);
             GQUIC_PROCESS_DONE(exception);
         }
         if (packed_packet->valid) {
@@ -1704,7 +1705,7 @@ static int gquic_session_send_probe_packet(gquic_session_t *const sess, const u_
         gquic_packed_packet_dtor(packed_packet);
         gquic_packed_packet_init(packed_packet);
         if (GQUIC_ASSERT_CAUSE(exception, gquic_frame_ping_alloc(&ping))) {
-            free(packed_packet);
+            gquic_free(packed_packet);
             GQUIC_PROCESS_DONE(exception);
         }
         switch (enc_lv) {
@@ -1718,25 +1719,25 @@ static int gquic_session_send_probe_packet(gquic_session_t *const sess, const u_
             gquic_retransmission_queue_add_app(&sess->retransmission, ping);
             break;
         default:
-            free(packed_packet);
+            gquic_free(packed_packet);
             gquic_frame_release(ping);
             GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INVALID_ENC_LV);
         }
         if (GQUIC_ASSERT_CAUSE(exception, gquic_packet_packer_try_pack_probe_packet(packed_packet, &sess->packer, enc_lv))) {
             gquic_packed_packet_dtor(packed_packet);
-            free(packed_packet);
+            gquic_free(packed_packet);
             GQUIC_PROCESS_DONE(exception);
         }
     }
     if (!packed_packet->valid) {
         gquic_packed_packet_dtor(packed_packet);
-        free(packed_packet);
+        gquic_free(packed_packet);
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PACKED_PACKET_INVALID);
     }
 
     if (GQUIC_ASSERT_CAUSE(exception, GQUIC_MALLOC_STRUCT(&packet, gquic_packet_t))) {
         gquic_packed_packet_dtor(packed_packet);
-        free(packed_packet);
+        gquic_free(packed_packet);
         GQUIC_PROCESS_DONE(exception);
     }
     gquic_packed_packet_get_ack_packet(packet, packed_packet, &sess->retransmission);
@@ -1752,9 +1753,12 @@ static int gquic_session_handle_close_err_remote_alloc_closed_session(gquic_pack
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
 
-    *handler_storage = sess->is_client
-        ? gquic_closed_remote_session_client_alloc()
-        : gquic_closed_remote_session_server_alloc();
+    if (sess->is_client) {
+        gquic_closed_remote_session_client_alloc(handler_storage);
+    }
+    else {
+        gquic_closed_remote_session_server_alloc(handler_storage);
+    }
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -1764,9 +1768,7 @@ static int gquic_session_handle_close_err_local_alloc_closed_session(gquic_packe
     if (params == NULL || handler_storage == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    *handler_storage = gquic_closed_local_session_alloc(params->sess->conn, &params->close_packet, params->sess->is_client);
-    
-    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+    GQUIC_PROCESS_DONE(gquic_closed_local_session_alloc(handler_storage, params->sess->conn, &params->close_packet, params->sess->is_client));
 }
 
 static int gquic_session_config_transfer_tls_config(gquic_tls_config_t *const tls_config, gquic_config_t *const config) {

@@ -1,4 +1,5 @@
 #include "packet/header.h"
+#include "util/malloc.h"
 #include "exception.h"
 
 int gquic_packet_header_init(gquic_packet_header_t *const header) {
@@ -18,12 +19,12 @@ int gquic_packet_header_dtor(gquic_packet_header_t *const header) {
     }
     if (header->is_long) {
         if (header->hdr.l_hdr != NULL) {
-            free(header->hdr.l_hdr);
+            gquic_free(header->hdr.l_hdr);
         }
     }
     else {
         if (header->hdr.s_hdr != NULL) {
-            free(header->hdr.s_hdr);
+            gquic_free(header->hdr.s_hdr);
         }
     }
 

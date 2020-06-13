@@ -5,6 +5,8 @@
 #include <stdbool.h>
 #include <pthread.h>
 
+#include <stdio.h>
+
 static int __GQUIC_CO_DEFAULT_STACK__ = 128 * 1024;
 static liteco_machine_t __GQUIC_MACHINES__;
 typedef struct gquic_coroutine_s gquic_coroutine_t;
@@ -89,11 +91,20 @@ int gquic_coglobal_channel_recv(const void **const event, const liteco_channel_t
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
 
-    liteco_channel_recv(event, recv_channel,
-                        ((gquic_coroutine_t *) __CURR_CO__->args)->lock_machine ? __GQUIC_CURR_MACHINE__ : gquic_coglobal_select_machine(),
-                        __CURR_CO__, channels, timeout);
+    int result = liteco_channel_recv(event, recv_channel,
+                                     ((gquic_coroutine_t *) __CURR_CO__->args)->lock_machine
+                                     ? __GQUIC_CURR_MACHINE__
+                                     : gquic_coglobal_select_machine(),
+                                     __CURR_CO__, channels, timeout);
 
-    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+    switch (result) {
+    case LITECO_TIMEOUT:
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_TIMEOUT);
+    case LITECO_CLOSED:
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_CLOSED);
+    default:
+        GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+    }
 }
 
 static int gquic_coroutine_func(liteco_coroutine_t *const co, void *const args) {
@@ -104,7 +115,7 @@ static int gquic_coroutine_func(liteco_coroutine_t *const co, void *const args) 
 
 static int gquic_coroutine_finished(liteco_coroutine_t *const co) {
     if (((gquic_coroutine_t *) co->args)->auto_finished) {
-        gquic_free(((gquic_coroutine_t *) co->args)->co.stack);
+        gquic_free(co->stack);
         gquic_free(co->args);
     }
 
@@ -123,7 +134,7 @@ int gquic_coglobal_schedule_until_completed(const liteco_coroutine_t *const co) 
     }
     ((gquic_coroutine_t *) co->args)->auto_finished = false;
 
-    while (co->status == LITECO_TERMINATE) {
+    while (co->status != LITECO_TERMINATE) {
         gquic_coglobal_schedule();
     }
 

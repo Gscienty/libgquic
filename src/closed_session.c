@@ -1,7 +1,7 @@
 #include "closed_session.h"
 #include "util/sem_list.h"
+#include "util/malloc.h"
 #include "exception.h"
-#include <malloc.h>
 #include <semaphore.h>
 #include <pthread.h>
 
@@ -25,51 +25,52 @@ struct gquic_closed_local_session_s {
 #define GQUIC_CLOSED_LOCAL_SESSION_EVENT_RECEIVED_PACKET 0x02
 
 static int gquic_closed_remote_session_handle_packet(void *const, gquic_received_packet_t *const);
-static int gquic_closed_remote_session_close(gquic_coroutine_t *const, void *const);
-static int gquic_closed_remote_session_destory(gquic_coroutine_t *const, void *const, const int);
+static int gquic_closed_remote_session_close(void *const);
+static int gquic_closed_remote_session_destory(void *const, const int);
 static int gquic_closed_remote_session_client_is_client(void *const);
 static int gquic_closed_remote_session_server_is_client(void *const);
 
 static int gquic_closed_local_session_handle_packet(void *const, gquic_received_packet_t *const);
-static int gquic_closed_local_session_close(gquic_coroutine_t *const co, void *const);
-static int gquic_closed_local_session_destory(gquic_coroutine_t *const, void *const, const int);
+static int gquic_closed_local_session_close(void *const);
+static int gquic_closed_local_session_destory(void *const, const int);
 static int gquic_closed_local_session_is_client(void *const);
 static int gquic_closed_local_session_dtor(gquic_closed_local_session_t *const);
 
 static void *gquic_closed_local_session_thread(void *const);
 
-gquic_packet_handler_t *gquic_closed_remote_session_client_alloc() {
-    gquic_packet_handler_t *ret = malloc(sizeof(gquic_packet_handler_t));
-    if (ret == NULL) {
-        return NULL;
+int gquic_closed_remote_session_client_alloc(gquic_packet_handler_t **const handler_storage) {
+    if (handler_storage == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    ret->closer.closer.cb = gquic_closed_remote_session_close;
-    ret->closer.closer.self = ret;
-    ret->destroy.cb = gquic_closed_remote_session_destory;
-    ret->destroy.self = ret;
-    ret->handle_packet.cb = gquic_closed_remote_session_handle_packet;
-    ret->handle_packet.self = ret;
-    ret->is_client.cb = gquic_closed_remote_session_client_is_client;
-    ret->is_client.self = ret;
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(handler_storage, gquic_packet_handler_t));
+    (*handler_storage)->closer.closer.cb = gquic_closed_remote_session_close;
+    (*handler_storage)->closer.closer.self = (*handler_storage);
+    (*handler_storage)->destroy.cb = gquic_closed_remote_session_destory;
+    (*handler_storage)->destroy.self = (*handler_storage);
+    (*handler_storage)->handle_packet.cb = gquic_closed_remote_session_handle_packet;
+    (*handler_storage)->handle_packet.self = (*handler_storage);
+    (*handler_storage)->is_client.cb = gquic_closed_remote_session_client_is_client;
+    (*handler_storage)->is_client.self = (*handler_storage);
     
-    return ret;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-gquic_packet_handler_t *gquic_closed_remote_session_server_alloc() {
-    gquic_packet_handler_t *ret = malloc(sizeof(gquic_packet_handler_t));
-    if (ret == NULL) {
-        return NULL;
+int gquic_closed_remote_session_server_alloc(gquic_packet_handler_t **const handler_storage) {
+    if (handler_storage == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    ret->closer.closer.cb = gquic_closed_remote_session_close;
-    ret->closer.closer.self = ret;
-    ret->destroy.cb = gquic_closed_remote_session_destory;
-    ret->destroy.self = ret;
-    ret->handle_packet.cb = gquic_closed_remote_session_handle_packet;
-    ret->handle_packet.self = ret;
-    ret->is_client.cb = gquic_closed_remote_session_server_is_client;
-    ret->is_client.self = ret;
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(handler_storage, gquic_packet_handler_t));
 
-    return ret;
+    (*handler_storage)->closer.closer.cb = gquic_closed_remote_session_close;
+    (*handler_storage)->closer.closer.self = (*handler_storage);
+    (*handler_storage)->destroy.cb = gquic_closed_remote_session_destory;
+    (*handler_storage)->destroy.self = (*handler_storage);
+    (*handler_storage)->handle_packet.cb = gquic_closed_remote_session_handle_packet;
+    (*handler_storage)->handle_packet.self = (*handler_storage);
+    (*handler_storage)->is_client.cb = gquic_closed_remote_session_server_is_client;
+    (*handler_storage)->is_client.self = (*handler_storage);
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_closed_remote_session_handle_packet(void *const _, gquic_received_packet_t *const rp) {
@@ -78,20 +79,18 @@ static int gquic_closed_remote_session_handle_packet(void *const _, gquic_receiv
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_packet_buffer_put(rp->buffer);
-    free(rp);
+    gquic_free(rp);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_closed_remote_session_close(gquic_coroutine_t *const co, void *const _) {
-    (void) co;
+static int gquic_closed_remote_session_close(void *const _) {
     (void) _;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_closed_remote_session_destory(gquic_coroutine_t *const co, void *const _, const int __) {
-    (void) co;
+static int gquic_closed_remote_session_destory(void *const _, const int __) {
     (void) _;
     (void) __;
     
@@ -107,12 +106,14 @@ static int gquic_closed_remote_session_server_is_client(void *const _) {
     return 0;
 }
 
-gquic_packet_handler_t *gquic_closed_local_session_alloc(gquic_net_conn_t *const conn, gquic_str_t *const conn_close_packet, const int is_client) {
-    gquic_closed_local_session_t *sess = malloc(sizeof(gquic_closed_local_session_t));
-    gquic_packet_handler_t *ret = malloc(sizeof(gquic_packet_handler_t));
-    if (sess == NULL || ret == NULL) {
-        return NULL;
+int gquic_closed_local_session_alloc(gquic_packet_handler_t **const handler_storage,
+                                     gquic_net_conn_t *const conn, gquic_str_t *const conn_close_packet, const int is_client) {
+    gquic_closed_local_session_t *sess = NULL;
+    if (handler_storage == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&sess, gquic_closed_local_session_t));
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(handler_storage, gquic_packet_handler_t));
     sess->conn = conn;
     sess->close_flag = 0;
     gquic_str_copy(&sess->data, conn_close_packet);
@@ -121,18 +122,18 @@ gquic_packet_handler_t *gquic_closed_local_session_alloc(gquic_net_conn_t *const
     sess->is_client = is_client;
     gquic_sem_list_init(&sess->run_event_list);
 
-    ret->closer.closer.cb = gquic_closed_local_session_close;
-    ret->closer.closer.self = sess;
-    ret->destroy.cb = gquic_closed_local_session_destory;
-    ret->destroy.self = sess;
-    ret->handle_packet.cb = gquic_closed_local_session_handle_packet;
-    ret->handle_packet.self = sess;
-    ret->is_client.cb = gquic_closed_local_session_is_client;
-    ret->is_client.self = sess;
+    (*handler_storage)->closer.closer.cb = gquic_closed_local_session_close;
+    (*handler_storage)->closer.closer.self = sess;
+    (*handler_storage)->destroy.cb = gquic_closed_local_session_destory;
+    (*handler_storage)->destroy.self = sess;
+    (*handler_storage)->handle_packet.cb = gquic_closed_local_session_handle_packet;
+    (*handler_storage)->handle_packet.self = sess;
+    (*handler_storage)->is_client.cb = gquic_closed_local_session_is_client;
+    (*handler_storage)->is_client.self = sess;
 
     pthread_create(&sess->thread, NULL, gquic_closed_local_session_thread, sess);
 
-    return ret;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_closed_local_session_is_client(void *const sess_) {
@@ -143,13 +144,12 @@ static int gquic_closed_local_session_is_client(void *const sess_) {
     return sess->is_client;
 }
 
-static int gquic_closed_local_session_close(gquic_coroutine_t *const co, void *const sess_) {
-    return gquic_closed_local_session_destory(co, sess_, 0);
+static int gquic_closed_local_session_close(void *const sess_) {
+    return gquic_closed_local_session_destory(sess_, 0);
 }
 
-static int gquic_closed_local_session_destory(gquic_coroutine_t *const co, void *const sess_, const int _) {
+static int gquic_closed_local_session_destory(void *const sess_, const int _) {
     // TODO
-    (void) co;
     (void) _;
     int exception = GQUIC_SUCCESS;
     gquic_closed_local_session_t *const sess = sess_;
@@ -184,7 +184,7 @@ static int gquic_closed_local_session_handle_packet(void *const sess_, gquic_rec
     GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &event, sizeof(u_int8_t)));
     *event = GQUIC_CLOSED_LOCAL_SESSION_EVENT_RECEIVED_PACKET;
     gquic_packet_buffer_put(rp->buffer);
-    free(rp);
+    gquic_free(rp);
     gquic_sem_list_push(&sess->run_event_list, event);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);

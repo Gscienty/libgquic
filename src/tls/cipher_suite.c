@@ -1,8 +1,8 @@
 #include "tls/cipher_suite.h"
 #include "tls/key_agreement.h"
 #include "tls/key_schedule.h"
+#include "util/malloc.h"
 #include "exception.h"
-#include <malloc.h>
 #include <string.h>
 #include <openssl/sha.h>
 
@@ -278,7 +278,7 @@ int gquic_tls_aead_dtor(gquic_tls_aead_t *const aead) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     GQUIC_TLS_AEAD_DTOR(aead);
-    free(aead->self);
+    gquic_free(aead->self);
     aead->self = NULL;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
@@ -815,9 +815,7 @@ static inline int aead_aes_gcm_init(gquic_tls_aead_t *const ret, const gquic_str
     if (ret == NULL || key == NULL || nonce == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if ((ctx = malloc(sizeof(gquic_tls_aead_ctx_t))) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&ctx, gquic_tls_aead_ctx_t));
     gquic_tls_aead_ctx_init(ctx);
     if ((size_t) EVP_CIPHER_key_length(EVP_aes_128_gcm()) == GQUIC_STR_SIZE(key)) {
         ctx->cipher = EVP_aes_128_gcm();
@@ -846,9 +844,7 @@ static inline int aead_chacha20_poly1305_init(gquic_tls_aead_t *const ret, const
     if (ret == NULL || key == NULL || nonce == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if ((ctx = malloc(sizeof(gquic_tls_aead_ctx_t))) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&ctx, gquic_tls_aead_ctx_t));
     gquic_tls_aead_ctx_init(ctx);
     ctx->cipher = EVP_chacha20_poly1305();
     GQUIC_ASSERT_FAST_RETURN(gquic_str_copy(&ctx->nonce, nonce));
@@ -1088,7 +1084,7 @@ int gquic_tls_ekm_dtor(gquic_tls_ekm_t *const ekm) {
     }
     if (ekm->dtor != NULL) {
         ekm->dtor(ekm->self);
-        free(ekm->self);
+        gquic_free(ekm->self);
     }
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -1173,12 +1169,13 @@ int gquic_tls_cipher_suite_export_keying_material(gquic_tls_ekm_t *const ekm,
     if (ekm == NULL || cipher_suite == NULL || master_sec == NULL || transport == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    gquic_tls_ekm_keying_material_t *self = malloc(sizeof(gquic_tls_ekm_keying_material_t));
+    gquic_tls_ekm_keying_material_t *self = NULL;
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&self, gquic_tls_ekm_keying_material_t));
     self->cipher_suite = cipher_suite;
     gquic_str_init(&self->exp_master_sec);
     if (GQUIC_ASSERT_CAUSE(exception,
                            gquic_tls_cipher_suite_derive_secret(&self->exp_master_sec, cipher_suite, transport, master_sec, &exporter_label))) {
-        free(self);
+        gquic_free(self);
         GQUIC_PROCESS_DONE(exception);
     }
 

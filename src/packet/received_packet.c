@@ -1,6 +1,6 @@
 #include "packet/received_packet.h"
+#include "util/malloc.h"
 #include "exception.h"
-#include <malloc.h>
 
 int gquic_received_packet_init(gquic_received_packet_t *const recv_packet) {
     if (recv_packet == NULL) {
@@ -15,14 +15,13 @@ int gquic_received_packet_init(gquic_received_packet_t *const recv_packet) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-gquic_received_packet_t *gquic_received_packet_copy(gquic_received_packet_t *const recv_packet) {
-    gquic_received_packet_t *ret = NULL;
-    if (recv_packet == NULL) {
-        return NULL;
+int gquic_received_packet_copy(gquic_received_packet_t **const target, gquic_received_packet_t *const recv_packet) {
+    if (target == NULL || recv_packet == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if ((ret = malloc(sizeof(gquic_received_packet_t))) == NULL) {
-        return NULL;
-    }
-    *ret = *recv_packet;
-    return ret;
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(target, gquic_received_packet_t));
+    **target = *recv_packet;
+    gquic_packet_buffer_assign(&(*target)->buffer, recv_packet->buffer);
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

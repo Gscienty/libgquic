@@ -1,7 +1,6 @@
 #include "streams/outbidi_stream_map.h"
 #include "frame/streams_blocked.h"
 #include "frame/meta.h"
-#include <malloc.h>
 
 static int gquic_outbidi_stream_map_open_stream_inner(gquic_stream_t **const, gquic_outbidi_stream_map_t *const);
 static int gquic_outbidi_stream_map_try_send_blocked_frame(gquic_outbidi_stream_map_t *const);

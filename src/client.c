@@ -91,7 +91,7 @@ static int gquic_client_establish_sec_conn(void *const client) {
     ((gquic_client_t *) client)->sess.on_handshake_completed.cb = gquic_client_on_handshake_completed;
     gquic_coglobal_execute(gquic_client_session_run_co, client);
 
-    GQUIC_COGLOBAL_CHANNEL_RECV(&recv_event, &recv_chan, 0,
+    GQUIC_COGLOBAL_CHANNEL_RECV(exception, &recv_event, &recv_chan, 0,
                                 &((gquic_client_t *) client)->done_chain,
                                 &((gquic_client_t *) client)->err_chain,
                                 &((gquic_client_t *) client)->handshake_complete_chain);
@@ -101,7 +101,7 @@ static int gquic_client_establish_sec_conn(void *const client) {
     }
     else if (recv_chan == &((gquic_client_t *) client)->err_chain) {
         exception = *(int *) recv_event;
-        free((void *) recv_event);
+        gquic_free((void *) recv_event);
         ((gquic_client_t *) client)->connected++;
         GQUIC_PROCESS_DONE(exception);
     }

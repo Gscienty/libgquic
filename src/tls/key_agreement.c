@@ -5,6 +5,7 @@
 #include "tls/config.h"
 #include "tls/meta.h"
 #include "util/big_endian.h"
+#include "util/malloc.h"
 #include "exception.h"
 #include <string.h>
 #include <openssl/md5.h>
@@ -81,7 +82,7 @@ int gquic_tls_key_agreement_dtor(gquic_tls_key_agreement_t *const key_agreement)
     }
     if (key_agreement->dtor!= NULL) {
         key_agreement->dtor(key_agreement->self);
-        free(key_agreement->self);
+        gquic_free(key_agreement->self);
     }
     
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
@@ -107,10 +108,7 @@ int gquic_tls_key_agreement_ecdhe_init(gquic_tls_key_agreement_t *const key_agre
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     key_agreement->type = GQUIC_TLS_KEY_AGREEMENT_TYPE_ECDHE;
-    key_agreement->self = malloc(sizeof(gquic_tls_ecdhe_key_agreement_t));
-    if (key_agreement->self == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&key_agreement->self, gquic_tls_ecdhe_key_agreement_t));
     gquic_tls_ecdhe_key_agreement_init(key_agreement->self);
     key_agreement->generate_cli_key_exchange = ecdhe_ka_generate_cli_key_exchange;
     key_agreement->generate_ser_key_exchange = ecdhe_ka_generate_ser_key_exchange;
@@ -149,7 +147,7 @@ static int gquic_tls_ecdhe_key_agreement_dtor(void *const self) {
     gquic_tls_ecdhe_params_dtor(&ecdhe_self->params);
     gquic_tls_msg_release(ecdhe_self->ckex_msg);
     gquic_str_reset(&ecdhe_self->pre_master_sec);
-    free(self);
+    gquic_free(self);
     
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

@@ -1,6 +1,8 @@
 #!/bin/sh
 
-gcc -DDEBUG -g -I include/ \
+cd liteco && make && cd ..
+
+gcc -DDEBUG -g -I include/ -I liteco/include/ \
     src/*.c \
     src/flowcontrol/* \
     src/net/* \
@@ -12,11 +14,9 @@ gcc -DDEBUG -g -I include/ \
     src/packet/* \
     src/util/* \
     src/cong/* \
-    src/coroutine/arch/$(uname -m)/*.s \
-    src/coroutine/*.c \
     test/unit_test.c \
     $1 \
-    -lpthread -lm -lcrypto \
+    -lpthread -lm -lcrypto -lliteco -Lliteco \
     -o $2
 
-./$2
+LD_LIBRARY_PATH=$LD_LIBRARY_PATH:liteco/ ./$2

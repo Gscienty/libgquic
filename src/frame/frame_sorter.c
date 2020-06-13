@@ -226,10 +226,7 @@ static int gquic_frame_sorter_push_inner(gquic_frame_sorter_t *const sorter,
 }
 
 int gquic_frame_sorter_push(gquic_frame_sorter_t *const sorter,
-                            const gquic_str_t *const data,
-                            const u_int64_t off,
-                            int (*done_cb) (void *const),
-                            void *const done_cb_self) {
+                            const gquic_str_t *const data, const u_int64_t off, int (*done_cb) (void *const), void *const done_cb_self) {
     int exception = GQUIC_SUCCESS;
     if (sorter == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);

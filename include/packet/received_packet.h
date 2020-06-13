@@ -18,7 +18,7 @@ struct gquic_received_packet_s {
 };
 
 int gquic_received_packet_init(gquic_received_packet_t *const recv_packet);
-gquic_received_packet_t *gquic_received_packet_copy(gquic_received_packet_t *const recv_packet);
+int gquic_received_packet_copy(gquic_received_packet_t **const target, gquic_received_packet_t *const recv_packet);
 
 
 #endif

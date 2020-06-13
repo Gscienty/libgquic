@@ -181,9 +181,7 @@ int gquic_crypto_stream_pop_crypto_frame(gquic_frame_crypto_t **frame_storage, g
     if (write_size > GQUIC_STR_SIZE(&str->out_reader)) {
         write_size = GQUIC_STR_SIZE(&str->out_reader);
     }
-    if (((*frame_storage)->data = malloc(write_size)) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_malloc((void **) &(*frame_storage)->data, write_size));
     (*frame_storage)->len = write_size;
     gquic_str_t tmp = { write_size, (*frame_storage)->data };
     GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_read(&tmp, &str->out_reader));

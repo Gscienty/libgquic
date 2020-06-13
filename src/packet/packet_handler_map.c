@@ -2,7 +2,7 @@
 #include "packet/handler.h"
 #include "packet/multiplexer.h"
 #include "net/conn.h"
-#include "util/timeout.h"
+#include "util/time.h"
 #include "util/malloc.h"
 #include "coglobal.h"
 #include "exception.h"
@@ -120,14 +120,14 @@ int gquic_packet_handler_map_dtor(gquic_packet_handler_map_t *const handler) {
         rbt = handler->handlers;
         gquic_rbtree_remove(&handler->handlers, &rbt);
         gquic_str_reset(GQUIC_RBTREE_KEY(rbt));
-        free(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt));
+        gquic_free(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt));
         gquic_rbtree_release(rbt, NULL);
     }
     while (!gquic_rbtree_is_nil(handler->reset_tokens)) {
         rbt = handler->reset_tokens;
         gquic_rbtree_remove(&handler->reset_tokens, &rbt);
         gquic_str_reset(GQUIC_RBTREE_KEY(rbt));
-        free(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt));
+        gquic_free(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt));
         gquic_rbtree_release(rbt, NULL);
     }
 
@@ -142,11 +142,12 @@ static int gquic_packet_handler_map_listen(void *const handler_) {
     int recv_len = 0;
     char addr[sizeof(struct sockaddr_in6) > sizeof(struct sockaddr_in) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in)] = { 0 };
     socklen_t addr_len = 0;
+    int exception = GQUIC_SUCCESS;
     if (handler == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     for ( ;; ) {
-        GQUIC_COGLOBAL_CHANNEL_RECV(&recv_event, &recv_chan, 0, &handler->recv_event_chain, &handler->close_chain);
+        GQUIC_COGLOBAL_CHANNEL_RECV(exception, &recv_event, &recv_chan, 0, &handler->recv_event_chain, &handler->close_chain);
         if (recv_chan == &handler->close_chain) {
             break;
         }
@@ -197,14 +198,14 @@ int gquic_packet_handler_map_handle_packet(gquic_packet_handler_map_t *const han
     if (GQUIC_ASSERT_CAUSE(exception,
                            gquic_packet_header_deserialize_conn_id(&recv_packet->dst_conn_id, &recv_packet->data, handler->conn_id_len))) {
         gquic_packet_buffer_put(recv_packet->buffer);
-        free(recv_packet);
+        gquic_free(recv_packet);
         GQUIC_PROCESS_DONE(exception);
     }
     pthread_mutex_lock(&handler->mtx);
     do {
         if (gquic_packet_handler_map_try_handle_stateless_reset(handler, &recv_packet->data)) {
             gquic_packet_buffer_put(recv_packet->buffer);
-            free(recv_packet);
+            gquic_free(recv_packet);
             break;
         }
         if (gquic_rbtree_find_cmp(&rbt, handler->handlers, &recv_packet->dst_conn_id, gquic_packet_handler_rb_str_cmp) == 0) {
@@ -214,7 +215,7 @@ int gquic_packet_handler_map_handle_packet(gquic_packet_handler_map_t *const han
         if ((GQUIC_STR_FIRST_BYTE(&recv_packet->data) & 0x80) == 0x00) {
             if (GQUIC_ASSERT(GQUIC_MALLOC_STRUCT(&param, __send_stateless_reset_param_t))) {
                 gquic_packet_buffer_put(recv_packet->buffer);
-                free(recv_packet);
+                gquic_free(recv_packet);
                 GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_ALLOCATION_FAILED);
                 break;
             }
@@ -222,7 +223,7 @@ int gquic_packet_handler_map_handle_packet(gquic_packet_handler_map_t *const han
             param->recv_packet = recv_packet;
             if (GQUIC_ASSERT(gquic_coglobal_execute(gquic_packet_handler_map_try_send_stateless_reset_co, param))) {
                 gquic_packet_buffer_put(recv_packet->buffer);
-                free(recv_packet);
+                gquic_free(recv_packet);
                 GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_CREATE_THREAD_FAILED);
                 break;
             }
@@ -305,8 +306,8 @@ static int gquic_packet_handler_map_try_send_stateless_reset_co(void *const para
 
 finished:
     gquic_packet_buffer_put(param->recv_packet->buffer);
-    free(param->recv_packet);
-    free(param);
+    gquic_free(param->recv_packet);
+    gquic_free(param);
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
@@ -320,7 +321,7 @@ static int gquic_packet_handler_map_reset_token_destroy_co(void *const param_) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     GQUIC_PACKET_HANDLER_DESTROY(param->handler, param->err);
-    free(param);
+    gquic_free(param);
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
@@ -360,7 +361,7 @@ int gquic_packet_handler_map_add(gquic_str_t *const token,
 
     pthread_mutex_lock(&handler->mtx);
     if (gquic_rbtree_find_cmp((const gquic_rbtree_t **)&rbt, handler->handlers, (void *) conn_id, gquic_packet_handler_rb_str_cmp) == 0) {
-        free(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt));
+        gquic_free(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt));
         *(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt) = ph;
         pthread_mutex_unlock(&handler->mtx);
 
@@ -425,7 +426,7 @@ int gquic_packet_handler_map_remove(gquic_packet_handler_map_t *const handler, c
         gquic_rbtree_remove(&handler->handlers, &rbt);
 
         gquic_str_reset(GQUIC_RBTREE_KEY(rbt));                                    
-        free(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt));
+        gquic_free(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt));
         gquic_rbtree_release(rbt, NULL);
     }
     pthread_mutex_unlock(&handler->mtx);
@@ -458,13 +459,13 @@ static int gquic_retire_timeout_cb(void *const param_) {
     if (gquic_rbtree_find_cmp((const gquic_rbtree_t **) &rbt, param->handler->handlers, &param->conn_id, gquic_packet_handler_rb_str_cmp) == 0) {
         gquic_rbtree_remove(&rbt, &param->handler->handlers);
         gquic_str_reset(GQUIC_RBTREE_KEY(rbt));
-        free(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt));
+        gquic_free(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt));
         gquic_rbtree_release(rbt, NULL);
     }
     pthread_mutex_unlock(&param->handler->mtx);
 
     gquic_str_reset(&param->conn_id);
-    free(param);
+    gquic_free(param);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -478,7 +479,7 @@ int gquic_packet_handler_map_replace_with_closed(gquic_packet_handler_map_t *con
     }
     pthread_mutex_lock(&handler->mtx);
     if (gquic_rbtree_find_cmp((const gquic_rbtree_t **) &rbt, handler->handlers, (void *) conn_id, gquic_packet_handler_rb_str_cmp) == 0) {
-        free(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt));
+        gquic_free(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt));
         *(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt) = ph;
     }
     else if (!GQUIC_ASSERT_CAUSE(exception, gquic_rbtree_alloc(&rbt, sizeof(gquic_str_t), sizeof(gquic_packet_handler_t *)))) {
@@ -516,13 +517,13 @@ static int gquic_replace_with_closed_timeout_cb(void *const param_) {
     if (gquic_rbtree_find_cmp((const gquic_rbtree_t **) &rbt, param->handler->handlers, &param->conn_id, gquic_packet_handler_rb_str_cmp) == 0) {
         gquic_rbtree_remove(&param->handler->handlers, &rbt);
         gquic_str_reset(GQUIC_RBTREE_KEY(rbt));
-        free(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt));
+        gquic_free(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt));
         gquic_rbtree_release(rbt, NULL);
     }
     pthread_mutex_unlock(&param->handler->mtx);
 
     gquic_str_reset(&param->conn_id);
-    free(param);
+    gquic_free(param);
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
@@ -562,7 +563,7 @@ int gquic_packet_handler_map_remove_reset_token(gquic_packet_handler_map_t *cons
         gquic_rbtree_remove(&handler->reset_tokens, &rbt);
 
         gquic_str_reset(GQUIC_RBTREE_KEY(rbt));                                    
-        free(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt));
+        gquic_free(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt));
         gquic_rbtree_release(rbt, NULL);
     }
     pthread_mutex_unlock(&handler->mtx);
@@ -595,13 +596,13 @@ static int gquic_retire_reset_token_timeout_cb(void *const param_) {
     if (gquic_rbtree_find_cmp((const gquic_rbtree_t **) &rbt, param->handler->reset_tokens, &param->token, gquic_packet_handler_rb_str_cmp) == 0) {
         gquic_rbtree_remove(&rbt, &param->handler->reset_tokens);
         gquic_str_reset(GQUIC_RBTREE_KEY(rbt));
-        free(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt));
+        gquic_free(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt));
         gquic_rbtree_release(rbt, NULL);
     }
     pthread_mutex_unlock(&param->handler->mtx);
 
     gquic_str_reset(&param->token);
-    free(param);
+    gquic_free(param);
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
