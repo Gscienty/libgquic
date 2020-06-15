@@ -696,8 +696,10 @@ int gquic_session_run(gquic_session_t *const sess) {
             }
             else if (recv_chan == &sess->recevied_packet_chain) {
                 if (!gquic_session_handle_packet_inner(sess, (gquic_received_packet_t *) event)) {
+                    gquic_free((void *) event);
                     continue;
                 }
+                gquic_free((void *) event);
             }
             else if (recv_chan == &sess->close_chain) {
                 err_msg.err = ((gquic_session_close_event_t *) event)->err;
@@ -988,11 +990,15 @@ static int gquic_session_handle_packet_inner(gquic_session_t *const sess, gquic_
 
     while (GQUIC_STR_SIZE(&data) != 0) {
         if (counter > 0) {
+            gquic_received_packet_t *prev_p = p;
             gquic_received_packet_copy(&p, p);
             p->data = data;
+
+            if (prev_p != rp) {
+                gquic_free(prev_p);
+            }
         }
        if (GQUIC_ASSERT(gquic_packet_header_deserialize_packet_len(&p->data.size, &data, sess->src_conn_id_len))) {
-           gquic_free(p);
            break;
        }
        if (gquic_packet_header_deserlialize_type(&p->data) == GQUIC_LONG_HEADER_RETRY) {
@@ -1001,14 +1007,20 @@ static int gquic_session_handle_packet_inner(gquic_session_t *const sess, gquic_
        gquic_reader_str_readed_size(&data, GQUIC_STR_SIZE(&p->data));
 
        if (GQUIC_ASSERT(gquic_packet_header_deserialize_conn_id(&p->dst_conn_id, &p->data, sess->src_conn_id_len))) {
-           gquic_free(p);
            break;
+       }
+       if (counter > 0) {
+           gquic_count_pointer_ref(&p->buffer->cptr);
        }
        counter++;
        processed = gquic_session_handle_single_packet(sess, p);
     }
 
     gquic_packet_buffer_put(buffer);
+
+    if (p != rp) {
+        gquic_free(p);
+    }
 
     return processed;
 }
@@ -1027,7 +1039,7 @@ static int gquic_session_handle_single_packet(gquic_session_t *const sess, gquic
 
     if (gquic_packet_header_deserlialize_type(&rp->data) == GQUIC_LONG_HEADER_RETRY) {
         ret = gquic_session_handle_retry_packet(sess, &rp->data);
-        goto free_rp_finished;
+        goto finished;
     }
 
     gquic_str_t src_conn_id = { 0, NULL };
@@ -1037,10 +1049,10 @@ static int gquic_session_handle_single_packet(gquic_session_t *const sess, gquic
     if (sess->received_first_packet
         && (GQUIC_STR_FIRST_BYTE(&rp->data) & 0x80) != 0
         && gquic_str_cmp(&src_conn_id, &sess->handshake_dst_conn_id) != 0) {
-        goto free_rp_finished;
+        goto finished;
     }
     if (gquic_packet_header_deserlialize_type(&rp->data) == GQUIC_LONG_HEADER_0RTT) {
-        goto free_rp_finished;
+        goto finished;
     }
     if (GQUIC_ASSERT_CAUSE(exception, gquic_packet_unpacker_unpack(&packet, &sess->unpacker, &rp->data, rp->recv_time))) {
         switch (exception) {
@@ -1054,17 +1066,15 @@ static int gquic_session_handle_single_packet(gquic_session_t *const sess, gquic
             gquic_session_close_local(sess, exception);
             break;
         }
-        goto free_rp_finished;
+        goto finished;
     }
 
     if (GQUIC_ASSERT_CAUSE(exception, gquic_session_handle_unpacked_packet(sess, &packet, rp->recv_time))) {
         gquic_session_close_local(sess, exception);
-        goto free_rp_finished;
+        goto finished;
     }
     ret = 1;
 
-free_rp_finished:
-    gquic_free(rp);
 finished:
     gquic_unpacked_packet_dtor(&packet);
     if (!was_queued) {

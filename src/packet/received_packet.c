@@ -21,7 +21,7 @@ int gquic_received_packet_copy(gquic_received_packet_t **const target, gquic_rec
     }
     GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(target, gquic_received_packet_t));
     **target = *recv_packet;
-    gquic_packet_buffer_assign(&(*target)->buffer, recv_packet->buffer);
+    *(*target)->buffer = *recv_packet->buffer;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
