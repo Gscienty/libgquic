@@ -8,7 +8,7 @@
 typedef struct gquic_packet_s gquic_packet_t;
 struct gquic_packet_s {
     u_int64_t pn;
-    gquic_count_pointer_t *frames_cptr; /* gquic_list_t (void *) */
+    gquic_list_t *frames; /* void * */
     u_int64_t largest_ack;
     u_int64_t len;
     u_int8_t enc_lv;
@@ -18,5 +18,13 @@ struct gquic_packet_s {
 
 int gquic_packet_init(gquic_packet_t *const packet);
 int gquic_packet_dtor(gquic_packet_t *const packet);
+
+typedef struct gquic_cptr_frames_s gquic_cptr_frames_t;
+struct gquic_cptr_frames_s {
+    gquic_list_t frames;
+    gquic_count_pointer_t cptr;
+};
+
+int gquic_cptr_frames_dtor(void *const frames);
 
 #endif

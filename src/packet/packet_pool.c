@@ -6,13 +6,13 @@
 static int gquic_packet_buffer_release(void *const);
 
 int gquic_packet_buffer_get(gquic_packet_buffer_t **const buffer_storage) {
-    gquic_count_pointer_t *buffer_cptr = NULL;
     gquic_packet_buffer_t *buffer = NULL;
+    int exception = GQUIC_SUCCESS;
     if (buffer_storage == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    GQUIC_ASSERT_FAST_RETURN(GQUIC_CPTR_MALLOC_STRUCT(&buffer_cptr, gquic_packet_buffer_t, gquic_packet_buffer_release));
-    buffer = GQUIC_CPTR_REF(buffer_cptr, gquic_packet_buffer_t);
+    GQUIC_CPTR_ALLOC_ORIG(exception, buffer_storage, gquic_packet_buffer_t, sizeof(gquic_packet_buffer_t), cptr, gquic_packet_buffer_release);
+    buffer = *buffer_storage;
 
     GQUIC_ASSERT_FAST_RETURN(gquic_str_alloc(&buffer->slice, 1452));
     gquic_str_clear(&buffer->slice);
@@ -24,19 +24,21 @@ int gquic_packet_buffer_get(gquic_packet_buffer_t **const buffer_storage) {
 }
 
 int gquic_packet_buffer_put(gquic_packet_buffer_t *const buffer) {
+    int exception = GQUIC_SUCCESS;
     if (buffer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    GQUIC_PROCESS_DONE(gquic_count_pointer_try_release(&GQUIC_CPTR_META(buffer)));
+    /*GQUIC_CPTR_TRY_RELEASE_ORIG(exception, buffer, cptr);*/
+
+    GQUIC_PROCESS_DONE(exception);
 }
 
 int gquic_packet_buffer_assign(gquic_packet_buffer_t **const buffer_storage, gquic_packet_buffer_t *const buffer) {
-    gquic_count_pointer_t *target = NULL;
+    int exception = GQUIC_SUCCESS;
     if (buffer_storage == NULL || buffer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    gquic_count_pointer_assign(&target, &GQUIC_CPTR_META(buffer));
-    *buffer_storage = GQUIC_CPTR_REF(target, gquic_packet_buffer_t);
+    GQUIC_CPTR_ASSIGN_ORIG(exception, buffer_storage, buffer, cptr);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

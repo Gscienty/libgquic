@@ -3,39 +3,42 @@
 #include "exception.h"
 #include <stddef.h>
 
-int gquic_count_pointer_alloc(gquic_count_pointer_t ** const cptr_storage, size_t size, int (*release_cb) (void *const)) {
-    if (cptr_storage == NULL) {
+int gquic_count_pointer_ctor(gquic_count_pointer_t *const cptr, int (*release_cb) (void *const)) {
+    if (cptr == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(cptr_storage, gquic_count_pointer_t));
-    GQUIC_ASSERT_FAST_RETURN(gquic_malloc(&(*cptr_storage)->ptr, size));
-    (*cptr_storage)->release_cb = release_cb;
-    (*cptr_storage)->ref_count = 0;
+    cptr->ref_count = 1;
+    cptr->release_cb = release_cb;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_count_pointer_assign(gquic_count_pointer_t **const cptr_storage, gquic_count_pointer_t *const cptr) {
-    if (cptr_storage == NULL || cptr == NULL) {
+int gquic_count_pointer_ref(gquic_count_pointer_t *const cptr) {
+    if (cptr == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     cptr->ref_count++;
-    *cptr_storage = cptr;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_count_pointer_try_release(gquic_count_pointer_t *const cptr) {
+int gquic_count_pointer_unref(gquic_count_pointer_t *const cptr) {
     if (cptr == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     cptr->ref_count--;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}
+int gquic_count_pointer_release(gquic_count_pointer_t *const cptr, void *const obj) {
+    if (cptr == NULL || obj == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
     if (cptr->ref_count == 0) {
         if (cptr->release_cb != NULL) {
-            cptr->release_cb(cptr->ptr);
+            cptr->release_cb(obj);
         }
-        gquic_free(cptr->ptr);
-        gquic_free(cptr);
+        gquic_free(obj);
     }
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);

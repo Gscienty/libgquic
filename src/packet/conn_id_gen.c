@@ -1,6 +1,7 @@
 #include "packet/conn_id_gen.h"
 #include "util/conn_id.h"
 #include "frame/new_connection_id.h"
+#include "frame/meta.h"
 #include "exception.h"
 
 static int gquic_conn_id_gen_issue_new_conn_id(gquic_conn_id_gen_t *const);
@@ -131,6 +132,7 @@ static int gquic_conn_id_gen_issue_new_conn_id(gquic_conn_id_gen_t *const gen) {
 
     GQUIC_CONN_ID_GEN_QUEUE_CTRL_FRAME(gen, frame);
 
+    gquic_frame_release(frame);
     gquic_str_reset(&conn_id);
     gquic_str_reset(&token);
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
@@ -140,6 +142,9 @@ failure:
     if (rbt != NULL) {
         gquic_str_reset(GQUIC_RBTREE_VALUE(rbt));
         gquic_rbtree_release(rbt, NULL);
+    }
+    if (frame != NULL) {
+        gquic_frame_release(frame);
     }
 
     GQUIC_PROCESS_DONE(exception);

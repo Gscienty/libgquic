@@ -3,6 +3,7 @@
 
 #include "exception.h"
 #include "util/str.h"
+#include "util/count_pointer.h"
 #include <sys/types.h>
 
 typedef struct gquic_frame_meta_s gquic_frame_meta_t;
@@ -25,6 +26,8 @@ struct gquic_frame_meta_s {
     } on_lost;
 
     size_t payload_size;
+
+    gquic_count_pointer_t cptr;
 };
 
 #define GQUIC_FRAME_META(ptr) (*((gquic_frame_meta_t *) (((void *) ptr) - sizeof(gquic_frame_meta_t))))
@@ -42,7 +45,7 @@ struct gquic_frame_meta_s {
 
 int gquic_frame_alloc(void **const result, size_t size);
 int gquic_frame_release(void *const frame);
-int gquic_frame_assign(void **const frame_storage, void *frame);
+int gquic_frame_assign(const void **const frame_storage, const void *frame);
 
 #define GQUIC_FRAME_ALLOC(result, type) (gquic_frame_alloc((void **) (result), sizeof(type)))
 

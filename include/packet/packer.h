@@ -14,7 +14,6 @@
 #include "streams/framer.h"
 #include "streams/crypto.h"
 #include "util/list.h"
-#include "util/count_pointer.h"
 
 typedef struct gquic_packed_packet_s gquic_packed_packet_t;
 struct gquic_packed_packet_s {
@@ -22,7 +21,7 @@ struct gquic_packed_packet_s {
     gquic_packet_header_t hdr;
     gquic_str_t raw;
     gquic_frame_ack_t *ack;
-    gquic_count_pointer_t *frames_cptr; /* gquic_list_t (void *) */
+    gquic_list_t *frames; /* void * */
     gquic_packet_buffer_t *buffer;
 };
 
@@ -37,7 +36,7 @@ int gquic_packed_packet_get_ack_packet(gquic_packet_t *const packet,
 
 typedef struct gquic_packed_packet_payload_s gquic_packed_packet_payload_t;
 struct gquic_packed_packet_payload_s {
-    gquic_count_pointer_t *frames_cptr; /* gquic_list_t (void *) */
+    gquic_list_t *frames; /* void * */
     gquic_frame_ack_t *ack;
     u_int64_t len;
 

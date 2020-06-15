@@ -3,6 +3,7 @@
 #include "packet/send_mode.h"
 #include "frame/meta.h"
 #include "util/malloc.h"
+#include "util/time.h"
 #include "exception.h"
 #include <math.h>
 
@@ -467,7 +468,7 @@ static inline int gquic_packet_sent_packet_handler_sent_packet_inner(gquic_packe
         return 0;
     }
     pn_spc->largest_sent = packet->pn;
-    ack_eliciting = !gquic_list_head_empty(GQUIC_CPTR_REF(packet->frames_cptr, gquic_list_t));
+    ack_eliciting = !gquic_list_head_empty(packet->frames);
     if (ack_eliciting) {
         pn_spc->last_sent_ack_time = packet->send_time;
         packet->included_infly = 1;
@@ -559,7 +560,7 @@ static int gquic_packet_sent_packet_handler_on_packet_acked(gquic_packet_sent_pa
     if (mem_packet == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
-    GQUIC_LIST_FOREACH(frame_storage, GQUIC_CPTR_REF(packet->frames_cptr, gquic_list_t)) {
+    GQUIC_LIST_FOREACH(frame_storage, packet->frames) {
         if (GQUIC_FRAME_META(*frame_storage).on_acked.self != NULL) {
             GQUIC_FRAME_ON_ACKED(*frame_storage);
         }
@@ -577,7 +578,7 @@ static int gquic_packet_sent_packet_handler_packet_release(gquic_packet_t *const
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_packet_dtor(packet);
-    /*gquic_free(packet);*/
+    gquic_free(packet);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -633,7 +634,7 @@ static int gquic_packet_sent_packet_handler_queue_frames_for_retrans(gquic_packe
     if (packet == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    GQUIC_LIST_FOREACH(frame_storage, GQUIC_CPTR_REF(packet->frames_cptr, gquic_list_t)) {
+    GQUIC_LIST_FOREACH(frame_storage, packet->frames) {
         GQUIC_FRAME_ON_LOST(*frame_storage);
     }
 
@@ -661,11 +662,8 @@ static int gquic_packet_sent_packet_handler_on_verified_loss_detection_timeout(g
     }
     gquic_sent_packet_handler_get_earliest_loss_time_space(&earliest_loss_time, &enc_lv, handler);
     if (earliest_loss_time != 0) {
-        struct timeval tv;
-        struct timezone tz;
-        gettimeofday(&tv, &tz);
         GQUIC_ASSERT_FAST_RETURN(gquic_packet_sent_packet_handler_detect_lost_packets(handler,
-                                                                                      tv.tv_sec * 1000 * 1000 + tv.tv_usec,
+                                                                                      gquic_time_now(),
                                                                                       enc_lv,
                                                                                       handler->infly_bytes));
     }
@@ -817,7 +815,7 @@ int gquic_packet_sent_packet_handler_reset_for_retry(gquic_packet_sent_packet_ha
     GQUIC_ASSERT_FAST_RETURN(gquic_packet_number_gen_next(&pn, &handler->initial_packets->pn_gen));
     GQUIC_ASSERT_FAST_RETURN(gquic_packet_sent_pn_dtor(handler->initial_packets));
     gquic_free(handler->initial_packets);
-    GQUIC_ASSERT_FAST_RETURN(GQUIC_FRAME_ALLOC(&handler->initial_packets, gquic_packet_sent_pn_t));
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&handler->initial_packets, gquic_packet_sent_pn_t));
     gquic_packet_sent_pn_init(handler->initial_packets);
     gquic_packet_sent_pn_ctor(handler->initial_packets, pn);
     gquic_sent_packet_handler_set_loss_detection_timer(handler);

@@ -288,7 +288,10 @@ int gquic_packet_received_packet_handler_get_ack_frame(gquic_frame_ack_t **const
     (*ack)->delay = now - handler->largest_obeserved_time;
     gquic_frame_ack_ranges_from_blocks(*ack, &blocks);
 
-    handler->last_ack = *ack;
+    if (handler->last_ack != NULL) {
+        gquic_frame_release(handler->last_ack);
+    }
+    gquic_frame_assign((const void **) &handler->last_ack, *ack);
     handler->ack_alarm = 0;
     handler->ack_queued = 0;
     handler->since_last_ack.ack_eliciting_count = 0;

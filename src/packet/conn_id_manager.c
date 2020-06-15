@@ -1,5 +1,6 @@
 #include "packet/conn_id_manager.h"
 #include "frame/retire_connection_id.h"
+#include "frame/meta.h"
 #include "exception.h"
 #include <string.h>
 
@@ -74,7 +75,8 @@ int gquic_conn_id_manager_add(gquic_conn_id_manager_t *const manager, gquic_fram
     if (frame->seq < manager->highest_retired) {
         GQUIC_ASSERT_FAST_RETURN(gquic_frame_retire_connection_id_alloc(&retire_frame));
         retire_frame->seq = frame->seq;
-        GQUIC_CONN_ID_MANAGER_QUEUE_CTRL_FRAME(manager, retire_frame);
+
+        gquic_frame_release(retire_frame);;
         goto added;
     }
     if (frame->prior > manager->highest_retired) {
@@ -88,6 +90,8 @@ int gquic_conn_id_manager_add(gquic_conn_id_manager_t *const manager, gquic_fram
             GQUIC_ASSERT_FAST_RETURN(gquic_frame_retire_connection_id_alloc(&retire_frame));
             retire_frame->seq = frame->seq;
             GQUIC_CONN_ID_MANAGER_QUEUE_CTRL_FRAME(manager, retire_frame);
+
+            gquic_frame_release(retire_frame);
             gquic_list_remove(new_conn_id);
             manager->queue_len--;
             gquic_str_reset(&new_conn_id->conn_id);
@@ -155,6 +159,7 @@ static int gquic_conn_id_update_conn_id(gquic_conn_id_manager_t *const manager) 
     GQUIC_ASSERT_FAST_RETURN(gquic_frame_retire_connection_id_alloc(&retire_frame));
     retire_frame->seq = manager->active_seq;
     GQUIC_CONN_ID_MANAGER_QUEUE_CTRL_FRAME(manager, retire_frame);
+    gquic_frame_release(retire_frame);
     
     if (manager->highest_retired < manager->active_seq) {
         manager->highest_retired = manager->active_seq;
