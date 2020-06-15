@@ -28,7 +28,7 @@ int gquic_packet_buffer_put(gquic_packet_buffer_t *const buffer) {
     if (buffer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    /*GQUIC_CPTR_TRY_RELEASE_ORIG(exception, buffer, cptr);*/
+    GQUIC_CPTR_TRY_RELEASE_ORIG(exception, buffer, cptr);
 
     GQUIC_PROCESS_DONE(exception);
 }

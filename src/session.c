@@ -985,6 +985,7 @@ static int gquic_session_handle_packet_inner(gquic_session_t *const sess, gquic_
     data = rp->data;
     p = rp;
     buffer = p->buffer;
+
     while (GQUIC_STR_SIZE(&data) != 0) {
         if (counter > 0) {
             gquic_received_packet_copy(&p, p);
@@ -1007,7 +1008,7 @@ static int gquic_session_handle_packet_inner(gquic_session_t *const sess, gquic_
        processed = gquic_session_handle_single_packet(sess, p);
     }
 
-    gquic_packet_buffer_put(p->buffer);
+    gquic_packet_buffer_put(buffer);
 
     return processed;
 }
