@@ -197,6 +197,7 @@ static int init_write(void *const _, gquic_writer_str_t *const writer) {
         GQUIC_STR_VAL(&w) - GQUIC_STR_VAL(&buffer->slice) - header_size,
         GQUIC_STR_VAL(&buffer->slice) + header_size
     };
+    /*gquic_str_test_echo(&plain_text);*/
     const gquic_str_t addata = { header_size, GQUIC_STR_VAL(&buffer->slice) };
     gquic_str_t tag = { 0, NULL };
     gquic_str_t cipher_text = { 0, NULL };
@@ -221,7 +222,6 @@ static int init_write(void *const _, gquic_writer_str_t *const writer) {
     buffer->writer.val = GQUIC_STR_VAL(&buffer->slice) + header_size + GQUIC_STR_SIZE(&cipher_text) + GQUIC_STR_SIZE(&tag);
 
     gquic_str_t cnt = { GQUIC_STR_VAL(&buffer->writer) - GQUIC_STR_VAL(&buffer->slice), GQUIC_STR_VAL(&buffer->slice) };
-    /*gquic_str_test_echo(&cnt);*/
 
     gquic_received_packet_t *rp = malloc(sizeof(gquic_received_packet_t));
 
@@ -342,7 +342,7 @@ int send_chello() {
                                    &handshake, handshake_write,
                                    &onertt, onertt_write,
                                    NULL, NULL,
-                                   &cli_cfg, &dci, &client_params, &client_rtt, &client_addr, 1);
+                                   &cli_cfg, &cdci, &client_params, &client_rtt, &client_addr, 1);
 
     gquic_coglobal_execute(__client_run, send_chello);
 

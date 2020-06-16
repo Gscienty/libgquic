@@ -2,7 +2,7 @@
 
 cd liteco && make && cd ..
 
-gcc -DDEBUG -g -I include/ -I liteco/include/ \
+gcc -DDEBUG -DLOG -g -I include/ -I liteco/include/ \
     src/*.c \
     src/flowcontrol/* \
     src/net/* \

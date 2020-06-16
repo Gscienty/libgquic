@@ -3,6 +3,7 @@
 
 #include "tls/key_agreement.h"
 #include "util/str.h"
+#include "exception.h"
 #include <sys/types.h>
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
@@ -64,16 +65,16 @@ struct gquic_tls_aead_s {
 
 #define GQUIC_TLS_AEAD_SEAL(tag, cipher_text, aead, nonce, plain_text, addata) \
     (((aead)->seal) == NULL \
-    ? -1 \
+    ? GQUIC_EXCEPTION_NOT_IMPLEMENTED \
     : ((aead)->seal((tag), (cipher_text), (aead)->self, (nonce), (plain_text), (addata))))
 
 #define GQUIC_TLS_AEAD_OPEN(plain_text, aead, nonce, tag, cipher_text, addata) \
     (((aead)->open) == NULL \
-     ? -1 \
+     ? GQUIC_EXCEPTION_NOT_IMPLEMENTED \
      : ((aead)->open((plain_text), (aead)->self, (nonce), (tag), (cipher_text), (addata))))
 #define GQUIC_TLS_AEAD_DTOR(aead) \
     (((aead)->dtor) == NULL \
-     ? -1 \
+     ? GQUIC_EXCEPTION_NOT_IMPLEMENTED \
      : ((aead)->dtor((aead)->self)))
 
 int gquic_tls_aead_init(gquic_tls_aead_t *const aead);

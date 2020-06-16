@@ -685,7 +685,7 @@ int gquic_session_run(gquic_session_t *const sess) {
         event = NULL;
         gquic_session_try_reset_deadline(sess);
 
-        GQUIC_COGLOBAL_CHANNEL_RECV(exception, &event, &recv_chan, 0,
+        GQUIC_COGLOBAL_CHANNEL_RECV(exception, &event, &recv_chan, sess->deadline,
                                     &sess->close_chain,
                                     &sess->sending_schedule_chain,
                                     &sess->recevied_packet_chain,

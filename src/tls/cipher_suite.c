@@ -278,8 +278,10 @@ int gquic_tls_aead_dtor(gquic_tls_aead_t *const aead) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     GQUIC_TLS_AEAD_DTOR(aead);
-    gquic_free(aead->self);
-    aead->self = NULL;
+    if (aead->self != NULL) {
+        gquic_free(aead->self);
+        aead->self = NULL;
+    }
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
