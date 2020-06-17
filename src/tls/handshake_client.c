@@ -24,6 +24,7 @@
 #include "tls/meta.h"
 #include "util/time.h"
 #include "exception.h"
+#include "log.h"
 #include <openssl/tls1.h>
 #include <openssl/rand.h>
 
@@ -275,18 +276,30 @@ int gquic_tls_client_handshake(gquic_tls_conn_t *const conn) {
     if (conn->cfg == NULL) {
         gquic_tls_config_default(&conn->cfg);
     }
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "TLS client handshake start");
+
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_handshake_client_state_init(&cli_state));
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_conn_set_alt_record(conn));
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_handshake_client_hello_init(&cli_state.c_hello, &cli_state.ecdhe_params, conn));
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_conn_load_session(&cache_key, &sess, &cli_state.early_sec, &cli_state.binder_key, conn, cli_state.c_hello));
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_msg_combine_serialize(&buf, cli_state.c_hello));
+    
+    GQUIC_LOG(GQUIC_LOG_INFO, "TLS client send CHELLO record");
+
     if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_conn_write_record(&_, conn, GQUIC_TLS_RECORD_TYPE_HANDSHAKE, &buf))) {
         goto failure;
     }
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "TLS client waiting SHELLO record");
+
     if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_conn_read_handshake((void **) &cli_state.s_hello, conn))
         || GQUIC_TLS_MSG_META(cli_state.s_hello).type != GQUIC_TLS_HANDSHAKE_MSG_TYPE_SERVER_HELLO) {
        goto failure;
     }
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "TLS client received SHELLO record");
+
     if (conn->ver != GQUIC_TLS_VERSION_13) {
         GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_TLS_VERSION_TOO_OLD);
         goto failure;
@@ -296,6 +309,8 @@ int gquic_tls_client_handshake(gquic_tls_conn_t *const conn) {
     if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_client_handshake_state_handshake(&cli_state))) {
         goto failure;
     }
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "TLS client TLS handshake finished");
 
     gquic_str_reset(&buf);
     gquic_str_reset(&cache_key);
@@ -327,6 +342,9 @@ int gquic_tls_client_handshake_state_handshake(gquic_tls_handshake_client_state_
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_client_handshake_state_check_ser_hello_or_hello_retry_req(cli_state));
     GQUIC_ASSERT_FAST_RETURN(cli_state->suite->mac(&cli_state->transport, 0, NULL));
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "TLS client calc transport (CHELLO)");
+
     if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_msg_combine_serialize(&buf, cli_state->c_hello))) {
         goto failure;
     }
@@ -341,6 +359,9 @@ int gquic_tls_client_handshake_state_handshake(gquic_tls_handshake_client_state_
             goto failure;
         }
     }
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "TLS client calc transport (SHELLO)");
+
     gquic_str_reset(&buf);
     if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_msg_combine_serialize(&buf, cli_state->s_hello))) {
         goto failure;
@@ -350,6 +371,7 @@ int gquic_tls_client_handshake_state_handshake(gquic_tls_handshake_client_state_
     }
 
     cli_state->conn->buffering = 1;
+    GQUIC_LOG(GQUIC_LOG_INFO, "TLS client process SHELLO record");
     if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_client_handshake_state_process_server_hello(cli_state))) {
         goto failure;
     }
@@ -747,6 +769,9 @@ static int gquic_tls_client_handshake_state_establish_handshake_keys(gquic_tls_h
                            gquic_tls_cipher_suite_extract(&handshake_sec, cli_state->suite, &shared_key, &early_sec_derived_sec))) {
         goto failure;
     }
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "TLS client set write key (GQUIC_ENC_LV_HANDSHAKE)");
+
     if (GQUIC_ASSERT_CAUSE(exception,
                            gquic_tls_cipher_suite_derive_secret(&cli_sec,
                                                                 cli_state->suite,
@@ -759,6 +784,9 @@ static int gquic_tls_client_handshake_state_establish_handshake_keys(gquic_tls_h
     if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_half_conn_set_traffic_sec(&cli_state->conn->out, cli_state->suite, &cli_sec, 0))) {
         goto failure;
     }
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "TLS client set read key (GQUIC_ENC_LV_HANDSHAKE)");
+
     if (GQUIC_ASSERT_CAUSE(exception,
                            gquic_tls_cipher_suite_derive_secret(&ser_sec,
                                                                 cli_state->suite,
@@ -808,11 +836,17 @@ static int gquic_tls_client_handshake_state_read_ser_params(gquic_tls_handshake_
     if (cli_state == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "TLS client waiting ENCRYPT_EXT record");
+
     if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_conn_read_handshake((void **) &msg, cli_state->conn))
         || GQUIC_TLS_MSG_META(msg).type != GQUIC_TLS_HANDSHAKE_MSG_TYPE_ENCRYPTED_EXTS) {
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_UNEXPECTED_MESSAGE);
         goto failure;
     }
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "TLS client received ENCRYPT_EXT record");
+
     if (cli_state->conn->cfg->received_extensions != NULL
         && GQUIC_ASSERT_CAUSE(exception,
                               cli_state->conn->cfg->received_extensions(cli_state->conn->cfg->ext_self,
@@ -821,6 +855,9 @@ static int gquic_tls_client_handshake_state_read_ser_params(gquic_tls_handshake_
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
         goto failure;
     }
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "TLS client calc transport (ENCRYPT_EXT)");
+
     if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_msg_combine_serialize(&buf, msg))) {
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
         goto failure;
@@ -892,10 +929,14 @@ static int gquic_tls_client_handshake_state_read_ser_cert(gquic_tls_handshake_cl
         }
     }
 
+    GQUIC_LOG(GQUIC_LOG_INFO, "TLS client waiting CERT_REQ/CERT record");
+
     if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_conn_read_handshake(&msg, cli_state->conn))) {
         goto failure;
     }
     if (GQUIC_TLS_MSG_META(msg).type == GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT_REQ) {
+        GQUIC_LOG(GQUIC_LOG_INFO, " TLS client received CERT_REQ");
+        GQUIC_LOG(GQUIC_LOG_INFO, "TLS client calc transport (CERT_REQ)");
         if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_msg_combine_serialize(&buf, msg))) {
             goto failure;
         }
@@ -904,10 +945,15 @@ static int gquic_tls_client_handshake_state_read_ser_cert(gquic_tls_handshake_cl
             goto failure;
         }
         cli_state->cert_req = msg;
+
+        GQUIC_LOG(GQUIC_LOG_INFO, "TLS client waiting CERT record");
+
         if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_conn_read_handshake(&msg, cli_state->conn))) {
             goto failure;
         }
     }
+    GQUIC_LOG(GQUIC_LOG_INFO, "TLS client received CERT record");
+
     if (GQUIC_TLS_MSG_META(msg).type != GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT) {
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_UNEXPECTED_MESSAGE);
         GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_TLS_HANDSHAKE_MESSAGE_UNEXCEPTED);
@@ -920,6 +966,9 @@ static int gquic_tls_client_handshake_state_read_ser_cert(gquic_tls_handshake_cl
         goto failure;
     }
     gquic_str_reset(&buf);
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "TLS client calc transport (CERT)");
+
     gquic_str_init(&buf);
     if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_msg_combine_serialize(&buf, cert_msg))) {
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
@@ -937,12 +986,15 @@ static int gquic_tls_client_handshake_state_read_ser_cert(gquic_tls_handshake_cl
         goto failure;
     }
 
+    GQUIC_LOG(GQUIC_LOG_INFO, "TLS client waiting VERIFY record");
     gquic_str_init(&buf);
     if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_conn_read_handshake((void **) &verify_msg, cli_state->conn))
         || GQUIC_TLS_MSG_META(verify_msg).type != GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT_VERIFY) {
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_UNEXPECTED_MESSAGE);
         goto failure;
     }
+    GQUIC_LOG(GQUIC_LOG_INFO, "TLS client received VERIFY record");
+
     if (gquic_tls_is_supported_sigalg(verify_msg->sign_algo, &supported_sigalgs) == 0) {
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_ILLEGAL_PARAMS);
         GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_TLS_ILLEGAL_PARAMERTERS);
@@ -972,10 +1024,16 @@ static int gquic_tls_client_handshake_state_read_ser_cert(gquic_tls_handshake_cl
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_DECRYPT_ERROR);
         goto failure;
     }
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "TLS client verify use X509 pubkey");
+
     if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_verify_handshake_sign(sig_hash, pubkey, &sign, &verify_msg->sign))) {
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_DECRYPT_ERROR);
         goto failure;
     }
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "TLS client calc transport (VERIFY)");
+
     if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_msg_combine_serialize(&buf, verify_msg))) {
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
         goto failure;
@@ -1029,19 +1087,29 @@ static int gquic_tls_client_handshake_state_read_ser_finished(gquic_tls_handshak
     if (cli_state == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "TLS client waiting FINISHED record");
+
     if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_conn_read_handshake((void **) &msg, cli_state->conn))
         || GQUIC_TLS_MSG_META(msg).type != GQUIC_TLS_HANDSHAKE_MSG_TYPE_FINISHED) {
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_UNEXPECTED_MESSAGE);
         GQUIC_PROCESS_DONE(exception);
     }
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "TLS client received FINISHED record");
+
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_cipher_suite_finished_hash(&expected_mac,
                                                                   cli_state->suite,
                                                                   &cli_state->conn->in.traffic_sec, &cli_state->transport));
     if (gquic_str_cmp(&expected_mac, &msg->verify) != 0) {
+        GQUIC_LOG(GQUIC_LOG_ERROR, "TLS client verify failed");
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_DECODE_ERROR);
         GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_TLS_DECODE_ERROR);
         goto failure;
     }
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "TLS client calc transport (server FINISHED)");
+
     if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_msg_combine_serialize(&buf, msg))) {
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
         goto failure;
@@ -1066,6 +1134,9 @@ static int gquic_tls_client_handshake_state_read_ser_finished(gquic_tls_handshak
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
         goto failure;
     }
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "TLS client set read key (GQUIC_ENC_LV_APP)");
+
     if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_half_conn_set_key(&cli_state->conn->in, GQUIC_ENC_LV_APP, cli_state->suite, &ser_sec))) {
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
         goto failure;
@@ -1131,9 +1202,15 @@ static int gquic_tls_client_handshake_state_send_cli_finished(gquic_tls_handshak
     if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_mac_md_update(&cli_state->transport, &buf))) {
         goto failure;
     }
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "TLS client send FINISHED record");
+
     if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_conn_write_record(&len, cli_state->conn, GQUIC_TLS_RECORD_TYPE_HANDSHAKE, &buf))) {
         goto failure;
     }
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "TLS client set write key (GQUIC_ENC_LV_APP)");
+
     if (GQUIC_ASSERT_CAUSE(exception,
                            gquic_tls_half_conn_set_key(&cli_state->conn->out, GQUIC_ENC_LV_APP, cli_state->suite, &cli_state->traffic_sec))) {
         goto failure;

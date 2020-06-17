@@ -8,8 +8,8 @@
 static char *gquic_get_level_str(const int);
 static char *gquic_curr_time(char timestr[]);
 
-void gquic_write_log(const int level, const char *const func_name, const int line, const char *const fmt, ...) {
-    char timestr[20] = { 0 };
+void gquic_write_log(const int level, const char *const fmt, ...) {
+    char timestr[25] = { 0 };
     char log_info[128] = { 0 };
     va_list args;
 
@@ -17,7 +17,7 @@ void gquic_write_log(const int level, const char *const func_name, const int lin
     snprintf(log_info, 128, fmt, args);
     va_end(args);
 
-    printf("%s %s %s:%d -| %s\n", gquic_get_level_str(level), func_name, gquic_curr_time(timestr), line, log_info);
+    printf("%s %s -|\t%s\n", gquic_get_level_str(level), gquic_curr_time(timestr), log_info);
 }
 
 static char *gquic_get_level_str(const int level) {
@@ -42,7 +42,7 @@ static char *gquic_curr_time(char timestr[]) {
 
     time(&tt);
     curr_time = localtime(&tt);
-    snprintf(timestr, 19, "%04d/%02d/%02d %02d:%02d:%02d",
+    snprintf(timestr, 24, "%04d/%02d/%02d %02d:%02d:%02d",
              curr_time->tm_year + 1900, curr_time->tm_mon + 1, curr_time->tm_mday,
              curr_time->tm_hour, curr_time->tm_min, curr_time->tm_sec);
 

@@ -835,15 +835,22 @@ static int gquic_tls_handshake_server_state_send_ser_params(gquic_tls_handshake_
         gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
         goto failure;
     }
+
     gquic_str_reset(&buf);
     if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_msg_combine_serialize(&buf, enc_ext))) {
         gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
         goto failure;
     }
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "TLS server calc transport (ENCRYPT_EXT)");
+
     if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_mac_md_update(&ser_state->transport, &buf))) {
         gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
         goto failure;
     }
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "TLS server send ENCRYPT_EXT record");
+
     if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_conn_write_record(&_, ser_state->conn, GQUIC_TLS_RECORD_TYPE_HANDSHAKE, &buf))) {
         gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
         goto failure;
@@ -1094,7 +1101,7 @@ static int gquic_tls_handshake_server_state_send_ser_finished(gquic_tls_handshak
         goto failure;
     }
 
-    GQUIC_LOG(GQUIC_LOG_INFO, "TLS server calc transport (FINISHED)");
+    GQUIC_LOG(GQUIC_LOG_INFO, "TLS server calc transport (server FINISHED)");
 
     if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_mac_md_update(&ser_state->transport, &buf))) {
         gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
@@ -1243,6 +1250,9 @@ static int gquic_tls_handshake_server_state_send_session_tickets(gquic_tls_hands
         gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
         GQUIC_PROCESS_DONE(exception);
     }
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "TLS server calc transport (client FINISHED)");
+
     if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_msg_combine_serialize(&buf, cli_finished))) {
         gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
         goto failure;

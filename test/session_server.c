@@ -54,13 +54,17 @@ int handle_shello(void *const raw) {
     GQUIC_MALLOC_STRUCT(&recv_data, gquic_str_t);
     gquic_str_init(recv_data);
     gquic_crypto_stream_get_data(recv_data, &initial);
-
+    
     gquic_handshake_establish_handle_msg(&client_establish, recv_data, packet.enc_lv);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int handle_handshake(void *const raw) {
+    while (client_establish.read_enc_level != GQUIC_ENC_LV_HANDSHAKE) {
+        gquic_coglobal_yield();
+    }
+
     u_int64_t now = gquic_time_now();
     gquic_unpacked_packet_t packet;
     gquic_packet_unpacker_init(&unpacker);
@@ -86,6 +90,7 @@ int handle_handshake(void *const raw) {
     GQUIC_MALLOC_STRUCT(&recv_data, gquic_str_t);
     gquic_str_init(recv_data);
     GQUIC_ASSERT(gquic_crypto_stream_get_data(recv_data, &handshake));
+    gquic_str_test_echo(recv_data);
     gquic_handshake_establish_handle_msg(&client_establish, recv_data, packet.enc_lv);
 
     GQUIC_MALLOC_STRUCT(&recv_data, gquic_str_t);
@@ -314,6 +319,7 @@ static int __handshake_write_thread(void *const _) {
 
 static int handshake_write(void *const _, gquic_writer_str_t *const writer) {
     (void) _;
+    gquic_str_test_echo(writer);
     gquic_crypto_stream_write(&handshake, writer);
     gquic_coglobal_execute(__handshake_write_thread, writer);
     return 0;

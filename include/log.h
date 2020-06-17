@@ -9,9 +9,9 @@
 
 #if LOG
 
-void gquic_write_log(const int level, const char *const func_name, const int line, const char *const fmt, ...);
+void gquic_write_log(const int level, const char *const fmt, ...);
 
-#define GQUIC_LOG(level, fmt, ...) gquic_write_log(level, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__)
+#define GQUIC_LOG(level, fmt, ...) gquic_write_log(level, fmt, ##__VA_ARGS__)
 
 #else
 

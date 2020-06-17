@@ -159,3 +159,9 @@ static int gquic_coroutine_create(gquic_coroutine_t **const co_storage, int (*fu
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
+
+int gquic_coglobal_yield() {
+    liteco_yield(__CURR_CO__);
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}

@@ -12,6 +12,7 @@ int gquic_coglobal_channel_recv(const void **const event, const liteco_channel_t
 int gquic_coglobal_schedule();
 int gquic_coglobal_schedule_until_completed(const liteco_coroutine_t *const co);
 int gquic_coglobal_thread_init(int ith);
+int gquic_coglobal_yield();
 
 #define GQUIC_COGLOBAL_CHANNEL_RECV(exception, event, recv_channel, timeout, ...) \
 (({\
