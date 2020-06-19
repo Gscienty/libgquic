@@ -19,4 +19,7 @@ int gquic_net_addr_init(gquic_net_addr_t *const addr);
 int gquic_net_addr_to_str(const gquic_net_addr_t *const addr, gquic_str_t *const ret);
 int gquic_net_str_to_addr_v4(gquic_net_addr_t *const addr, const char *const ip);
 
+gquic_net_addr_t gquic_net_addr_v4(const char *const ip, const u_int16_t port);
+
+
 #endif

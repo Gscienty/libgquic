@@ -4,11 +4,12 @@
 #include "exception.h"
 #include "coglobal.h"
 #include <openssl/rand.h>
+#include <fcntl.h>
 
 static int gquic_client_on_handshake_completed(void *const);
 static int gquic_client_session_run_co(void *const);
 static int gquic_client_implement_packet_handler(gquic_packet_handler_t **const, gquic_client_t *const);
-static int gquic_client_ctor(gquic_client_t *const, int, gquic_net_addr_t *const, gquic_config_t *const, const int);
+static int gquic_client_ctor(gquic_client_t *const, int, const gquic_net_addr_t *const, gquic_config_t *const);
 static int gquic_client_handle_packet(gquic_client_t *const, gquic_received_packet_t *const);
 static int gquic_client_create_sess(gquic_client_t *const);
 static int gquic_client_establish_sec_conn(void *const);
@@ -24,7 +25,6 @@ int gquic_client_init(gquic_client_t *const client) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_net_conn_init(&client->conn);
-    client->created_conn = 0;
     client->packet_handlers = NULL;
     client->config = NULL;
     gquic_str_init(&client->src_conn_id);
@@ -43,10 +43,10 @@ int gquic_client_init(gquic_client_t *const client) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_client_ctor(gquic_client_t *const client, int fd, gquic_net_addr_t *const addr, gquic_config_t *const config, const int created) {
+static int gquic_client_ctor(gquic_client_t *const client, int fd, const gquic_net_addr_t *const server_addr, gquic_config_t *const config) {
     u_int8_t rand = 0;
     int len = 0;
-    if (client == NULL || config == NULL) {
+    if (client == NULL || server_addr == NULL || config == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_str_alloc(&client->src_conn_id, config->conn_id_len));
@@ -61,19 +61,35 @@ static int gquic_client_ctor(gquic_client_t *const client, int fd, gquic_net_add
     if (RAND_bytes(GQUIC_STR_VAL(&client->dst_conn_id), GQUIC_STR_SIZE(&client->dst_conn_id)) <= 0) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_RANDOM_FAILED);
     }
-    client->conn.addr = *addr;
+    client->conn.addr = *server_addr;
     client->conn.fd = fd;
     client->config = config;
-    client->created_conn = created;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_client_create(gquic_client_t *const client, int fd, gquic_net_addr_t *const addr, gquic_config_t *const config, const int created) {
-    if (client == NULL || addr == NULL || config == NULL) {
+int gquic_client_create(gquic_client_t *const client,
+                        const gquic_net_addr_t client_addr, const gquic_net_addr_t server_addr, gquic_config_t *const config) {
+    int fd = -1;
+    int flag = 0;
+    if (client == NULL || config == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    GQUIC_ASSERT_FAST_RETURN(gquic_client_ctor(client, fd, addr, config, created));
+    if ((fd = socket(client_addr.type, SOCK_DGRAM, 0)) == -1) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOC_SOCKET_FAILED);
+    }
+    if (client_addr.type == AF_INET) {
+        bind(fd, (struct sockaddr *) &client_addr.addr.v4, sizeof(struct sockaddr_in));
+    }
+    else {
+        bind(fd, (struct sockaddr *) &client_addr.addr.v6, sizeof(struct sockaddr_in6));
+    }
+    flag = fcntl(fd, F_GETFL, 0);
+    fcntl(fd, F_SETFL, flag | O_NONBLOCK);
+
+    gquic_coglobal_thread_init(0);
+
+    GQUIC_ASSERT_FAST_RETURN(gquic_client_ctor(client, fd, &server_addr, config));
     GQUIC_ASSERT_FAST_RETURN(gquic_multiplexer_add_conn(&client->packet_handlers, fd, config->conn_id_len, &config->stateless_reset_key));
     GQUIC_ASSERT_FAST_RETURN(gquic_client_connect(client));
 

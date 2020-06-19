@@ -778,19 +778,28 @@ int gquic_packet_packer_try_pack_app_packet(gquic_packed_packet_t *const packed_
             gquic_packed_packet_payload_dtor(&payload);
             GQUIC_PROCESS_DONE(exception);
         }
+        *frame_storage = NULL;
+
         if (GQUIC_ASSERT_CAUSE(exception, gquic_retransmission_queue_get_app(frame_storage, packer->retransmission_queue, remain))) {
             gquic_packed_packet_payload_dtor(&payload);
             GQUIC_PROCESS_DONE(exception);
         }
+        if (*frame_storage == NULL) {
+            gquic_list_release(frame_storage);
+            break;
+        }
+
         gquic_list_insert_before(payload.frames, frame_storage);
         payload.len += GQUIC_FRAME_SIZE(*frame_storage);
     }
 
+    added_size = 0;
     if (GQUIC_ASSERT_CAUSE(exception, gquic_framer_append_ctrl_frame(payload.frames, &added_size, packer->framer, max_size - payload.len))) {
         gquic_packed_packet_payload_dtor(&payload);
         GQUIC_PROCESS_DONE(exception);
     }
     payload.len += added_size;
+
     added_size = 0;
     if (GQUIC_ASSERT_CAUSE(exception, gquic_framer_append_stream_frames(payload.frames, &added_size, packer->framer, max_size - payload.len))) {
         gquic_packed_packet_payload_dtor(&payload);

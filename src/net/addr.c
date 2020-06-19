@@ -58,3 +58,13 @@ int gquic_net_str_to_addr_v4(gquic_net_addr_t *const addr, const char *const ip)
     inet_aton(ip, &addr->addr.v4.sin_addr);
     return 0;
 }
+
+gquic_net_addr_t gquic_net_addr_v4(const char *const ip, const u_int16_t port) {
+    gquic_net_addr_t addr;
+    addr.type = AF_INET;
+    addr.addr.v4.sin_family = AF_INET;
+    addr.addr.v4.sin_addr.s_addr = inet_addr(ip);
+    addr.addr.v4.sin_port = htons(port);
+
+    return addr;
+}
