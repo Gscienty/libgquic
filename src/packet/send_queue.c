@@ -2,6 +2,7 @@
 #include "util/malloc.h"
 #include "exception.h"
 #include "coglobal.h"
+#include "log.h"
 
 int gquic_packet_send_queue_init(gquic_packet_send_queue_t *const queue) {
     if (queue == NULL) {
@@ -61,6 +62,8 @@ int gquic_packet_send_queue_run(gquic_packet_send_queue_t *const queue) {
         if (exception == GQUIC_EXCEPTION_CLOSED) {
             break;
         }
+        GQUIC_LOG(GQUIC_LOG_DEBUG, "send queue send packet");
+
         GQUIC_ASSERT_FAST_RETURN(gquic_net_conn_write(queue->conn, &packed_packet->raw));
         gquic_packed_packet_dtor_without_frames(packed_packet);
         gquic_free(packed_packet);

@@ -12,6 +12,7 @@
 #include "packet/send_mode.h"
 #include "exception.h"
 #include "coglobal.h"
+#include "log.h"
 
 static int gquic_session_config_transfer_tls_config(gquic_tls_config_t *const, gquic_config_t *const);
 static int gquic_session_add_reset_token_wrapper(void *const, const gquic_str_t *const);
@@ -692,9 +693,13 @@ int gquic_session_run(gquic_session_t *const sess) {
                                     &sess->handshake_completed_chain);
         if (exception != GQUIC_EXCEPTION_TIMEOUT) {
             if (recv_chan == &sess->handshake_completed_chain) {
+                GQUIC_LOG(GQUIC_LOG_DEBUG, "session recv handshake completed signal");
+
                 gquic_session_handle_handshake_completed(sess);
             }
             else if (recv_chan == &sess->recevied_packet_chain) {
+                GQUIC_LOG(GQUIC_LOG_DEBUG, "session recv received packet signal");
+
                 if (!gquic_session_handle_packet_inner(sess, (gquic_received_packet_t *) event)) {
                     gquic_free((void *) event);
                     continue;
@@ -702,13 +707,25 @@ int gquic_session_run(gquic_session_t *const sess) {
                 gquic_free((void *) event);
             }
             else if (recv_chan == &sess->close_chain) {
+                GQUIC_LOG(GQUIC_LOG_DEBUG, "session recv close signal");
+
                 err_msg.err = ((gquic_session_close_event_t *) event)->err;
                 err_msg.immediate = ((gquic_session_close_event_t *) event)->immediate;
                 err_msg.remote = ((gquic_session_close_event_t *) event)->remote;
                 gquic_free((void *) event);
                 goto closed;
             }
+#if LOG
+            else {
+                GQUIC_LOG(GQUIC_LOG_DEBUG, "session recv sending schedule signal");
+            }
+#endif
         }
+#if LOG
+        else {
+            GQUIC_LOG(GQUIC_LOG_DEBUG, "session timeout");
+        }
+#endif
 
         u_int64_t now = gquic_time_now();
         if (sess->sent_packet_handler.alarm != 0 && sess->sent_packet_handler.alarm < now) {
@@ -739,20 +756,28 @@ int gquic_session_run(gquic_session_t *const sess) {
         }
 
         if (!sess->handshake_completed && now - sess->session_creation_time >= sess->cfg->handshake_timeout) {
+            GQUIC_LOG(GQUIC_LOG_INFO, "session handshake timeout");
+
             gquic_session_destroy_inner(sess, GQUIC_EXCEPTION_HANDSHAKE_TIMEOUT);
             continue;
         }
         if (sess->handshake_completed && now - gquic_session_idle_timeout_start_time(sess) >= sess->idle_timeout) {
+            GQUIC_LOG(GQUIC_LOG_INFO, "session idle timeout");
+
             gquic_session_destroy_inner(sess, GQUIC_EXCEPTION_IDLE_TIMEOUT);
             continue;
         }
 
         if (GQUIC_ASSERT_CAUSE(exception, gquic_session_send_packets(sess))) {
+            GQUIC_LOG(GQUIC_LOG_ERROR, "session send packets error");
+
             gquic_session_close_local(sess, exception);
             exception = GQUIC_SUCCESS;
         }
     }
 closed:
+    GQUIC_LOG(GQUIC_LOG_DEBUG, "session finished");
+
     gquic_session_handle_close_err(sess, err_msg.err, err_msg.immediate, err_msg.remote);
     gquic_handshake_establish_close(&sess->est);
     gquic_packet_send_queue_close(&sess->send_queue);
@@ -1538,6 +1563,7 @@ static int gquic_session_send_packets(gquic_session_t *const sess) {
     }
     packets_count = gquic_packet_sent_packet_handler_should_send_packets_count(&sess->sent_packet_handler);
     for ( ;; ) {
+        GQUIC_LOG(GQUIC_LOG_DEBUG, "session send packets loop");
         sended = 0;
         switch (send_mode) {
         case GQUIC_SEND_MODE_NONE:
@@ -1547,25 +1573,35 @@ static int gquic_session_send_packets(gquic_session_t *const sess) {
             if (packets_sent_count > 0) {
                 GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
             }
+            GQUIC_LOG(GQUIC_LOG_DEBUG, "session send mode ack");
+
             GQUIC_ASSERT_FAST_RETURN(gquic_session_try_send_only_ack_packet(sess));
             GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 
         case GQUIC_SEND_MODE_PTO_INITIAL:
+            GQUIC_LOG(GQUIC_LOG_DEBUG, "session send initial packet (PTO)");
+
             GQUIC_ASSERT_FAST_RETURN(gquic_session_send_probe_packet(sess, GQUIC_ENC_LV_INITIAL));
             packets_sent_count++;
             break;
 
         case GQUIC_SEND_MODE_PTO_HANDSHAKE:
+            GQUIC_LOG(GQUIC_LOG_DEBUG, "session send handshake packet (PTO)");
+
             GQUIC_ASSERT_FAST_RETURN(gquic_session_send_probe_packet(sess, GQUIC_ENC_LV_HANDSHAKE));
             packets_sent_count++;
             break;
 
         case GQUIC_SEND_MODE_PTO_APP:
+            GQUIC_LOG(GQUIC_LOG_DEBUG, "session send app packet (PTO)");
+
             GQUIC_ASSERT_FAST_RETURN(gquic_session_send_probe_packet(sess, GQUIC_ENC_LV_1RTT));
             packets_sent_count++;
             break;
 
         case GQUIC_SEND_MODE_ANY:
+            GQUIC_LOG(GQUIC_LOG_DEBUG, "session send any packet");
+
             GQUIC_ASSERT_FAST_RETURN(gquic_session_send_packet(&sended, sess));
             if (!sended) {
                 goto loop_end;
@@ -1639,6 +1675,8 @@ static int gquic_session_send_packed_packet(gquic_session_t *const sess, gquic_p
         sess->first_ack_eliciting_packet = gquic_time_now();
     }
     sess->conn_id_manager.packets_since_last_change++;
+
+    GQUIC_LOG(GQUIC_LOG_DEBUG, "session send packed_packet to send_queue");
     gquic_packet_send_queue_send(&sess->send_queue, packed_packet);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
@@ -1675,11 +1713,14 @@ static int gquic_session_send_packet(int *const sent_packet, gquic_session_t *co
         GQUIC_PROCESS_DONE(exception);
     }
     if (!packed_packet->valid) {
+        GQUIC_LOG(GQUIC_LOG_DEBUG, "session packet invalid packet");
+
         gquic_packed_packet_dtor(packed_packet);
         gquic_free(packed_packet);
         gquic_free(packet);
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
+
     gquic_packed_packet_get_ack_packet(packet, packed_packet, &sess->retransmission);
     gquic_packet_sent_packet_handler_sent_packet(&sess->sent_packet_handler, packet);
     gquic_session_send_packed_packet(sess, packed_packet);

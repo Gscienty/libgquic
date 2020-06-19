@@ -8,6 +8,7 @@
 typedef u_int64_t gquic_time_t;
 
 int gquic_time_since_milli(int64_t *ret, const struct timeval *const t);
+
 static inline gquic_time_t gquic_time_now() {
     struct timeval tv;
     gettimeofday(&tv, NULL);

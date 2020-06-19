@@ -6,6 +6,7 @@
 #include "util/time.h"
 #include "util/malloc.h"
 #include "exception.h"
+#include "log.h"
 
 static int gquic_retransmission_queue_add_initial_wrapper(void *const, void *const);
 static int gquic_retransmission_queue_add_handshake_wrapper(void *const, void *const);
@@ -840,29 +841,56 @@ int gquic_packet_packer_try_pack_crypto_packet(gquic_packed_packet_t *const pack
     if (packed_packet == NULL || packer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
+
+    GQUIC_LOG(GQUIC_LOG_DEBUG, "packer try pack initial packet");
+
     GQUIC_ASSERT_CAUSE(exception, gquic_packet_packer_try_pack_initial_packet(packed_packet, packer));
     if (exception == GQUIC_EXCEPTION_KEY_DROPPED) {
+        GQUIC_LOG(GQUIC_LOG_DEBUG, "packer initial key dropped");
+
         packer->droped_initial = 1;
     }
     else if (exception != GQUIC_SUCCESS || packed_packet->valid == 1) {
+#if LOG
+        if (packed_packet->valid == 1) {
+            GQUIC_LOG(GQUIC_LOG_DEBUG, "packer packed initial packet success");
+        }
+        else {
+            GQUIC_LOG(GQUIC_LOG_DEBUG, "packer packed initial failed");
+        }
+#endif
+
         GQUIC_PROCESS_DONE(exception);
     }
 
+    GQUIC_LOG(GQUIC_LOG_DEBUG, "packer try pack handshake packet");
+
     GQUIC_ASSERT_CAUSE(exception, gquic_packet_packer_try_pack_handshake_packet(packed_packet, packer));
     if (exception == GQUIC_EXCEPTION_KEY_DROPPED) {
+        GQUIC_LOG(GQUIC_LOG_DEBUG, "packer handshake key dropped");
+
         packer->droped_handshake = 1;
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
     if (exception == GQUIC_EXCEPTION_KEY_UNAVAILABLE) {
+        GQUIC_LOG(GQUIC_LOG_DEBUG, "packer handshake key unavailable");
+
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
+#if LOG
+    if (packed_packet->valid == 1) {
+        GQUIC_LOG(GQUIC_LOG_DEBUG, "packer packed handshake packet success");
+    }
+    else {
+        GQUIC_LOG(GQUIC_LOG_DEBUG, "packer packed handshake packet failed");
+    }
+#endif
 
     GQUIC_PROCESS_DONE(exception);
 }
 
 int gquic_packet_packer_pack_crypto_packet(gquic_packed_packet_t *const packed_packet,
-                                           gquic_packet_packer_t *const packer,
-                                           gquic_packed_packet_payload_t *const payload,
+                                           gquic_packet_packer_t *const packer, gquic_packed_packet_payload_t *const payload,
                                            const int has_retransmission) {
     gquic_crypto_stream_t *str = NULL;
     u_int64_t header_len = 0;

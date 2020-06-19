@@ -1,7 +1,7 @@
 #include "event/epoll.h"
 #include "exception.h"
+#include "log.h"
 #include <stddef.h>
-
 
 int gquic_event_epoll_init(gquic_event_epoll_t *const event) {
     if (event == NULL) {

@@ -6,6 +6,7 @@
 #include "util/malloc.h"
 #include "coglobal.h"
 #include "exception.h"
+#include "log.h"
 #include <sys/time.h>
 #include <openssl/rand.h>
 #include <openssl/hmac.h>
@@ -148,6 +149,8 @@ static int gquic_packet_handler_map_listen(void *const handler_) {
     }
     for ( ;; ) {
         GQUIC_COGLOBAL_CHANNEL_RECV(exception, &recv_event, &recv_chan, 0, &handler->recv_event_chain, &handler->close_chain);
+        GQUIC_LOG(GQUIC_LOG_DEBUG, "packet_handler_map recevied event");
+
         if (recv_chan == &handler->close_chain) {
             break;
         }
@@ -157,6 +160,7 @@ static int gquic_packet_handler_map_listen(void *const handler_) {
         }
         if ((recv_len = recvfrom(handler->conn_fd,
                                  GQUIC_STR_VAL(&buffer->slice), GQUIC_STR_SIZE(&buffer->slice), 0, (struct sockaddr *) addr, &addr_len)) <= 0) {
+
             if (recv_len == -1 && errno == EAGAIN) {
                 continue;
             }
