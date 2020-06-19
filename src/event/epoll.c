@@ -63,6 +63,7 @@ int gquic_event_epoll_process(gquic_event_epoll_t *const event, const u_int64_t 
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_EPOLL_WAIT_FAILED);
     }
     for (i = 0; i < active_events; i++) {
+        GQUIC_LOG(GQUIC_LOG_DEBUG, "epoll received event");
         GQUIC_ASSERT(GQUIC_EVENT_EPOLL_PROCESS(event, event->actives[i].data.ptr));
     }
 

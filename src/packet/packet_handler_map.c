@@ -142,7 +142,7 @@ static int gquic_packet_handler_map_listen(void *const handler_) {
     const liteco_channel_t *recv_chan = NULL;
     int recv_len = 0;
     char addr[sizeof(struct sockaddr_in6) > sizeof(struct sockaddr_in) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in)] = { 0 };
-    socklen_t addr_len = 0;
+    socklen_t addr_len = sizeof(addr);
     int exception = GQUIC_SUCCESS;
     if (handler == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -154,39 +154,44 @@ static int gquic_packet_handler_map_listen(void *const handler_) {
         if (recv_chan == &handler->close_chain) {
             break;
         }
-        addr_len = sizeof(addr);
-        if (GQUIC_ASSERT(gquic_packet_buffer_get(&buffer))) {
-            break;
-        }
-        if ((recv_len = recvfrom(handler->conn_fd,
-                                 GQUIC_STR_VAL(&buffer->slice), GQUIC_STR_SIZE(&buffer->slice), 0, (struct sockaddr *) addr, &addr_len)) <= 0) {
 
-            if (recv_len == -1 && errno == EAGAIN) {
-                continue;
+        for ( ;; ) {
+            if (GQUIC_ASSERT(gquic_packet_buffer_get(&buffer))) {
+                goto finished;
             }
-            gquic_packet_handler_map_listen_close(handler, -1002);
-            break;
-        }
-        gquic_received_packet_t *recv_packet;
-        if (GQUIC_MALLOC_STRUCT(&recv_packet, gquic_received_packet_t)) {
-            break;
-        }
-        gquic_received_packet_init(recv_packet);
-        recv_packet->buffer = buffer;
-        recv_packet->data.size = recv_len;
-        recv_packet->data.val = GQUIC_STR_VAL(&buffer->slice);
-        recv_packet->recv_time = gquic_time_now();
-        if (addr_len == sizeof(struct sockaddr_in6)) {
-            recv_packet->remote_addr.type = AF_INET6;
-            recv_packet->remote_addr.addr.v6 = *(struct sockaddr_in6 *) addr;
-        }
-        else {
-            recv_packet->remote_addr.type = AF_INET;
-            recv_packet->remote_addr.addr.v4 = *(struct sockaddr_in *) addr;
-        }
+            if ((recv_len = recvfrom(handler->conn_fd,
+                                     GQUIC_STR_VAL(&buffer->slice), GQUIC_STR_SIZE(&buffer->slice), 0, (struct sockaddr *) addr, &addr_len)) <= 0) {
 
-        gquic_packet_handler_map_handle_packet(handler, recv_packet);
+                if (recv_len == -1 && errno == EAGAIN) {
+                    GQUIC_ASSERT(gquic_packet_buffer_put(buffer));
+                    break;
+                }
+                gquic_packet_handler_map_listen_close(handler, -1002);
+                goto finished;
+            }
+            gquic_received_packet_t *recv_packet;
+            if (GQUIC_ASSERT(GQUIC_MALLOC_STRUCT(&recv_packet, gquic_received_packet_t))) {
+                goto finished;
+            }
+            gquic_received_packet_init(recv_packet);
+            recv_packet->buffer = buffer;
+            recv_packet->data.size = recv_len;
+            recv_packet->data.val = GQUIC_STR_VAL(&buffer->slice);
+            recv_packet->recv_time = gquic_time_now();
+            if (addr_len == sizeof(struct sockaddr_in6)) {
+                recv_packet->remote_addr.type = AF_INET6;
+                recv_packet->remote_addr.addr.v6 = *(struct sockaddr_in6 *) addr;
+            }
+            else {
+                recv_packet->remote_addr.type = AF_INET;
+                recv_packet->remote_addr.addr.v4 = *(struct sockaddr_in *) addr;
+            }
+
+            gquic_packet_handler_map_handle_packet(handler, recv_packet);
+        }
     }
+
+finished:
     liteco_channel_close(&handler->listen_chain);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
