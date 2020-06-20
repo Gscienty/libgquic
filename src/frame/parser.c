@@ -21,6 +21,7 @@
 #include "frame/connection_close.h"
 #include "tls/common.h"
 #include "exception.h"
+#include "log.h"
 #include <stddef.h>
 
 static int gquic_frame_parser_parse(void **const, gquic_frame_parser_t *const, gquic_reader_str_t *const, const u_int8_t);
@@ -140,6 +141,7 @@ static int gquic_frame_parser_parse(void **const frame_storage,
         GQUIC_ASSERT_FAST_RETURN(gquic_frame_connection_close_alloc((gquic_frame_connection_close_t **) frame_storage));
         break;
     default:
+        GQUIC_LOG(GQUIC_LOG_ERROR, "received invalid frame type: (%02x)", GQUIC_STR_FIRST_BYTE(reader));
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INVALID_FRAME);
     }
     if (*frame_storage == NULL) {

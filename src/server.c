@@ -5,6 +5,7 @@
 #include "exception.h"
 #include "coglobal.h"
 #include <openssl/rand.h>
+#include <fcntl.h>
 
 static int gquic_server_accept_inner_co(void *const);
 static int gquic_server_implement_unknow_packet_handler(gquic_packet_unknow_packet_handler_t **const, gquic_server_t *const);
@@ -53,13 +54,29 @@ int gquic_server_init(gquic_server_t *const server) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_server_ctor(gquic_server_t *const server, int fd, gquic_net_addr_t *const addr, gquic_config_t *const config, const int accept_early) {
+int gquic_server_ctor(gquic_server_t *const server, const gquic_net_addr_t listen_addr, gquic_config_t *const config, const int accept_early) {
+    int fd = -1;
+    int flag = 0;
     gquic_packet_unknow_packet_handler_t *handler = NULL;
-    if (server == NULL || addr == NULL || config == NULL) {
+    if (server == NULL || config == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
+    if ((fd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOC_SOCKET_FAILED);
+    }
+    if (listen_addr.type == AF_INET) {
+        bind(fd, (struct sockaddr *) &listen_addr.addr.v4, sizeof(struct sockaddr_in));
+    }
+    else {
+        bind(fd, (struct sockaddr *) &listen_addr.addr.v6, sizeof(struct sockaddr_in6));
+    }
+    flag = fcntl(fd, F_GETFL, 0);
+    fcntl(fd, F_SETFL, flag | O_NONBLOCK);
+
+    gquic_coglobal_thread_init(0);
+
     server->config = config;
-    server->conn.addr = *addr;
+    server->conn.addr = listen_addr;
     server->conn.fd = fd;
     server->accept_early_sess = accept_early;
     GQUIC_ASSERT_FAST_RETURN(gquic_multiplexer_add_conn(&server->packet_handlers, fd, config->conn_id_len, &config->stateless_reset_key));

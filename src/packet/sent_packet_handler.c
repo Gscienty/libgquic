@@ -5,10 +5,11 @@
 #include "util/malloc.h"
 #include "util/time.h"
 #include "exception.h"
+#include "log.h"
 #include <math.h>
 
-static inline gquic_packet_sent_pn_t *gquic_sent_packet_handler_get_sent_pn(gquic_packet_sent_packet_handler_t *const,
-                                                                            const u_int8_t enc_lv);
+static inline int gquic_sent_packet_handler_get_sent_pn(gquic_packet_sent_pn_t **const,
+                                                        gquic_packet_sent_packet_handler_t *const, const u_int8_t enc_lv);
 static inline int gquic_sent_packet_handler_get_earliest_loss_time_space(u_int64_t *const,
                                                                          u_int8_t *const,
                                                                          gquic_packet_sent_packet_handler_t *const);
@@ -222,7 +223,7 @@ int gquic_packet_sent_packet_handler_drop_packets(gquic_packet_sent_packet_handl
     if (handler == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    sent_pn = gquic_sent_packet_handler_get_sent_pn(handler, enc_lv);
+    GQUIC_ASSERT_FAST_RETURN(gquic_sent_packet_handler_get_sent_pn(&sent_pn, handler, enc_lv));
     GQUIC_LIST_FOREACH(packet_storage, &sent_pn->mem.list) {
         if ((*packet_storage)->included_infly) {
             handler->infly_bytes -= (*packet_storage)->len;
@@ -258,9 +259,7 @@ int gquic_packet_sent_packet_handler_sent_packet(gquic_packet_sent_packet_handle
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (gquic_packet_sent_packet_handler_sent_packet_inner(handler, packet)) {
-        if ((sent_pn = gquic_sent_packet_handler_get_sent_pn(handler, packet->enc_lv)) == NULL) {
-            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INVALID_ENC_LV);
-        }
+        GQUIC_ASSERT_FAST_RETURN(gquic_sent_packet_handler_get_sent_pn(&sent_pn, handler, packet->enc_lv));
         gquic_packet_sent_mem_sent_packet(&sent_pn->mem, packet);
 
         gquic_sent_packet_handler_set_loss_detection_timer(handler);
@@ -285,7 +284,7 @@ int gquic_packet_sent_packet_handler_received_ack(gquic_packet_sent_packet_handl
     gquic_list_head_init(&blocks);
     gquic_list_head_init(&acked_packets);
     GQUIC_ASSERT_FAST_RETURN(gquic_frame_ack_ranges_to_blocks(&blocks, ack_frame));
-    pn_spec = gquic_sent_packet_handler_get_sent_pn(handler, enc_lv);
+    gquic_sent_packet_handler_get_sent_pn(&pn_spec, handler, enc_lv);
     largest_ack = ack_frame->largest_ack;
     if (largest_ack > pn_spec->largest_ack) {
         GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_RECV_UNSENT_PACKET_ACK);
@@ -350,20 +349,25 @@ failure:
     GQUIC_PROCESS_DONE(exception);
 }
 
-static inline gquic_packet_sent_pn_t *gquic_sent_packet_handler_get_sent_pn(gquic_packet_sent_packet_handler_t *const handler, const u_int8_t enc_lv) {
-    if (handler == NULL) {
-        return NULL;
+static inline int gquic_sent_packet_handler_get_sent_pn(gquic_packet_sent_pn_t **const storage,
+                                                        gquic_packet_sent_packet_handler_t *const handler, const u_int8_t enc_lv) {
+    if (storage == NULL || handler == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     switch (enc_lv) {
     case GQUIC_ENC_LV_INITIAL:
-        return handler->initial_packets;
+        *storage = handler->initial_packets;
+        break;
     case GQUIC_ENC_LV_HANDSHAKE:
-        return handler->handshake_packets;
+        *storage = handler->handshake_packets;
+        break;
     case GQUIC_ENC_LV_1RTT:
-        return handler->one_rtt_packets;
+        *storage = handler->one_rtt_packets;
+        break;
+    default:
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INVALID_ENC_LV);
     }
-
-    return NULL;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static inline int gquic_sent_packet_handler_get_earliest_loss_time_space(u_int64_t *const loss_time,
@@ -464,7 +468,7 @@ static inline int gquic_packet_sent_packet_handler_sent_packet_inner(gquic_packe
     if (handler == NULL || packet == NULL) {
         return 0;
     }
-    if ((pn_spc = gquic_sent_packet_handler_get_sent_pn(handler, packet->enc_lv)) == NULL) {
+    if (GQUIC_ASSERT(gquic_sent_packet_handler_get_sent_pn(&pn_spc, handler, packet->enc_lv))) {
         return 0;
     }
     pn_spc->largest_sent = packet->pn;
@@ -501,9 +505,7 @@ static int gquic_packet_sent_packet_handler_determine_newly_acked_packets(gquic_
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_list_head_init(packets);
-    if ((pn_spec = gquic_sent_packet_handler_get_sent_pn(handler, enc_lv)) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INVALID_ENC_LV);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_sent_packet_handler_get_sent_pn(&pn_spec, handler, enc_lv));
     lowest_ack = ((gquic_frame_ack_block_t *) GQUIC_LIST_LAST(blocks))->smallest;
     largest_ack = ((gquic_frame_ack_block_t *) GQUIC_LIST_FIRST(blocks))->largest;
     block = GQUIC_LIST_PAYLOAD(blocks);
@@ -553,9 +555,7 @@ static int gquic_packet_sent_packet_handler_on_packet_acked(gquic_packet_sent_pa
     if (handler == NULL || packet == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if ((pn_spec = gquic_sent_packet_handler_get_sent_pn(handler, packet->enc_lv)) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INVALID_ENC_LV);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_sent_packet_handler_get_sent_pn(&pn_spec, handler, packet->enc_lv));
     GQUIC_ASSERT_FAST_RETURN(gquic_packet_sent_mem_get_packet(&mem_packet, &pn_spec->mem, packet->pn));
     if (mem_packet == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
@@ -596,9 +596,7 @@ static int gquic_packet_sent_packet_handler_detect_lost_packets(gquic_packet_sen
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_list_head_init(&lost_packets);
-    if ((pn_spec = gquic_sent_packet_handler_get_sent_pn(handler, enc_lv)) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INVALID_ENC_LV);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_sent_packet_handler_get_sent_pn(&pn_spec, handler, enc_lv));
     pn_spec->loss_time = 0;
     max_rtt = handler->rtt->latest > handler->rtt->smooth ? handler->rtt->latest : handler->rtt->smooth;
     loss_delay = 9.0 / 8 * max_rtt;
@@ -688,18 +686,14 @@ static int gquic_packet_sent_packet_handler_on_verified_loss_detection_timeout(g
 }
 
 int gquic_packet_sent_packet_handler_peek_pn(u_int64_t *const pn,
-                                             int *const pn_len,
-                                             gquic_packet_sent_packet_handler_t *const handler,
-                                             const u_int8_t enc_lv) {
+                                             int *const pn_len, gquic_packet_sent_packet_handler_t *const handler, const u_int8_t enc_lv) {
     gquic_packet_t **packet_storage = NULL;
     gquic_packet_sent_pn_t *pn_spec = NULL;
     u_int64_t lowest_unacked = 0;
     if (pn == NULL || pn_len == NULL || handler == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if ((pn_spec = gquic_sent_packet_handler_get_sent_pn(handler, enc_lv)) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INVALID_ENC_LV);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_sent_packet_handler_get_sent_pn(&pn_spec, handler, enc_lv));
     if (!gquic_list_head_empty(&pn_spec->mem.list)) {
         packet_storage = GQUIC_LIST_FIRST(&pn_spec->mem.list);
     }
@@ -720,9 +714,7 @@ int gquic_packet_sent_packet_handler_pop_pn(u_int64_t *const ret, gquic_packet_s
     if (handler == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if ((pn_spec = gquic_sent_packet_handler_get_sent_pn(handler, enc_lv)) == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INVALID_ENC_LV);
-    }
+    GQUIC_ASSERT_FAST_RETURN(gquic_sent_packet_handler_get_sent_pn(&pn_spec, handler, enc_lv));
     GQUIC_ASSERT_FAST_RETURN(gquic_packet_number_gen_next(ret, &pn_spec->pn_gen));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
@@ -781,7 +773,7 @@ int gquic_packet_sent_packet_handler_queue_probe_packet(gquic_packet_sent_packet
     if (handler == NULL) {
         return 0;
     }
-    if ((pn_spec = gquic_sent_packet_handler_get_sent_pn(handler, enc_lv)) == NULL) {
+    if (GQUIC_ASSERT(gquic_sent_packet_handler_get_sent_pn(&pn_spec, handler, enc_lv))) {
         return 0;
     }
     if (gquic_list_head_empty(&pn_spec->mem.list)) {

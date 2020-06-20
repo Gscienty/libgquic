@@ -65,7 +65,7 @@ struct gquic_session_s {
     liteco_channel_t close_chain;
     liteco_channel_t handshake_completed_chain;
     liteco_channel_t sending_schedule_chain;
-    liteco_channel_t recevied_packet_chain;
+    liteco_channel_t received_packet_chain;
     liteco_channel_t client_hello_writen_chain;
 
     int undecryptable_packets_count;

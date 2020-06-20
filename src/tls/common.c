@@ -58,3 +58,20 @@ int gquic_tls_requires_cli_cert(u_int8_t c) {
         return 0;
     }
 }
+
+#if LOG
+const char *gquic_enc_lv_to_string_inner(const int enc_lv) {
+    switch (enc_lv) {
+    case 1:
+        return "ENC_LV_INITIAL";
+    case 2:
+        return "ENC_LV_HANDSHAKE";
+    case 3:
+        return "ENC_LV_1RTT";
+    case 4:
+        return "ENC_LV_APP";
+    }
+    return "ENC_LV_UNKNOW";
+}
+
+#endif

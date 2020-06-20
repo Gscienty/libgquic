@@ -152,7 +152,7 @@ int gquic_session_init(gquic_session_t *const sess) {
     liteco_channel_init(&sess->client_hello_writen_chain);
     liteco_channel_init(&sess->close_chain);
     liteco_channel_init(&sess->sending_schedule_chain);
-    liteco_channel_init(&sess->recevied_packet_chain);
+    liteco_channel_init(&sess->received_packet_chain);
     liteco_channel_init(&sess->handshake_completed_chain);
 
     sess->undecryptable_packets_count = 0;
@@ -549,7 +549,7 @@ int gquic_session_handle_packet(gquic_session_t *const sess, gquic_received_pack
     if (sess == NULL || rp == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    liteco_channel_send(&sess->recevied_packet_chain, rp);
+    liteco_channel_send(&sess->received_packet_chain, rp);
     
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -668,10 +668,15 @@ int gquic_session_run(gquic_session_t *const sess) {
 
     for ( ;; ) {
         event = NULL;
-        GQUIC_COGLOBAL_CHANNEL_RECV(exception, &event, &recv_chan, 0,
-                                    &sess->close_chain,
-                                    &sess->handshake_completed_chain,
-                                    &__CLOSED_CHAN__);
+        if (sess->handshake_completed) {
+            GQUIC_COGLOBAL_CHANNEL_RECV(exception, &event, &recv_chan, 0, &sess->close_chain, &__CLOSED_CHAN__);
+        }
+        else {
+            GQUIC_COGLOBAL_CHANNEL_RECV(exception, &event, &recv_chan, 0,
+                                        &sess->close_chain,
+                                        &sess->handshake_completed_chain,
+                                        &__CLOSED_CHAN__);
+        }
         if (recv_chan == &sess->handshake_completed_chain) {
             gquic_session_handle_handshake_completed(sess);
         }
@@ -686,18 +691,26 @@ int gquic_session_run(gquic_session_t *const sess) {
         event = NULL;
         gquic_session_try_reset_deadline(sess);
 
-        GQUIC_COGLOBAL_CHANNEL_RECV(exception, &event, &recv_chan, sess->deadline,
-                                    &sess->close_chain,
-                                    &sess->sending_schedule_chain,
-                                    &sess->recevied_packet_chain,
-                                    &sess->handshake_completed_chain);
+        if (sess->handshake_completed) {
+            GQUIC_COGLOBAL_CHANNEL_RECV(exception, &event, &recv_chan, sess->deadline,
+                                        &sess->close_chain,
+                                        &sess->sending_schedule_chain,
+                                        &sess->received_packet_chain);
+        }
+        else {
+            GQUIC_COGLOBAL_CHANNEL_RECV(exception, &event, &recv_chan, sess->deadline,
+                                        &sess->close_chain,
+                                        &sess->sending_schedule_chain,
+                                        &sess->received_packet_chain,
+                                        &sess->handshake_completed_chain);
+        }
         if (exception != GQUIC_EXCEPTION_TIMEOUT) {
             if (recv_chan == &sess->handshake_completed_chain) {
                 GQUIC_LOG(GQUIC_LOG_DEBUG, "session recv handshake completed signal");
 
                 gquic_session_handle_handshake_completed(sess);
             }
-            else if (recv_chan == &sess->recevied_packet_chain) {
+            else if (recv_chan == &sess->received_packet_chain) {
                 GQUIC_LOG(GQUIC_LOG_DEBUG, "session recv received packet signal");
 
                 if (!gquic_session_handle_packet_inner(sess, (gquic_received_packet_t *) event)) {

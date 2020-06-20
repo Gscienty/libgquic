@@ -28,7 +28,7 @@ struct gquic_server_s {
 };
 
 int gquic_server_init(gquic_server_t *const server);
-int gquic_server_ctor(gquic_server_t *const server, int fd, gquic_net_addr_t *const addr, gquic_config_t *const config, const int accept_early);
+int gquic_server_ctor(gquic_server_t *const server, const gquic_net_addr_t listen_addr, gquic_config_t *const config, const int accept_early);
 int gquic_server_accept(gquic_session_t **const session_storage, gquic_server_t *const server);
 int gquic_server_close(gquic_server_t *const server);
 int gquic_server_set_close_err(gquic_server_t *const server, const int err);

@@ -3,6 +3,7 @@
 
 #include "util/list.h"
 #include "util/str.h"
+#include "log.h"
 
 #define GQUIC_TLS_HANDSHAKE_MSG_TYPE_HELLO_REQ 0x00
 #define GQUIC_TLS_HANDSHAKE_MSG_TYPE_CLIENT_HELLO 0x01
@@ -86,6 +87,12 @@
 #define GQUIC_ENC_LV_1RTT 3
 #define GQUIC_ENC_LV_APP 4
 
+#if LOG
+const char *gquic_enc_lv_to_string_inner(const int enc_lv);
+#define gquic_enc_lv_to_string(enc_lv) gquic_enc_lv_to_string_inner(enc_lv)
+#else
+#define gquic_enc_lv_to_string(enc_lv)
+#endif
 
 #define GQUIC_CLI_AUTH_REQ 0x01
 #define GQUIC_CLI_AUTH_REQ_ANY 0x02
