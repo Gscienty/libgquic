@@ -103,8 +103,6 @@ static int gquic_client_establish_sec_conn(void *const client) {
     if (client == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    ((gquic_client_t *) client)->sess.on_handshake_completed.self = client;
-    ((gquic_client_t *) client)->sess.on_handshake_completed.cb = gquic_client_on_handshake_completed;
     gquic_coglobal_execute(gquic_client_session_run_co, client);
 
     GQUIC_COGLOBAL_CHANNEL_RECV(exception, &recv_event, &recv_chan, 0,
@@ -152,6 +150,8 @@ static int gquic_client_on_handshake_completed(void *const client_) {
     if (client == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
+    GQUIC_LOG(GQUIC_LOG_INFO, "client handshake completed");
+
     liteco_channel_close(&client->handshake_complete_chain);
     
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
@@ -216,6 +216,8 @@ static int gquic_client_create_sess(gquic_client_t *const client) {
                                          client->initial_pn,
                                          1))) {
         client->sess_created = 1;
+        client->sess.on_handshake_completed.self = client;
+        client->sess.on_handshake_completed.cb = gquic_client_on_handshake_completed;
     }
     pthread_mutex_unlock(&client->mtx);
 
@@ -265,6 +267,7 @@ static int gquic_client_connect(gquic_client_t *const client) {
     if (client == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
+
     GQUIC_ASSERT_FAST_RETURN(gquic_client_create_sess(client));
     gquic_coglobal_currmachine_execute(&co, gquic_client_establish_sec_conn, client);
     GQUIC_PROCESS_DONE(gquic_coglobal_schedule_until_completed(co));

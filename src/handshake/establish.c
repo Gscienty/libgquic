@@ -673,8 +673,7 @@ static int gquic_establish_try_send_sess_ticket(gquic_handshake_establish_t *con
 }
 
 int gquic_handshake_establish_get_initial_opener(gquic_header_protector_t **const protector,
-                                                 gquic_common_long_header_opener_t **const opener,
-                                                 gquic_handshake_establish_t *const est) {
+                                                 gquic_common_long_header_opener_t **const opener, gquic_handshake_establish_t *const est) {
     int exception = GQUIC_SUCCESS;
     if (protector == NULL || opener == NULL || est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -693,8 +692,7 @@ int gquic_handshake_establish_get_initial_opener(gquic_header_protector_t **cons
 }
 
 int gquic_handshake_establish_get_handshake_opener(gquic_header_protector_t **const protector,
-                                                   gquic_common_long_header_opener_t **const opener,
-                                                   gquic_handshake_establish_t *const est) {
+                                                   gquic_common_long_header_opener_t **const opener, gquic_handshake_establish_t *const est) {
     int exception = GQUIC_SUCCESS;
     if (protector == NULL || opener == NULL || est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -718,8 +716,7 @@ int gquic_handshake_establish_get_handshake_opener(gquic_header_protector_t **co
 }
 
 int gquic_handshake_establish_get_1rtt_opener(gquic_header_protector_t **const protector,
-                                              gquic_auto_update_aead_t **const opener,
-                                              gquic_handshake_establish_t *const est) {
+                                              gquic_auto_update_aead_t **const opener, gquic_handshake_establish_t *const est) {
     int exception = GQUIC_SUCCESS;
     if (protector == NULL || opener == NULL || est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -738,8 +735,7 @@ int gquic_handshake_establish_get_1rtt_opener(gquic_header_protector_t **const p
 }
 
 int gquic_handshake_establish_get_initial_sealer(gquic_header_protector_t **const protector,
-                                                 gquic_common_long_header_sealer_t **const sealer,
-                                                 gquic_handshake_establish_t *const est) {
+                                                 gquic_common_long_header_sealer_t **const sealer, gquic_handshake_establish_t *const est) {
     int exception = GQUIC_SUCCESS;
     if (protector == NULL || sealer == NULL || est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -758,8 +754,7 @@ int gquic_handshake_establish_get_initial_sealer(gquic_header_protector_t **cons
 }
 
 int gquic_handshake_establish_get_handshake_sealer(gquic_header_protector_t **const protector,
-                                                   gquic_common_long_header_sealer_t **const sealer,
-                                                   gquic_handshake_establish_t *const est) {
+                                                   gquic_common_long_header_sealer_t **const sealer, gquic_handshake_establish_t *const est) {
     int exception = GQUIC_SUCCESS;
     if (protector == NULL || sealer == NULL || est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -783,8 +778,7 @@ int gquic_handshake_establish_get_handshake_sealer(gquic_header_protector_t **co
 }
 
 int gquic_handshake_establish_get_1rtt_sealer(gquic_header_protector_t **const protector,
-                                              gquic_auto_update_aead_t **const sealer,
-                                              gquic_handshake_establish_t *const est) {
+                                              gquic_auto_update_aead_t **const sealer, gquic_handshake_establish_t *const est) {
     int exception = GQUIC_SUCCESS;
     if (protector == NULL || sealer == NULL || est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);

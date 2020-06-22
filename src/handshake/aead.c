@@ -429,8 +429,7 @@ int gquic_common_long_header_sealer_seal(gquic_str_t *const tag,
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_common_long_header_sealer_get_header_sealer(gquic_header_protector_t **const protector,
-                                                      gquic_common_long_header_sealer_t *const sealer) {
+int gquic_common_long_header_sealer_get_header_sealer(gquic_header_protector_t **const protector, gquic_common_long_header_sealer_t *const sealer) {
     if (protector == NULL || sealer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }

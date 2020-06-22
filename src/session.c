@@ -190,6 +190,9 @@ int gquic_session_init(gquic_session_t *const sess) {
 
     gquic_tls_config_init(&sess->tls_config);
 
+    sess->on_handshake_completed.cb = NULL;
+    sess->on_handshake_completed.self = NULL;
+
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
@@ -436,6 +439,8 @@ static int gquic_session_on_handshake_complete_client_wrapper(void *const sess_)
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     liteco_channel_close(&sess->handshake_completed_chain);
+
+    GQUIC_SESSION_ON_HANDSHAKE_COMPLETED(sess);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

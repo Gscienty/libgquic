@@ -97,11 +97,12 @@ int gquic_coglobal_channel_recv(const void **const event, const liteco_channel_t
                                      : gquic_coglobal_select_machine(),
                                      __CURR_CO__, channels, timeout);
 
+    // spec tips: ignore closed channel exception
     switch (result) {
     case LITECO_TIMEOUT:
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_TIMEOUT);
+        return GQUIC_EXCEPTION_TIMEOUT;
     case LITECO_CLOSED:
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_CLOSED);
+        return GQUIC_EXCEPTION_CLOSED;
     default:
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }

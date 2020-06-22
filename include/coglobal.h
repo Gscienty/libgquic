@@ -17,7 +17,7 @@ int gquic_coglobal_yield();
 #define GQUIC_COGLOBAL_CHANNEL_RECV(exception, event, recv_channel, timeout, ...) \
 (({\
     liteco_channel_t *const recv_channels[] = { __VA_ARGS__, NULL }; \
-    GQUIC_EXCEPTION_ASSIGN(exception, gquic_coglobal_channel_recv(event, recv_channel, recv_channels, timeout)); \
+    exception = gquic_coglobal_channel_recv(event, recv_channel, recv_channels, timeout); \
 }), exception)
 
 #endif

@@ -164,8 +164,7 @@ int gquic_common_long_header_sealer_seal(gquic_str_t *const tag,
                                          const u_int64_t pn,
                                          const gquic_str_t *const plain_text,
                                          const gquic_str_t *const addata);
-int gquic_common_long_header_sealer_get_header_sealer(gquic_header_protector_t **const protector,
-                                                      gquic_common_long_header_sealer_t *const sealer);
+int gquic_common_long_header_sealer_get_header_sealer(gquic_header_protector_t **const protector, gquic_common_long_header_sealer_t *const sealer);
 
 typedef struct gquic_common_long_header_opener_s gquic_common_long_header_opener_t;
 struct gquic_common_long_header_opener_s {
