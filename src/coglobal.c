@@ -95,7 +95,7 @@ int gquic_coglobal_channel_recv(const void **const event, const liteco_channel_t
                                      ((gquic_coroutine_t *) __CURR_CO__->args)->lock_machine
                                      ? __GQUIC_CURR_MACHINE__
                                      : gquic_coglobal_select_machine(),
-                                     __CURR_CO__, channels, timeout);
+                                     channels, timeout);
 
     // spec tips: ignore closed channel exception
     switch (result) {
