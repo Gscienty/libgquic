@@ -17,7 +17,7 @@ struct gquic_coroutine_s {
     bool auto_finished;
     bool lock_machine;
 };
-static int gquic_coroutine_func(liteco_coroutine_t *const, void *const);
+static int gquic_coroutine_func(void *const);
 static int gquic_coroutine_finished(liteco_coroutine_t *const);
 static bool inited = false;
 static int gquic_coroutine_create(gquic_coroutine_t **const, int (*)(void *const), void *const);
@@ -108,9 +108,7 @@ int gquic_coglobal_channel_recv(const void **const event, const liteco_channel_t
     }
 }
 
-static int gquic_coroutine_func(liteco_coroutine_t *const co, void *const args) {
-    (void) co;
-
+static int gquic_coroutine_func(void *const args) {
     GQUIC_PROCESS_DONE(((gquic_coroutine_t *) args)->fn(((gquic_coroutine_t *) args)->args));
 }
 
