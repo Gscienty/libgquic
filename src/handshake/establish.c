@@ -215,6 +215,8 @@ static int gquic_establish_run(void *const est_) {
         goto finish;
     }
     liteco_channel_close(&est->complete_chain);
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "establish completed");
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 finish:
     liteco_channel_close(&est->done_chain);

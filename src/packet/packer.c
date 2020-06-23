@@ -710,7 +710,7 @@ int gquic_packet_packer_try_pack_handshake_packet(gquic_packed_packet_t *const p
     if (payload.ack != NULL) {
         payload.len = GQUIC_FRAME_SIZE(payload.ack);
     }
-    has_retransmission = gquic_retransmission_queue_has_initial(packer->retransmission_queue);
+    has_retransmission = gquic_retransmission_queue_has_handshake(packer->retransmission_queue);
     if (!gquic_crypto_stream_has_data(packer->handshake_stream) && !has_retransmission && payload.ack == NULL) {
         gquic_packed_packet_payload_dtor(&payload);
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);

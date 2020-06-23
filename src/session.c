@@ -438,8 +438,9 @@ static int gquic_session_on_handshake_complete_client_wrapper(void *const sess_)
     if (sess == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    liteco_channel_close(&sess->handshake_completed_chain);
+    GQUIC_LOG(GQUIC_LOG_INFO, "session(client) handshake completed");
 
+    liteco_channel_close(&sess->handshake_completed_chain);
     GQUIC_SESSION_ON_HANDSHAKE_COMPLETED(sess);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
@@ -450,9 +451,10 @@ static int gquic_session_on_handshake_complete_server_wrapper(void *const sess_)
     if (sess == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
+    GQUIC_LOG(GQUIC_LOG_INFO, "session(server) handshake completed");
+
     gquic_packet_handler_map_retire(sess->runner, &sess->cli_dst_conn_id);
     liteco_channel_close(&sess->handshake_completed_chain);
-
     GQUIC_SESSION_ON_HANDSHAKE_COMPLETED(sess);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
@@ -660,9 +662,7 @@ int gquic_session_run(gquic_session_t *const sess) {
     gquic_coglobal_execute(gquic_session_run_send_queue_co, sess);
 
     if (sess->is_client) {
-        GQUIC_COGLOBAL_CHANNEL_RECV(exception, &event, &recv_chan, 0,
-                                    &sess->client_hello_writen_chain,
-                                    &sess->close_chain);
+        GQUIC_COGLOBAL_CHANNEL_RECV(exception, &event, &recv_chan, 0, &sess->client_hello_writen_chain, &sess->close_chain);
         if (recv_chan == &sess->client_hello_writen_chain) {
             gquic_session_schedule_sending(sess);
         }
