@@ -272,3 +272,51 @@ static int gquic_client_connect(gquic_client_t *const client) {
     gquic_coglobal_currmachine_execute(&co, gquic_client_establish_sec_conn, client);
     GQUIC_PROCESS_DONE(gquic_coglobal_schedule_until_completed(co));
 }
+
+int gquic_client_accept_stream(gquic_stream_t **const stream_storage, gquic_client_t *const client, liteco_channel_t *const done_chan) {
+    if (stream_storage == NULL || client == NULL || done_chan == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}
+
+int gquic_client_accept_uni_stream(gquic_stream_t **const stream_storage, gquic_client_t *const client, liteco_channel_t *const done_chan) {
+    if (stream_storage == NULL || client == NULL || done_chan == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}
+
+int gquic_client_open_stream(gquic_stream_t **const stream_storage, gquic_client_t *const client) {
+    if (stream_storage == NULL || client == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+
+    GQUIC_PROCESS_DONE(gquic_session_open_stream(stream_storage, &client->sess));
+}
+
+int gquic_client_open_stream_sync(gquic_stream_t **const stream_storage, gquic_client_t *const client, liteco_channel_t *const done_chan) {
+    if (stream_storage == NULL || client == NULL || done_chan == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+
+    GQUIC_PROCESS_DONE(gquic_session_open_stream_sync(stream_storage, &client->sess, done_chan));
+}
+
+int gquic_client_open_uni_stream(gquic_stream_t **const stream_storage, gquic_client_t *const client) {
+    if (stream_storage == NULL || client == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+
+    GQUIC_PROCESS_DONE(gquic_session_open_uni_stream(stream_storage, &client->sess));
+}
+
+int gquic_client_open_uni_stream_sync(gquic_stream_t **const stream_storage, gquic_client_t *const client, liteco_channel_t *const done_chan) {
+    if (stream_storage == NULL || client == NULL || done_chan == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+
+    GQUIC_PROCESS_DONE(gquic_session_open_uni_stream_sync(stream_storage, &client->sess, done_chan));
+}

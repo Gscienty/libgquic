@@ -41,4 +41,11 @@ int gquic_client_done(gquic_client_t *const client);
 int gquic_client_close(gquic_client_t *const client);
 int gquic_client_destory(gquic_client_t *const client, const int err);
 
+int gquic_client_accept_stream(gquic_stream_t **const stream_storage, gquic_client_t *const client, liteco_channel_t *const done_chan);
+int gquic_client_accept_uni_stream(gquic_stream_t **const stream_storage, gquic_client_t *const client, liteco_channel_t *const done_chan);
+int gquic_client_open_stream(gquic_stream_t **const stream_storage, gquic_client_t *const client);
+int gquic_client_open_stream_sync(gquic_stream_t **const stream_storage, gquic_client_t *const client, liteco_channel_t *const done_chan);
+int gquic_client_open_uni_stream(gquic_stream_t **const stream_storage, gquic_client_t *const client);
+int gquic_client_open_uni_stream_sync(gquic_stream_t **const stream_storage, gquic_client_t *const client, liteco_channel_t *const done_chan);
+
 #endif

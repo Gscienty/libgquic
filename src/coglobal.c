@@ -128,6 +128,7 @@ int gquic_coglobal_schedule() {
 }
 
 int gquic_coglobal_schedule_until_completed(const liteco_coroutine_t *const co) {
+    int exception = GQUIC_SUCCESS;
     if (co == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -136,11 +137,12 @@ int gquic_coglobal_schedule_until_completed(const liteco_coroutine_t *const co) 
     while (co->status != LITECO_TERMINATE) {
         gquic_coglobal_schedule();
     }
+    GQUIC_EXCEPTION_ASSIGN(exception, co->result);
 
     ((gquic_coroutine_t *) co->args)->auto_finished = true;
     gquic_coroutine_finished((liteco_coroutine_t *) co);
 
-    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+    GQUIC_PROCESS_DONE(exception);
 }
 
 static int gquic_coroutine_create(gquic_coroutine_t **const co_storage, int (*func)(void *const), void *const args) {

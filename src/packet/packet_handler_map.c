@@ -7,10 +7,10 @@
 #include "coglobal.h"
 #include "exception.h"
 #include "log.h"
-#include <sys/time.h>
 #include <openssl/rand.h>
 #include <openssl/hmac.h>
 #include <errno.h>
+#include <string.h>
 
 typedef struct __send_stateless_reset_param_s __send_stateless_reset_param_t;
 struct __send_stateless_reset_param_s {
@@ -24,8 +24,8 @@ struct __reset_token_param_s {
     int err;
 };
 
-typedef struct __retire_timeout_param_s __retire_timeout_param_t;
-struct __retire_timeout_param_s {
+typedef struct gquic_phm_retire_timeout_param_s gquic_phm_retire_timeout_param_t;
+struct gquic_phm_retire_timeout_param_s {
     gquic_packet_handler_map_t *handler;
     gquic_str_t conn_id;
 };
@@ -444,11 +444,11 @@ int gquic_packet_handler_map_remove(gquic_packet_handler_map_t *const handler, c
 }
 
 int gquic_packet_handler_map_retire(gquic_packet_handler_map_t *const handler, const gquic_str_t *const conn_id) {
-    __retire_timeout_param_t *param = NULL;
+    gquic_phm_retire_timeout_param_t *param = NULL;
     if (handler == NULL || conn_id == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&param, __retire_timeout_param_t));
+    GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&param, gquic_phm_retire_timeout_param_t));
     param->handler = handler;
     gquic_str_copy(&param->conn_id, conn_id);
 
@@ -459,14 +459,14 @@ int gquic_packet_handler_map_retire(gquic_packet_handler_map_t *const handler, c
 
 static int gquic_retire_timeout_cb(void *const param_) {
     gquic_rbtree_t *rbt = NULL;
-    __retire_timeout_param_t *param = param_;
+    gquic_phm_retire_timeout_param_t *param = param_;
     if (param == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
 
     pthread_mutex_lock(&param->handler->mtx);
     if (gquic_rbtree_find_cmp((const gquic_rbtree_t **) &rbt, param->handler->handlers, &param->conn_id, gquic_packet_handler_rb_str_cmp) == 0) {
-        gquic_rbtree_remove(&rbt, &param->handler->handlers);
+        gquic_rbtree_remove(&param->handler->handlers, &rbt);
         gquic_str_reset(GQUIC_RBTREE_KEY(rbt));
         gquic_free(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt));
         gquic_rbtree_release(rbt, NULL);
@@ -603,7 +603,7 @@ static int gquic_retire_reset_token_timeout_cb(void *const param_) {
     }
     pthread_mutex_lock(&param->handler->mtx);
     if (gquic_rbtree_find_cmp((const gquic_rbtree_t **) &rbt, param->handler->reset_tokens, &param->token, gquic_packet_handler_rb_str_cmp) == 0) {
-        gquic_rbtree_remove(&rbt, &param->handler->reset_tokens);
+        gquic_rbtree_remove(&param->handler->reset_tokens, &rbt);
         gquic_str_reset(GQUIC_RBTREE_KEY(rbt));
         gquic_free(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt));
         gquic_rbtree_release(rbt, NULL);

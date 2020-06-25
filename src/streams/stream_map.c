@@ -3,10 +3,18 @@
 #include "frame/meta.h"
 #include "exception.h"
 
+typedef struct gquic_stream_map_accept_stream_param_s gquic_stream_accept_stream_param_t;
+struct gquic_stream_map_accept_stream_param_s {
+    gquic_stream_t *str;
+    gquic_stream_map_t *const str_map;
+    liteco_channel_t *const done_chan;
+};
+
 static int gquic_stream_map_outbidi_stream_ctor(gquic_stream_t *const, void *const, const u_int64_t);
 static int gquic_stream_map_inbidi_stream_ctor(gquic_stream_t *const, void *const, const u_int64_t);
 static int gquic_stream_map_outuni_stream_ctor(gquic_stream_t *const, void *const, const u_int64_t);
 static int gquic_stream_map_inuni_stream_ctor(gquic_stream_t *const, void *const, const u_int64_t);
+static int gquic_stream_map_accept_stream_co(void *const);
 
 int gquic_stream_map_init(gquic_stream_map_t *const str_map) {
     if (str_map == NULL) {
@@ -136,10 +144,30 @@ int gquic_stream_map_open_uni_stream_sync(gquic_stream_t **const str, gquic_stre
 }
 
 int gquic_stream_map_accept_stream(gquic_stream_t **const str, gquic_stream_map_t *const str_map, liteco_channel_t *const done_chan) {
+    int exception = GQUIC_SUCCESS;
+    liteco_coroutine_t *co = NULL;
     if (str == NULL || str_map == NULL || done_chan == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    return gquic_inbidi_stream_map_accept_stream(str, &str_map->inbidi, done_chan);
+    gquic_stream_accept_stream_param_t param = {
+        .str = NULL,
+        .str_map = str_map,
+        .done_chan = done_chan
+    };
+    gquic_coglobal_currmachine_execute(&co, gquic_stream_map_accept_stream_co, &param);
+    GQUIC_EXCEPTION_ASSIGN(exception, gquic_coglobal_schedule_until_completed(co));
+    *str = param.str;
+
+    GQUIC_PROCESS_DONE(exception);
+}
+
+static int gquic_stream_map_accept_stream_co(void *const param_) {
+    gquic_stream_accept_stream_param_t *const param = param_;
+    if (param == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+
+    return gquic_inbidi_stream_map_accept_stream(&param->str, &param->str_map->inbidi, param->done_chan);
 }
 
 int gquic_stream_map_accept_uni_stream(gquic_stream_t **const str, gquic_stream_map_t *const str_map, liteco_channel_t *const done_chan) {

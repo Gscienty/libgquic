@@ -11,7 +11,7 @@ int gquic_stream_init(gquic_stream_t *const str) {
     gquic_recv_stream_init(&str->recv);
     gquic_send_stream_init(&str->send);
     sem_init(&str->completed_mtx, 0, 1);
-    gquic_stream_sender_init(str->sender);
+    str->sender = NULL;
     gquic_uni_stream_sender_init(&str->recv_uni_sender);
     gquic_uni_stream_sender_init(&str->send_uni_sender);
     gquic_stream_sender_init(&str->recv_sender);
