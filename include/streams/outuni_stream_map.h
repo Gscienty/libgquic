@@ -3,12 +3,13 @@
 
 #include "streams/stream.h"
 #include "util/rbtree.h"
-#include <semaphore.h>
+#include "coglobal.h"
+#include <pthread.h>
 
 typedef struct gquic_outuni_stream_map_s gquic_outuni_stream_map_t;
 struct gquic_outuni_stream_map_s {
-    sem_t mtx;
-    gquic_rbtree_t *streams_root; /* u_int64_t: gquic_stream_t */
+    pthread_mutex_t mtx;
+    gquic_rbtree_t *streams; /* u_int64_t: gquic_stream_t */
     gquic_rbtree_t *open_queue; /* u_int64_t: sem_t * */
 
     u_int64_t lowest_in_queue;
@@ -40,7 +41,7 @@ int gquic_outuni_stream_map_ctor(gquic_outuni_stream_map_t *const str_map,
                                  void *const queue_stream_id_blocked_self,
                                  int (*queue_stream_id_blocked_cb) (void *const, void *const));
 int gquic_outuni_stream_map_open_stream(gquic_stream_t **const str, gquic_outuni_stream_map_t *const str_map);
-int gquic_outuni_stream_map_open_stream_sync(gquic_stream_t **const str, gquic_outuni_stream_map_t *const str_map);
+int gquic_outuni_stream_map_open_stream_sync(gquic_stream_t **const str, gquic_outuni_stream_map_t *const str_map, liteco_channel_t *const done_chan);
 int gquic_outuni_stream_map_get_stream(gquic_stream_t **const str, gquic_outuni_stream_map_t *const str_map, const u_int64_t num);
 int gquic_outuni_stream_map_release_stream(gquic_outuni_stream_map_t *const str_map, const u_int64_t num);
 int gquic_outuni_stream_map_set_max_stream(gquic_outuni_stream_map_t *const str_map, const u_int64_t num);

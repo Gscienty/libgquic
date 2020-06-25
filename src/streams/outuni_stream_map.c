@@ -10,8 +10,8 @@ int gquic_outuni_stream_map_init(gquic_outuni_stream_map_t *const str_map) {
     if (str_map == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    sem_init(&str_map->mtx, 0, 1);
-    gquic_rbtree_root_init(&str_map->streams_root);
+    pthread_mutex_init(&str_map->mtx, NULL);
+    gquic_rbtree_root_init(&str_map->streams);
     gquic_rbtree_root_init(&str_map->open_queue);
     str_map->lowest_in_queue = 0;
     str_map->highest_in_queue = 0;
@@ -51,7 +51,7 @@ int gquic_outuni_stream_map_open_stream(gquic_stream_t **const str, gquic_outuni
     if (str == NULL || str_map == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    sem_wait(&str_map->mtx);
+    pthread_mutex_lock(&str_map->mtx);
     if (str_map->closed != GQUIC_SUCCESS) {
         GQUIC_EXCEPTION_ASSIGN(exception, str_map->closed_reason);
         goto finished;
@@ -64,7 +64,7 @@ int gquic_outuni_stream_map_open_stream(gquic_stream_t **const str, gquic_outuni
     GQUIC_ASSERT_CAUSE(exception, gquic_outuni_stream_map_open_stream_inner(str, str_map));
 
 finished:
-    sem_post(&str_map->mtx);
+    pthread_mutex_unlock(&str_map->mtx);
 
     GQUIC_PROCESS_DONE(exception);
 }
@@ -92,18 +92,19 @@ static int gquic_outuni_stream_map_try_send_blocked_frame(gquic_outuni_stream_ma
 }
 
 static int gquic_outuni_stream_map_open_stream_inner(gquic_stream_t **const str, gquic_outuni_stream_map_t *const str_map) {
+    int exception = GQUIC_SUCCESS;
     gquic_rbtree_t *rb_str = NULL;
     if (str == NULL || str_map == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if (gquic_rbtree_find((const gquic_rbtree_t **) &rb_str, str_map->streams_root, &str_map->next_stream, sizeof(u_int64_t)) == 0) {
+    if (gquic_rbtree_find((const gquic_rbtree_t **) &rb_str, str_map->streams, &str_map->next_stream, sizeof(u_int64_t)) == 0) {
         gquic_stream_dtor(GQUIC_RBTREE_VALUE(rb_str));
     }
-    else if (gquic_rbtree_alloc(&rb_str, sizeof(u_int64_t), sizeof(gquic_stream_t)) == 0) {
+    else if (!GQUIC_ASSERT_CAUSE(exception, gquic_rbtree_alloc(&rb_str, sizeof(u_int64_t), sizeof(gquic_stream_t)))) {
         *(u_int64_t *) GQUIC_RBTREE_KEY(rb_str) = str_map->next_stream;
     }
     else {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
+        GQUIC_PROCESS_DONE(exception);
     }
 
     gquic_stream_init(GQUIC_RBTREE_VALUE(rb_str));
@@ -113,15 +114,17 @@ static int gquic_outuni_stream_map_open_stream_inner(gquic_stream_t **const str,
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_outuni_stream_map_open_stream_sync(gquic_stream_t **const str, gquic_outuni_stream_map_t *const str_map) {
+int gquic_outuni_stream_map_open_stream_sync(gquic_stream_t **const str, gquic_outuni_stream_map_t *const str_map, liteco_channel_t *const done_chan) {
     int exception = GQUIC_SUCCESS;
     gquic_rbtree_t *queue_pos_rbt = NULL;
-    sem_t sem;
-    if (str == NULL || str_map == NULL) {
+    const liteco_channel_t *recv_channel = NULL;
+    liteco_channel_t wait_chan;
+    if (str == NULL || str_map == NULL || done_chan == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    sem_init(&sem, 0, 0);
-    sem_wait(&str_map->mtx);
+    liteco_channel_init(&wait_chan);
+
+    pthread_mutex_lock(&str_map->mtx);
     if (str_map->closed != GQUIC_SUCCESS) {
         GQUIC_EXCEPTION_ASSIGN(exception, str_map->closed_reason);
         goto finished;
@@ -130,7 +133,7 @@ int gquic_outuni_stream_map_open_stream_sync(gquic_stream_t **const str, gquic_o
         GQUIC_ASSERT_CAUSE(exception, gquic_outuni_stream_map_open_stream_inner(str, str_map));
         goto finished;
     }
-    if (GQUIC_ASSERT_CAUSE(exception, gquic_rbtree_alloc(&queue_pos_rbt, sizeof(u_int64_t), sizeof(sem_t *)))) {
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_rbtree_alloc(&queue_pos_rbt, sizeof(u_int64_t), sizeof(liteco_channel_t *)))) {
         goto finished;
     }
     *((u_int64_t *) GQUIC_RBTREE_KEY(queue_pos_rbt)) = str_map->highest_in_queue++;
@@ -138,14 +141,19 @@ int gquic_outuni_stream_map_open_stream_sync(gquic_stream_t **const str, gquic_o
         str_map->lowest_in_queue = *((u_int64_t *) GQUIC_RBTREE_KEY(queue_pos_rbt));
     }
 
-    *(sem_t **) GQUIC_RBTREE_VALUE(queue_pos_rbt) = &sem;
+    *(liteco_channel_t **) GQUIC_RBTREE_VALUE(queue_pos_rbt) = &wait_chan;
     gquic_rbtree_insert(&str_map->open_queue, queue_pos_rbt);
     gquic_outuni_stream_map_try_send_blocked_frame(str_map);
 
     for ( ;; ) {
-        sem_post(&str_map->mtx);
-        sem_wait(&sem);
-        sem_wait(&str_map->mtx);
+        pthread_mutex_lock(&str_map->mtx);
+        GQUIC_COGLOBAL_CHANNEL_RECV(exception, NULL, &recv_channel, 0, &wait_chan, done_chan);
+        if (recv_channel == done_chan) {
+            gquic_rbtree_remove(&str_map->open_queue, &queue_pos_rbt);
+            gquic_rbtree_release(queue_pos_rbt, NULL);
+            GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_DONE);
+        }
+        pthread_mutex_unlock(&str_map->mtx);
         if (str_map->closed != GQUIC_SUCCESS) {
             GQUIC_EXCEPTION_ASSIGN(exception, str_map->closed_reason);
             goto finished;
@@ -155,13 +163,12 @@ int gquic_outuni_stream_map_open_stream_sync(gquic_stream_t **const str, gquic_o
         }
         gquic_outuni_stream_map_open_stream_inner(str, str_map);
         gquic_rbtree_remove(&str_map->open_queue, &queue_pos_rbt);
-        sem_destroy(&sem);
         gquic_rbtree_release(queue_pos_rbt, NULL);
         gquic_outuni_stream_map_unblock_open_sync(str_map);
     }
 
 finished:
-    sem_post(&str_map->mtx);
+    pthread_mutex_unlock(&str_map->mtx);
 
     GQUIC_PROCESS_DONE(exception);
 }
@@ -179,9 +186,8 @@ static int gquic_outuni_stream_map_unblock_open_sync(gquic_outuni_stream_map_t *
         if (gquic_rbtree_find((const gquic_rbtree_t **) &rbt, str_map->open_queue, &oq, sizeof(u_int64_t)) != 0) {
             continue;
         }
-        sem_post(*(sem_t **) GQUIC_RBTREE_VALUE(rbt));
-        sem_close(* (sem_t **) GQUIC_RBTREE_VALUE(rbt));
-        *(sem_t **) GQUIC_RBTREE_VALUE(rbt) = NULL;
+        liteco_channel_close(*(liteco_channel_t **) GQUIC_RBTREE_VALUE(rbt));
+        *(liteco_channel_t **) GQUIC_RBTREE_VALUE(rbt) = NULL;
         str_map->lowest_in_queue = oq + 1;
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
@@ -195,18 +201,18 @@ int gquic_outuni_stream_map_get_stream(gquic_stream_t **const str, gquic_outuni_
     if (str == NULL || str_map == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    sem_wait(&str_map->mtx);
+    pthread_mutex_lock(&str_map->mtx);
     if (num >= str_map->next_stream) {
         GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_GREATE_THAN_MAX_STREAM);
         goto finished;
     }
-    if (gquic_rbtree_find(&rbt, str_map->streams_root, &num, sizeof(u_int64_t)) != 0) {
+    if (gquic_rbtree_find(&rbt, str_map->streams, &num, sizeof(u_int64_t)) != 0) {
         GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_NOT_FOUND);
         goto finished;
     }
     *str = GQUIC_RBTREE_VALUE(rbt);
 finished:
-    sem_post(&str_map->mtx);
+    pthread_mutex_unlock(&str_map->mtx);
 
     GQUIC_PROCESS_DONE(exception);
 }
@@ -217,16 +223,16 @@ int gquic_outuni_stream_map_release_stream(gquic_outuni_stream_map_t *const str_
     if (str_map == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    sem_wait(&str_map->mtx);
-    if (gquic_rbtree_find((const gquic_rbtree_t **) &rbt, str_map->streams_root, &num, sizeof(u_int64_t)) != 0) {
+    pthread_mutex_lock(&str_map->mtx);
+    if (gquic_rbtree_find((const gquic_rbtree_t **) &rbt, str_map->streams, &num, sizeof(u_int64_t)) != 0) {
         GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_NOT_FOUND);
         goto finished;
     }
-    gquic_rbtree_remove(&str_map->streams_root, &rbt);
+    gquic_rbtree_remove(&str_map->streams, &rbt);
     gquic_stream_dtor(GQUIC_RBTREE_VALUE(rbt));
     gquic_rbtree_release(rbt, NULL);
 finished:
-    sem_post(&str_map->mtx);
+    pthread_mutex_unlock(&str_map->mtx);
 
     GQUIC_PROCESS_DONE(exception);
 }
@@ -235,78 +241,36 @@ int gquic_outuni_stream_map_set_max_stream(gquic_outuni_stream_map_t *const str_
     if (str_map == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    sem_wait(&str_map->mtx);
+    pthread_mutex_lock(&str_map->mtx);
     if (num <= str_map->max_stream) {
         goto finished;
     }
     str_map->max_stream = num;
     str_map->block_sent = 0;
 finished:
-    sem_post(&str_map->mtx);
+    pthread_mutex_unlock(&str_map->mtx);
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_outuni_stream_map_close(gquic_outuni_stream_map_t *const str_map, const int err) {
-    gquic_rbtree_t *rbt = NULL;
-    gquic_rbtree_t **elem = NULL;
-    gquic_list_t queue;
+    gquic_rbtree_t *payload = NULL;
     if (str_map == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    gquic_list_head_init(&queue);
-    sem_wait(&str_map->mtx);
+    pthread_mutex_lock(&str_map->mtx);
     str_map->closed = 1;
     str_map->closed_reason = err;
-    rbt = str_map->streams_root;
-    if (!gquic_rbtree_is_nil(rbt)) {
-        gquic_list_alloc((void **) &elem, sizeof(gquic_rbtree_t *));
-        gquic_list_insert_before(&queue, elem);
-        *elem = rbt;
-    }
-    while (!gquic_list_head_empty(&queue)) {
-        rbt = GQUIC_LIST_FIRST(&queue);
-        if (!gquic_rbtree_is_nil(rbt->left)) {
-            gquic_list_alloc((void **) &elem, sizeof(gquic_rbtree_t *));
-            gquic_list_insert_before(&queue, elem);
-            *elem = rbt->left;
-        }
-        if (!gquic_rbtree_is_nil(rbt->right)) {
-            gquic_list_alloc((void **) &elem, sizeof(gquic_rbtree_t *));
-            gquic_list_insert_before(&queue, elem);
-            *elem = rbt->right;
-        }
 
-        gquic_stream_close_for_shutdown(GQUIC_RBTREE_VALUE(rbt), err);
+    GQUIC_RBTREE_EACHOR_BEGIN(payload, str_map->streams)
+        gquic_stream_close_for_shutdown(GQUIC_RBTREE_VALUE(payload), err);
+    GQUIC_RBTREE_EACHOR_END(payload)
 
-        gquic_list_release(GQUIC_LIST_FIRST(&queue));
-    }
-
-    rbt = str_map->open_queue;
-    if (!gquic_rbtree_is_nil(rbt)) {
-        gquic_list_alloc((void **) &elem, sizeof(gquic_rbtree_t *));
-        gquic_list_insert_before(&queue, elem);
-        *elem = rbt;
-    }
-    while (!gquic_list_head_empty(&queue)) {
-        rbt = GQUIC_LIST_FIRST(&queue);
-        if (!gquic_rbtree_is_nil(rbt->left)) {
-            gquic_list_alloc((void **) &elem, sizeof(gquic_rbtree_t *));
-            gquic_list_insert_before(&queue, elem);
-            *elem = rbt->left;
+    GQUIC_RBTREE_EACHOR_BEGIN(payload, str_map->open_queue)
+        if (*(liteco_channel_t **) GQUIC_RBTREE_VALUE(payload) != NULL) {
+            liteco_channel_close(*(liteco_channel_t **) GQUIC_RBTREE_VALUE(payload));
         }
-        if (!gquic_rbtree_is_nil(rbt->right)) {
-            gquic_list_alloc((void **) &elem, sizeof(gquic_rbtree_t *));
-            gquic_list_insert_before(&queue, elem);
-            *elem = rbt->right;
-        }
+    GQUIC_RBTREE_EACHOR_END(payload)
 
-        if (*(sem_t **) GQUIC_RBTREE_VALUE(rbt) != NULL) {
-            sem_post(*(sem_t **) GQUIC_RBTREE_VALUE(rbt));
-            sem_close(*(sem_t **) GQUIC_RBTREE_VALUE(rbt));
-        }
-
-        gquic_list_release(GQUIC_LIST_FIRST(&queue));
-    }
-    sem_post(&str_map->mtx);
+    pthread_mutex_unlock(&str_map->mtx);
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

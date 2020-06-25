@@ -3,16 +3,17 @@
 
 #include "streams/stream.h"
 #include "util/rbtree.h"
-#include <semaphore.h>
+#include "coglobal.h"
+#include <pthread.h>
 
 typedef struct gquic_inuni_stream_map_s gquic_inuni_stream_map_t;
 struct gquic_inuni_stream_map_s {
-    sem_t mtx;
-    sem_t new_stream_sem;
+    pthread_mutex_t mtx;
+    liteco_channel_t new_stream_chan;
 
-    gquic_rbtree_t *streams_root; /* u_int64_t: gquic_stream_t * */
+    gquic_rbtree_t *streams; /* u_int64_t: gquic_stream_t * */
     u_int64_t streams_count;
-    gquic_rbtree_t *streams_del_root; /* u_int64_t; u_int8_t */
+    gquic_rbtree_t *del_streams; /* u_int64_t; u_int8_t */
     
     u_int64_t next_stream_accept;
     u_int64_t next_stream_open;
@@ -41,7 +42,7 @@ int gquic_inuni_stream_map_ctor(gquic_inuni_stream_map_t *const str_map,
                                 u_int64_t max_stream_count,
                                 void *const queue_max_stream_id_self,
                                 int (*queue_max_stream_id_cb) (void *const, void *const));
-int gquic_inuni_stream_map_accept_stream(gquic_stream_t **const str, gquic_inuni_stream_map_t *const str_map);
+int gquic_inuni_stream_map_accept_stream(gquic_stream_t **const str, gquic_inuni_stream_map_t *const str_map, liteco_channel_t *const done_chan);
 int gquic_inuni_stream_map_get_or_open_stream(gquic_stream_t **const str, gquic_inuni_stream_map_t *const str_map, const u_int64_t num);
 int gquic_inuni_stream_map_release_stream(gquic_inuni_stream_map_t *const str_map, const u_int64_t num);
 int gquic_inuni_stream_map_close(gquic_inuni_stream_map_t *const str_map, const int reason);

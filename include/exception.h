@@ -123,6 +123,7 @@
 #define GQUIC_EXCEPTION_CONNECTION_ADD_EPOLL_FAILED             -10000120
 #define GQUIC_EXCEPTION_EPOLL_WAIT_FAILED                       -10000121
 #define GQUIC_EXCEPTION_ALLOC_SOCKET_FAILED                     -10000122
+#define GQUIC_EXCEPTION_DONE                                    -10000123
 #define GQUIC_SUCCESS 0
 
 #ifdef DEBUG

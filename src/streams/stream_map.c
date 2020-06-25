@@ -114,11 +114,11 @@ int gquic_stream_map_open_stream(gquic_stream_t **const str, gquic_stream_map_t 
     return gquic_outbidi_stream_map_open_stream(str, &str_map->outbidi);
 }
 
-int gquic_stream_map_open_stream_sync(gquic_stream_t **const str, gquic_stream_map_t *const str_map) {
-    if (str == NULL || str_map == NULL) {
+int gquic_stream_map_open_stream_sync(gquic_stream_t **const str, gquic_stream_map_t *const str_map, liteco_channel_t *const done_chan) {
+    if (str == NULL || str_map == NULL || done_chan == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    return gquic_outbidi_stream_map_open_stream_sync(str, &str_map->outbidi);
+    return gquic_outbidi_stream_map_open_stream_sync(str, &str_map->outbidi, done_chan);
 }
 
 int gquic_stream_map_open_uni_stream(gquic_stream_t **const str, gquic_stream_map_t *const str_map) {
@@ -128,25 +128,25 @@ int gquic_stream_map_open_uni_stream(gquic_stream_t **const str, gquic_stream_ma
     return gquic_outuni_stream_map_open_stream(str, &str_map->outuni);
 }
 
-int gquic_stream_map_open_uni_stream_sync(gquic_stream_t **const str, gquic_stream_map_t *const str_map) {
-    if (str == NULL || str_map == NULL) {
+int gquic_stream_map_open_uni_stream_sync(gquic_stream_t **const str, gquic_stream_map_t *const str_map, liteco_channel_t *const done_chan) {
+    if (str == NULL || str_map == NULL || done_chan == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    return gquic_outuni_stream_map_open_stream_sync(str, &str_map->outuni);
+    return gquic_outuni_stream_map_open_stream_sync(str, &str_map->outuni, done_chan);
 }
 
-int gquic_stream_map_accept_stream(gquic_stream_t **const str, gquic_stream_map_t *const str_map) {
-    if (str == NULL || str_map == NULL) {
+int gquic_stream_map_accept_stream(gquic_stream_t **const str, gquic_stream_map_t *const str_map, liteco_channel_t *const done_chan) {
+    if (str == NULL || str_map == NULL || done_chan == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    return gquic_inbidi_stream_map_accept_stream(str, &str_map->inbidi);
+    return gquic_inbidi_stream_map_accept_stream(str, &str_map->inbidi, done_chan);
 }
 
-int gquic_stream_map_accept_uni_stream(gquic_stream_t **const str, gquic_stream_map_t *const str_map) {
-    if (str == NULL || str_map == NULL) {
+int gquic_stream_map_accept_uni_stream(gquic_stream_t **const str, gquic_stream_map_t *const str_map, liteco_channel_t *const done_chan) {
+    if (str == NULL || str_map == NULL || done_chan == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    return gquic_inuni_stream_map_accept_stream(str, &str_map->inuni);
+    return gquic_inuni_stream_map_accept_stream(str, &str_map->inuni, done_chan);
 }
 
 int gquic_stream_map_release_stream(gquic_stream_map_t *const str_map, const u_int64_t id) {

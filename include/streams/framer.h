@@ -4,15 +4,17 @@
 #include "streams/stream_map.h"
 #include "util/list.h"
 #include "util/rbtree.h"
-#include <semaphore.h>
+#include <pthread.h>
 
 typedef struct gquic_framer_s gquic_framer_t;
 struct gquic_framer_s {
-    sem_t mtx;
-    sem_t ctrl_frame_mtx;
     gquic_stream_map_t *stream_getter;
     gquic_rbtree_t *active_streams_root; /* u_int64_t: u_int8_t */
+
+    pthread_mutex_t stream_mtx;
     gquic_list_t stream_queue; /* u_int64_t */
+
+    pthread_mutex_t ctrl_mtx;
     gquic_list_t ctrl_frames; /* void * */
 
     int stream_queue_count;

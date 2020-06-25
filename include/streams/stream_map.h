@@ -9,6 +9,7 @@
 #include "streams/outbidi_stream_map.h"
 #include "frame/max_streams.h"
 #include "handshake/transport_parameters.h"
+#include "coglobal.h"
 
 typedef struct gquic_stream_map_s gquic_stream_map_t;
 struct gquic_stream_map_s {
@@ -37,11 +38,11 @@ int gquic_stream_map_ctor(gquic_stream_map_t *const str_map,
                           const u_int64_t max_inuni_stream_count,
                           const int is_client);
 int gquic_stream_map_open_stream(gquic_stream_t **const str, gquic_stream_map_t *const str_map);
-int gquic_stream_map_open_stream_sync(gquic_stream_t **const str, gquic_stream_map_t *const str_map);
+int gquic_stream_map_open_stream_sync(gquic_stream_t **const str, gquic_stream_map_t *const str_map, liteco_channel_t *const done_chan);
 int gquic_stream_map_open_uni_stream(gquic_stream_t **const str, gquic_stream_map_t *const str_map);
-int gquic_stream_map_open_uni_stream_sync(gquic_stream_t **const str, gquic_stream_map_t *const str_map);
-int gquic_stream_map_accept_stream(gquic_stream_t **const str, gquic_stream_map_t *const str_map);
-int gquic_stream_map_accept_uni_stream(gquic_stream_t **const str, gquic_stream_map_t *const str_map);
+int gquic_stream_map_open_uni_stream_sync(gquic_stream_t **const str, gquic_stream_map_t *const str_map, liteco_channel_t *const done_chan);
+int gquic_stream_map_accept_stream(gquic_stream_t **const str, gquic_stream_map_t *const str_map, liteco_channel_t *const done_chan);
+int gquic_stream_map_accept_uni_stream(gquic_stream_t **const str, gquic_stream_map_t *const str_map, liteco_channel_t *const done_chan);
 int gquic_stream_map_release_stream(gquic_stream_map_t *const str_map, const u_int64_t id);
 int gquic_stream_map_get_or_open_recv_stream(gquic_stream_t **const str, gquic_stream_map_t *const str_map, const u_int64_t id);
 int gquic_stream_map_get_or_open_send_stream(gquic_stream_t **const str, gquic_stream_map_t *const str_map, const u_int64_t id);

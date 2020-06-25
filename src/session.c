@@ -376,6 +376,7 @@ static int gquic_session_is_client_wrapper(void *const sess_) {
     return sess->is_client;
 }
 
+// maybe other thread
 static int gquic_session_queue_control_frame_wrapper(void *const sess, void *const frame) {
     return gquic_session_queue_control_frame(sess, frame);
 }
@@ -519,6 +520,7 @@ static int gquic_session_on_has_conn_wnd_update_wrapper(void *const sess_) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
+// maybe other thread
 static int gquic_session_on_has_stream_data_wrapper(void *const sess_, const u_int64_t stream_id) {
     gquic_session_t *const sess = sess_;
     if (sess == NULL) {
@@ -530,6 +532,7 @@ static int gquic_session_on_has_stream_data_wrapper(void *const sess_, const u_i
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
+// maybe other thread
 static int gquic_session_on_stream_completed_wrapper(void *const sess_, const u_int64_t stream_id) {
     int exception = GQUIC_SUCCESS;
     gquic_session_t *const sess = sess_;
