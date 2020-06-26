@@ -893,15 +893,15 @@ static int gquic_session_stream_flow_ctrl_ctor(gquic_flowcontrol_stream_flow_ctr
         }
     }
 
-    return gquic_flowcontrol_stream_flow_ctrl_ctor(stream_flow_ctrl,
-                                                   stream_id,
-                                                   &sess->conn_flow_ctrl,
-                                                   512 * (1 << 10),
-                                                   sess->cfg->max_recv_stream_flow_ctrl_wnd,
-                                                   initial_swnd,
-                                                   sess,
-                                                   gquic_session_on_has_stream_wnd_update_wrapper,
-                                                   &sess->rtt);
+    GQUIC_PROCESS_DONE(gquic_flowcontrol_stream_flow_ctrl_ctor(stream_flow_ctrl,
+                                                               stream_id,
+                                                               &sess->conn_flow_ctrl,
+                                                               512 * (1 << 10),
+                                                               sess->cfg->max_recv_stream_flow_ctrl_wnd,
+                                                               initial_swnd,
+                                                               sess,
+                                                               gquic_session_on_has_stream_wnd_update_wrapper,
+                                                               &sess->rtt));
 }
 
 static int gquic_session_on_has_stream_wnd_update_wrapper(void *const sess_, const u_int64_t stream_id) {

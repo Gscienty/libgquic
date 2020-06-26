@@ -1,7 +1,7 @@
 #ifndef _LIBGQUIC_STREAM_SEND_STREAM_H
 #define _LIBGQUIC_STREAM_SEND_STREAM_H
 
-#include <semaphore.h>
+#include <pthread.h>
 #include <sys/types.h>
 #include "frame/stream.h"
 #include "frame/stop_sending.h"
@@ -10,10 +10,11 @@
 #include "streams/stream_sender.h"
 #include "util/list.h"
 #include "util/str.h"
+#include "coglobal.h"
 
 typedef struct gquic_send_stream_s gquic_send_stream_t;
 struct gquic_send_stream_s {
-    sem_t mtx;
+    pthread_mutex_t mtx;
     u_int64_t outstanding_frames_count;
     gquic_list_t retransmission_queue; /* gquic_frame_stream_t * */
     u_int64_t stream_id;
@@ -27,7 +28,7 @@ struct gquic_send_stream_s {
     int fin_sent;
     int completed;
     gquic_reader_str_t *send_reader;
-    sem_t write_sem;
+    liteco_channel_t write_chan;
     u_int64_t deadline;
     gquic_flowcontrol_stream_flow_ctrl_t *flow_ctrl;
 };

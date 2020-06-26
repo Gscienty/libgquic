@@ -2,6 +2,7 @@
 #include "packet/packet_number.h"
 #include "util/malloc.h"
 #include "exception.h"
+#include <string.h>
 
 static int gquic_common_long_header_opener_open_wrapper(gquic_str_t *const,
                                                         void *const,

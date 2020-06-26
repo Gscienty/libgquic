@@ -73,7 +73,7 @@ int gquic_stream_map_ctor(gquic_stream_map_t *const str_map,
 
 static int gquic_stream_map_outbidi_stream_ctor(gquic_stream_t *const str, void *const str_map_, const u_int64_t num) {
     u_int64_t id = 0;
-    gquic_stream_map_t *str_map = str_map_;
+    gquic_stream_map_t *const str_map = str_map_;
     if (str == NULL || str_map == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
