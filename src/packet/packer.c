@@ -6,6 +6,7 @@
 #include "util/time.h"
 #include "util/malloc.h"
 #include "exception.h"
+#include <string.h>
 #include "log.h"
 
 static int gquic_retransmission_queue_add_initial_wrapper(void *const, void *const);
@@ -749,13 +750,15 @@ int gquic_packet_packer_try_pack_app_packet(gquic_packed_packet_t *const packed_
     }
     payload.sealer.cb = gquic_1rtt_sealer_seal_wrapper;
 
+    GQUIC_LOG(GQUIC_LOG_INFO, "packer pack app packet");
+
     payload.enc_lv = GQUIC_ENC_LV_1RTT;
     GQUIC_CPTR_ALLOC(exception, &payload.frames, gquic_cptr_frames_t, frames, cptr, gquic_cptr_frames_dtor);
     GQUIC_ASSERT_FAST_RETURN(exception);
     gquic_list_head_init(payload.frames);
-    if (gquic_packet_packer_get_short_header(&payload.hdr, packer, packer->est->aead.times) != 0) {
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_packet_packer_get_short_header(&payload.hdr, packer, packer->est->aead.times))) {
         gquic_packed_packet_payload_dtor(&payload);
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
+        GQUIC_PROCESS_DONE(exception);
     }
     header_len = gquic_packet_short_header_size(payload.hdr.hdr.s_hdr);
     max_size = packer->max_packet_size - 16 - header_len;
@@ -808,6 +811,8 @@ int gquic_packet_packer_try_pack_app_packet(gquic_packed_packet_t *const packed_
     payload.len += added_size;
 
     if (gquic_list_head_empty(payload.frames) && payload.ack == NULL) {
+        GQUIC_LOG(GQUIC_LOG_DEBUG, "packer pack app empty frames");
+
         gquic_packed_packet_payload_dtor(&payload);
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
@@ -959,12 +964,13 @@ int gquic_packet_packer_pack_packet(gquic_packed_packet_t *const packed_packet, 
     }
     if (!gquic_packet_packer_handshake_confirmed(packer)) {
         GQUIC_ASSERT_FAST_RETURN(gquic_packet_packer_try_pack_crypto_packet(packed_packet, packer));
-    }
-    else {
-        GQUIC_ASSERT_FAST_RETURN(gquic_packet_packer_try_pack_app_packet(packed_packet, packer));
+        if (packed_packet->valid) {
+            GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+        }
     }
 
-    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+    GQUIC_LOG(GQUIC_LOG_INFO, "packer try pack app packet");
+    GQUIC_PROCESS_DONE(gquic_packet_packer_try_pack_app_packet(packed_packet, packer));
 }
 
 int gquic_packet_packer_try_pack_probe_packet(gquic_packed_packet_t *const packed_packet,

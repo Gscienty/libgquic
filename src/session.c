@@ -7,6 +7,7 @@
 #include "frame/new_token.h"
 #include "frame/retire_connection_id.h"
 #include "frame/data_blocked.h"
+#include "frame/handshake_done.h"
 #include "util/stream_id.h"
 #include "util/malloc.h"
 #include "packet/send_mode.h"
@@ -65,6 +66,7 @@ static int gquic_session_handle_path_challenge_frame(gquic_session_t *const, gqu
 static int gquic_session_handle_new_token_frame(gquic_session_t *const, gquic_frame_new_token_t *const);
 static int gquic_session_handle_new_conn_id_frame(gquic_session_t *const, gquic_frame_new_connection_id_t *const);
 static int gquic_session_handle_retire_conn_id_frame(gquic_session_t *const, gquic_frame_retire_connection_id_t *const);
+static int gquic_session_handle_handshake_done_frame(gquic_session_t *const, gquic_frame_handshake_done_t *const);
 static int gquic_session_send_packets(gquic_session_t *const);
 static int gquic_session_send_connection_close(gquic_str_t *const,
                                                gquic_session_t *const,
@@ -998,6 +1000,7 @@ static int gquic_session_drop_enc_lv(gquic_session_t *const sess, const u_int8_t
 }
 
 static int gquic_session_handle_handshake_completed(gquic_session_t *const sess) {
+    gquic_frame_handshake_done_t *frame = NULL;
     if (sess == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -1009,6 +1012,10 @@ static int gquic_session_handle_handshake_completed(gquic_session_t *const sess)
     if (!sess->is_client) {
         // TODO gen token
         gquic_handshake_establish_drop_handshake_keys(&sess->est);
+
+        GQUIC_LOG(GQUIC_LOG_INFO, "session send HANDSHAKE_DONE frame");
+        GQUIC_ASSERT_FAST_RETURN(gquic_frame_handshake_done_alloc(&frame));
+        GQUIC_ASSERT_FAST_RETURN(gquic_session_queue_control_frame(sess, frame));
     }
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
@@ -1262,11 +1269,8 @@ static int gquic_session_handle_frame(gquic_session_t *const sess, void *const f
     if (sess == NULL || frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if ((GQUIC_FRAME_META(frame).type & 0x08) != 0) {
-        GQUIC_EXCEPTION_ASSIGN(exception, gquic_session_handle_stream_frame(sess, frame));
-    }
-    else switch (GQUIC_FRAME_META(frame).type) {
-    case  0x06:
+    switch (GQUIC_FRAME_META(frame).type) {
+    case 0x06:
         GQUIC_EXCEPTION_ASSIGN(exception, gquic_session_handle_crypto_frame(sess, frame, enc_lv));
         break;
     case 0x02:
@@ -1310,7 +1314,13 @@ static int gquic_session_handle_frame(gquic_session_t *const sess, void *const f
     case 0x19:
         GQUIC_EXCEPTION_ASSIGN(exception, gquic_session_handle_retire_conn_id_frame(sess, frame));
         break;
+    case 0x1e:
+        GQUIC_EXCEPTION_ASSIGN(exception, gquic_session_handle_handshake_done_frame(sess, frame));
+        break;
     default:
+        if ((GQUIC_FRAME_META(frame).type & 0x08) != 0) {
+            GQUIC_EXCEPTION_ASSIGN(exception, gquic_session_handle_stream_frame(sess, frame));
+        }
         GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_FRAME_TYPE_UNEXCEPTED);
     }
 
@@ -1491,6 +1501,20 @@ static int gquic_session_handle_retire_conn_id_frame(gquic_session_t *const sess
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
+static int gquic_session_handle_handshake_done_frame(gquic_session_t *const sess, gquic_frame_handshake_done_t *const frame) {
+    if (sess == NULL || frame == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+    GQUIC_LOG(GQUIC_LOG_INFO, "session received HANDSHAKE_DONE frame");
+    if (!sess->is_client) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INVALID_FRAME);
+    }
+
+    gquic_handshake_establish_drop_handshake_keys(&sess->est);
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}
+
 static int gquic_session_close_remote(gquic_session_t *const sess, const int err) {
     int exception = GQUIC_SUCCESS;
     if (sess == NULL) {
@@ -1582,6 +1606,7 @@ static int gquic_session_send_packets(gquic_session_t *const sess) {
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
     packets_count = gquic_packet_sent_packet_handler_should_send_packets_count(&sess->sent_packet_handler);
+
     for ( ;; ) {
         GQUIC_LOG(GQUIC_LOG_DEBUG, "session send packets loop");
         sended = 0;
@@ -1642,6 +1667,7 @@ loop_end:
     if (packets_sent_count == packets_count) {
         sess->pacing_deadline = sess->sent_packet_handler.next_send_time;
     }
+
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 

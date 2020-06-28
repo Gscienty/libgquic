@@ -1,6 +1,7 @@
 #include "streams/framer.h"
 #include "frame/meta.h"
 #include "exception.h"
+#include "log.h"
 
 int gquic_framer_init(gquic_framer_t *const framer) {
     if (framer == NULL) {
@@ -44,7 +45,7 @@ int gquic_framer_queue_ctrl_frame(gquic_framer_t *const framer, void *const fram
 int gquic_framer_append_ctrl_frame(gquic_list_t *const frames, u_int64_t *const length, gquic_framer_t *const framer, const u_int64_t max_len) {
     int exception = GQUIC_SUCCESS;
     void **ctrl_frame_storage = NULL;
-    void **frame_storage = NULL;
+    const void **frame_storage = NULL;
     u_int64_t frame_size = 0;
     if (frames == NULL || length == NULL || framer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -62,10 +63,17 @@ int gquic_framer_append_ctrl_frame(gquic_list_t *const frames, u_int64_t *const 
             pthread_mutex_unlock(&framer->ctrl_mtx);
             GQUIC_PROCESS_DONE(exception);
         }
-        *frame_storage = *ctrl_frame_storage;
+        gquic_frame_assign(frame_storage, *ctrl_frame_storage);
         gquic_list_insert_before(frames, frame_storage);
         *length += frame_size;
+
+        gquic_frame_release(*(void **) ctrl_frame_storage);
         gquic_list_release(ctrl_frame_storage);
+
+        GQUIC_LOG(GQUIC_LOG_INFO, "framer append ctrl frame");
+#if LOG
+        printf("frame type: %02x\n", GQUIC_FRAME_META(*(void **) frame_storage).type);
+#endif
     }
     pthread_mutex_unlock(&framer->ctrl_mtx);
 
@@ -140,6 +148,9 @@ int gquic_framer_append_stream_frames(gquic_list_t *const frames, u_int64_t *con
         }
         remain_len = max_len - *length;
         remain_len += gquic_varint_size(&remain_len);
+
+        GQUIC_LOG(GQUIC_LOG_INFO, "framer pop stream frame");
+
         has_more_data = gquic_send_stream_pop_stream_frame(&stream_frame, &str->send, remain_len);
         if (has_more_data) {
             if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &stream_queue_id, sizeof(u_int64_t)))) {

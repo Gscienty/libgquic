@@ -45,7 +45,7 @@ int gquic_auto_update_aead_init(gquic_auto_update_aead_t *const aead) {
 
 int gquic_auto_update_aead_roll(gquic_auto_update_aead_t *const aead, const u_int64_t now) {
     int exception = GQUIC_SUCCESS;
-    useconds_t pto = 0;
+    u_int64_t pto = 0;
     gquic_str_t next_recv_traffic_sec = { 0, NULL };
     gquic_str_t next_send_traffic_sec = { 0, NULL };
     if (aead == NULL) {

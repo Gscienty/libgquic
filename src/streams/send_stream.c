@@ -5,6 +5,7 @@
 #include "frame/stream_pool.h"
 #include "util/time.h"
 #include "exception.h"
+#include "log.h"
 #include <sys/time.h>
 #include <string.h>
 
@@ -113,6 +114,8 @@ static int gquic_send_stream_write_co(void *const param_) {
     }
 
     str->send_reader = reader;
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "stream send message");
 
     for ( ;; ) {
         deadline = str->deadline;
@@ -262,6 +265,8 @@ int gquic_send_stream_pop_stream_frame(gquic_frame_stream_t **const frame, gquic
     if (frame == NULL || str == NULL) {
         return 0;
     }
+    GQUIC_LOG(GQUIC_LOG_INFO, "stream pop stream frame");
+
     pthread_mutex_lock(&str->mtx);
     remain_data = gquic_send_stream_pop_new_or_retransmission_stream_frame(frame, str, max_bytes);
     if (*frame != NULL) {

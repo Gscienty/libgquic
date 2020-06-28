@@ -212,8 +212,6 @@ int gquic_packet_sent_packet_handler_dtor(gquic_packet_sent_packet_handler_t *co
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-// TODO drop packets then initial == NULL && handshake == NULL && handshake_complete == 0
-// cannot get available sent_pn
 int gquic_packet_sent_packet_handler_drop_packets(gquic_packet_sent_packet_handler_t *const handler, const u_int8_t enc_lv) {
     gquic_packet_sent_pn_t *sent_pn = NULL;
     const gquic_packet_t **packet_storage = NULL;

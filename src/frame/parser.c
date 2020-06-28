@@ -19,6 +19,7 @@
 #include "frame/path_challenge.h"
 #include "frame/path_response.h"
 #include "frame/connection_close.h"
+#include "frame/handshake_done.h"
 #include "tls/common.h"
 #include "exception.h"
 #include "log.h"
@@ -140,8 +141,13 @@ static int gquic_frame_parser_parse(void **const frame_storage,
     case 0x1d:
         GQUIC_ASSERT_FAST_RETURN(gquic_frame_connection_close_alloc((gquic_frame_connection_close_t **) frame_storage));
         break;
+    case 0x1e:
+        GQUIC_ASSERT_FAST_RETURN(gquic_frame_handshake_done_alloc((gquic_frame_handshake_done_t **) frame_storage));
     default:
-        GQUIC_LOG(GQUIC_LOG_ERROR, "received invalid frame type: (%02x)", GQUIC_STR_FIRST_BYTE(reader));
+        GQUIC_LOG(GQUIC_LOG_ERROR, "received invalid frame type");
+#if LOG
+        printf("frame type: %02x\n", GQUIC_STR_FIRST_BYTE(reader));
+#endif
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INVALID_FRAME);
     }
     if (*frame_storage == NULL) {

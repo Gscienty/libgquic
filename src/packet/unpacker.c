@@ -19,8 +19,7 @@ static int gquic_1rtt_opener_open_wrapper(gquic_str_t *const,
                                           const gquic_str_t *const,
                                           const gquic_str_t *const);
 static int gquic_packet_unpacker_unpack_header_packet(gquic_unpacked_packet_t *const,
-                                                      gquic_packet_unpacker_t *const,
-                                                      gquic_unpacked_packet_payload_t *const);
+                                                      gquic_packet_unpacker_t *const, gquic_unpacked_packet_payload_t *const);
 static int gquic_packet_unpacker_unpack_header(gquic_unpacked_packet_t *const,
                                                gquic_packet_unpacker_t *const,
                                                gquic_unpacked_packet_payload_t *const,
@@ -164,8 +163,7 @@ static int gquic_1rtt_opener_open_wrapper(gquic_str_t *const plain_text,
 }
 
 static int gquic_packet_unpacker_unpack_header_packet(gquic_unpacked_packet_t *const unpacked_packet,
-                                                      gquic_packet_unpacker_t *const unpacker,
-                                                      gquic_unpacked_packet_payload_t *const payload) {
+                                                      gquic_packet_unpacker_t *const unpacker, gquic_unpacked_packet_payload_t *const payload) {
     int exception = GQUIC_SUCCESS;
     gquic_reader_str_t reader = { 0, NULL };
     if (unpacked_packet == NULL || unpacker == NULL || payload == NULL) {
@@ -181,7 +179,7 @@ static int gquic_packet_unpacker_unpack_header_packet(gquic_unpacked_packet_t *c
         GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&unpacked_packet->hdr.hdr.s_hdr, gquic_packet_short_header_t));
         GQUIC_ASSERT_FAST_RETURN(gquic_packet_short_header_deserialize_unseal_part(unpacked_packet->hdr.hdr.s_hdr, &reader));
     }
-    GQUIC_ASSERT_CAUSE(exception, gquic_packet_unpacker_unpack_header(unpacked_packet, unpacker, payload, &reader));
+    GQUIC_EXCEPTION_ASSIGN(exception, gquic_packet_unpacker_unpack_header(unpacked_packet, unpacker, payload, &reader));
     if (exception != GQUIC_SUCCESS && exception != GQUIC_EXCEPTION_INVALID_RESERVED_BITS) {
         GQUIC_PROCESS_DONE(exception);
     }
@@ -192,6 +190,7 @@ static int gquic_packet_unpacker_unpack_header_packet(gquic_unpacked_packet_t *c
     gquic_str_t addata = { header_len, GQUIC_STR_VAL(payload->data) };
 
 
+    // TODO auto_update_aead open error
     GQUIC_ASSERT_FAST_RETURN(GQUIC_UNPACKED_PACKET_PAYLOAD_OPEN(&unpacked_packet->data,
                                                                 payload,
                                                                 payload->recv_time,

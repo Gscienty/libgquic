@@ -63,8 +63,8 @@ int gquic_inbidi_stream_map_accept_stream(gquic_stream_t **const str, gquic_inbi
     if (str == NULL || str_map == NULL || done_chan == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    pthread_mutex_lock(&str_map->mtx);
 
+    pthread_mutex_lock(&str_map->mtx);
     for ( ;; ) {
         num = str_map->next_stream_accept;
         if (str_map->closed != GQUIC_SUCCESS) {
