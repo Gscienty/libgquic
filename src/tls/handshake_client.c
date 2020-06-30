@@ -1194,8 +1194,8 @@ static int gquic_tls_client_handshake_state_send_cli_finished(gquic_tls_handshak
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_finished_msg_alloc(&finished));
     GQUIC_TLS_MSG_INIT(finished);
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_cipher_suite_finished_hash(&finished->verify,
-                                             cli_state->suite,
-                                             &cli_state->conn->out.traffic_sec, &cli_state->transport));
+                                                                  cli_state->suite,
+                                                                  &cli_state->conn->out.traffic_sec, &cli_state->transport));
     if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_msg_combine_serialize(&buf, finished))) {
         goto failure;
     }

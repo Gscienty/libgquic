@@ -1079,8 +1079,8 @@ static int gquic_tls_handshake_server_state_send_ser_finished(gquic_tls_handshak
     gquic_str_t ser_sec = { 0, NULL };
     size_t _;
     static const gquic_str_t derived_label = { 7, "derived" };
-    static const gquic_str_t cli_handshake_traffic_label = { 12, "c hs traffic" };
-    static const gquic_str_t ser_handshake_traffic_label = { 12, "s hs traffic" };
+    static const gquic_str_t cli_app_traffic_label = { 12, "c ap traffic" };
+    static const gquic_str_t ser_app_traffic_label = { 12, "s ap traffic" };
     if (ser_state == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -1127,14 +1127,14 @@ static int gquic_tls_handshake_server_state_send_ser_finished(gquic_tls_handshak
     if (GQUIC_ASSERT_CAUSE(exception,
                            gquic_tls_cipher_suite_derive_secret(&ser_state->traffic_sec,
                                                                 ser_state->suite,
-                                                                &ser_state->transport, &ser_state->master_sec, &cli_handshake_traffic_label))) {
+                                                                &ser_state->transport, &ser_state->master_sec, &cli_app_traffic_label))) {
         gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
         goto failure;
     }
     if (GQUIC_ASSERT_CAUSE(exception,
                            gquic_tls_cipher_suite_derive_secret(&ser_sec,
                                                                 ser_state->suite,
-                                                                &ser_state->transport, &ser_state->master_sec, &ser_handshake_traffic_label))) {
+                                                                &ser_state->transport, &ser_state->master_sec, &ser_app_traffic_label))) {
         gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
         goto failure;
     }
