@@ -143,6 +143,7 @@ static int gquic_frame_parser_parse(void **const frame_storage,
         break;
     case 0x1e:
         GQUIC_ASSERT_FAST_RETURN(gquic_frame_handshake_done_alloc((gquic_frame_handshake_done_t **) frame_storage));
+        break;
     default:
         GQUIC_LOG(GQUIC_LOG_ERROR, "received invalid frame type");
 #if LOG

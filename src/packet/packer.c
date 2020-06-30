@@ -416,8 +416,7 @@ int gquic_packet_packer_get_long_header(gquic_packet_header_t *const hdr, gquic_
 }
 
 int gquic_packet_packer_pack(gquic_packed_packet_t *const packed_packet,
-                             gquic_packet_packer_t *const packer,
-                             gquic_packed_packet_payload_t *const payload) {
+                             gquic_packet_packer_t *const packer, gquic_packed_packet_payload_t *const payload) {
     int pn_len = 0;
     u_int64_t padding_len = 0;
     u_int8_t header_type = 4; 
@@ -459,8 +458,7 @@ int gquic_packet_packer_pack(gquic_packed_packet_t *const packed_packet,
 
 int gquic_packet_packer_pack_with_padding(gquic_packed_packet_t *const packed_packet,
                                           gquic_packet_packer_t *const packer,
-                                          gquic_packed_packet_payload_t *const payload,
-                                          const u_int64_t padding_len) {
+                                          gquic_packed_packet_payload_t *const payload, const u_int64_t padding_len) {
     int exception = GQUIC_SUCCESS;
     int pn_len = 0;
     u_int64_t hdr_pn = 0;

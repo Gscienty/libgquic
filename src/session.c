@@ -1106,7 +1106,9 @@ static int gquic_session_handle_single_packet(gquic_session_t *const sess, gquic
     if (gquic_packet_header_deserlialize_type(&rp->data) == GQUIC_LONG_HEADER_0RTT) {
         goto finished;
     }
-    if (GQUIC_ASSERT_CAUSE(exception, gquic_packet_unpacker_unpack(&packet, &sess->unpacker, &rp->data, rp->recv_time))) {
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_packet_unpacker_unpack(&packet,
+                                                                   &sess->unpacker,
+                                                                   &rp->data, rp->recv_time, GQUIC_STR_SIZE(&rp->dst_conn_id)))) {
         switch (exception) {
         case GQUIC_EXCEPTION_KEY_DROPPED:
             break;

@@ -1,6 +1,7 @@
 #include "handshake/auto_update_aead.h"
 #include "tls/key_schedule.h"
 #include "util/big_endian.h"
+#include "log.h"
 #include "exception.h"
 
 static int gquic_auto_update_aead_next_traffic_sec(gquic_str_t *const,
@@ -113,8 +114,7 @@ static int gquic_auto_update_aead_next_traffic_sec(gquic_str_t *const ret,
 }
 
 int gquic_auto_update_aead_set_rkey(gquic_auto_update_aead_t *const aead,
-                                    const gquic_tls_cipher_suite_t *const suite,
-                                    const gquic_str_t *const traffic_sec) {
+                                    const gquic_tls_cipher_suite_t *const suite, const gquic_str_t *const traffic_sec) {
     gquic_str_t next_recv_traffic_sec = { 0, NULL };
     if (aead == NULL || suite == NULL || traffic_sec == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -129,6 +129,7 @@ int gquic_auto_update_aead_set_rkey(gquic_auto_update_aead_t *const aead,
     if (aead->suite == NULL) {
         gquic_str_reset(&aead->nonce_buf);
         GQUIC_ASSERT_FAST_RETURN(gquic_str_alloc(&aead->nonce_buf, 12));
+        gquic_str_clear(&aead->nonce_buf);
         aead->suite = suite;
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_auto_update_aead_next_traffic_sec(&next_recv_traffic_sec, suite, traffic_sec));
@@ -138,13 +139,14 @@ int gquic_auto_update_aead_set_rkey(gquic_auto_update_aead_t *const aead,
     gquic_tls_aead_init(&aead->next_recv_aead);
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_create_aead(&aead->next_recv_aead, suite, &aead->next_recv_traffic_sec));
 
+    GQUIC_LOG(GQUIC_LOG_INFO, "auto_update_aead set read key");
+
     gquic_str_reset(&next_recv_traffic_sec);
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_auto_update_aead_set_wkey(gquic_auto_update_aead_t *const aead,
-                                    const gquic_tls_cipher_suite_t *const suite,
-                                    const gquic_str_t *const traffic_sec) {
+                                    const gquic_tls_cipher_suite_t *const suite, const gquic_str_t *const traffic_sec) {
     gquic_str_t next_send_traffic_sec = { 0, NULL };
     if (aead == NULL || suite == NULL || traffic_sec == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -159,6 +161,7 @@ int gquic_auto_update_aead_set_wkey(gquic_auto_update_aead_t *const aead,
     if (aead->suite == NULL) {
         gquic_str_reset(&aead->nonce_buf);
         GQUIC_ASSERT_FAST_RETURN(gquic_str_alloc(&aead->nonce_buf, 12));
+        gquic_str_clear(&aead->nonce_buf);
         aead->suite = suite;
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_auto_update_aead_next_traffic_sec(&next_send_traffic_sec, suite, traffic_sec));
@@ -168,18 +171,16 @@ int gquic_auto_update_aead_set_wkey(gquic_auto_update_aead_t *const aead,
     gquic_tls_aead_init(&aead->next_send_aead);
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_create_aead(&aead->next_send_aead, suite, &aead->next_send_traffic_sec));
 
+    GQUIC_LOG(GQUIC_LOG_INFO, "auto_update_aead set write key");
+
     gquic_str_reset(&next_send_traffic_sec);
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 int gquic_auto_update_aead_open(gquic_str_t *const plain_text,
                                 gquic_auto_update_aead_t *const aead,
-                                const u_int64_t recv_time,
-                                const u_int64_t pn,
-                                int kp,
-                                const gquic_str_t *const tag,
-                                const gquic_str_t *const cipher_text,
-                                const gquic_str_t *const addata) {
+                                const u_int64_t recv_time, const u_int64_t pn, int kp,
+                                const gquic_str_t *const tag, const gquic_str_t *const cipher_text, const gquic_str_t *const addata) {
     if (plain_text == NULL || aead == NULL || tag == NULL || cipher_text == NULL || addata == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -206,16 +207,19 @@ int gquic_auto_update_aead_open(gquic_str_t *const plain_text,
 
             GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
         }
+
         if (GQUIC_ASSERT(GQUIC_TLS_AEAD_OPEN(plain_text, &aead->next_recv_aead, &aead->nonce_buf, tag, cipher_text, addata))) {
             GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_DECRYPTION_FAILED);
         }
         if (aead->cur_key_first_sent_pn == ((u_int64_t) -1)) {
             GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_UPDATE_KEY_QUICKLY);
         }
+
         GQUIC_ASSERT_FAST_RETURN(gquic_auto_update_aead_roll(aead, recv_time));
         aead->cur_key_first_recv_pn = pn;
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
+
     if (GQUIC_ASSERT(GQUIC_TLS_AEAD_OPEN(plain_text, &aead->recv_aead, &aead->nonce_buf, tag, cipher_text, addata))) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_DECRYPTION_FAILED);
     }
@@ -227,12 +231,9 @@ int gquic_auto_update_aead_open(gquic_str_t *const plain_text,
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_auto_update_aead_seal(gquic_str_t *const tag,
-                                gquic_str_t *const cipher_text,
+int gquic_auto_update_aead_seal(gquic_str_t *const tag, gquic_str_t *const cipher_text,
                                 gquic_auto_update_aead_t *const aead,
-                                const u_int64_t pn,
-                                const gquic_str_t *const plain_text,
-                                const gquic_str_t *const addata) {
+                                const u_int64_t pn, const gquic_str_t *const plain_text, const gquic_str_t *const addata) {
     if (cipher_text == NULL || tag == NULL || aead == NULL || plain_text == NULL || addata == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }

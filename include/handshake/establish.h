@@ -172,8 +172,7 @@ int gquic_handshake_establish_get_handshake_opener(gquic_header_protector_t **co
                                                    gquic_common_long_header_opener_t **const opener,
                                                    gquic_handshake_establish_t *const est);
 int gquic_handshake_establish_get_1rtt_opener(gquic_header_protector_t **const protector,
-                                              gquic_auto_update_aead_t **const opener,
-                                              gquic_handshake_establish_t *const est);
+                                              gquic_auto_update_aead_t **const opener, gquic_handshake_establish_t *const est);
 int gquic_handshake_establish_get_initial_sealer(gquic_header_protector_t **const protector,
                                                  gquic_common_long_header_sealer_t **const sealer,
                                                  gquic_handshake_establish_t *const est);
@@ -181,7 +180,6 @@ int gquic_handshake_establish_get_handshake_sealer(gquic_header_protector_t **co
                                                    gquic_common_long_header_sealer_t **const sealer,
                                                    gquic_handshake_establish_t *const est);
 int gquic_handshake_establish_get_1rtt_sealer(gquic_header_protector_t **const protector,
-                                              gquic_auto_update_aead_t **const sealer,
-                                              gquic_handshake_establish_t *const est);
+                                              gquic_auto_update_aead_t **const sealer, gquic_handshake_establish_t *const est);
 
 #endif

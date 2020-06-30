@@ -49,7 +49,6 @@ int gquic_packet_unpacker_init(gquic_packet_unpacker_t *const unpacker);
 int gquic_packet_unpacker_ctor(gquic_packet_unpacker_t *const unpacker, gquic_handshake_establish_t *const est);
 int gquic_packet_unpacker_unpack(gquic_unpacked_packet_t *const unpacked_packet,
                                  gquic_packet_unpacker_t *const unpacker,
-                                 const gquic_str_t *const data,
-                                 const u_int64_t recv_time);
+                                 const gquic_str_t *const data, const u_int64_t recv_time, const u_int64_t dst_conn_id_len);
 
 #endif
