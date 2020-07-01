@@ -1324,7 +1324,9 @@ static int gquic_session_handle_frame(gquic_session_t *const sess, void *const f
         if ((GQUIC_FRAME_META(frame).type & 0x08) != 0) {
             GQUIC_EXCEPTION_ASSIGN(exception, gquic_session_handle_stream_frame(sess, frame));
         }
-        GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_FRAME_TYPE_UNEXCEPTED);
+        else {
+            GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_FRAME_TYPE_UNEXCEPTED);
+        }
     }
 
     gquic_frame_release(frame);

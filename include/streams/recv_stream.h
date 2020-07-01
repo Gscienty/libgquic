@@ -1,17 +1,19 @@
 #ifndef _LIBGQUIC_STREAM_RECV_STREAM_H
 #define _LIBGQUIC_STREAM_RECV_STREAM_H
 
-#include <semaphore.h>
-#include <sys/types.h>
 #include "frame/frame_sorter.h"
 #include "frame/stream.h"
 #include "frame/reset_stream.h"
 #include "flowcontrol/stream_flow_ctrl.h"
 #include "streams/stream_sender.h"
+#include "coglobal.h"
+#include <pthread.h>
+#include <sys/types.h>
+
 
 typedef struct gquic_recv_stream_s gquic_recv_stream_t;
 struct gquic_recv_stream_s {
-    sem_t mtx;
+    pthread_mutex_t mtx;
     u_int64_t stream_id;
     gquic_stream_sender_t *sender;
     gquic_frame_sorter_t frame_queue;
@@ -31,7 +33,7 @@ struct gquic_recv_stream_s {
     int fin_read;
     int canceled_read;
     int reset_remote;
-    sem_t read_sem;
+    liteco_channel_t read_chan;
     u_int64_t deadline;
     gquic_flowcontrol_stream_flow_ctrl_t *flow_ctrl;
 };

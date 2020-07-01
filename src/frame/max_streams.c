@@ -1,6 +1,7 @@
 #include "frame/max_streams.h"
 #include "frame/meta.h"
 #include "exception.h"
+#include "log.h"
 #include <stddef.h>
 
 static size_t gquic_frame_max_streams_size(const void *const);
@@ -58,6 +59,9 @@ static int gquic_frame_max_streams_deserialize(void *const frame, gquic_reader_s
     if (type != 0x12 && type != 0x13) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_FRAME_TYPE_UNEXCEPTED);
     }
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "deserialize MAX_STREAMS frame");
+
     GQUIC_FRAME_META(spec).type = type;
     GQUIC_ASSERT_FAST_RETURN(gquic_varint_deserialize(&spec->max, reader));
 

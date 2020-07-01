@@ -2,6 +2,7 @@
 #include "frame/meta.h"
 #include "util/malloc.h"
 #include "exception.h"
+#include "log.h"
 #include <string.h>
 
 static size_t gquic_frame_new_token_size(const void *const);
@@ -59,6 +60,9 @@ static int gquic_frame_new_token_deserialize(void *const frame, gquic_reader_str
     if (gquic_reader_str_read_byte(reader) != GQUIC_FRAME_META(spec).type) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_FRAME_TYPE_UNEXCEPTED);
     }
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "deserialize NEW_TOKEN frame");
+
     GQUIC_ASSERT_FAST_RETURN(gquic_varint_deserialize(&spec->len, reader));
     if (spec->len > GQUIC_STR_SIZE(reader)) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);

@@ -2,6 +2,7 @@
 #include "frame/meta.h"
 #include "util/list.h"
 #include "exception.h"
+#include "log.h"
 
 static size_t gquic_frame_ack_size(const void *const);
 static int gquic_frame_ack_serialize(const void *const, gquic_writer_str_t *const);
@@ -94,6 +95,9 @@ static int gquic_frame_ack_deserialize(void *const frame, gquic_reader_str_t *co
     if (type != 0x02 && type != 0x03) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_FRAME_TYPE_UNEXCEPTED);
     }
+    
+    GQUIC_LOG(GQUIC_LOG_INFO, "deserialize ACK frame");
+
     GQUIC_FRAME_META(spec).type = type;
     u_int64_t *vars[] = { &spec->largest_ack, &spec->delay, &spec->count, &spec->first_range };
     size_t i = 0;

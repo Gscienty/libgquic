@@ -2,6 +2,7 @@
 #include "frame/meta.h"
 #include "util/malloc.h"
 #include "exception.h"
+#include "log.h"
 #include <string.h>
 
 static size_t gquic_frame_connection_close_size(const void *const);
@@ -72,6 +73,9 @@ static int gquic_frame_connection_close_deserialize(void *const frame, gquic_rea
     if (type != 0x1c && type != 0x1d) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_FRAME_TYPE_UNEXCEPTED);
     }
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "deserialize CONNECTION_CLOSE frame");
+
     GQUIC_FRAME_META(spec).type = type;
     u_int64_t *vars[] = { &spec->errcode, (type == 0x1d ? &spec->type : NULL), &spec->phase_len };
     for (i = 0; i < 3; i++) {

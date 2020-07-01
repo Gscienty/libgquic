@@ -1,6 +1,7 @@
 #include "frame/meta.h"
 #include "frame/ping.h"
 #include "exception.h"
+#include "log.h"
 #include <stddef.h>
 
 static size_t gquic_frame_ping_size(const void *const);
@@ -44,6 +45,8 @@ static int gquic_frame_ping_serialize(const void *const frame, gquic_writer_str_
 static int gquic_frame_ping_deserialize(void *const frame, gquic_reader_str_t *const reader) {
     (void) frame;
     GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_readed_size(reader, 1));
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "deserialize PING frame");
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

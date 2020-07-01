@@ -1,6 +1,7 @@
 #include "frame/meta.h"
 #include "frame/handshake_done.h"
 #include "exception.h"
+#include "log.h"
 #include <stddef.h>
 
 static size_t gquic_frame_handshake_done_size(const void *const);
@@ -43,6 +44,8 @@ static int gquic_frame_handshake_done_serialize(const void *const frame, gquic_w
 static int gquic_frame_handshake_done_deserialize(void *const frame, gquic_reader_str_t *const reader) {
     (void) frame;
     GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_readed_size(reader, 1));
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "deserialize HANDSHAKE_DONE frame");
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

@@ -1,6 +1,7 @@
 #include "frame/path_response.h"
 #include "frame/meta.h"
 #include "exception.h"
+#include "log.h"
 #include <string.h>
 
 static size_t gquic_frame_path_response_size(const void *const);
@@ -56,6 +57,9 @@ static int gquic_frame_path_response_deserialize(void *const frame, gquic_reader
     if (GQUIC_FRAME_SIZE(spec) > GQUIC_STR_SIZE(reader)) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "deserialize PATH_RESPONSE frame");
+
     if (gquic_reader_str_read_byte(reader) != GQUIC_FRAME_META(spec).type) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_FRAME_TYPE_UNEXCEPTED);
     }

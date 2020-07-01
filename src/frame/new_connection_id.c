@@ -1,6 +1,7 @@
 #include "frame/new_connection_id.h"
 #include "frame/meta.h"
 #include "exception.h"
+#include "log.h"
 #include <string.h>
 
 static size_t gquic_frame_new_connection_id_size(const void *const);
@@ -65,6 +66,9 @@ static int gquic_frame_new_connection_id_deserialize(void *const frame, gquic_re
     if (gquic_reader_str_read_byte(reader) != GQUIC_FRAME_META(spec).type) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_FRAME_TYPE_UNEXCEPTED);
     }
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "deserialize NEW_CONNECTION_ID frame");
+
     u_int64_t *vars[] = { &spec->seq, &spec->prior };
     int i = 0;
     for (i = 0; i < 2; i++) {

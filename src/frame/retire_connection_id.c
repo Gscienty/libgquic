@@ -1,6 +1,7 @@
 #include "frame/retire_connection_id.h"
 #include "frame/meta.h"
 #include "exception.h"
+#include "log.h"
 #include <stddef.h>
 
 static size_t gquic_frame_retire_connection_id_size(const void *const);
@@ -56,6 +57,9 @@ static int gquic_frame_retire_connection_id_deserialize(void *const frame, gquic
     if (gquic_reader_str_read_byte(reader) != GQUIC_FRAME_META(spec).type) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_FRAME_TYPE_UNEXCEPTED);
     }
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "deserialize RETIRE_CONNECTION_ID frame");
+
     GQUIC_ASSERT_FAST_RETURN(gquic_varint_deserialize(&spec->seq, reader));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);

@@ -2,6 +2,7 @@
 #include "frame/meta.h"
 #include <string.h>
 #include "exception.h"
+#include "log.h"
 #include "frame/stream_pool.h"
 
 static size_t gquic_frame_stream_size(const void *const);
@@ -16,7 +17,7 @@ int gquic_frame_stream_alloc(gquic_frame_stream_t **const frame_storage) {
     }
     GQUIC_ASSERT_FAST_RETURN(GQUIC_FRAME_ALLOC(frame_storage, gquic_frame_stream_t));
 
-    GQUIC_FRAME_META(*frame_storage).type = 0x00;
+    GQUIC_FRAME_META(*frame_storage).type = 0x08;
     GQUIC_FRAME_META(*frame_storage).deserialize_func = gquic_frame_stream_deserialize;
     GQUIC_FRAME_META(*frame_storage).init_func = gquic_frame_stream_init;
     GQUIC_FRAME_META(*frame_storage).dtor_func = gquic_frame_stream_dtor;
@@ -79,6 +80,9 @@ static int gquic_frame_stream_deserialize(void *const frame, gquic_reader_str_t 
     if ((type & 0x08) != 0x08) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_FRAME_TYPE_UNEXCEPTED);
     }
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "deserialize STREAM frame");
+
     GQUIC_FRAME_META(spec).type = type;
     u_int64_t *vars[] = {
         &spec->id,

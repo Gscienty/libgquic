@@ -1,6 +1,7 @@
 #include "frame/streams_blocked.h"
 #include "frame/meta.h"
 #include "exception.h"
+#include "log.h"
 #include <stddef.h>
 
 static size_t gquic_frame_streams_blocked_size(const void *const);
@@ -58,6 +59,9 @@ static int gquic_frame_streams_blocked_deserialize(void *const frame, gquic_read
     if (type != 0x16 && type != 0x17) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_FRAME_TYPE_UNEXCEPTED);
     }
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "deserialize STREAMS_BLOCKED frame");
+
     GQUIC_FRAME_META(spec).type = type;
     GQUIC_ASSERT_FAST_RETURN(gquic_varint_deserialize(&spec->limit, reader));
 
