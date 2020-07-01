@@ -71,9 +71,6 @@ int gquic_framer_append_ctrl_frame(gquic_list_t *const frames, u_int64_t *const 
         gquic_list_release(ctrl_frame_storage);
 
         GQUIC_LOG(GQUIC_LOG_INFO, "framer append ctrl frame");
-#if LOG
-        printf("frame type: %02x\n", GQUIC_FRAME_META(*(void **) frame_storage).type);
-#endif
     }
     pthread_mutex_unlock(&framer->ctrl_mtx);
 

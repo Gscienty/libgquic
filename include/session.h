@@ -132,12 +132,12 @@ int gquic_session_destroy(gquic_session_t *const sess, const int err);
 int gquic_session_queue_control_frame(gquic_session_t *const sess, void *const frame);
 int gquic_session_run(gquic_session_t *const sess);
 
-int gquic_session_accept_stream(gquic_stream_t **const stream_storage, gquic_session_t *const sess, liteco_channel_t *const done_chan);
-int gquic_session_accept_uni_stream(gquic_stream_t **const stream_storage, gquic_session_t *const sess, liteco_channel_t *const done_chan);
+int gquic_session_accept_stream(gquic_stream_t **const stream_storage, gquic_session_t *const sess);
+int gquic_session_accept_uni_stream(gquic_stream_t **const stream_storage, gquic_session_t *const sess);
 int gquic_session_open_stream(gquic_stream_t **const stream_storage, gquic_session_t *const sess);
-int gquic_session_open_stream_sync(gquic_stream_t **const stream_storage, gquic_session_t *const sess, liteco_channel_t *const done_chan);
+int gquic_session_open_stream_sync(gquic_stream_t **const stream_storage, gquic_session_t *const sess);
 int gquic_session_open_uni_stream(gquic_stream_t **const stream_storage, gquic_session_t *const sess);
-int gquic_session_open_uni_stream_sync(gquic_stream_t **const stream_storage, gquic_session_t *const sess, liteco_channel_t *const done_chan);
+int gquic_session_open_uni_stream_sync(gquic_stream_t **const stream_storage, gquic_session_t *const sess);
 
 gquic_packet_handler_t *gquic_session_implement_packet_handler(gquic_session_t *const sess);
 

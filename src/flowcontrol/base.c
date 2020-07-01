@@ -1,7 +1,6 @@
 #include "flowcontrol/base.h"
 #include "util/time.h"
 
-u_int64_t gquic_flowcontrol_base_swnd_size(const gquic_flowcontrol_base_t *const);
 static inline int gquic_flowcontrol_base_try_adjust_wnd_size(gquic_flowcontrol_base_t *const);
 
 int gquic_flowcontrol_base_init(gquic_flowcontrol_base_t *const base) {
@@ -117,10 +116,8 @@ static inline int gquic_flowcontrol_base_try_adjust_wnd_size(gquic_flowcontrol_b
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
     frac = ((double) in_epoch_read_bytes) / base->rwnd_size;
-    struct timeval tv;
-    struct timezone tz;
-    gettimeofday(&tv, &tz);
-    now = tv.tv_sec * 1000 * 1000 + tv.tv_usec;
+
+    now = gquic_time_now();
     if (now - base->epoch_time < 4 * frac * base->rtt->smooth) {
         base->rwnd_size = 2 * base->rwnd_size < base->max_rwnd_size ? 2 * base->rwnd_size : base->max_rwnd_size;
     }

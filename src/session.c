@@ -923,15 +923,16 @@ static int gquic_session_process_transport_parameters(gquic_session_t *const ses
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (sess->is_client) {
-        GQUIC_ASSERT_CAUSE(exception, gquic_session_client_process_transport_parameters(&sess->peer_params, sess, data));
+        GQUIC_EXCEPTION_ASSIGN(exception, gquic_session_client_process_transport_parameters(&sess->peer_params, sess, data));
     }
     else {
-        GQUIC_ASSERT_CAUSE(exception, gquic_session_server_process_transport_parameters(&sess->peer_params, sess, data));
+        GQUIC_EXCEPTION_ASSIGN(exception, gquic_session_server_process_transport_parameters(&sess->peer_params, sess, data));
     }
     if (exception != GQUIC_SUCCESS) {
         gquic_session_close_local(sess, exception);
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
+    sess->peer_params_seted = 1;
     sess->idle_timeout = sess->cfg->max_idle_timeout;
     if (sess->idle_timeout == 0) {
         sess->idle_timeout = sess->peer_params.idle_timeout;
@@ -1888,20 +1889,20 @@ static int gquic_session_config_transfer_tls_config(gquic_tls_config_t *const tl
 }
 
 // maybe other thread
-int gquic_session_accept_stream(gquic_stream_t **const stream_storage, gquic_session_t *const sess, liteco_channel_t *const done_chan) {
-    if (stream_storage == NULL || sess == NULL || done_chan == NULL) {
+int gquic_session_accept_stream(gquic_stream_t **const stream_storage, gquic_session_t *const sess) {
+    if (stream_storage == NULL || sess == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
 
-    GQUIC_PROCESS_DONE(gquic_stream_map_accept_stream(stream_storage, &sess->streams_map, done_chan));
+    GQUIC_PROCESS_DONE(gquic_stream_map_accept_stream(stream_storage, &sess->streams_map, &sess->done_chain));
 }
 
-int gquic_session_accept_uni_stream(gquic_stream_t **const stream_storage, gquic_session_t *const sess, liteco_channel_t *const done_chan) {
-    if (stream_storage == NULL || sess == NULL || done_chan == NULL) {
+int gquic_session_accept_uni_stream(gquic_stream_t **const stream_storage, gquic_session_t *const sess) {
+    if (stream_storage == NULL || sess == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
 
-    GQUIC_PROCESS_DONE(gquic_stream_map_accept_uni_stream(stream_storage, &sess->streams_map, done_chan));
+    GQUIC_PROCESS_DONE(gquic_stream_map_accept_uni_stream(stream_storage, &sess->streams_map, &sess->done_chain));
 }
 
 int gquic_session_open_stream(gquic_stream_t **const stream_storage, gquic_session_t *const sess) {
@@ -1912,12 +1913,12 @@ int gquic_session_open_stream(gquic_stream_t **const stream_storage, gquic_sessi
     GQUIC_PROCESS_DONE(gquic_stream_map_open_stream(stream_storage, &sess->streams_map));
 }
 
-int gquic_session_open_stream_sync(gquic_stream_t **const stream_storage, gquic_session_t *const sess, liteco_channel_t *const done_chan) {
-    if (stream_storage == NULL || sess == NULL || done_chan == NULL) {
+int gquic_session_open_stream_sync(gquic_stream_t **const stream_storage, gquic_session_t *const sess) {
+    if (stream_storage == NULL || sess == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
 
-    GQUIC_PROCESS_DONE(gquic_stream_map_open_stream_sync(stream_storage, &sess->streams_map, done_chan));
+    GQUIC_PROCESS_DONE(gquic_stream_map_open_stream_sync(stream_storage, &sess->streams_map, &sess->done_chain));
 }
 
 int gquic_session_open_uni_stream(gquic_stream_t **const stream_storage, gquic_session_t *const sess) {
@@ -1928,10 +1929,10 @@ int gquic_session_open_uni_stream(gquic_stream_t **const stream_storage, gquic_s
     GQUIC_PROCESS_DONE(gquic_stream_map_open_uni_stream(stream_storage, &sess->streams_map));
 }
 
-int gquic_session_open_uni_stream_sync(gquic_stream_t **const stream_storage, gquic_session_t *const sess, liteco_channel_t *const done_chan) {
-    if (stream_storage == NULL || sess == NULL || done_chan == NULL) {
+int gquic_session_open_uni_stream_sync(gquic_stream_t **const stream_storage, gquic_session_t *const sess) {
+    if (stream_storage == NULL || sess == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
 
-    GQUIC_PROCESS_DONE(gquic_stream_map_open_uni_stream_sync(stream_storage, &sess->streams_map, done_chan));
+    GQUIC_PROCESS_DONE(gquic_stream_map_open_uni_stream_sync(stream_storage, &sess->streams_map, &sess->done_chain));
 }

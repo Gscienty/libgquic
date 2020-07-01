@@ -146,9 +146,6 @@ static int gquic_frame_parser_parse(void **const frame_storage,
         break;
     default:
         GQUIC_LOG(GQUIC_LOG_ERROR, "received invalid frame type");
-#if LOG
-        printf("frame type: %02x\n", GQUIC_STR_FIRST_BYTE(reader));
-#endif
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INVALID_FRAME);
     }
     if (*frame_storage == NULL) {

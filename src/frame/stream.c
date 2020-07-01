@@ -34,7 +34,10 @@ static size_t gquic_frame_stream_size(const void *const frame) {
     }
     len = GQUIC_STR_SIZE(&spec->data);
 
-    return 1 + gquic_varint_size(&spec->id) + gquic_varint_size(&len) + gquic_varint_size(&spec->off) + len;
+    return 1 + gquic_varint_size(&spec->id)
+        + ((GQUIC_FRAME_META(spec).type & 0x02) == 0x02 ? gquic_varint_size(&len) : 0)
+        + ((GQUIC_FRAME_META(spec).type & 0x04) == 0x04 ? gquic_varint_size(&spec->off) : 0)
+        + len;
 }
 
 static int gquic_frame_stream_serialize(const void *const frame, gquic_writer_str_t *const writer) {

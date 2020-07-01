@@ -497,6 +497,7 @@ int gquic_packet_packer_pack_with_padding(gquic_packed_packet_t *const packed_pa
             goto failure;
         }
     }
+
     if (payload->frames != NULL) {
         GQUIC_LIST_FOREACH(frame_storage, payload->frames) {
             if (GQUIC_ASSERT_CAUSE(exception, GQUIC_FRAME_SERIALIZE(*frame_storage, &writer))) {
@@ -504,6 +505,7 @@ int gquic_packet_packer_pack_with_padding(gquic_packed_packet_t *const packed_pa
             }
         }
     }
+
     if (GQUIC_STR_VAL(&writer) - GQUIC_STR_VAL(&buffer->slice) - header_size - padding_len != payload->len) {
         GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_INTERNAL_ERROR);
         goto failure;
