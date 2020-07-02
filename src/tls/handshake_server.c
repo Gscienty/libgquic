@@ -10,6 +10,7 @@
 #include "tls/finished_msg.h"
 #include "tls/ticket.h"
 #include "tls/meta.h"
+#include "tls/prf.h"
 #include "log.h"
 #include "exception.h"
 #include <openssl/rand.h>
@@ -898,7 +899,6 @@ static int gquic_tls_handshake_server_state_send_ser_cert(gquic_tls_handshake_se
     gquic_tls_cert_msg_t *cert_msg = NULL;
     gquic_tls_cert_verify_msg_t *verify_msg = NULL;
     gquic_str_t buf = { 0, NULL };
-    PKCS12 *cert_p12 = NULL;
     EVP_MD_CTX *md_ctx = NULL;
     X509 *x509 = NULL;
     EVP_PKEY *pkey = NULL;
@@ -939,7 +939,28 @@ static int gquic_tls_handshake_server_state_send_ser_cert(gquic_tls_handshake_se
                 goto failure;
             }
         }
+
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_msg_combine_serialize(&buf, cert_req))) {
+            gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
+            goto failure;
+        }
+
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_mac_md_update(&ser_state->transport, &buf))) {
+            gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
+            goto failure;
+        }
+
+        GQUIC_LOG(GQUIC_LOG_INFO, "TLS client send CERT_REQ record");
+
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_conn_write_record(&_, ser_state->conn, GQUIC_TLS_RECORD_TYPE_HANDSHAKE, &buf))) {
+            gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
+            goto failure;
+        }
+
+        gquic_str_reset(&buf);
+        gquic_str_init(&buf);
     }
+
     if (ser_state->c_hello->scts) {
         // TODO
     }
@@ -1042,9 +1063,6 @@ static int gquic_tls_handshake_server_state_send_ser_cert(gquic_tls_handshake_se
     gquic_tls_msg_release(cert_msg);
     gquic_tls_msg_release(verify_msg);
     gquic_str_reset(&buf);
-    if (cert_p12 != NULL) {
-        PKCS12_free(cert_p12);
-    }
     if (md_ctx != NULL) {
         EVP_MD_CTX_free(md_ctx);
     }
@@ -1055,9 +1073,6 @@ failure:
     gquic_tls_msg_release(cert_msg);
     gquic_tls_msg_release(verify_msg);
     gquic_str_reset(&buf);
-    if (cert_p12 != NULL) {
-        PKCS12_free(cert_p12);
-    }
     if (md_ctx != NULL) {
         EVP_MD_CTX_free(md_ctx);
     }
@@ -1176,13 +1191,160 @@ failure:
 }
 
 static int gquic_tls_handshake_server_state_read_cli_cert(gquic_tls_handshake_server_state_t *const ser_state) {
+    int exception = GQUIC_SUCCESS;
+    gquic_tls_cert_msg_t *cert_msg = NULL;
+    gquic_tls_cert_verify_msg_t *verify_msg = NULL;
+    gquic_str_t buf = { 0, NULL };
+    gquic_str_t sign = { 0, NULL };
+    gquic_list_t supported_sigalgs;
+    const EVP_MD *sig_hash = NULL;
+    static const gquic_str_t cli_sign_cnt = { 38, "GQUIC-TLSv1.3, client SignatureContent" };
+    EVP_PKEY *pubkey = NULL;
     if (ser_state == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
+    {
+        gquic_list_head_init(&supported_sigalgs);
+        size_t count = sizeof(__supported_sign_algos) / sizeof(u_int16_t);
+        size_t i;
+        for (i = 0; i < count; i++) {
+            u_int16_t *sigalg = NULL;
+            if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &sigalg, sizeof(u_int16_t)))) {
+                goto failure;
+            }
+            *sigalg = __supported_sign_algos[i];
+            if (GQUIC_ASSERT_CAUSE(exception, gquic_list_insert_before(&supported_sigalgs, sigalg))) {
+                goto failure;
+            }
+        }
+    }
+
+    if (!gquic_tls_handshake_server_state_request_cli_cert(ser_state)) {
+        GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+    }
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "TLS server waiting CERT record");
+
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_conn_read_handshake((void **) &cert_msg, ser_state->conn))
+        || GQUIC_TLS_MSG_META(cert_msg).type != GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT) {
+        gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_UNEXPECTED_MESSAGE);
+        goto failure;
+    }
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "TLS server received CERT record");
+
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_msg_combine_serialize(&buf, cert_msg))) {
+        gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
+        goto failure;
+    }
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_mac_md_update(&ser_state->transport, &buf))) {
+        gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
+        goto failure;
+    }
+    gquic_str_reset(&buf);
+    gquic_str_init(&buf);
+
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_conn_process_cli_cert(ser_state->conn, &cert_msg->cert.certs))) {
+        goto failure;
+    }
+
+    if (!gquic_list_head_empty(&cert_msg->cert.certs)) {
+
+        GQUIC_LOG(GQUIC_LOG_INFO, "TLS server waiting CERT_VERIFY record");
+
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_conn_read_handshake((void **) &verify_msg, ser_state->conn))
+            || GQUIC_TLS_MSG_META(verify_msg).type != GQUIC_TLS_HANDSHAKE_MSG_TYPE_CERT_VERIFY) {
+            gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_UNEXPECTED_MESSAGE);
+            goto failure;
+        }
+
+        GQUIC_LOG(GQUIC_LOG_INFO, "TLS server received CERT_VERIFY record");
+
+        if (gquic_tls_is_supported_sigalg(verify_msg->sign_algo, &supported_sigalgs) == 0) {
+            gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_ILLEGAL_PARAMS);
+            GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_TLS_ILLEGAL_PARAMERTERS);
+            goto failure;
+        }
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_hash_from_sigalg(&sig_hash, verify_msg->sign_algo))) {
+            gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
+            goto failure;
+        }
+        const u_int8_t sig_type = gquic_tls_sig_from_sigalg(verify_msg->sign_algo);
+        if (sig_type == 0xff) {
+            gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
+            GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_INTERNAL_ERROR);
+            goto failure;
+        }
+        if (sig_type == GQUIC_SIG_PKCS1V15 || sig_hash == EVP_sha1()) {
+            gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_ILLEGAL_PARAMS);
+            GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_TLS_ILLEGAL_PARAMERTERS);
+            goto failure;
+        }
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_signed_msg(&sign, sig_hash, &cli_sign_cnt, &ser_state->transport))) {
+            gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_ILLEGAL_PARAMS);
+            goto failure;
+        }
+        if (GQUIC_ASSERT_CAUSE(exception,
+                               gquic_tls_sig_pubkey_from_x509(&pubkey, sig_type, *(X509 **) GQUIC_LIST_FIRST(&ser_state->conn->peer_certs)))) {
+            gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_DECRYPT_ERROR);
+            goto failure;
+        }
+
+        GQUIC_LOG(GQUIC_LOG_INFO, "TLS server verify use X509 pubkey");
+
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_verify_handshake_sign(sig_hash, pubkey, &sign, &verify_msg->sign))) {
+            gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_DECRYPT_ERROR);
+            goto failure;
+        }
+
+        GQUIC_LOG(GQUIC_LOG_INFO, "TLS server calc transport (VERIFY)");
+
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_msg_combine_serialize(&buf, verify_msg))) {
+            gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
+            goto failure;
+        }
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_mac_md_update(&ser_state->transport, &buf))) {
+            gquic_tls_conn_send_alert(ser_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
+            goto failure;
+        }
+    }
+
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_handshake_server_state_send_session_tickets(ser_state))) {
+            goto failure;
+    }
     
-    // TODO
-    
+    gquic_str_reset(&buf);
+    gquic_str_reset(&sign);
+    if (cert_msg != NULL) {
+        gquic_tls_msg_release(cert_msg);
+    }
+    if (verify_msg != NULL) {
+        gquic_tls_msg_release(verify_msg);
+    }
+    if (pubkey != NULL) {
+        EVP_PKEY_free(pubkey);
+    }
+    while (!gquic_list_head_empty(&supported_sigalgs)) {
+        gquic_list_release(GQUIC_LIST_FIRST(&supported_sigalgs));
+    }
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+failure:
+    gquic_str_reset(&buf);
+    gquic_str_reset(&sign);
+    if (cert_msg != NULL) {
+        gquic_tls_msg_release(cert_msg);
+    }
+    if (verify_msg != NULL) {
+        gquic_tls_msg_release(verify_msg);
+    }
+    if (pubkey != NULL) {
+        EVP_PKEY_free(pubkey);
+    }
+    while (!gquic_list_head_empty(&supported_sigalgs)) {
+        gquic_list_release(GQUIC_LIST_FIRST(&supported_sigalgs));
+    }
+
+    GQUIC_PROCESS_DONE(exception);
 }
 
 static int gquic_tls_handshake_server_state_read_cli_finished(gquic_tls_handshake_server_state_t *const ser_state) {

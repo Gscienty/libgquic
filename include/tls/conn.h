@@ -6,6 +6,7 @@
 #include "tls/client_sess_state.h"
 #include "tls/client_hello_msg.h"
 #include "tls/cipher_suite.h"
+#include "tls/cert.h"
 #include "util/str.h"
 #include "util/list.h"
 #include "net/addr.h"
@@ -89,6 +90,7 @@ int gquic_tls_conn_write_record(size_t *const len, gquic_tls_conn_t *const conn,
 int gquic_tls_conn_read_handshake(void **const msg, gquic_tls_conn_t *const conn);
 int gquic_tls_conn_send_alert(gquic_tls_conn_t *const conn, u_int8_t alert);
 int gquic_tls_conn_verify_ser_cert(gquic_tls_conn_t *const conn, const gquic_list_t *const certs);
+int gquic_tls_conn_process_cli_cert(gquic_tls_conn_t *const conn, const gquic_list_t *const certs);
 
 int gquic_tls_conn_handshake(gquic_tls_conn_t *const conn);
 

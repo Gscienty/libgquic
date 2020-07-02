@@ -30,6 +30,7 @@
 #include <openssl/sha.h>
 #include <openssl/hmac.h>
 #include <openssl/rand.h>
+#include <string.h>
 
 static int gquic_tls_conn_cli_sess_cache_key(gquic_str_t *const, const gquic_net_addr_t *const, const gquic_tls_config_t *const);
 
@@ -679,6 +680,42 @@ int gquic_tls_conn_verify_ser_cert(gquic_tls_conn_t *const conn, const gquic_lis
             GQUIC_PROCESS_DONE(exception);
         }
     }
+    if (conn->cfg->verify_peer_certs != NULL) {
+        if (GQUIC_ASSERT_CAUSE(exception, conn->cfg->verify_peer_certs(&conn->peer_certs, &conn->verified_chains))) {
+            gquic_tls_conn_send_alert(conn, GQUIC_TLS_ALERT_BAD_CERT);
+            GQUIC_PROCESS_DONE(exception);
+        }
+    }
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}
+
+int gquic_tls_conn_process_cli_cert(gquic_tls_conn_t *const conn, const gquic_list_t *const certs) {
+    X509 **cert_storage = NULL;
+    int exception = GQUIC_SUCCESS;
+    if (conn == NULL || certs == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+    gquic_list_head_init(&conn->peer_certs);
+
+    if (gquic_list_head_empty(certs) && gquic_tls_requires_cli_cert(conn->cfg->cli_auth)) {
+        gquic_tls_conn_send_alert(conn, GQUIC_TLS_ALERT_BAD_CERT);
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_CLIENT_CERTS_EMPTY);
+    }
+
+    GQUIC_LIST_FOREACH(cert_storage, certs) {
+        X509 **peer_cert = NULL;
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &peer_cert, sizeof(X509 *)))) {
+            gquic_tls_conn_send_alert(conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
+            GQUIC_PROCESS_DONE(exception);
+        }
+        *peer_cert = X509_dup(*cert_storage);
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_list_insert_before(&conn->peer_certs, peer_cert))) {
+            gquic_tls_conn_send_alert(conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
+            GQUIC_PROCESS_DONE(exception);
+        }
+    }
+
     if (conn->cfg->verify_peer_certs != NULL) {
         if (GQUIC_ASSERT_CAUSE(exception, conn->cfg->verify_peer_certs(&conn->peer_certs, &conn->verified_chains))) {
             gquic_tls_conn_send_alert(conn, GQUIC_TLS_ALERT_BAD_CERT);

@@ -61,6 +61,11 @@ struct gquic_tls_config_s {
      ? GQUIC_EXCEPTION_NOT_IMPLEMENTED \
      : (config)->get_ser_cert(cert, chello))
 
+#define GQUIC_TLS_CONFIG_GET_CLI_CERT(cert, config, cert_req) \
+    ((config)->get_cli_cert == NULL \
+     ? GQUIC_EXCEPTION_NOT_IMPLEMENTED \
+     : (config)->get_cli_cert(cert, cert_req))
+
 typedef struct gquic_tls_ticket_key_s gquic_tls_ticket_key_t;
 struct gquic_tls_ticket_key_s {
     u_int8_t name[16];

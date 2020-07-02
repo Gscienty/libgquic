@@ -27,6 +27,8 @@ struct gquic_tls_handshake_client_state_s {
     gquic_tls_mac_t transport;
     gquic_str_t master_sec;
     gquic_str_t traffic_sec;
+
+    PKCS12 *cert;
 };
 
 int gquic_tls_handshake_client_state_init(gquic_tls_handshake_client_state_t *const cli_state);
