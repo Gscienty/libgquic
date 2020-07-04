@@ -70,4 +70,6 @@ static inline u_int64_t gquic_packet_number_decode(const int pn_len, const u_int
                                         gquic_packet_number_close_to(last_pn + 1, prev_epoch_begin + pn, next_epoch_begin + pn));
 }
 
+#define GQUIC_INVALID_PACKET_NUMBER ((u_int64_t) -1)
+
 #endif

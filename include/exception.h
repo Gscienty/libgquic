@@ -127,6 +127,8 @@
 #define GQUIC_EXCEPTION_CLIENT_CERTS_EMPTY                      -10000124
 #define GQUIC_SUCCESS 0
 
+typedef int gquic_exception_t;
+
 #ifdef DEBUG
 
 #include <stdio.h>
@@ -179,6 +181,6 @@
     (exception) = (expression); \
 }
 
-#endif
+#endif // DEBUG
 
 #endif

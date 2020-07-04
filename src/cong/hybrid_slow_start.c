@@ -2,7 +2,7 @@
 #include "exception.h"
 #include <stddef.h>
 
-int gquic_cong_hybrid_slow_start_init(gquic_cong_bybrid_slow_start_t *const slowstart) {
+gquic_exception_t gquic_cong_hybrid_slow_start_init(gquic_cong_bybrid_slow_start_t *const slowstart) {
     if (slowstart == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -29,9 +29,7 @@ int gquic_hybrid_slow_start_start_recv_round(gquic_cong_bybrid_slow_start_t *con
 }
 
 int gquic_hybrid_slow_start_should_exit(gquic_cong_bybrid_slow_start_t *const slowstart,
-                                        const u_int64_t last_rtt,
-                                        const u_int64_t min_rtt,
-                                        const u_int64_t cwnd) {
+                                        const u_int64_t last_rtt, const u_int64_t min_rtt, const u_int64_t cwnd) {
     u_int64_t min_rtt_increase_threshold = 0;
     if (slowstart == NULL) {
         return 0;
