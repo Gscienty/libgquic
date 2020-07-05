@@ -1,3 +1,11 @@
+/* src/cong/hybrid_slow_start.c 慢启动模块实现
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "cong/hybrid_slow_start.h"
 #include "exception.h"
 #include <stddef.h>
@@ -39,17 +47,22 @@ static gquic_exception_t gquic_hybrid_slow_start_start_recv_round(gquic_cong_byb
 }
 
 bool gquic_hybrid_slow_start_should_exit(gquic_cong_bybrid_slow_start_t *const slowstart,
-                                        const u_int64_t last_rtt, const u_int64_t min_rtt, const u_int64_t cwnd) {
+                                         const u_int64_t last_rtt, const u_int64_t min_rtt, const u_int64_t cwnd) {
     u_int64_t min_rtt_increase_threshold = 0;
     if (slowstart == NULL) {
         return false;
     }
+
+    // 因此如果 started == false，则应启动慢启动阶段
     if (!slowstart->started) {
         gquic_hybrid_slow_start_start_recv_round(slowstart, slowstart->last_sent_pn);
     }
+
+    // hystart_found == true 则意味着慢启动阶段已经结束
     if (slowstart->hystart_found) {
         return true;
     }
+
     slowstart->rtt_sample_count++;
     if (slowstart->rtt_sample_count <= 8) {
         if (slowstart->current_min_rtt == 0 || slowstart->current_min_rtt > last_rtt) {

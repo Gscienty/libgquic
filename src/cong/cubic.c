@@ -301,7 +301,7 @@ gquic_exception_t gquic_cong_cubic_on_packet_acked(gquic_cong_cubic_t *const cub
     gquic_cong_cubic_try_increase_cwnd(cubic, acked_bytes, infly, event_time);
     if (gquic_cong_cubic_in_slow_start(cubic)) {
         if (cubic->hybrid_slow_start.end_pn < pn) {
-            cubic->hybrid_slow_start.started = 0;
+            cubic->hybrid_slow_start.started = false;
         }
     }
 

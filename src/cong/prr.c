@@ -1,7 +1,15 @@
+/* src/cong/prr.c 快速恢复模块实现
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "cong/prr.h"
 #include <stddef.h>
 
-int gquic_prr_init(gquic_prr_t *const prr) {
+gquic_exception_t gquic_prr_init(gquic_prr_t *const prr) {
     if (prr == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -13,7 +21,7 @@ int gquic_prr_init(gquic_prr_t *const prr) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_prr_packet_lost(gquic_prr_t *const prr, const u_int64_t infly) {
+gquic_exception_t gquic_prr_packet_lost(gquic_prr_t *const prr, const u_int64_t infly) {
     if (prr == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -25,13 +33,15 @@ int gquic_prr_packet_lost(gquic_prr_t *const prr, const u_int64_t infly) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_prr_allowable_send(gquic_prr_t *const prr, const u_int64_t cwnd, const u_int64_t infly, const u_int64_t slowstart_thd) {
+bool gquic_prr_allowable_send(gquic_prr_t *const prr, const u_int64_t cwnd, const u_int64_t infly, const u_int64_t slowstart_thd) {
     if (prr == NULL) {
-        return 0;
+        return false;
     }
     if (prr->sent_bytes == 0 || infly < 1460) {
-        return 1;
+        return true;
     }
+
+    // PRR-SSRB
     if (cwnd > infly) {
         return prr->delivered_bytes + prr->ack_count * 1460 > prr->sent_bytes;
     }
