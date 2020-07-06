@@ -1,9 +1,16 @@
 #include "flowcontrol/stream_flow_ctrl.h"
 #include "exception.h"
 
-static inline int gquic_flowcontrol_stream_flow_ctrl_try_queue_wnd_update(gquic_flowcontrol_stream_flow_ctrl_t *const);
+/**
+ * 尝试更新接收窗口（调用更新接收窗口的回调函数）
+ *
+ * @param ctrl: ctrl
+ * 
+ * @return: exception
+ */
+static inline gquic_exception_t gquic_flowcontrol_stream_flow_ctrl_try_queue_wnd_update(gquic_flowcontrol_stream_flow_ctrl_t *const ctrl);
 
-int gquic_flowcontrol_stream_flow_ctrl_init(gquic_flowcontrol_stream_flow_ctrl_t *const ctrl) {
+gquic_exception_t gquic_flowcontrol_stream_flow_ctrl_init(gquic_flowcontrol_stream_flow_ctrl_t *const ctrl) {
     if (ctrl == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -12,19 +19,19 @@ int gquic_flowcontrol_stream_flow_ctrl_init(gquic_flowcontrol_stream_flow_ctrl_t
     ctrl->queue_wnd_update.cb = NULL;
     ctrl->queue_wnd_update.self = NULL;
     ctrl->conn_flow_ctrl = NULL;
-    ctrl->recv_final_off = 0;
+    ctrl->recv_final_off = false;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
-int gquic_flowcontrol_stream_flow_ctrl_ctor(gquic_flowcontrol_stream_flow_ctrl_t *const ctrl,
-                                            const u_int64_t stream_id,
-                                            gquic_flowcontrol_conn_flow_ctrl_t *conn_flow_ctrl,
-                                            const u_int64_t rwnd,
-                                            const u_int64_t max_rwnd,
-                                            const u_int64_t initial_swnd,
-                                            void *const queue_wnd_update_self,
-                                            int (*queue_wnd_update_cb) (void *const, const u_int64_t),
-                                            gquic_rtt_t *const rtt) {
+gquic_exception_t gquic_flowcontrol_stream_flow_ctrl_ctor(gquic_flowcontrol_stream_flow_ctrl_t *const ctrl,
+                                                          const u_int64_t stream_id,
+                                                          gquic_flowcontrol_conn_flow_ctrl_t *conn_flow_ctrl,
+                                                          const u_int64_t rwnd,
+                                                          const u_int64_t max_rwnd,
+                                                          const u_int64_t initial_swnd,
+                                                          void *const queue_wnd_update_self,
+                                                          int (*queue_wnd_update_cb) (void *const, const u_int64_t),
+                                                          gquic_rtt_t *const rtt) {
     if (ctrl == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -41,7 +48,7 @@ int gquic_flowcontrol_stream_flow_ctrl_ctor(gquic_flowcontrol_stream_flow_ctrl_t
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_flowcontrol_stream_flow_ctrl_dtor(gquic_flowcontrol_stream_flow_ctrl_t *const ctrl) {
+gquic_exception_t gquic_flowcontrol_stream_flow_ctrl_dtor(gquic_flowcontrol_stream_flow_ctrl_t *const ctrl) {
     if (ctrl == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -50,13 +57,14 @@ int gquic_flowcontrol_stream_flow_ctrl_dtor(gquic_flowcontrol_stream_flow_ctrl_t
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_flowcontrol_stream_flow_ctrl_update_highest_recv(gquic_flowcontrol_stream_flow_ctrl_t *const ctrl, const u_int64_t off, int final) {
+gquic_exception_t gquic_flowcontrol_stream_flow_ctrl_update_highest_recv(gquic_flowcontrol_stream_flow_ctrl_t *const ctrl,
+                                                                         const u_int64_t off, const bool final) {
     int exception = GQUIC_SUCCESS;
     u_int64_t increment = 0;
     if (ctrl == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    sem_wait(&ctrl->base.mtx);
+    pthread_mutex_lock(&ctrl->base.mtx);
     if (ctrl->recv_final_off) {
         if (final && off != ctrl->base.highest_recv) {
             GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_RECV_INCONSISTENT_FINAL);
@@ -68,7 +76,7 @@ int gquic_flowcontrol_stream_flow_ctrl_update_highest_recv(gquic_flowcontrol_str
         }
     }
     if (final) {
-        ctrl->recv_final_off = 1;
+        ctrl->recv_final_off = true;
     }
     if (off == ctrl->base.highest_recv) {
         goto finished;
@@ -91,32 +99,33 @@ int gquic_flowcontrol_stream_flow_ctrl_update_highest_recv(gquic_flowcontrol_str
     }
 
 finished:
-    sem_post(&ctrl->base.mtx);
+    pthread_mutex_unlock(&ctrl->base.mtx);
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 failure:
-    sem_post(&ctrl->base.mtx);
+    pthread_mutex_unlock(&ctrl->base.mtx);
     GQUIC_PROCESS_DONE(exception);
 }
 
-int gquic_flowcontrol_stream_flow_ctrl_read_add_bytes(gquic_flowcontrol_stream_flow_ctrl_t *const ctrl, const u_int64_t n) {
+gquic_exception_t gquic_flowcontrol_stream_flow_ctrl_read_add_bytes(gquic_flowcontrol_stream_flow_ctrl_t *const ctrl, const u_int64_t bytes) {
     if (ctrl == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    gquic_flowcontrol_base_read_add_bytes(&ctrl->base, n);
+    
+    gquic_flowcontrol_base_read_add_bytes(&ctrl->base, bytes);
     gquic_flowcontrol_stream_flow_ctrl_try_queue_wnd_update(ctrl);
-    gquic_flowcontrol_conn_flow_ctrl_read_add_bytes(ctrl->conn_flow_ctrl, n);
+    gquic_flowcontrol_conn_flow_ctrl_read_add_bytes(ctrl->conn_flow_ctrl, bytes);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static inline int gquic_flowcontrol_stream_flow_ctrl_try_queue_wnd_update(gquic_flowcontrol_stream_flow_ctrl_t *const ctrl) {
-    int has_wnd_update = 0;
+static inline gquic_exception_t gquic_flowcontrol_stream_flow_ctrl_try_queue_wnd_update(gquic_flowcontrol_stream_flow_ctrl_t *const ctrl) {
+    bool has_wnd_update = false;
     if (ctrl == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    sem_wait(&ctrl->base.mtx);
+    pthread_mutex_lock(&ctrl->base.mtx);
     has_wnd_update = !ctrl->recv_final_off && gquic_flowcontrol_base_has_wnd_update(&ctrl->base);
-    sem_post(&ctrl->base.mtx);
+    pthread_mutex_unlock(&ctrl->base.mtx);
     if (has_wnd_update) {
         GQUIC_FLOWCONTROL_STREAM_FLOW_CTRL_QUEUE_WND_UPDATE(ctrl);
     }
@@ -124,7 +133,7 @@ static inline int gquic_flowcontrol_stream_flow_ctrl_try_queue_wnd_update(gquic_
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_flowcontrol_stream_flow_ctrl_abandon(gquic_flowcontrol_stream_flow_ctrl_t *const ctrl) {
+gquic_exception_t gquic_flowcontrol_stream_flow_ctrl_abandon(gquic_flowcontrol_stream_flow_ctrl_t *const ctrl) {
     u_int64_t unread = 0;
     if (ctrl == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -137,12 +146,12 @@ int gquic_flowcontrol_stream_flow_ctrl_abandon(gquic_flowcontrol_stream_flow_ctr
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_flowcontrol_stream_flow_ctrl_sent_add_bytes(gquic_flowcontrol_stream_flow_ctrl_t *const ctrl, const u_int64_t n) {
+gquic_exception_t gquic_flowcontrol_stream_flow_ctrl_sent_add_bytes(gquic_flowcontrol_stream_flow_ctrl_t *const ctrl, const u_int64_t bytes) {
     if (ctrl == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    gquic_flowcontrol_base_sent_add_bytes(&ctrl->base, n);
-    gquic_flowcontrol_base_sent_add_bytes(&ctrl->conn_flow_ctrl->base, n);
+    gquic_flowcontrol_base_sent_add_bytes(&ctrl->base, bytes);
+    gquic_flowcontrol_base_sent_add_bytes(&ctrl->conn_flow_ctrl->base, bytes);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -165,9 +174,9 @@ u_int64_t gquic_flowcontrol_stream_flow_ctrl_get_wnd_update(gquic_flowcontrol_st
     if (ctrl == NULL) {
         return 0;
     }
-    sem_wait(&ctrl->base.mtx);
+    pthread_mutex_lock(&ctrl->base.mtx);
     if (ctrl->recv_final_off) {
-        sem_post(&ctrl->base.mtx);
+        pthread_mutex_unlock(&ctrl->base.mtx);
         return 0;
     }
     old_wnd_size = ctrl->base.rwnd_size;
@@ -175,7 +184,7 @@ u_int64_t gquic_flowcontrol_stream_flow_ctrl_get_wnd_update(gquic_flowcontrol_st
     if (ctrl->base.rwnd_size > old_wnd_size) {
         gquic_flowcontrol_conn_flow_ctrl_ensure_min_wnd_size(ctrl->conn_flow_ctrl, ctrl->base.rwnd_size * 1.5);
     }
-    sem_post(&ctrl->base.mtx);
+    pthread_mutex_unlock(&ctrl->base.mtx);
 
     return off;
 }

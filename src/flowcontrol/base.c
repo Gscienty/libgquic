@@ -1,16 +1,24 @@
+/* src/flowcontrol/base.c 流量控制基础模块实现
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "flowcontrol/base.h"
 #include "util/time.h"
 
-static inline int gquic_flowcontrol_base_try_adjust_wnd_size(gquic_flowcontrol_base_t *const);
+static inline gquic_exception_t gquic_flowcontrol_base_try_adjust_wnd_size(gquic_flowcontrol_base_t *const);
 
-int gquic_flowcontrol_base_init(gquic_flowcontrol_base_t *const base) {
+gquic_exception_t gquic_flowcontrol_base_init(gquic_flowcontrol_base_t *const base) {
     if (base == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     base->sent_bytes = 0;
     base->swnd = 0;
     base->last_blocked_at = 0;
-    sem_init(&base->mtx, 0, 1);
+    pthread_mutex_init(&base->mtx, NULL);
     base->read_bytes = 0;
     base->highest_recv = 0;
     base->rwnd = 0;
@@ -23,70 +31,31 @@ int gquic_flowcontrol_base_init(gquic_flowcontrol_base_t *const base) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_flowcontrol_base_dtor(gquic_flowcontrol_base_t *const base) {
+gquic_exception_t gquic_flowcontrol_base_dtor(gquic_flowcontrol_base_t *const base) {
     if (base == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    sem_destroy(&base->mtx);
+    pthread_mutex_destroy(&base->mtx);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_flowcontrol_base_is_newly_blocked(u_int64_t *const swnd, gquic_flowcontrol_base_t *const base) {
+bool gquic_flowcontrol_base_is_newly_blocked(u_int64_t *const swnd, gquic_flowcontrol_base_t *const base) {
     if (base == NULL) {
-        return 0;
+        return false;
     }
     if (gquic_flowcontrol_base_swnd_size(base) != 0 || base->swnd == base->last_blocked_at) {
         if (swnd != NULL) {
             *swnd = 0;
         }
-        return 0;
+        return false;
     }
+
     base->last_blocked_at = base->swnd;
     if (swnd != NULL) {
         *swnd = base->swnd;
     }
-    return 1;
-}
-
-int gquic_flowcontrol_base_sent_add_bytes(gquic_flowcontrol_base_t *const base, const u_int64_t n) {
-    if (base == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
-    }
-    base->sent_bytes += n;
-    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
-}
-
-int gquic_flowcontrol_base_read_add_bytes(gquic_flowcontrol_base_t *const base, const u_int64_t n) {
-    if (base == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
-    }
-    sem_wait(&base->mtx);
-    if (base->read_bytes == 0) {
-        base->epoch_time = gquic_time_now();
-        base->epoch_off = base->read_bytes;
-    }
-    base->read_bytes += n;
-    sem_post(&base->mtx);
-
-    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
-}
-
-u_int64_t gquic_flowcontrol_base_swnd_size(const gquic_flowcontrol_base_t *const base) {
-    if (base == NULL) {
-        return 0;
-    }
-    if (base->sent_bytes > base->swnd) {
-        return 0;
-    }
-    return base->swnd - base->sent_bytes;
-}
-
-int gquic_flowcontrol_base_has_wnd_update(const gquic_flowcontrol_base_t *const base) {
-    if (base == NULL) {
-        return 0;
-    }
-    return base->rwnd - base->read_bytes <= base->rwnd_size * 0.75;
+    return true;
 }
 
 u_int64_t gquic_flowcontrol_base_get_wnd_update(gquic_flowcontrol_base_t *const base) {
@@ -101,7 +70,7 @@ u_int64_t gquic_flowcontrol_base_get_wnd_update(gquic_flowcontrol_base_t *const 
     return base->rwnd;
 }
 
-static inline int gquic_flowcontrol_base_try_adjust_wnd_size(gquic_flowcontrol_base_t *const base) {
+static inline gquic_exception_t gquic_flowcontrol_base_try_adjust_wnd_size(gquic_flowcontrol_base_t *const base) {
     u_int64_t in_epoch_read_bytes = 0;
     u_int64_t now;
     double frac = 0;
