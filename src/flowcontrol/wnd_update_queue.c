@@ -1,14 +1,22 @@
+/* include/flowcontrol/wnd_update_queue.h 接收窗口更新通知队列声明
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "flowcontrol/wnd_update_queue.h"
 #include "flowcontrol/stream_flow_ctrl.h"
 #include "frame/max_stream_data.h"
 #include "frame/max_data.h"
 #include "exception.h"
 
-int gquic_wnd_update_queue_init(gquic_wnd_update_queue_t *const queue) {
+gquic_exception_t gquic_wnd_update_queue_init(gquic_wnd_update_queue_t *const queue) {
     if (queue == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    sem_init(&queue->mtx, 0, 1);
+    pthread_mutex_init(&queue->mtx, NULL);
     gquic_rbtree_root_init(&queue->queue);
     queue->queue_conn = 0;
     queue->stream_getter = NULL;
@@ -19,11 +27,11 @@ int gquic_wnd_update_queue_init(gquic_wnd_update_queue_t *const queue) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_wnd_update_queue_ctor(gquic_wnd_update_queue_t *const queue,
-                                gquic_stream_map_t *const stream_getter,
-                                gquic_flowcontrol_conn_flow_ctrl_t *const conn_flow_ctrl,
-                                void *const cb_self,
-                                int (*cb_cb) (void *const, void *const)) {
+gquic_exception_t gquic_wnd_update_queue_ctor(gquic_wnd_update_queue_t *const queue,
+                                              gquic_stream_map_t *const stream_getter,
+                                              gquic_flowcontrol_conn_flow_ctrl_t *const conn_flow_ctrl,
+                                              void *const cb_self,
+                                              int (*cb_cb) (void *const, void *const)) {
     if (queue == NULL || stream_getter == NULL || conn_flow_ctrl == NULL || cb_self == NULL || cb_cb == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -35,7 +43,7 @@ int gquic_wnd_update_queue_ctor(gquic_wnd_update_queue_t *const queue,
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_wnd_update_queue_add_stream(gquic_wnd_update_queue_t *const queue, const u_int64_t stream_id) {
+gquic_exception_t gquic_wnd_update_queue_add_stream(gquic_wnd_update_queue_t *const queue, const u_int64_t stream_id) {
     gquic_rbtree_t *rbt = NULL;
     if (queue == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -43,26 +51,26 @@ int gquic_wnd_update_queue_add_stream(gquic_wnd_update_queue_t *const queue, con
     if (GQUIC_ASSERT(gquic_rbtree_alloc(&rbt, sizeof(u_int64_t), sizeof(u_int8_t)))) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
     }
-    sem_wait(&queue->mtx);
+    pthread_mutex_lock(&queue->mtx);
     *(u_int64_t *) GQUIC_RBTREE_KEY(rbt) = stream_id;
     gquic_rbtree_insert(&queue->queue, rbt);
-    sem_post(&queue->mtx);
+    pthread_mutex_unlock(&queue->mtx);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_wnd_update_queue_add_conn(gquic_wnd_update_queue_t *const queue) {
+gquic_exception_t gquic_wnd_update_queue_add_conn(gquic_wnd_update_queue_t *const queue) {
     if (queue == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    sem_wait(&queue->mtx);
+    pthread_mutex_lock(&queue->mtx);
     queue->queue_conn = 1;
-    sem_post(&queue->mtx);
+    pthread_mutex_unlock(&queue->mtx);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_wnd_update_queue_queue_all(gquic_wnd_update_queue_t *const queue) {
+gquic_exception_t gquic_wnd_update_queue_queue_all(gquic_wnd_update_queue_t *const queue) {
     int exception = 0;
     gquic_frame_max_data_t *max_data_frame = NULL;
     gquic_frame_max_stream_data_t *max_stream_data_frame = NULL;
@@ -75,7 +83,8 @@ int gquic_wnd_update_queue_queue_all(gquic_wnd_update_queue_t *const queue) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_list_head_init(&del);
-    sem_wait(&queue->mtx);
+
+    pthread_mutex_lock(&queue->mtx);
     if (queue->queue_conn) {
         if (GQUIC_ASSERT_CAUSE(exception, gquic_frame_max_data_alloc(&max_data_frame))) {
             goto failure;
@@ -114,11 +123,10 @@ int gquic_wnd_update_queue_queue_all(gquic_wnd_update_queue_t *const queue) {
         gquic_list_release(GQUIC_LIST_FIRST(&del));
     }
 
-    sem_post(&queue->mtx);
+    pthread_mutex_unlock(&queue->mtx);
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 failure:
-    sem_post(&queue->mtx);
-
+    pthread_mutex_unlock(&queue->mtx);
     while (!gquic_list_head_empty(&del)) {
         gquic_list_release(GQUIC_LIST_FIRST(&del));
     }
