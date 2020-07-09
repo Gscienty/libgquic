@@ -1,4 +1,4 @@
-/* include/flowcontrol/wnd_update_queue.h 接收窗口更新通知队列声明
+/* src/flowcontrol/wnd_update_queue.c 接收窗口更新通知队列声明
  *
  * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
  *
@@ -39,6 +39,15 @@ gquic_exception_t gquic_wnd_update_queue_ctor(gquic_wnd_update_queue_t *const qu
     queue->conn_flow_ctrl = conn_flow_ctrl;
     queue->cb.cb = cb_cb;
     queue->cb.self = cb_self;
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}
+
+gquic_exception_t gquic_wnd_update_queue_dtor(gquic_wnd_update_queue_t *const queue) {
+    if (queue == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+    pthread_mutex_destroy(&queue->mtx);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

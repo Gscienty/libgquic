@@ -326,7 +326,7 @@ static int gquic_packet_received_packet_handler_miss(const gquic_packet_received
     }
     gquic_list_head_init(&blocks);
     gquic_frame_ack_ranges_to_blocks(&blocks, handler->last_ack);
-    ret = pn < ((gquic_frame_ack_block_t *) GQUIC_LIST_FIRST(&blocks))->largest && gquic_frame_ack_acks_packet(&blocks, pn);
+    ret = pn < ((gquic_frame_ack_block_t *) GQUIC_LIST_FIRST(&blocks))->largest && gquic_frame_ack_blocks_contain_packet(&blocks, pn);
     while (!gquic_list_head_empty(&blocks)) {
         gquic_list_release(GQUIC_LIST_FIRST(&blocks));
     }

@@ -1,15 +1,39 @@
+/* src/frame/frame_sorter.c frame_sorter 实现
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "frame/frame_sorter.h"
 #include "exception.h"
 #include <stddef.h>
 
-static int gquic_frame_sorter_entry_release(void *const);
-static int gquic_frame_sorter_push_inner(gquic_frame_sorter_t *const,
-                                         const gquic_str_t *const,
-                                         u_int64_t,
-                                         int (*) (void *const),
-                                         void *);
+/**
+ * 释放数据块
+ *
+ * @param entry: entry
+ *
+ * @return exception
+ */
+static gquic_exception_t gquic_frame_sorter_entry_release(void *const entry);
 
-int gquic_frame_sorter_entry_init(gquic_frame_sorter_entry_t *const entry) {
+/**
+ * 向frame_sorter内添加数据块的具体实现
+ *
+ * @param sorter: sorter
+ * @param data: 添加的数据
+ * @param off: 数据偏移量
+ * @param done_cb: 当前数据块处理完毕的回调函数
+ * @param done_cb_self: 当前数据块处理完毕后的回调函数self参数
+ *
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_sorter_push_inner(gquic_frame_sorter_t *const sorter,
+                                                       const gquic_str_t *const data, u_int64_t off, int (*done_cb) (void *const), void *done_cb_self);
+
+gquic_exception_t gquic_frame_sorter_entry_init(gquic_frame_sorter_entry_t *const entry) {
     if (entry == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -20,7 +44,7 @@ int gquic_frame_sorter_entry_init(gquic_frame_sorter_entry_t *const entry) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_frame_sorter_init(gquic_frame_sorter_t *const sorter) {
+gquic_exception_t gquic_frame_sorter_init(gquic_frame_sorter_t *const sorter) {
     if (sorter == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -32,7 +56,7 @@ int gquic_frame_sorter_init(gquic_frame_sorter_t *const sorter) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_frame_sorter_ctor(gquic_frame_sorter_t *const sorter) {
+gquic_exception_t gquic_frame_sorter_ctor(gquic_frame_sorter_t *const sorter) {
     gquic_byte_interval_t *interval = NULL;
     if (sorter == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -46,7 +70,7 @@ int gquic_frame_sorter_ctor(gquic_frame_sorter_t *const sorter) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_frame_sorter_dtor(gquic_frame_sorter_t *const sorter) {
+gquic_exception_t gquic_frame_sorter_dtor(gquic_frame_sorter_t *const sorter) {
     gquic_rbtree_t *node = NULL;
     if (sorter == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -64,7 +88,7 @@ int gquic_frame_sorter_dtor(gquic_frame_sorter_t *const sorter) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_sorter_entry_release(void *const entry) {
+static gquic_exception_t gquic_frame_sorter_entry_release(void *const entry) {
     gquic_frame_sorter_entry_t *spec = entry;
     if (entry == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -74,11 +98,8 @@ static int gquic_frame_sorter_entry_release(void *const entry) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_sorter_push_inner(gquic_frame_sorter_t *const sorter,
-                                         const gquic_str_t *const data,
-                                         u_int64_t off,
-                                         int (*done_cb) (void *const),
-                                         void *done_cb_self) {
+static gquic_exception_t gquic_frame_sorter_push_inner(gquic_frame_sorter_t *const sorter,
+                                                       const gquic_str_t *const data, u_int64_t off, int (*done_cb) (void *const), void *done_cb_self) {
     const gquic_rbtree_t *old_entry = NULL;
     gquic_frame_sorter_entry_t *old_entry_spec = NULL;
     gquic_byte_interval_t *gap = NULL;
@@ -225,8 +246,8 @@ static int gquic_frame_sorter_push_inner(gquic_frame_sorter_t *const sorter,
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_frame_sorter_push(gquic_frame_sorter_t *const sorter,
-                            const gquic_str_t *const data, const u_int64_t off, int (*done_cb) (void *const), void *const done_cb_self) {
+gquic_exception_t gquic_frame_sorter_push(gquic_frame_sorter_t *const sorter,
+                                          const gquic_str_t *const data, const u_int64_t off, int (*done_cb) (void *const), void *const done_cb_self) {
     int exception = GQUIC_SUCCESS;
     if (sorter == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -242,11 +263,8 @@ int gquic_frame_sorter_push(gquic_frame_sorter_t *const sorter,
     GQUIC_PROCESS_DONE(exception);
 }
 
-int gquic_frame_sorter_pop(u_int64_t *const off,
-                           gquic_str_t *const data,
-                           int (**done_cb) (void *const),
-                           void **done_cb_self,
-                           gquic_frame_sorter_t *const sorter) {
+gquic_exception_t gquic_frame_sorter_pop(u_int64_t *const off, gquic_str_t *const data, int (**done_cb) (void *const), void **done_cb_self,
+                                         gquic_frame_sorter_t *const sorter) {
     const gquic_rbtree_t *cb_rbt = NULL;
     if (off == NULL || data == NULL || done_cb == NULL || done_cb_self == NULL || sorter == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);

@@ -73,6 +73,15 @@ gquic_exception_t gquic_wnd_update_queue_ctor(gquic_wnd_update_queue_t *const qu
                                               int (*cb_cb) (void *const, void *const));
 
 /**
+ * 析构通知队列
+ *
+ * @param queue: queue
+ * 
+ * @return: exception
+ */
+gquic_exception_t gquic_wnd_update_queue_dtor(gquic_wnd_update_queue_t *const queue);
+
+/**
  * 向通知队列中添加一个新的stream
  *
  * @param queue: queue

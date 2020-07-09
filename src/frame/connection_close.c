@@ -1,3 +1,11 @@
+/* src/frame/connection_close.c CONNECTION_CLOSE frame 实现
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "frame/connection_close.h"
 #include "frame/meta.h"
 #include "util/malloc.h"

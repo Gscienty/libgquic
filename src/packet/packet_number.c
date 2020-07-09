@@ -103,7 +103,7 @@ int gquic_packet_number_gen_valid(gquic_packet_number_gen_t *const gen, const gq
         return 0;
     }
     GQUIC_LIST_FOREACH(pn, &gen->mem) {
-        if (gquic_frame_ack_acks_packet(blocks, *pn)) {
+        if (gquic_frame_ack_blocks_contain_packet(blocks, *pn)) {
             return 0;
         }
     }

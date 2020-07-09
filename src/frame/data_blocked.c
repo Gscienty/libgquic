@@ -1,3 +1,11 @@
+/* src/frame/data_blocked.c DATA_BLOCKED frame 实现
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "frame/data_blocked.h"
 #include "frame/meta.h"
 #include "exception.h"

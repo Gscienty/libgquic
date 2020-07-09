@@ -1,16 +1,65 @@
+/* src/frame/ack.c ACK frame 实现
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "frame/ack.h"
 #include "frame/meta.h"
 #include "util/list.h"
 #include "exception.h"
 #include "log.h"
 
-static size_t gquic_frame_ack_size(const void *const);
-static int gquic_frame_ack_serialize(const void *const, gquic_writer_str_t *const);
-static int gquic_frame_ack_deserialize(void *const, gquic_reader_str_t *const);
-static int gquic_frame_ack_init(void *const);
-static int gquic_frame_ack_dtor(void *const);
+/**
+ * ACK frame 大小
+ *
+ * @param frame: ACK frame
+ * 
+ * @return: frame大小
+ */
+static size_t gquic_frame_ack_size(const void *const frame);
 
-int gquic_frame_ack_range_init(gquic_frame_ack_range_t *const range) {
+/**
+ * ACK frame序列化
+ *
+ * @param frame: ACK frame
+ * @param writer: writer
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_ack_serialize(const void *const frame, gquic_writer_str_t *const writer);
+
+/**
+ * ACK frame反序列化
+ *
+ * @param frame: ACK frame
+ * @param reader: reader
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_ack_deserialize(void *const frame, gquic_reader_str_t *const reader);
+
+/**
+ * ACK frame 初始化
+ *
+ * @param frame: ACK frame
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_ack_init(void *const frame);
+
+/**
+ * 析构ACK frame
+ *
+ * @param frame: ACK frame
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_ack_dtor(void *const frame);
+
+gquic_exception_t gquic_frame_ack_range_init(gquic_frame_ack_range_t *const range) {
     if (range == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -20,7 +69,7 @@ int gquic_frame_ack_range_init(gquic_frame_ack_range_t *const range) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_frame_ack_alloc(gquic_frame_ack_t **const frame_storage) {
+gquic_exception_t gquic_frame_ack_alloc(gquic_frame_ack_t **const frame_storage) {
     if (frame_storage == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -42,8 +91,13 @@ static size_t gquic_frame_ack_size(const void *const frame) {
     if (spec == NULL) {
         return 0;
     }
-    ret = 1 + gquic_varint_size(&spec->largest_ack) + gquic_varint_size(&spec->delay) + gquic_varint_size(&spec->count) + gquic_varint_size(&spec->first_range);
-    gquic_frame_ack_range_t *range;
+    ret = 1
+        + gquic_varint_size(&spec->largest_ack)
+        + gquic_varint_size(&spec->delay)
+        + gquic_varint_size(&spec->count)
+        + gquic_varint_size(&spec->first_range);
+
+    gquic_frame_ack_range_t *range = NULL;
     GQUIC_LIST_FOREACH(range, &spec->ranges) {
         ret += gquic_varint_size(&range->gap) + gquic_varint_size(&range->range);
     }
@@ -54,7 +108,7 @@ static size_t gquic_frame_ack_size(const void *const frame) {
     return ret;
 }
 
-static int gquic_frame_ack_serialize(const void *const frame, gquic_writer_str_t *const writer) {
+static gquic_exception_t gquic_frame_ack_serialize(const void *const frame, gquic_writer_str_t *const writer) {
     const gquic_frame_ack_t *spec = frame;
     if (spec == NULL || writer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -85,7 +139,7 @@ static int gquic_frame_ack_serialize(const void *const frame, gquic_writer_str_t
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_ack_deserialize(void *const frame, gquic_reader_str_t *const reader) {
+static gquic_exception_t gquic_frame_ack_deserialize(void *const frame, gquic_reader_str_t *const reader) {
     u_int8_t type;
     gquic_frame_ack_t *spec = frame;
     if (spec == NULL || reader == NULL) {
@@ -128,7 +182,7 @@ static int gquic_frame_ack_deserialize(void *const frame, gquic_reader_str_t *co
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_ack_init(void *const frame) {
+static gquic_exception_t gquic_frame_ack_init(void *const frame) {
     gquic_frame_ack_t *spec = frame;
     if (spec == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -145,7 +199,7 @@ static int gquic_frame_ack_init(void *const frame) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_ack_dtor(void *const frame) {
+static gquic_exception_t gquic_frame_ack_dtor(void *const frame) {
     gquic_frame_ack_t *spec = frame;
     if (spec == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -157,7 +211,7 @@ static int gquic_frame_ack_dtor(void *const frame) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_frame_ack_acks_packet(const gquic_list_t *const blocks, const u_int64_t pn) {
+bool gquic_frame_ack_blocks_contain_packet(const gquic_list_t *const blocks, const u_int64_t pn) {
     gquic_frame_ack_block_t *block = NULL;
     if (blocks == NULL) {
         return 0;
@@ -175,7 +229,7 @@ int gquic_frame_ack_acks_packet(const gquic_list_t *const blocks, const u_int64_
     return 0;
 }
 
-int gquic_frame_ack_ranges_to_blocks(gquic_list_t *const blocks, const gquic_frame_ack_t *const spec) {
+gquic_exception_t gquic_frame_ack_ranges_to_blocks(gquic_list_t *const blocks, const gquic_frame_ack_t *const spec) {
     gquic_frame_ack_block_t *block = NULL;
     gquic_frame_ack_range_t *range = NULL;
     u_int64_t largest = 0;
@@ -201,8 +255,8 @@ int gquic_frame_ack_ranges_to_blocks(gquic_list_t *const blocks, const gquic_fra
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_frame_ack_ranges_from_blocks(gquic_frame_ack_t *const spec, const gquic_list_t *const blocks) {
-    int is_first = 1;
+gquic_exception_t gquic_frame_ack_ranges_from_blocks(gquic_frame_ack_t *const spec, const gquic_list_t *const blocks) {
+    bool is_first = true;
     gquic_frame_ack_range_t *range = NULL;
     gquic_frame_ack_block_t *block = NULL;
     u_int64_t largest = 0;
@@ -218,7 +272,7 @@ int gquic_frame_ack_ranges_from_blocks(gquic_frame_ack_t *const spec, const gqui
     spec->count = 0;
     GQUIC_LIST_FOREACH(block, blocks) {
         if (is_first) {
-            is_first = 0;
+            is_first = false;
             continue;
         }
         GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &range, sizeof(gquic_frame_ack_range_t)));
@@ -231,12 +285,12 @@ int gquic_frame_ack_ranges_from_blocks(gquic_frame_ack_t *const spec, const gqui
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_frames_has_frame_ack(gquic_list_t *const frames) {
+bool gquic_frames_has_frame_ack(gquic_list_t *const frames) {
     void *frame = NULL;
     GQUIC_LIST_FOREACH(frame, frames) {
         if (GQUIC_FRAME_META(frame).type == 0x02 || GQUIC_FRAME_META(frame).type == 0x03) {
-            return 1;
+            return true;
         }
     }
-    return 0;
+    return false;
 }
