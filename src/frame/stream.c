@@ -1,3 +1,11 @@
+/* src/frame/stream.c STREAM frame 实现
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "frame/stream.h"
 #include "frame/meta.h"
 #include <string.h>
@@ -147,18 +155,19 @@ u_int64_t gquic_frame_stream_data_capacity(const u_int64_t size, const gquic_fra
     return capacity_size;
 }
 
-int gquic_frame_stream_split(gquic_frame_stream_t **new_frame, gquic_frame_stream_t *const frame, const u_int64_t size) {
+bool gquic_frame_stream_split(gquic_frame_stream_t **new_frame, gquic_frame_stream_t *const frame, const u_int64_t size) {
     u_int64_t capacity_size = 0;
     if (new_frame == NULL || frame == NULL) {
-        return 0;
+        return false;
     }
     if (size > GQUIC_FRAME_SIZE(frame)) {
-        return 0;
+        return false;
     }
+    // 获取frame可承载的数据量
     capacity_size = gquic_frame_stream_data_capacity(size, frame);
     if (capacity_size == 0) {
         *new_frame = NULL;
-        return 1;
+        return true;
     }
     gquic_stream_frame_pool_get(new_frame);
     (*new_frame)->id = frame->id;
@@ -167,16 +176,24 @@ int gquic_frame_stream_split(gquic_frame_stream_t **new_frame, gquic_frame_strea
         GQUIC_FRAME_META(*new_frame).type |= 0x04;
     }
     GQUIC_FRAME_META(*new_frame).type |= 0x02;
+
+    // new_frame承载的是前半段数据内容, frame承载剩下的后半段数据内容
     (*new_frame)->data = frame->data;
     frame->data.size = 0;
     frame->data.val = NULL;
-    if (gquic_str_alloc(&frame->data, GQUIC_STR_SIZE(&(*new_frame)->data) - capacity_size) != 0) {
-        return 0;
+
+    // 将多余可承载的数据量放置到原有frame中
+    if (GQUIC_ASSERT(gquic_str_alloc(&frame->data, GQUIC_STR_SIZE(&(*new_frame)->data) - capacity_size))) {
+        GQUIC_LOG(GQUIC_LOG_ERROR, "stream split error, cause str_alloc failed");
+
+        gquic_stream_frame_pool_put(*new_frame);
+        *new_frame = NULL;
+        return false;
     }
     memcpy(GQUIC_STR_VAL(&frame->data), GQUIC_STR_VAL(&(*new_frame)->data) + capacity_size, GQUIC_STR_SIZE(&frame->data));
     (*new_frame)->data.size = capacity_size;
     frame->off += capacity_size;
     GQUIC_FRAME_META(frame).type |= 0x04;
 
-    return 1;
+    return true;
 }
