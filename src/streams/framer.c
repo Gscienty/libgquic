@@ -63,7 +63,7 @@ int gquic_framer_append_ctrl_frame(gquic_list_t *const frames, u_int64_t *const 
             pthread_mutex_unlock(&framer->ctrl_mtx);
             GQUIC_PROCESS_DONE(exception);
         }
-        gquic_frame_assign(frame_storage, *ctrl_frame_storage);
+        *frame_storage = gquic_frame_assign(*ctrl_frame_storage);
         gquic_list_insert_before(frames, frame_storage);
         *length += frame_size;
 

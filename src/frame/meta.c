@@ -40,20 +40,6 @@ int gquic_frame_release(void *const frame) {
     GQUIC_PROCESS_DONE(exception);
 }
 
-int gquic_frame_assign(const void **const frame_storage, const void *frame) {
-    int exception = GQUIC_SUCCESS;
-    gquic_frame_meta_t *target = NULL;
-    if (frame_storage == NULL || frame == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
-    }
-    if (GQUIC_CPTR_ASSIGN_ORIG(exception, &target, &GQUIC_FRAME_META(frame), cptr)) {
-        GQUIC_PROCESS_DONE(exception);
-    }
-    *frame_storage = frame;
-
-    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
-}
-
 static int gquic_frame_cptr_release(void *const meta_) {
     gquic_frame_meta_t *const meta = meta_;
     if (meta == NULL) {

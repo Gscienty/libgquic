@@ -151,10 +151,19 @@ gquic_exception_t gquic_frame_release(void *const frame);
  *
  * @param frame: frame
  * 
- * @return frame_storage: frame
- * @return exception
+ * @return: frame
  */
-gquic_exception_t gquic_frame_assign(const void **const frame_storage, const void *frame);
+static inline const void *gquic_frame_assign(const void *const frame) {
+    int exception = GQUIC_SUCCESS;
+    gquic_frame_meta_t *target = NULL;
+    if (frame == NULL) {
+        return NULL;
+    }
+    if (GQUIC_CPTR_ASSIGN_ORIG(exception, &target, &GQUIC_FRAME_META(frame), cptr)) {
+        return NULL;
+    }
+    return frame;
+}
 
 /**
  * 生成抽象frame

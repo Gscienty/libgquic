@@ -298,7 +298,7 @@ int gquic_packet_packer_pack_conn_close(gquic_packed_packet_t *const packed_pack
         gquic_packed_packet_payload_dtor(&payload);
         GQUIC_PROCESS_DONE(exception);
     }
-    gquic_frame_assign(frame_storage, conn_close);
+    *frame_storage = gquic_frame_assign(conn_close);
     gquic_list_insert_before(payload.frames, frame_storage);
     payload.len = GQUIC_FRAME_SIZE(conn_close);
 
@@ -941,7 +941,7 @@ int gquic_packet_packer_pack_crypto_packet(gquic_packed_packet_t *const packed_p
                 break;
             }
             GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &frame_storage, sizeof(void *)));
-            gquic_frame_assign(frame_storage, frame);
+            *frame_storage = gquic_frame_assign(frame);
             gquic_list_insert_before(payload->frames, frame_storage);
             payload->len += GQUIC_FRAME_SIZE(*frame_storage);
         }
