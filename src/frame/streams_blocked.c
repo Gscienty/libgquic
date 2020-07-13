@@ -1,16 +1,65 @@
+/* src/frame/stream.c STREAM frame 实现
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "frame/streams_blocked.h"
 #include "frame/meta.h"
 #include "exception.h"
 #include "log.h"
 #include <stddef.h>
 
+/**
+ * STREAMS_BLOCKED frame 大小
+ *
+ * @param frame: STREAMS_BLOCKED frame
+ * 
+ * @return frame大小
+ */
 static size_t gquic_frame_streams_blocked_size(const void *const);
-static int gquic_frame_streams_blocked_serialize(const void *const, gquic_writer_str_t *const);
-static int gquic_frame_streams_blocked_deserialize(void *const, gquic_reader_str_t *const);
-static int gquic_frame_streams_blocked_init(void *const);
-static int gquic_frame_streams_blocked_dtor(void *const);
 
-int gquic_frame_streams_blocked_alloc(gquic_frame_streams_blocked_t **const frame_storage) {
+/**
+ * STREAMS_BLOCKED frame 序列化
+ *
+ * @param frame: STREAMS_BLOCKED frame
+ * @param writer: writer
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_streams_blocked_serialize(const void *const, gquic_writer_str_t *const);
+
+/**
+ * STREAMS_BLOCKED frame 反序列化
+ *
+ * @param frame: STREAMS_BLOCKED frame
+ * @param reader: reader
+ *
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_streams_blocked_deserialize(void *const, gquic_reader_str_t *const);
+
+/**
+ * STREAMS_BLOCKED frame 初始化
+ *
+ * @param frame: STREAMS_BLOCKED frame
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_streams_blocked_init(void *const);
+
+/**
+ * 析构 STREAMS_BLOCKED frame
+ * 
+ * @param frame: STREAMS_BLOCKED frame
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_streams_blocked_dtor(void *const);
+
+gquic_exception_t gquic_frame_streams_blocked_alloc(gquic_frame_streams_blocked_t **const frame_storage) {
     if (frame_storage == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -35,7 +84,7 @@ static size_t gquic_frame_streams_blocked_size(const void *const frame) {
     return 1 + gquic_varint_size(&spec->limit);
 }
 
-static int gquic_frame_streams_blocked_serialize(const void *const frame, gquic_writer_str_t *const writer) {
+static gquic_exception_t gquic_frame_streams_blocked_serialize(const void *const frame, gquic_writer_str_t *const writer) {
     const gquic_frame_streams_blocked_t *spec = frame;
     if (spec == NULL || writer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -49,7 +98,7 @@ static int gquic_frame_streams_blocked_serialize(const void *const frame, gquic_
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_streams_blocked_deserialize(void *const frame, gquic_reader_str_t *const reader) {
+static gquic_exception_t gquic_frame_streams_blocked_deserialize(void *const frame, gquic_reader_str_t *const reader) {
     gquic_frame_streams_blocked_t *spec = frame;
     u_int8_t type;
     if (spec == NULL || reader == NULL) {
@@ -68,7 +117,7 @@ static int gquic_frame_streams_blocked_deserialize(void *const frame, gquic_read
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_streams_blocked_init(void *const frame) {
+static gquic_exception_t gquic_frame_streams_blocked_init(void *const frame) {
     gquic_frame_streams_blocked_t *spec = frame;
     if (spec == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -78,7 +127,7 @@ static int gquic_frame_streams_blocked_init(void *const frame) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_streams_blocked_dtor(void *const frame) {
+static gquic_exception_t gquic_frame_streams_blocked_dtor(void *const frame) {
     if (frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }

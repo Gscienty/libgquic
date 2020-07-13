@@ -1,16 +1,65 @@
+/* src/frame/max_stream_data.c MAX_STREAM_DATA frame 实现
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "frame/max_stream_data.h"
 #include "frame/meta.h"
 #include "exception.h"
 #include "log.h"
 #include <stddef.h>
 
+/**
+ * MAX_STREAM_DATA frame 大小
+ *
+ * @param frame: MAX_STREAM_DATA frame
+ * 
+ * @return frame大小
+ */
 static size_t gquic_frame_max_stream_data_size(const void *const);
-static int gquic_frame_max_stream_data_serialize(const void *const, gquic_writer_str_t *const);
-static int gquic_frame_max_stream_data_deserialize(void *const, gquic_reader_str_t *const);
-static int gquic_frame_max_stream_data_init(void *const);
-static int gquic_frame_max_stream_data_dtor(void *const);
 
-int gquic_frame_max_stream_data_alloc(gquic_frame_max_stream_data_t **const frame_storage) {
+/**
+ * MAX_STREAM_DATA frame 序列化
+ *
+ * @param frame: MAX_STREAM_DATA frame
+ * @param writer: writer
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_max_stream_data_serialize(const void *const, gquic_writer_str_t *const);
+
+/**
+ * MAX_STREAM_DATA frame 反序列化
+ *
+ * @param frame: MAX_STREAM_DATA frame
+ * @param reader: reader
+ *
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_max_stream_data_deserialize(void *const, gquic_reader_str_t *const);
+
+/**
+ * MAX_STREAM_DATA frame 初始化
+ *
+ * @param frame: MAX_STREAM_DATA frame
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_max_stream_data_init(void *const);
+
+/**
+ * 析构 MAX_STREAM_DATA frame
+ * 
+ * @param frame: MAX_STREAM_DATA frame
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_max_stream_data_dtor(void *const);
+
+gquic_exception_t gquic_frame_max_stream_data_alloc(gquic_frame_max_stream_data_t **const frame_storage) {
     if (frame_storage == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -35,7 +84,7 @@ static size_t gquic_frame_max_stream_data_size(const void *const frame) {
     return 1 + gquic_varint_size(&spec->id) + gquic_varint_size(&spec->max);
 }
 
-static int gquic_frame_max_stream_data_serialize(const void *const frame, gquic_writer_str_t *const writer) {
+static gquic_exception_t gquic_frame_max_stream_data_serialize(const void *const frame, gquic_writer_str_t *const writer) {
     int i;
     const gquic_frame_max_stream_data_t *spec = frame;
     if (spec == NULL || writer == NULL) {
@@ -53,7 +102,7 @@ static int gquic_frame_max_stream_data_serialize(const void *const frame, gquic_
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_max_stream_data_deserialize(void *const frame, gquic_reader_str_t *const reader) {
+static gquic_exception_t gquic_frame_max_stream_data_deserialize(void *const frame, gquic_reader_str_t *const reader) {
     int i;
     gquic_frame_max_stream_data_t *spec = frame;
     if (spec == NULL || reader == NULL) {
@@ -73,7 +122,7 @@ static int gquic_frame_max_stream_data_deserialize(void *const frame, gquic_read
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_max_stream_data_init(void *const frame) {
+static gquic_exception_t gquic_frame_max_stream_data_init(void *const frame) {
     gquic_frame_max_stream_data_t *spec = frame;
     if (spec == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -84,7 +133,7 @@ static int gquic_frame_max_stream_data_init(void *const frame) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_max_stream_data_dtor(void *const frame) {
+static gquic_exception_t gquic_frame_max_stream_data_dtor(void *const frame) {
     if (frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }

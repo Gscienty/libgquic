@@ -1,16 +1,65 @@
+/* src/frame/new_connection_id.c NEW_CONNECTION_ID frame实现
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "frame/new_connection_id.h"
 #include "frame/meta.h"
 #include "exception.h"
 #include "log.h"
 #include <string.h>
 
+/**
+ * NEW_CONNECTION_ID frame 大小
+ *
+ * @param frame: NEW_CONNECTION_ID frame
+ * 
+ * @return frame大小
+ */
 static size_t gquic_frame_new_connection_id_size(const void *const);
-static int gquic_frame_new_connection_id_serialize(const void *const, gquic_writer_str_t *const);
-static int gquic_frame_new_connection_id_deserialize(void *const, gquic_reader_str_t *const);
-static int gquic_frame_new_connection_id_init(void *const);
-static int gquic_frame_new_connection_id_dtor(void *const);
 
-int gquic_frame_new_connection_id_alloc(gquic_frame_new_connection_id_t **const frame_storage) {
+/**
+ * NEW_CONNECTION_ID frame 序列化
+ *
+ * @param frame: NEW_CONNECTION_ID frame
+ * @param writer: writer
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_new_connection_id_serialize(const void *const, gquic_writer_str_t *const);
+
+/**
+ * NEW_CONNECTION_ID frame 反序列化
+ *
+ * @param frame: NEW_CONNECTION_ID frame
+ * @param reader: reader
+ *
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_new_connection_id_deserialize(void *const, gquic_reader_str_t *const);
+
+/**
+ * NEW_CONNECTION_ID frame 初始化
+ *
+ * @param frame: NEW_CONNECTION_ID frame
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_new_connection_id_init(void *const);
+
+/**
+ * 析构 NEW_CONNECTION_ID frame
+ * 
+ * @param frame: NEW_CONNECTION_ID frame
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_new_connection_id_dtor(void *const);
+
+gquic_exception_t gquic_frame_new_connection_id_alloc(gquic_frame_new_connection_id_t **const frame_storage) {
     if (frame_storage == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -35,7 +84,7 @@ static size_t gquic_frame_new_connection_id_size(const void *const frame) {
     return 1 + gquic_varint_size(&spec->seq) + gquic_varint_size(&spec->prior) + 1 + spec->len + 16;
 }
 
-static int gquic_frame_new_connection_id_serialize(const void *const frame, gquic_writer_str_t *const writer) {
+static gquic_exception_t gquic_frame_new_connection_id_serialize(const void *const frame, gquic_writer_str_t *const writer) {
     const gquic_frame_new_connection_id_t *spec = frame;
     if (spec == NULL || writer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -58,7 +107,7 @@ static int gquic_frame_new_connection_id_serialize(const void *const frame, gqui
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_new_connection_id_deserialize(void *const frame, gquic_reader_str_t *const reader) {
+static gquic_exception_t gquic_frame_new_connection_id_deserialize(void *const frame, gquic_reader_str_t *const reader) {
     gquic_frame_new_connection_id_t *spec = frame;
     if (spec == NULL || reader == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -83,7 +132,7 @@ static int gquic_frame_new_connection_id_deserialize(void *const frame, gquic_re
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_new_connection_id_init(void *const frame) {
+static gquic_exception_t gquic_frame_new_connection_id_init(void *const frame) {
     gquic_frame_new_connection_id_t *spec = frame;
     if (spec == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -95,7 +144,7 @@ static int gquic_frame_new_connection_id_init(void *const frame) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_new_connection_id_dtor(void *const frame) {
+static gquic_exception_t gquic_frame_new_connection_id_dtor(void *const frame) {
     if (frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }

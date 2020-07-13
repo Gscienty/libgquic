@@ -12,13 +12,54 @@
 #include "log.h"
 #include <stddef.h>
 
-static size_t gquic_frame_data_blocked_size(const void *const);
-static int gquic_frame_data_blocked_serialize(const void *const, gquic_writer_str_t *const);
-static int gquic_frame_data_blocked_deserialize(void *const, gquic_reader_str_t *const);
-static int gquic_frame_data_blocked_init(void *const);
-static int gquic_frame_data_blocked_dtor(void *const);
+/**
+ * DATA_BLOCKED frame 大小
+ *
+ * @param frame: CRYPTO frame
+ * 
+ * @return frame大小
+ */
+static size_t gquic_frame_data_blocked_size(const void *const frame);
 
-int gquic_frame_data_blocked_alloc(gquic_frame_data_blocked_t **const frame_storage) {
+/**
+ * DATA_BLOCKED frame 序列化
+ *
+ * @param frame: DATA_BLOCKED frame
+ * @param writer: writer
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_data_blocked_serialize(const void *const frame, gquic_writer_str_t *const writer);
+
+/**
+ * DATA_BLOCKED frame 反序列化
+ *
+ * @param frame: DATA_BLOCKED frame
+ * @param reader: reader
+ *
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_data_blocked_deserialize(void *const frame, gquic_reader_str_t *const reader);
+
+/**
+ * DATA_BLOCKED frame 初始化
+ *
+ * @param frame: DATA_BLOCKED frame
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_data_blocked_init(void *const frame);
+
+/**
+ * 析构 DATA_BLOCKED frame
+ * 
+ * @param frame: DATA_BLOCKED frame
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_data_blocked_dtor(void *const frame);
+
+gquic_exception_t gquic_frame_data_blocked_alloc(gquic_frame_data_blocked_t **const frame_storage) {
     if (frame_storage == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -43,7 +84,7 @@ static size_t gquic_frame_data_blocked_size(const void *const frame) {
     return 1 + gquic_varint_size(&spec->limit);
 }
 
-static int gquic_frame_data_blocked_serialize(const void *const frame, gquic_writer_str_t *const writer) {
+static gquic_exception_t gquic_frame_data_blocked_serialize(const void *const frame, gquic_writer_str_t *const writer) {
     const gquic_frame_data_blocked_t *spec = frame;
     if (spec == NULL || writer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -57,7 +98,7 @@ static int gquic_frame_data_blocked_serialize(const void *const frame, gquic_wri
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_data_blocked_deserialize(void *const frame, gquic_reader_str_t *const reader) {
+static gquic_exception_t gquic_frame_data_blocked_deserialize(void *const frame, gquic_reader_str_t *const reader) {
     gquic_frame_data_blocked_t *spec = frame;
     if (spec == NULL || reader == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -73,7 +114,7 @@ static int gquic_frame_data_blocked_deserialize(void *const frame, gquic_reader_
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_data_blocked_init(void *const frame) {
+static gquic_exception_t gquic_frame_data_blocked_init(void *const frame) {
     gquic_frame_data_blocked_t *spec = frame;
     if (spec == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -83,7 +124,7 @@ static int gquic_frame_data_blocked_init(void *const frame) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_data_blocked_dtor(void *const frame) {
+static gquic_exception_t gquic_frame_data_blocked_dtor(void *const frame) {
     if (frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }

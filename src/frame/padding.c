@@ -1,15 +1,23 @@
+/* src/frame/padding.c PADDING frame实现
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "frame/padding.h"
 #include "frame/meta.h"
 #include "exception.h"
 #include <stddef.h>
 
 static size_t gquic_frame_padding_size(const void *const);
-static int gquic_frame_padding_serialize(const void *const, gquic_writer_str_t *const);
-static int gquic_frame_padding_deserialize(void *const, gquic_reader_str_t *const);
-static int gquic_frame_padding_init(void *const);
-static int gquic_frame_padding_dtor(void *const);
+static gquic_exception_t gquic_frame_padding_serialize(const void *const, gquic_writer_str_t *const);
+static gquic_exception_t gquic_frame_padding_deserialize(void *const, gquic_reader_str_t *const);
+static gquic_exception_t gquic_frame_padding_init(void *const);
+static gquic_exception_t gquic_frame_padding_dtor(void *const);
 
-int gquic_frame_padding_alloc(gquic_frame_padding_t **const frame_storage) {
+gquic_exception_t gquic_frame_padding_alloc(gquic_frame_padding_t **const frame_storage) {
     static gquic_frame_padding_t *frame = NULL;
     if (frame != NULL) {
         *frame_storage = frame;
@@ -34,7 +42,7 @@ static size_t gquic_frame_padding_size(const void *const frame) {
     return 1;
 }
 
-static int gquic_frame_padding_serialize(const void *const frame, gquic_writer_str_t *const writer) {
+static gquic_exception_t gquic_frame_padding_serialize(const void *const frame, gquic_writer_str_t *const writer) {
     size_t used_size = GQUIC_FRAME_SIZE(frame);
     if (used_size > GQUIC_STR_SIZE(writer)) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -44,20 +52,20 @@ static int gquic_frame_padding_serialize(const void *const frame, gquic_writer_s
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_padding_deserialize(void *const frame, gquic_reader_str_t *const reader) {
+static gquic_exception_t gquic_frame_padding_deserialize(void *const frame, gquic_reader_str_t *const reader) {
     (void) frame;
     gquic_reader_str_readed_size(reader, 1);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_padding_init(void *const frame) {
+static gquic_exception_t gquic_frame_padding_init(void *const frame) {
     (void) frame;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_padding_dtor(void *const frame) {
+static gquic_exception_t gquic_frame_padding_dtor(void *const frame) {
     (void) frame;
     
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);

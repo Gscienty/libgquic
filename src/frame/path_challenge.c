@@ -1,16 +1,65 @@
+/* src/frame/path_challenge.c PATH_CHALLENGE frame实现
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "frame/path_challenge.h"
 #include "frame/meta.h"
 #include "exception.h"
 #include "log.h"
 #include <string.h>
 
+/**
+ * PATH_CHALLENGE frame 大小
+ *
+ * @param frame: PATH_CHALLENGE frame
+ * 
+ * @return frame大小
+ */
 static size_t gquic_frame_path_challenge_size(const void *const);
-static int gquic_frame_path_challenge_serialize(const void *const, gquic_writer_str_t *const);
-static int gquic_frame_path_challenge_deserialize(void *const, gquic_reader_str_t *const);
-static int gquic_frame_path_challenge_init(void *const);
-static int gquic_frame_path_challenge_dtor(void *const);
 
-int gquic_frame_path_challenge_alloc(gquic_frame_path_challenge_t **const frame_storage) {
+/**
+ * PATH_CHALLENGE frame 序列化
+ *
+ * @param frame: PATH_CHALLENGE frame
+ * @param writer: writer
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_path_challenge_serialize(const void *const, gquic_writer_str_t *const);
+
+/**
+ * PATH_CHALLENGE frame 反序列化
+ *
+ * @param frame: PATH_CHALLENGE frame
+ * @param reader: reader
+ *
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_path_challenge_deserialize(void *const, gquic_reader_str_t *const);
+
+/**
+ * PATH_CHALLENGE frame 初始化
+ *
+ * @param frame: PATH_CHALLENGE frame
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_path_challenge_init(void *const);
+
+/**
+ * 析构 PATH_CHALLENGE frame
+ * 
+ * @param frame: PATH_CHALLENGE frame
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_path_challenge_dtor(void *const);
+
+gquic_exception_t gquic_frame_path_challenge_alloc(gquic_frame_path_challenge_t **const frame_storage) {
     if (frame_storage == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -35,7 +84,7 @@ static size_t gquic_frame_path_challenge_size(const void *const frame) {
     return 1 + 8;
 }
 
-static int gquic_frame_path_challenge_serialize(const void *const frame, gquic_writer_str_t *const writer) {
+static gquic_exception_t gquic_frame_path_challenge_serialize(const void *const frame, gquic_writer_str_t *const writer) {
     const gquic_frame_path_challenge_t *spec = frame;
     if (spec == NULL || writer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -50,7 +99,7 @@ static int gquic_frame_path_challenge_serialize(const void *const frame, gquic_w
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_path_challenge_deserialize(void *const frame, gquic_reader_str_t *const reader) {
+static gquic_exception_t gquic_frame_path_challenge_deserialize(void *const frame, gquic_reader_str_t *const reader) {
     gquic_frame_path_challenge_t *spec = frame;
     if (spec == NULL || reader == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -70,13 +119,13 @@ static int gquic_frame_path_challenge_deserialize(void *const frame, gquic_reade
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_path_challenge_init(void *const frame) {
+static gquic_exception_t gquic_frame_path_challenge_init(void *const frame) {
     (void) frame;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_path_challenge_dtor(void *const frame) {
+static gquic_exception_t gquic_frame_path_challenge_dtor(void *const frame) {
     if (frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }

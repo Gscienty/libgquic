@@ -1,16 +1,65 @@
+/* src/frame/ping.c PING frame实现
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "frame/meta.h"
 #include "frame/ping.h"
 #include "exception.h"
 #include "log.h"
 #include <stddef.h>
 
+/**
+ * PING frame 大小
+ *
+ * @param frame: PING frame
+ * 
+ * @return frame大小
+ */
 static size_t gquic_frame_ping_size(const void *const);
-static int gquic_frame_ping_serialize(const void *const, gquic_writer_str_t *const);
-static int gquic_frame_ping_deserialize(void *const, gquic_reader_str_t *const);
-static int gquic_frame_ping_init(void *const);
-static int gquic_frame_ping_dtor(void *const);
 
-int gquic_frame_ping_alloc(gquic_frame_ping_t **const frame_storage) {
+/**
+ * PING frame 序列化
+ *
+ * @param frame: PING frame
+ * @param writer: writer
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_ping_serialize(const void *const, gquic_writer_str_t *const);
+
+/**
+ * PING frame 反序列化
+ *
+ * @param frame: PING frame
+ * @param reader: reader
+ *
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_ping_deserialize(void *const, gquic_reader_str_t *const);
+
+/**
+ * PING frame 初始化
+ *
+ * @param frame: PING frame
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_ping_init(void *const);
+
+/**
+ * 析构 PING frame
+ * 
+ * @param frame: PING frame
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_ping_dtor(void *const);
+
+gquic_exception_t gquic_frame_ping_alloc(gquic_frame_ping_t **const frame_storage) {
     if (frame_storage == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -32,7 +81,7 @@ static size_t gquic_frame_ping_size(const void *const frame) {
     return 1;
 }
 
-static int gquic_frame_ping_serialize(const void *const frame, gquic_writer_str_t *const writer) {
+static gquic_exception_t gquic_frame_ping_serialize(const void *const frame, gquic_writer_str_t *const writer) {
     size_t used_size = GQUIC_FRAME_META(frame).size_func(frame);
     if (used_size > GQUIC_STR_SIZE(writer)) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -42,7 +91,7 @@ static int gquic_frame_ping_serialize(const void *const frame, gquic_writer_str_
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_ping_deserialize(void *const frame, gquic_reader_str_t *const reader) {
+static gquic_exception_t gquic_frame_ping_deserialize(void *const frame, gquic_reader_str_t *const reader) {
     (void) frame;
     GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_readed_size(reader, 1));
 
@@ -51,13 +100,13 @@ static int gquic_frame_ping_deserialize(void *const frame, gquic_reader_str_t *c
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_ping_init(void *const frame) {
+static gquic_exception_t gquic_frame_ping_init(void *const frame) {
     (void) frame;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_ping_dtor(void *const frame) {
+static gquic_exception_t gquic_frame_ping_dtor(void *const frame) {
     (void) frame;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);

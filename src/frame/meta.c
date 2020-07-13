@@ -1,11 +1,19 @@
+/* src/frame/mata.c frame 抽象类实现
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "frame/meta.h"
 #include "util/malloc.h"
 #include "util/count_pointer.h"
 #include "exception.h"
 
-static int gquic_frame_cptr_release(void *const);
+static gquic_exception_t gquic_frame_cptr_release(void *const);
 
-int gquic_frame_alloc(void **const result, size_t size) {
+gquic_exception_t gquic_frame_alloc(void **const result, size_t size) {
     int exception = GQUIC_SUCCESS;
     gquic_frame_meta_t *meta;
     if (result == NULL) {
@@ -30,7 +38,7 @@ int gquic_frame_alloc(void **const result, size_t size) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_frame_release(void *const frame) {
+gquic_exception_t gquic_frame_release(void *const frame) {
     int exception = GQUIC_SUCCESS;
     if (frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -40,7 +48,7 @@ int gquic_frame_release(void *const frame) {
     GQUIC_PROCESS_DONE(exception);
 }
 
-static int gquic_frame_cptr_release(void *const meta_) {
+static gquic_exception_t gquic_frame_cptr_release(void *const meta_) {
     gquic_frame_meta_t *const meta = meta_;
     if (meta == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);

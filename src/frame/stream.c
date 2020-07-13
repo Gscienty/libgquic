@@ -13,13 +13,54 @@
 #include "log.h"
 #include "frame/stream_pool.h"
 
+/**
+ * STREAM frame 大小
+ *
+ * @param frame: STREAM frame
+ * 
+ * @return frame大小
+ */
 static size_t gquic_frame_stream_size(const void *const);
-static int gquic_frame_stream_serialize(const void *const, gquic_writer_str_t *const);
-static int gquic_frame_stream_deserialize(void *const, gquic_reader_str_t *const);
-static int gquic_frame_stream_init(void *const);
-static int gquic_frame_stream_dtor(void *const);
 
-int gquic_frame_stream_alloc(gquic_frame_stream_t **const frame_storage) {
+/**
+ * STREAM frame 序列化
+ *
+ * @param frame: STREAM frame
+ * @param writer: writer
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_stream_serialize(const void *const, gquic_writer_str_t *const);
+
+/**
+ * STREAM frame 反序列化
+ *
+ * @param frame: STREAM frame
+ * @param reader: reader
+ *
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_stream_deserialize(void *const, gquic_reader_str_t *const);
+
+/**
+ * STREAM frame 初始化
+ *
+ * @param frame: STREAM frame
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_stream_init(void *const);
+
+/**
+ * 析构 STREAM frame
+ * 
+ * @param frame: STREAM frame
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_stream_dtor(void *const);
+
+gquic_exception_t gquic_frame_stream_alloc(gquic_frame_stream_t **const frame_storage) {
     if (frame_storage == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -49,7 +90,7 @@ static size_t gquic_frame_stream_size(const void *const frame) {
         + len;
 }
 
-static int gquic_frame_stream_serialize(const void *const frame, gquic_writer_str_t *const writer) {
+static gquic_exception_t gquic_frame_stream_serialize(const void *const frame, gquic_writer_str_t *const writer) {
     int i;
     u_int64_t len = 0;
     const gquic_frame_stream_t *spec = frame;
@@ -77,7 +118,7 @@ static int gquic_frame_stream_serialize(const void *const frame, gquic_writer_st
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_stream_deserialize(void *const frame, gquic_reader_str_t *const reader) {
+static gquic_exception_t gquic_frame_stream_deserialize(void *const frame, gquic_reader_str_t *const reader) {
     u_int64_t len = 0;
     u_int8_t type;
     gquic_frame_stream_t *spec = frame;
@@ -110,7 +151,7 @@ static int gquic_frame_stream_deserialize(void *const frame, gquic_reader_str_t 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_stream_init(void *const frame) {
+static gquic_exception_t gquic_frame_stream_init(void *const frame) {
     gquic_frame_stream_t *spec = frame;
     if (spec == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -122,7 +163,7 @@ static int gquic_frame_stream_init(void *const frame) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_stream_dtor(void *const frame) {
+static gquic_exception_t gquic_frame_stream_dtor(void *const frame) {
     gquic_frame_stream_t *spec = frame;
     if (spec == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);

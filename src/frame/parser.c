@@ -1,3 +1,12 @@
+/* src/frame/parser.c frame解析器实现
+ * 该模块用于处理传入的原始数据流，将原始数据流反序列化为frame
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "frame/parser.h"
 #include "frame/meta.h"
 #include "frame/stream.h"
@@ -25,9 +34,21 @@
 #include "log.h"
 #include <stddef.h>
 
-static int gquic_frame_parser_parse(void **const, gquic_frame_parser_t *const, gquic_reader_str_t *const, const u_int8_t);
+/**
+ * 从数据流中解析出一个frame
+ * 若解析出的frame与给定的加密级别不符，则报错
+ *
+ * @param parser: parser
+ * @param reader: 数据流reader
+ * @param enc_lv: 加密级别
+ *
+ * @return: frame_storage: 解析的frame
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_parser_parse(void **const frame_storage,
+                                                  gquic_frame_parser_t *const parser, gquic_reader_str_t *const reader, const u_int8_t enc_lv);
 
-int gquic_frame_parser_init(gquic_frame_parser_t *const parser) {
+gquic_exception_t gquic_frame_parser_init(gquic_frame_parser_t *const parser) {
     if (parser == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -36,11 +57,13 @@ int gquic_frame_parser_init(gquic_frame_parser_t *const parser) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_frame_parser_next(void **const frame_storage, gquic_frame_parser_t *const parser, gquic_reader_str_t *const reader, const u_int8_t enc_lv) {
+gquic_exception_t gquic_frame_parser_next(void **const frame_storage,
+                                          gquic_frame_parser_t *const parser, gquic_reader_str_t *const reader, const u_int8_t enc_lv) {
     if (frame_storage == NULL || parser == NULL || reader == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     while (GQUIC_STR_SIZE(reader) != 0) {
+        // 若读取PADDING frame，则忽略
         if (GQUIC_STR_FIRST_BYTE(reader) == 0x00) {
             gquic_reader_str_read_byte(reader);
             continue;
@@ -52,10 +75,8 @@ int gquic_frame_parser_next(void **const frame_storage, gquic_frame_parser_t *co
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_parser_parse(void **const frame_storage,
-                                    gquic_frame_parser_t *const parser,
-                                    gquic_reader_str_t *const reader,
-                                    const u_int8_t enc_lv) {
+static gquic_exception_t gquic_frame_parser_parse(void **const frame_storage,
+                                                  gquic_frame_parser_t *const parser, gquic_reader_str_t *const reader, const u_int8_t enc_lv) {
     if (frame_storage == NULL || parser == NULL || reader == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }

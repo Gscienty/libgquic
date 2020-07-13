@@ -13,13 +13,54 @@
 #include "log.h"
 #include <string.h>
 
-static size_t gquic_frame_connection_close_size(const void *const);
-static int gquic_frame_connection_close_serialize(const void *const, gquic_writer_str_t *const);
-static int gquic_frame_connection_close_deserialize(void *const, gquic_reader_str_t *const);
-static int gquic_frame_connection_close_init(void *const);
-static int gquic_frame_connection_close_dtor(void *const);
+/**
+ * CONNECTION_CLOSE frame 大小
+ *
+ * @param frame: CONNECTION_CLOSE frame
+ * 
+ * @return frame大小
+ */
+static size_t gquic_frame_connection_close_size(const void *const frame);
 
-int gquic_frame_connection_close_alloc(gquic_frame_connection_close_t **const frame_storage) {
+/**
+ * CONNECTION_CLOSE frame 序列化
+ *
+ * @param frame: CONNECTION_CLOSE frame
+ * @param writer: writer
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_connection_close_serialize(const void *const frame, gquic_writer_str_t *const writer);
+
+/**
+ * CONNECTION_CLOSE frame 反序列化
+ *
+ * @param frame: CONNECTION_CLOSE frame
+ * @param reader: reader
+ *
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_connection_close_deserialize(void *const frame, gquic_reader_str_t *const reader);
+
+/**
+ * CONNECTION_CLOSE frame 初始化
+ *
+ * @param frame: CONNECTION_CLOSE frame
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_connection_close_init(void *const frame);
+
+/**
+ * 析构 CONNECTION_CLOSE frame
+ * 
+ * @param frame: CONNECTION_CLOSE frame
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_connection_close_dtor(void *const frame);
+
+gquic_exception_t gquic_frame_connection_close_alloc(gquic_frame_connection_close_t **const frame_storage) {
     if (frame_storage == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -46,7 +87,7 @@ static size_t gquic_frame_connection_close_size(const void *const frame) {
         + spec->phase_len;
 }
 
-static int gquic_frame_connection_close_serialize(const void *const frame, gquic_writer_str_t *const writer) {
+static gquic_exception_t gquic_frame_connection_close_serialize(const void *const frame, gquic_writer_str_t *const writer) {
     const gquic_frame_connection_close_t *spec = frame;
     if (spec == NULL || writer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -70,7 +111,7 @@ static int gquic_frame_connection_close_serialize(const void *const frame, gquic
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_connection_close_deserialize(void *const frame, gquic_reader_str_t *const reader) {
+static gquic_exception_t gquic_frame_connection_close_deserialize(void *const frame, gquic_reader_str_t *const reader) {
     u_int8_t type;
     int i = 0;
     gquic_frame_connection_close_t *spec = frame;
@@ -99,7 +140,7 @@ static int gquic_frame_connection_close_deserialize(void *const frame, gquic_rea
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_connection_close_init(void *const frame) {
+static gquic_exception_t gquic_frame_connection_close_init(void *const frame) {
     gquic_frame_connection_close_t *spec = frame;
     if (spec == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -112,7 +153,7 @@ static int gquic_frame_connection_close_init(void *const frame) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_connection_close_dtor(void *const frame) {
+static gquic_exception_t gquic_frame_connection_close_dtor(void *const frame) {
     gquic_frame_connection_close_t *spec = frame;
     if (spec == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);

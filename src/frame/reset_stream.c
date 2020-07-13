@@ -1,16 +1,65 @@
+/* src/frame/reset_stream.c RESET_STREAM frame实现
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "frame/reset_stream.h"
 #include "frame/meta.h"
 #include "exception.h"
 #include "log.h"
 #include <stddef.h>
 
+/**
+ * RESET_STREAM frame 大小
+ *
+ * @param frame: RESET_STREAM frame
+ * 
+ * @return frame大小
+ */
 static size_t gquic_frame_reset_stream_size(const void *const);
-static int gquic_frame_reset_stream_serialize(const void *const, gquic_writer_str_t *const);
-static int gquic_frame_reset_stream_deserialize(void *const, gquic_reader_str_t *const);
-static int gquic_frame_reset_stream_init(void *const);
-static int gquic_frame_reset_stream_dtor(void *const);
 
-int gquic_frame_reset_stream_alloc(gquic_frame_reset_stream_t **const frame_storage) {
+/**
+ * RESET_STREAM frame 序列化
+ *
+ * @param frame: RESET_STREAM frame
+ * @param writer: writer
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_reset_stream_serialize(const void *const, gquic_writer_str_t *const);
+
+/**
+ * RESET_STREAM frame 反序列化
+ *
+ * @param frame: RESET_STREAM frame
+ * @param reader: reader
+ *
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_reset_stream_deserialize(void *const, gquic_reader_str_t *const);
+
+/**
+ * RESET_STREAM frame 初始化
+ *
+ * @param frame: RESET_STREAM frame
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_reset_stream_init(void *const);
+
+/**
+ * 析构 RESET_STREAM frame
+ * 
+ * @param frame: RESET_STREAM frame
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_reset_stream_dtor(void *const);
+
+gquic_exception_t gquic_frame_reset_stream_alloc(gquic_frame_reset_stream_t **const frame_storage) {
     if (frame_storage == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -35,7 +84,7 @@ static size_t gquic_frame_reset_stream_size(const void *const frame) {
     return 1 + gquic_varint_size(&spec->errcode) + gquic_varint_size(&spec->final_size) + gquic_varint_size(&spec->id);
 }
 
-static int gquic_frame_reset_stream_serialize(const void *const frame, gquic_writer_str_t *const writer) {
+static gquic_exception_t gquic_frame_reset_stream_serialize(const void *const frame, gquic_writer_str_t *const writer) {
     int i;
     const gquic_frame_reset_stream_t *spec = frame;
     if (frame == NULL || writer == NULL) {
@@ -53,7 +102,7 @@ static int gquic_frame_reset_stream_serialize(const void *const frame, gquic_wri
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_reset_stream_deserialize(void *const frame, gquic_reader_str_t *const reader) {
+static gquic_exception_t gquic_frame_reset_stream_deserialize(void *const frame, gquic_reader_str_t *const reader) {
     gquic_frame_reset_stream_t *spec = frame;
     if (frame == NULL || reader == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -73,7 +122,7 @@ static int gquic_frame_reset_stream_deserialize(void *const frame, gquic_reader_
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_reset_stream_init(void *const frame) {
+static gquic_exception_t gquic_frame_reset_stream_init(void *const frame) {
     gquic_frame_reset_stream_t *spec = frame;
     if (frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -85,7 +134,7 @@ static int gquic_frame_reset_stream_init(void *const frame) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_reset_stream_dtor(void *const frame) {
+static gquic_exception_t gquic_frame_reset_stream_dtor(void *const frame) {
     if (frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }

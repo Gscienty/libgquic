@@ -13,13 +13,54 @@
 #include "log.h"
 #include <string.h>
 
-static size_t gquic_frame_crypto_size(const void *const);
-static int gquic_frame_crypto_serialize(const void *const, gquic_writer_str_t *const);
-static int gquic_frame_crypto_deserialize(void *const, gquic_reader_str_t *const);
-static int gquic_frame_crypto_init(void *const);
-static int gquic_frame_crypto_dtor(void *const);
+/**
+ * CRYPTO frame 大小
+ *
+ * @param frame: CRYPTO frame
+ * 
+ * @return frame大小
+ */
+static size_t gquic_frame_crypto_size(const void *const frame);
 
-int gquic_frame_crypto_alloc(gquic_frame_crypto_t **const frame_storage) {
+/**
+ * CRYPTO frame 序列化
+ *
+ * @param frame: CRYPTO frame
+ * @param writer: writer
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_crypto_serialize(const void *const frame, gquic_writer_str_t *const writer);
+
+/**
+ * CRYPTO frame 反序列化
+ *
+ * @param frame: CRYPTO frame
+ * @param reader: reader
+ *
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_crypto_deserialize(void *const frame, gquic_reader_str_t *const reader);
+
+/**
+ * CRYPTO frame 初始化
+ *
+ * @param frame: CRYPTO frame
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_crypto_init(void *const frame);
+
+/**
+ * 析构 CRYPTO frame
+ * 
+ * @param frame: CRYPTO frame
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_frame_crypto_dtor(void *const frame);
+
+gquic_exception_t gquic_frame_crypto_alloc(gquic_frame_crypto_t **const frame_storage) {
     if (frame_storage == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -44,7 +85,7 @@ static size_t gquic_frame_crypto_size(const void *const frame) {
     return 1 + gquic_varint_size(&spec->len) + gquic_varint_size(&spec->off) + spec->len;
 }
 
-static int gquic_frame_crypto_serialize(const void *const frame, gquic_writer_str_t *const writer) {
+static gquic_exception_t gquic_frame_crypto_serialize(const void *const frame, gquic_writer_str_t *const writer) {
     int i;
     const gquic_frame_crypto_t *spec = frame;
     if (spec == NULL || writer == NULL) {
@@ -64,7 +105,7 @@ static int gquic_frame_crypto_serialize(const void *const frame, gquic_writer_st
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
  }
 
-static int gquic_frame_crypto_deserialize(void *const frame, gquic_reader_str_t *const reader) {
+static gquic_exception_t gquic_frame_crypto_deserialize(void *const frame, gquic_reader_str_t *const reader) {
     int i;
     gquic_frame_crypto_t *spec = frame;
     if (frame == NULL || reader == NULL) {
@@ -90,7 +131,7 @@ static int gquic_frame_crypto_deserialize(void *const frame, gquic_reader_str_t 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_crypto_init(void *const frame) {
+static gquic_exception_t gquic_frame_crypto_init(void *const frame) {
     gquic_frame_crypto_t *spec = frame;
     if (spec == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -102,7 +143,7 @@ static int gquic_frame_crypto_init(void *const frame) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_frame_crypto_dtor(void *const frame) {
+static gquic_exception_t gquic_frame_crypto_dtor(void *const frame) {
     gquic_frame_crypto_t *spec = frame;
     if (spec == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
