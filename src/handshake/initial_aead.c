@@ -1,16 +1,43 @@
+/* src/handshake/initial_aead.c 初始化AEAD加密模块辅助部分实现
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "handshake/initial_aead.h"
 #include "tls/key_schedule.h"
 #include "tls/cipher_suite.h"
 #include "exception.h"
 
-static int gquic_handshake_generate_secs(gquic_str_t *const, gquic_str_t *const, const gquic_str_t *const);
-static int gquic_handshake_generate_key_iv(gquic_str_t *const, gquic_str_t *const, const gquic_str_t *const);
+/**
+ * 根据connection id生成对应的secret
+ *
+ * @param cli_sec: 对应客户端的secret
+ * @param ser_sec: 对应服务器的secret
+ * @param conn_id: connection_id
+ *
+ * @return: exception
+ */
+static gquic_exception_t gquic_handshake_generate_secs(gquic_str_t *const cli_sec, gquic_str_t *const ser_sec, const gquic_str_t *const conn_id);
 
-int gquic_handshake_initial_aead_init(gquic_common_long_header_sealer_t *const sealer,
-                                      gquic_common_long_header_opener_t *const opener,
-                                      const gquic_str_t *const conn_id,
-                                      int is_client) {
-    int exception = GQUIC_SUCCESS;
+/**
+ * 根据secret生成密钥和初始向量
+ *
+ * @param key: 生成的密钥
+ * @param iv: 生成的初始向量
+ * @param sec: secret
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_handshake_generate_key_iv(gquic_str_t *const key, gquic_str_t *const iv, const gquic_str_t *const sec);
+
+gquic_exception_t gquic_handshake_initial_aead_init(gquic_common_long_header_sealer_t *const sealer,
+                                                    gquic_common_long_header_opener_t *const opener,
+                                                    const gquic_str_t *const conn_id,
+                                                    const bool is_client) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     gquic_str_t cli_sec = { 0, NULL };
     gquic_str_t ser_sec = { 0, NULL };
     gquic_str_t cli_key = { 0, NULL };

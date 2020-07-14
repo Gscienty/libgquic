@@ -1,8 +1,18 @@
+/* include/handshake/transport_parameters.h TLS extensions transport parameters
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #ifndef _LIBGQUIC_HANDSHAKE_TRANSPORT_PARAMETERS_H
 #define _LIBGQUIC_HANDSHAKE_TRANSPORT_PARAMETERS_H
 
 #include <sys/types.h>
 #include "util/str.h"
+#include "exception.h"
+#include <stdbool.h>
 
 #define GQUIC_TRANSPORT_PARAM_ORIGINAL_CONNID 0x00
 #define GQUIC_TRANSPORT_PARAM_IDLE_TIMEOUT 0x01
@@ -34,13 +44,46 @@ struct gquic_transport_parameters_s {
     u_int64_t max_streams_uni;
     u_int8_t ack_delay_exponent;
     u_int64_t max_ack_delay;
-    int disable_migration;
+    bool disable_migration;
     u_int64_t active_conn_id_limit;
 };
 
-int gquic_transport_parameters_init(gquic_transport_parameters_t *const params);
+/**
+ * 初始化transport parameters
+ * 
+ * @param params: transport parameters
+ * 
+ * @return: exception
+ */
+gquic_exception_t gquic_transport_parameters_init(gquic_transport_parameters_t *const params);
+
+/**
+ * 获取transport parameters序列化后的长度
+ *
+ * @param params: transport parameters
+ * 
+ * @return: transport parameters序列化后的长度
+ */
 size_t gquic_transport_parameters_size(const gquic_transport_parameters_t *const params);
-int gquic_transport_parameters_serialize(const gquic_transport_parameters_t *const params, gquic_writer_str_t *const writer);
-int gquic_transport_parameters_deserialize(gquic_transport_parameters_t *const params, gquic_reader_str_t *const reader);
+
+/**
+ * transport parameters序列化
+ *
+ * @param params: transport parameters
+ * @param writer: writer
+ *
+ * @return: exception
+ */
+gquic_exception_t gquic_transport_parameters_serialize(const gquic_transport_parameters_t *const params, gquic_writer_str_t *const writer);
+
+/**
+ * transport parameters反序列化
+ *
+ * @param params: transport parameters
+ * @param reader: reader
+ * 
+ * @return: exception
+ */
+gquic_exception_t gquic_transport_parameters_deserialize(gquic_transport_parameters_t *const params, gquic_reader_str_t *const reader);
 
 #endif

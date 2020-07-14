@@ -6,9 +6,10 @@
 #include <stddef.h>
 #include <openssl/rand.h>
 
-static inline int __serialize_var(gquic_writer_str_t *const, gquic_list_t *const, const u_int16_t, const u_int64_t);
+static inline gquic_exception_t __serialize_var(gquic_writer_str_t *const writer,
+                                                gquic_list_t *const prefix_len_stack, const u_int16_t id, const u_int64_t val);
 
-int gquic_transport_parameters_init(gquic_transport_parameters_t *const params) {
+gquic_exception_t gquic_transport_parameters_init(gquic_transport_parameters_t *const params) {
     if (params == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -24,7 +25,7 @@ int gquic_transport_parameters_init(gquic_transport_parameters_t *const params) 
     params->max_streams_uni = 0;
     params->ack_delay_exponent = 3;
     params->max_ack_delay = 25 * 1000;
-    params->disable_migration = 1;
+    params->disable_migration = true;
     params->active_conn_id_limit = 0;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
@@ -65,7 +66,7 @@ size_t gquic_transport_parameters_size(const gquic_transport_parameters_t *const
     return ret;
 }
 
-int gquic_transport_parameters_serialize(const gquic_transport_parameters_t *const params, gquic_writer_str_t *const writer) {
+gquic_exception_t gquic_transport_parameters_serialize(const gquic_transport_parameters_t *const params, gquic_writer_str_t *const writer) {
     gquic_list_t prefix_len_stack;
     if (params == NULL || writer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -121,7 +122,7 @@ int gquic_transport_parameters_serialize(const gquic_transport_parameters_t *con
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_transport_parameters_deserialize(gquic_transport_parameters_t *const params, gquic_reader_str_t *const reader) {
+gquic_exception_t gquic_transport_parameters_deserialize(gquic_transport_parameters_t *const params, gquic_reader_str_t *const reader) {
     size_t len = 0;
     u_int16_t id = 0;
     u_int16_t param_len = 0;
@@ -173,7 +174,7 @@ int gquic_transport_parameters_deserialize(gquic_transport_parameters_t *const p
             GQUIC_ASSERT_FAST_RETURN(gquic_varint_deserialize(&params->active_conn_id_limit, &inner_reader));
             break;
         case GQUIC_TRANSPORT_PARAM_DISABLE_MIGRATION:
-            params->disable_migration = 1;
+            params->disable_migration = true;
             break;
         case GQUIC_TRANSPORT_PARAM_STATELESS_RESET_TOKEN:
             GQUIC_ASSERT_FAST_RETURN(gquic_str_alloc(&params->stateless_reset_token, param_len));
@@ -189,10 +190,8 @@ int gquic_transport_parameters_deserialize(gquic_transport_parameters_t *const p
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static inline int __serialize_var(gquic_writer_str_t *const writer,
-                                  gquic_list_t *const prefix_len_stack,
-                                  const u_int16_t id,
-                                  const u_int64_t val) {
+static inline gquic_exception_t __serialize_var(gquic_writer_str_t *const writer,
+                                  gquic_list_t *const prefix_len_stack, const u_int16_t id, const u_int64_t val) {
     if (writer == NULL || prefix_len_stack == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
