@@ -307,7 +307,7 @@ int gquic_packet_packer_pack_conn_close(gquic_packed_packet_t *const packed_pack
                                                                       (gquic_auto_update_aead_t **) &payload.sealer.self,
                                                                       packer->est))) {
         payload.sealer.cb = gquic_1rtt_sealer_seal_wrapper;
-        gquic_packet_packer_get_short_header(&payload.hdr, packer, packer->est->aead.times);
+        gquic_packet_packer_get_short_header(&payload.hdr, packer, gquic_auto_update_aead_key_phase(&packer->est->aead));
         payload.enc_lv = GQUIC_ENC_LV_1RTT;
     }
     else if (!GQUIC_ASSERT_CAUSE(exception,
@@ -356,7 +356,7 @@ static int gquic_1rtt_sealer_seal_wrapper(gquic_str_t *const tag,
     return gquic_auto_update_aead_seal(tag, cipher_text, self, pn, plain_text, addata);
 }
 
-int gquic_packet_packer_get_short_header(gquic_packet_header_t *const hdr, gquic_packet_packer_t *const packer, const int times) {
+int gquic_packet_packer_get_short_header(gquic_packet_header_t *const hdr, gquic_packet_packer_t *const packer, const bool key_phase) {
     int pn_len = 0;
     gquic_str_t dcid = { 0, NULL };
     if (hdr == NULL || packer == NULL) {
@@ -365,7 +365,7 @@ int gquic_packet_packer_get_short_header(gquic_packet_header_t *const hdr, gquic
     hdr->is_long = 0;
     GQUIC_ASSERT_FAST_RETURN(gquic_packet_short_header_alloc(&hdr->hdr.s_hdr));
     GQUIC_ASSERT_FAST_RETURN(gquic_packet_sent_packet_handler_peek_pn(&hdr->hdr.s_hdr->pn, &pn_len, packer->pn_gen, GQUIC_ENC_LV_1RTT));
-    hdr->hdr.s_hdr->flag = 0x40 | (0x03 & (pn_len - 1)) | (((times % 2) == 1) ? 0x04 : 0);
+    hdr->hdr.s_hdr->flag = 0x40 | (0x03 & (pn_len - 1)) | (key_phase ? 0x04 : 0);
     GQUIC_ASSERT_FAST_RETURN(GQUIC_PACKET_PACKER_GET_CONN_ID(&dcid, packer));
     hdr->hdr.s_hdr->dcid_len = GQUIC_STR_SIZE(&dcid);
     memcpy(hdr->hdr.s_hdr->dcid, GQUIC_STR_VAL(&dcid), GQUIC_STR_SIZE(&dcid));
@@ -648,7 +648,7 @@ static int gquic_packet_packer_get_sealer_and_header(gquic_packed_packet_payload
         GQUIC_ASSERT_FAST_RETURN(gquic_handshake_establish_get_1rtt_sealer(&payload->header_sealer,
                                                                            (gquic_auto_update_aead_t **) &payload->sealer.self,
                                                                            packer->est));
-        GQUIC_ASSERT_FAST_RETURN(gquic_packet_packer_get_short_header(&payload->hdr, packer, packer->est->aead.times));
+        GQUIC_ASSERT_FAST_RETURN(gquic_packet_packer_get_short_header(&payload->hdr, packer, gquic_auto_update_aead_key_phase(&packer->est->aead)));
         payload->sealer.cb = gquic_1rtt_sealer_seal_wrapper;
         break;
     default:
@@ -756,7 +756,7 @@ int gquic_packet_packer_try_pack_app_packet(gquic_packed_packet_t *const packed_
     GQUIC_CPTR_ALLOC(exception, &payload.frames, gquic_cptr_frames_t, frames, cptr, gquic_cptr_frames_dtor);
     GQUIC_ASSERT_FAST_RETURN(exception);
     gquic_list_head_init(payload.frames);
-    if (GQUIC_ASSERT_CAUSE(exception, gquic_packet_packer_get_short_header(&payload.hdr, packer, packer->est->aead.times))) {
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_packet_packer_get_short_header(&payload.hdr, packer, gquic_auto_update_aead_key_phase(&packer->est->aead)))) {
         gquic_packed_packet_payload_dtor(&payload);
         GQUIC_PROCESS_DONE(exception);
     }

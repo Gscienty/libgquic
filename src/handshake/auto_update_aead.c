@@ -1,27 +1,51 @@
+/* src/handshake/auto_update_aead.c 1RTT加密级别时使用的AEAD加密/解密实现
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "handshake/auto_update_aead.h"
 #include "tls/key_schedule.h"
 #include "util/big_endian.h"
+#include "packet/packet_number.h"
 #include "log.h"
 #include "exception.h"
 
-static int gquic_auto_update_aead_next_traffic_sec(gquic_str_t *const,
-                                                   const gquic_tls_cipher_suite_t *const,
-                                                   const gquic_str_t *const);
+/**
+ * 计算下一阶段的secret
+ *
+ * @param ret: 下一阶段的secret
+ * @param suite: 加密套件
+ * @param traffic_sec: 当前阶段的secret
+ */
+static gquic_exception_t gquic_auto_update_aead_next_traffic_sec(gquic_str_t *const ret,
+                                                                 const gquic_tls_cipher_suite_t *const suite, const gquic_str_t *const traffic_sec);
 
-int gquic_auto_update_aead_init(gquic_auto_update_aead_t *const aead) {
+/**
+ * 是否需要阶段迭代
+ *
+ * @param aead: 加密套件
+ *
+ * @return: exception
+ */
+static inline bool gquic_auto_update_aead_should_update(gquic_auto_update_aead_t *const aead);
+
+gquic_exception_t gquic_auto_update_aead_init(gquic_auto_update_aead_t *const aead) {
     if (aead == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     aead->suite = NULL;
     aead->times = 0;
-    aead->last_ack_pn = -1;
+    aead->last_ack_pn = GQUIC_INVALID_PACKET_NUMBER;
     aead->update_interval = 0;
 
     aead->prev_recv_aead_expire = 0;
     gquic_tls_aead_init(&aead->prev_recv_aead);
 
-    aead->cur_key_first_recv_pn = -1;
-    aead->cur_key_first_sent_pn = -1;
+    aead->cur_key_first_recv_pn = GQUIC_INVALID_PACKET_NUMBER;
+    aead->cur_key_first_sent_pn = GQUIC_INVALID_PACKET_NUMBER;
     aead->cur_key_num_recv = 0;
     aead->cur_key_num_sent = 0;
 
@@ -44,8 +68,8 @@ int gquic_auto_update_aead_init(gquic_auto_update_aead_t *const aead) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_auto_update_aead_roll(gquic_auto_update_aead_t *const aead, const u_int64_t now) {
-    int exception = GQUIC_SUCCESS;
+gquic_exception_t gquic_auto_update_aead_roll(gquic_auto_update_aead_t *const aead, const u_int64_t now) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     u_int64_t pto = 0;
     gquic_str_t next_recv_traffic_sec = { 0, NULL };
     gquic_str_t next_send_traffic_sec = { 0, NULL };
@@ -54,8 +78,8 @@ int gquic_auto_update_aead_roll(gquic_auto_update_aead_t *const aead, const u_in
     }
 
     aead->times++;
-    aead->cur_key_first_recv_pn = -1;
-    aead->cur_key_first_sent_pn = -1;
+    aead->cur_key_first_recv_pn = GQUIC_INVALID_PACKET_NUMBER;
+    aead->cur_key_first_sent_pn = GQUIC_INVALID_PACKET_NUMBER;
     aead->cur_key_num_recv = 0;
     aead->cur_key_num_sent = 0;
 
@@ -97,9 +121,8 @@ failure:
     GQUIC_PROCESS_DONE(exception);
 }
 
-static int gquic_auto_update_aead_next_traffic_sec(gquic_str_t *const ret,
-                                                   const gquic_tls_cipher_suite_t *const suite,
-                                                   const gquic_str_t *const traffic_sec) {
+static gquic_exception_t gquic_auto_update_aead_next_traffic_sec(gquic_str_t *const ret,
+                                                                 const gquic_tls_cipher_suite_t *const suite, const gquic_str_t *const traffic_sec) {
     static const gquic_str_t label = { 7, "quic ku" };
     gquic_tls_mac_t hash;
     if (ret == NULL || suite == NULL || traffic_sec == NULL) {
@@ -113,8 +136,8 @@ static int gquic_auto_update_aead_next_traffic_sec(gquic_str_t *const ret,
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_auto_update_aead_set_rkey(gquic_auto_update_aead_t *const aead,
-                                    const gquic_tls_cipher_suite_t *const suite, const gquic_str_t *const traffic_sec) {
+gquic_exception_t gquic_auto_update_aead_set_rkey(gquic_auto_update_aead_t *const aead,
+                                                  const gquic_tls_cipher_suite_t *const suite, const gquic_str_t *const traffic_sec) {
     gquic_str_t next_recv_traffic_sec = { 0, NULL };
     if (aead == NULL || suite == NULL || traffic_sec == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -125,7 +148,7 @@ int gquic_auto_update_aead_set_rkey(gquic_auto_update_aead_t *const aead,
     gquic_tls_aead_dtor(&aead->recv_aead);
     gquic_tls_aead_init(&aead->recv_aead);
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_create_aead(&aead->recv_aead, suite, traffic_sec));
-    GQUIC_ASSERT_FAST_RETURN(gquic_header_protector_ctor(&aead->header_dec, suite, traffic_sec, 0));
+    GQUIC_ASSERT_FAST_RETURN(gquic_header_protector_ctor(&aead->header_dec, suite, traffic_sec, false));
     if (aead->suite == NULL) {
         gquic_str_reset(&aead->nonce_buf);
         GQUIC_ASSERT_FAST_RETURN(gquic_str_alloc(&aead->nonce_buf, 12));
@@ -145,8 +168,8 @@ int gquic_auto_update_aead_set_rkey(gquic_auto_update_aead_t *const aead,
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_auto_update_aead_set_wkey(gquic_auto_update_aead_t *const aead,
-                                    const gquic_tls_cipher_suite_t *const suite, const gquic_str_t *const traffic_sec) {
+gquic_exception_t gquic_auto_update_aead_set_wkey(gquic_auto_update_aead_t *const aead,
+                                                  const gquic_tls_cipher_suite_t *const suite, const gquic_str_t *const traffic_sec) {
     gquic_str_t next_send_traffic_sec = { 0, NULL };
     if (aead == NULL || suite == NULL || traffic_sec == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -157,7 +180,7 @@ int gquic_auto_update_aead_set_wkey(gquic_auto_update_aead_t *const aead,
     gquic_tls_aead_dtor(&aead->send_aead);
     gquic_tls_aead_init(&aead->send_aead);
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_create_aead(&aead->send_aead, suite, traffic_sec));
-    GQUIC_ASSERT_FAST_RETURN(gquic_header_protector_ctor(&aead->header_enc, suite, traffic_sec, 0));
+    GQUIC_ASSERT_FAST_RETURN(gquic_header_protector_ctor(&aead->header_enc, suite, traffic_sec, false));
     if (aead->suite == NULL) {
         gquic_str_reset(&aead->nonce_buf);
         GQUIC_ASSERT_FAST_RETURN(gquic_str_alloc(&aead->nonce_buf, 12));
@@ -177,10 +200,10 @@ int gquic_auto_update_aead_set_wkey(gquic_auto_update_aead_t *const aead,
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_auto_update_aead_open(gquic_str_t *const plain_text,
-                                gquic_auto_update_aead_t *const aead,
-                                const u_int64_t recv_time, const u_int64_t pn, int kp,
-                                const gquic_str_t *const tag, const gquic_str_t *const cipher_text, const gquic_str_t *const addata) {
+gquic_exception_t gquic_auto_update_aead_open(gquic_str_t *const plain_text,
+                                              gquic_auto_update_aead_t *const aead,
+                                              const u_int64_t recv_time, const u_int64_t pn, const bool kp,
+                                              const gquic_str_t *const tag, const gquic_str_t *const cipher_text, const gquic_str_t *const addata) {
     if (plain_text == NULL || aead == NULL || tag == NULL || cipher_text == NULL || addata == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -194,7 +217,7 @@ int gquic_auto_update_aead_open(gquic_str_t *const plain_text,
     }
     gquic_big_endian_transfer(GQUIC_STR_VAL(&aead->nonce_buf) - 8, &pn, 8);
     if (kp != (aead->times % 2 == 1)) {
-        if (aead->cur_key_first_recv_pn == ((u_int64_t) -1) || pn < aead->cur_key_first_recv_pn) {
+        if (aead->cur_key_first_recv_pn == GQUIC_INVALID_PACKET_NUMBER || pn < aead->cur_key_first_recv_pn) {
             if (aead->times == 0) {
                 GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_KEY_TIMES_ERROR);
             }
@@ -211,7 +234,7 @@ int gquic_auto_update_aead_open(gquic_str_t *const plain_text,
         if (GQUIC_ASSERT(GQUIC_TLS_AEAD_OPEN(plain_text, &aead->next_recv_aead, &aead->nonce_buf, tag, cipher_text, addata))) {
             GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_DECRYPTION_FAILED);
         }
-        if (aead->cur_key_first_sent_pn == ((u_int64_t) -1)) {
+        if (aead->cur_key_first_sent_pn == GQUIC_INVALID_PACKET_NUMBER) {
             GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_UPDATE_KEY_QUICKLY);
         }
 
@@ -224,20 +247,20 @@ int gquic_auto_update_aead_open(gquic_str_t *const plain_text,
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_DECRYPTION_FAILED);
     }
     aead->cur_key_num_recv++;
-    if (aead->cur_key_first_recv_pn == ((u_int64_t) -1)) {
+    if (aead->cur_key_first_recv_pn == GQUIC_INVALID_PACKET_NUMBER) {
         aead->cur_key_first_recv_pn = pn;
     }
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_auto_update_aead_seal(gquic_str_t *const tag, gquic_str_t *const cipher_text,
-                                gquic_auto_update_aead_t *const aead,
-                                const u_int64_t pn, const gquic_str_t *const plain_text, const gquic_str_t *const addata) {
+gquic_exception_t gquic_auto_update_aead_seal(gquic_str_t *const tag, gquic_str_t *const cipher_text,
+                                              gquic_auto_update_aead_t *const aead,
+                                              const u_int64_t pn, const gquic_str_t *const plain_text, const gquic_str_t *const addata) {
     if (cipher_text == NULL || tag == NULL || aead == NULL || plain_text == NULL || addata == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    if (aead->cur_key_first_sent_pn == ((u_int64_t) -1)) {
+    if (aead->cur_key_first_sent_pn == GQUIC_INVALID_PACKET_NUMBER) {
         aead->cur_key_first_sent_pn = pn;
     }
     aead->cur_key_num_sent++;
@@ -248,4 +271,36 @@ int gquic_auto_update_aead_seal(gquic_str_t *const tag, gquic_str_t *const ciphe
     GQUIC_ASSERT_FAST_RETURN(GQUIC_TLS_AEAD_SEAL(tag, cipher_text, &aead->send_aead, &aead->nonce_buf, plain_text, addata));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}
+
+bool gquic_auto_update_aead_key_phase(gquic_auto_update_aead_t *const aead) {
+    if (aead == NULL) {
+        return false;
+    }
+
+    if (gquic_auto_update_aead_should_update(aead)) {
+        gquic_auto_update_aead_roll(aead, gquic_time_now());
+    }
+
+    return aead->times % 2 == 1;
+}
+
+static inline bool gquic_auto_update_aead_should_update(gquic_auto_update_aead_t *const aead) {
+    if (aead == NULL) {
+        return false;
+    }
+
+    if (aead->cur_key_first_sent_pn != GQUIC_INVALID_PACKET_NUMBER
+        && aead->last_ack_pn != GQUIC_INVALID_PACKET_NUMBER
+        && aead->last_ack_pn >= aead->cur_key_first_sent_pn) {
+
+        if (aead->cur_key_num_recv >= aead->update_interval) {
+            return true;
+        }
+        if (aead->cur_key_num_sent >= aead->update_interval) {
+            return true;
+        }
+    }
+
+    return false;
 }

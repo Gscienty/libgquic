@@ -108,7 +108,7 @@ int gquic_packet_packer_dtor(gquic_packet_packer_t *const packer);
 int gquic_packet_packer_pack_conn_close(gquic_packed_packet_t *const packed_packet,
                                         gquic_packet_packer_t *const packer,
                                         const gquic_frame_connection_close_t *const conn_close);
-int gquic_packet_packer_get_short_header(gquic_packet_header_t *const hdr, gquic_packet_packer_t *const packer, const int times);
+int gquic_packet_packer_get_short_header(gquic_packet_header_t *const hdr, gquic_packet_packer_t *const packer, const bool key_phase);
 int gquic_packet_packer_get_long_header(gquic_packet_header_t *const hdr, gquic_packet_packer_t *const packer, const u_int8_t enc_lv);
 int gquic_packet_packer_pack(gquic_packed_packet_t *const packed_packet,
                              gquic_packet_packer_t *const packer,
