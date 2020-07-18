@@ -203,10 +203,10 @@ gquic_exception_t gquic_handshake_establish_dtor(gquic_handshake_establish_t *co
 }
 
 gquic_exception_t gquic_handshake_establish_ctor(gquic_handshake_establish_t *const est,
-                                                 void *initial_stream_self, int (*initial_stream_cb) (void *const, gquic_writer_str_t *const),
-                                                 void *handshake_stream_self, int (*handshake_stream_cb) (void *const, gquic_writer_str_t *const),
-                                                 void *one_rtt_self, int (*one_rtt_cb) (void *const, gquic_writer_str_t *const),
-                                                 void *chello_written_self, int (*chello_written_cb) (void *const),
+                                                 void *initial_stream_self,  gquic_exception_t (*initial_stream_cb) (void *const, gquic_writer_str_t *const),
+                                                 void *handshake_stream_self, gquic_exception_t (*handshake_stream_cb) (void *const, gquic_writer_str_t *const),
+                                                 void *one_rtt_self, gquic_exception_t (*one_rtt_cb) (void *const, gquic_writer_str_t *const),
+                                                 void *chello_written_self, gquic_exception_t (*chello_written_cb) (void *const),
                                                  gquic_tls_config_t *const cfg,
                                                  const gquic_str_t *const conn_id,
                                                  const gquic_transport_parameters_t *const params,
@@ -308,7 +308,7 @@ failure:
 
 static gquic_exception_t gquic_establish_run(void *const est_) {
     gquic_handshake_establish_t *const est = est_;
-    int exception = GQUIC_SUCCESS;
+    gquic_exception_t exception = GQUIC_SUCCESS;
     gquic_exception_t *err = NULL;
     if (est == NULL) {
         goto finish;
@@ -341,7 +341,7 @@ gquic_exception_t gquic_handshake_establish_close(gquic_handshake_establish_t *c
 }
 
 gquic_exception_t gquic_handshake_establish_handle_msg(gquic_handshake_establish_t *const est, const gquic_str_t *const data, const u_int8_t enc_level) {
-    int exception = GQUIC_SUCCESS;
+    gquic_exception_t exception = GQUIC_SUCCESS;
     u_int8_t type = 0;
     if (est == NULL || GQUIC_STR_SIZE(data) == 0) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -394,7 +394,7 @@ static gquic_exception_t gquic_establish_check_enc_level(const u_int8_t msg_type
 static gquic_exception_t gquic_establish_cli_handle_msg(gquic_handshake_establish_t *const est, const u_int8_t msg_type) {
     const void *event = NULL;
     const liteco_channel_t *recv_chan = NULL;
-    int exception = GQUIC_SUCCESS;
+    gquic_exception_t exception = GQUIC_SUCCESS;
     if (est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -442,7 +442,7 @@ static gquic_exception_t gquic_establish_cli_handle_msg(gquic_handshake_establis
 static gquic_exception_t gquic_establish_ser_handle_msg(gquic_handshake_establish_t *const est, const u_int8_t msg_type) {
     const void *event = NULL;
     const liteco_channel_t *recv_chan = NULL;
-    int exception = GQUIC_SUCCESS;
+    gquic_exception_t exception = GQUIC_SUCCESS;
     if (est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -495,7 +495,7 @@ ignore_ext:
 
 gquic_exception_t gquic_handshake_establish_read_handshake_msg(gquic_str_t *const msg, gquic_handshake_establish_t *const est) {
     gquic_str_t *tmp = NULL;
-    int exception = GQUIC_SUCCESS;
+    gquic_exception_t exception = GQUIC_SUCCESS;
     if (msg == NULL || est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -511,7 +511,7 @@ gquic_exception_t gquic_handshake_establish_read_handshake_msg(gquic_str_t *cons
 
 gquic_exception_t gquic_handshake_establish_set_rkey(gquic_handshake_establish_t *const est,
                                                      const u_int8_t enc_level, const gquic_tls_cipher_suite_t *const suite, const gquic_str_t *const traffic_sec) {
-    int exception = GQUIC_SUCCESS;
+    gquic_exception_t exception = GQUIC_SUCCESS;
     if (est == NULL || suite == NULL || traffic_sec == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -551,7 +551,7 @@ failure:
 
 gquic_exception_t gquic_handshake_establish_set_wkey(gquic_handshake_establish_t *const est,
                                                      const u_int8_t enc_level, const gquic_tls_cipher_suite_t *const suite, const gquic_str_t *const traffic_sec) {
-    int exception = GQUIC_SUCCESS;
+    gquic_exception_t exception = GQUIC_SUCCESS;
     if (est == NULL || suite == NULL || traffic_sec == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -740,7 +740,7 @@ finished:
 }
 
 static gquic_exception_t gquic_establish_try_send_sess_ticket(gquic_handshake_establish_t *const est) {
-    int exception = GQUIC_SUCCESS;
+    gquic_exception_t exception = GQUIC_SUCCESS;
     gquic_str_t ticket = { 0, NULL };
     if (est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -764,7 +764,7 @@ static gquic_exception_t gquic_establish_try_send_sess_ticket(gquic_handshake_es
 
 gquic_exception_t gquic_handshake_establish_get_initial_opener(gquic_header_protector_t **const protector,
                                                                gquic_common_long_header_opener_t **const opener, gquic_handshake_establish_t *const est) {
-    int exception = GQUIC_SUCCESS;
+    gquic_exception_t exception = GQUIC_SUCCESS;
     if (protector == NULL || opener == NULL || est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -783,7 +783,7 @@ gquic_exception_t gquic_handshake_establish_get_initial_opener(gquic_header_prot
 
 gquic_exception_t gquic_handshake_establish_get_handshake_opener(gquic_header_protector_t **const protector,
                                                                  gquic_common_long_header_opener_t **const opener, gquic_handshake_establish_t *const est) {
-    int exception = GQUIC_SUCCESS;
+    gquic_exception_t exception = GQUIC_SUCCESS;
     if (protector == NULL || opener == NULL || est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -807,7 +807,7 @@ gquic_exception_t gquic_handshake_establish_get_handshake_opener(gquic_header_pr
 
 gquic_exception_t gquic_handshake_establish_get_1rtt_opener(gquic_header_protector_t **const protector,
                                                             gquic_auto_update_aead_t **const opener, gquic_handshake_establish_t *const est) {
-    int exception = GQUIC_SUCCESS;
+    gquic_exception_t exception = GQUIC_SUCCESS;
     if (protector == NULL || opener == NULL || est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -826,7 +826,7 @@ gquic_exception_t gquic_handshake_establish_get_1rtt_opener(gquic_header_protect
 
 gquic_exception_t gquic_handshake_establish_get_initial_sealer(gquic_header_protector_t **const protector,
                                                                gquic_common_long_header_sealer_t **const sealer, gquic_handshake_establish_t *const est) {
-    int exception = GQUIC_SUCCESS;
+    gquic_exception_t exception = GQUIC_SUCCESS;
     if (protector == NULL || sealer == NULL || est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -845,7 +845,7 @@ gquic_exception_t gquic_handshake_establish_get_initial_sealer(gquic_header_prot
 
 gquic_exception_t gquic_handshake_establish_get_handshake_sealer(gquic_header_protector_t **const protector,
                                                                  gquic_common_long_header_sealer_t **const sealer, gquic_handshake_establish_t *const est) {
-    int exception = GQUIC_SUCCESS;
+    gquic_exception_t exception = GQUIC_SUCCESS;
     if (protector == NULL || sealer == NULL || est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -869,7 +869,7 @@ gquic_exception_t gquic_handshake_establish_get_handshake_sealer(gquic_header_pr
 
 gquic_exception_t gquic_handshake_establish_get_1rtt_sealer(gquic_header_protector_t **const protector,
                                                             gquic_auto_update_aead_t **const sealer, gquic_handshake_establish_t *const est) {
-    int exception = GQUIC_SUCCESS;
+    gquic_exception_t exception = GQUIC_SUCCESS;
     if (protector == NULL || sealer == NULL || est == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }

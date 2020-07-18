@@ -31,8 +31,7 @@ int gquic_packed_packet_dtor_without_frames(gquic_packed_packet_t *const packed_
 u_int8_t gquic_packed_packet_enc_lv(const gquic_packed_packet_t *const packed_packet);
 int gquic_packed_packet_is_ack_eliciting(gquic_packed_packet_t *const packed_packet);
 int gquic_packed_packet_get_ack_packet(gquic_packet_t *const packet,
-                                       gquic_packed_packet_t *const packed_packet,
-                                       gquic_retransmission_queue_t *const queue);
+                                       gquic_packed_packet_t *const packed_packet, gquic_retransmission_queue_t *const queue);
 
 typedef struct gquic_packed_packet_payload_s gquic_packed_packet_payload_t;
 struct gquic_packed_packet_payload_s {
@@ -93,8 +92,7 @@ struct gquic_packet_packer_s {
 int gquic_packet_packer_init(gquic_packet_packer_t *const packer);
 int gquic_packet_packer_ctor(gquic_packet_packer_t *const packer,
                              const gquic_str_t *const src_id,
-                             void *const get_conn_id_self,
-                             int (*get_conn_id_cb) (gquic_str_t *const, void *const),
+                             void *const get_conn_id_self, int (*get_conn_id_cb) (gquic_str_t *const, void *const),
                              gquic_crypto_stream_t *const initial_stream,
                              gquic_crypto_stream_t *const handshake_stream,
                              gquic_packet_sent_packet_handler_t *const pn_gen,
@@ -111,12 +109,10 @@ int gquic_packet_packer_pack_conn_close(gquic_packed_packet_t *const packed_pack
 int gquic_packet_packer_get_short_header(gquic_packet_header_t *const hdr, gquic_packet_packer_t *const packer, const bool key_phase);
 int gquic_packet_packer_get_long_header(gquic_packet_header_t *const hdr, gquic_packet_packer_t *const packer, const u_int8_t enc_lv);
 int gquic_packet_packer_pack(gquic_packed_packet_t *const packed_packet,
-                             gquic_packet_packer_t *const packer,
-                             gquic_packed_packet_payload_t *const payload);
+                             gquic_packet_packer_t *const packer, gquic_packed_packet_payload_t *const payload);
 int gquic_packet_packer_pack_with_padding(gquic_packed_packet_t *const packed_packet,
                                           gquic_packet_packer_t *const packer,
-                                          gquic_packed_packet_payload_t *const payload,
-                                          const u_int64_t padding_len);
+                                          gquic_packed_packet_payload_t *const payload, const u_int64_t padding_len);
 int gquic_packet_packer_try_pack_ack_packet(gquic_packed_packet_t *const packed_packet, gquic_packet_packer_t *const packer);
 int gquic_packet_packer_try_pack_initial_packet(gquic_packed_packet_t *const packed_packet, gquic_packet_packer_t *const packer);
 int gquic_packet_packer_try_pack_handshake_packet(gquic_packed_packet_t *const packed_packet, gquic_packet_packer_t *const packer);
@@ -126,8 +122,7 @@ int gquic_packet_packer_try_pack_probe_packet(gquic_packed_packet_t *const packe
 int gquic_packet_packer_pack_packet(gquic_packed_packet_t *const packed_packet, gquic_packet_packer_t *const packer);
 int gquic_packet_packer_pack_crypto_packet(gquic_packed_packet_t *const packed_packet,
                                            gquic_packet_packer_t *const packer,
-                                           gquic_packed_packet_payload_t *const payload,
-                                           const int has_retransmission);
+                                           gquic_packed_packet_payload_t *const payload, const int has_retransmission);
 
 
 inline static int gquic_packet_packer_handshake_confirmed(gquic_packet_packer_t *const packer) {

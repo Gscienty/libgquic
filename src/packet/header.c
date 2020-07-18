@@ -1,8 +1,17 @@
+/* src/packet/header.c packet header 封装
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "packet/header.h"
+#include "packet/packet_number.h"
 #include "util/malloc.h"
 #include "exception.h"
 
-int gquic_packet_header_init(gquic_packet_header_t *const header) {
+gquic_exception_t gquic_packet_header_init(gquic_packet_header_t *const header) {
     if (header == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -13,7 +22,7 @@ int gquic_packet_header_init(gquic_packet_header_t *const header) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_header_dtor(gquic_packet_header_t *const header) {
+gquic_exception_t gquic_packet_header_dtor(gquic_packet_header_t *const header) {
     if (header == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -33,64 +42,64 @@ int gquic_packet_header_dtor(gquic_packet_header_t *const header) {
 
 u_int64_t gquic_packet_header_get_pn(gquic_packet_header_t *const header) {
     if (header == NULL || (header->hdr.l_hdr == NULL && header->hdr.s_hdr == NULL)) {
-        return 0;
+        return GQUIC_INVALID_PACKET_NUMBER;
     }
     if (header->is_long) {
-        switch (gquic_packet_long_header_type(header->hdr.l_hdr)) {
+        switch (gquic_packet_long_header_type(gquic_packet_header_long(header))) {
         case GQUIC_LONG_HEADER_INITIAL:
-            return ((gquic_packet_initial_header_t *) GQUIC_LONG_HEADER_SPEC(header->hdr.l_hdr))->pn;
+            return GQUIC_LONG_HEADER_SPEC(gquic_packet_initial_header_t, gquic_packet_header_long(header))->pn;
         case GQUIC_LONG_HEADER_HANDSHAKE:
-            return ((gquic_packet_handshake_header_t *) GQUIC_LONG_HEADER_SPEC(header->hdr.l_hdr))->pn;
+            return GQUIC_LONG_HEADER_SPEC(gquic_packet_handshake_header_t, gquic_packet_header_long(header))->pn;
         case GQUIC_LONG_HEADER_0RTT:
-            return ((gquic_packet_0rtt_header_t *) GQUIC_LONG_HEADER_SPEC(header->hdr.l_hdr))->pn;
+            return GQUIC_LONG_HEADER_SPEC(gquic_packet_0rtt_header_t, gquic_packet_header_long(header))->pn;
         }
-        return (u_int64_t) -1;
+        return GQUIC_INVALID_PACKET_NUMBER;
     }
     else {
-        return header->hdr.s_hdr->pn;
+        return gquic_packet_header_short(header)->pn;
     }
 }
 
-int gquic_packet_header_set_pn(gquic_packet_header_t *const header, const u_int64_t pn) {
+gquic_exception_t gquic_packet_header_set_pn(gquic_packet_header_t *const header, const u_int64_t pn) {
     if (header == NULL || (header->hdr.l_hdr == NULL && header->hdr.s_hdr == NULL)) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (header->is_long) {
-        switch (gquic_packet_long_header_type(header->hdr.l_hdr)) {
+        switch (gquic_packet_long_header_type(gquic_packet_header_long(header))) {
         case GQUIC_LONG_HEADER_INITIAL:
-            ((gquic_packet_initial_header_t *) GQUIC_LONG_HEADER_SPEC(header->hdr.l_hdr))->pn = pn;
+            GQUIC_LONG_HEADER_SPEC(gquic_packet_initial_header_t, gquic_packet_header_long(header))->pn = pn;
             break;
         case GQUIC_LONG_HEADER_HANDSHAKE:
-            ((gquic_packet_handshake_header_t *) GQUIC_LONG_HEADER_SPEC(header->hdr.l_hdr))->pn = pn;
+            GQUIC_LONG_HEADER_SPEC(gquic_packet_handshake_header_t, gquic_packet_header_long(header))->pn = pn;
             break;
         case GQUIC_LONG_HEADER_0RTT:
-            ((gquic_packet_0rtt_header_t *) GQUIC_LONG_HEADER_SPEC(header->hdr.l_hdr))->pn = pn;
+            GQUIC_LONG_HEADER_SPEC(gquic_packet_0rtt_header_t, gquic_packet_header_long(header))->pn = pn;
             break;
         default:
             GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_HEADER_TYPE_UNEXCEPTED);
         }
-        GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
     else {
-        header->hdr.s_hdr->pn = pn;
-        GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+        gquic_packet_header_short(header)->pn = pn;
     }
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_header_set_len(gquic_packet_header_t *const header, const u_int64_t len) {
+gquic_exception_t gquic_packet_header_set_len(gquic_packet_header_t *const header, const u_int64_t len) {
     if (header == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (header->is_long) {
-        switch (gquic_packet_long_header_type(header->hdr.l_hdr)) {
+        switch (gquic_packet_long_header_type(gquic_packet_header_long(header))) {
         case GQUIC_LONG_HEADER_INITIAL:
-            ((gquic_packet_initial_header_t *) GQUIC_LONG_HEADER_SPEC(header->hdr.l_hdr))->len = len;
+            GQUIC_LONG_HEADER_SPEC(gquic_packet_initial_header_t, gquic_packet_header_long(header))->len = len;
             break;
         case GQUIC_LONG_HEADER_HANDSHAKE:
-            ((gquic_packet_handshake_header_t *) GQUIC_LONG_HEADER_SPEC(header->hdr.l_hdr))->len = len;
+            GQUIC_LONG_HEADER_SPEC(gquic_packet_handshake_header_t, gquic_packet_header_long(header))->len = len;
             break;
         case GQUIC_LONG_HEADER_0RTT:
-            ((gquic_packet_0rtt_header_t *) GQUIC_LONG_HEADER_SPEC(header->hdr.l_hdr))->len = len;
+            GQUIC_LONG_HEADER_SPEC(gquic_packet_0rtt_header_t, gquic_packet_header_long(header))->len = len;
             break;
         }
     }
@@ -103,14 +112,14 @@ size_t gquic_packet_header_size(gquic_packet_header_t *const header) {
         return 0;
     }
     if (header->is_long) {
-        return gquic_packet_long_header_size(header->hdr.l_hdr);
+        return gquic_packet_long_header_size(gquic_packet_header_long(header));
     }
     else {
-        return gquic_packet_short_header_size(header->hdr.s_hdr);
+        return gquic_packet_short_header_size(gquic_packet_header_short(header));
     }
 }
 
-int gquic_packet_header_deserialize_conn_id(gquic_str_t *const conn_id, const gquic_str_t *const data, const int conn_id_len) {
+gquic_exception_t gquic_packet_header_deserialize_conn_id(gquic_str_t *const conn_id, const gquic_str_t *const data, const int conn_id_len) {
     int dst_conn_id_len = 0;
     if (conn_id == NULL || data == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -137,7 +146,7 @@ int gquic_packet_header_deserialize_conn_id(gquic_str_t *const conn_id, const gq
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_header_deserialize_src_conn_id(gquic_str_t *const conn_id, const gquic_str_t *const data) {
+gquic_exception_t gquic_packet_header_deserialize_src_conn_id(gquic_str_t *const conn_id, const gquic_str_t *const data) {
     gquic_reader_str_t reader = { 0, NULL };
     u_int8_t src_conn_id_len;
     if (conn_id == NULL || data == NULL) {
@@ -152,9 +161,7 @@ int gquic_packet_header_deserialize_src_conn_id(gquic_str_t *const conn_id, cons
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_header_deserialize_packet_len(u_int64_t *const packet_len,
-                                               const gquic_str_t *const data,
-                                               const int conn_id_len) {
+gquic_exception_t gquic_packet_header_deserialize_packet_len(u_int64_t *const packet_len, const gquic_str_t *const data, const int conn_id_len) {
     gquic_reader_str_t reader = { 0, NULL };
     u_int64_t tmp = 0;
     u_int64_t header_len = 0;

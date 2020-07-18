@@ -21,7 +21,6 @@ static int gquic_session_add_wrapper(gquic_str_t *const, void *const, const gqui
 static int gquic_session_handle_packet_wrapper(void *const, gquic_received_packet_t *const);
 static int gquic_session_close_wrapper(void *const);
 static int gquic_session_destroy_wrapper(void *const, const int);
-static int gquic_session_is_client_wrapper(void *const);
 static int gquic_session_queue_control_frame_wrapper(void *const, void *const);
 static int gquic_session_on_handshake_complete_client_wrapper(void *const);
 static int gquic_session_on_handshake_complete_server_wrapper(void *const);
@@ -352,8 +351,7 @@ gquic_packet_handler_t *gquic_session_implement_packet_handler(gquic_session_t *
     handler->closer.closer.self = sess;
     handler->destroy.cb = gquic_session_destroy_wrapper;
     handler->destroy.self = sess;
-    handler->is_client.cb = gquic_session_is_client_wrapper;
-    handler->is_client.self = sess;
+    handler->is_client = sess->is_client;
 
     return handler;
 }
@@ -368,14 +366,6 @@ static int gquic_session_close_wrapper(void *const sess) {
 
 static int gquic_session_destroy_wrapper(void *const sess, const int err) {
     return gquic_session_destroy(sess, err);
-}
-
-static int gquic_session_is_client_wrapper(void *const sess_) {
-    gquic_session_t *const sess = sess_;
-    if (sess == NULL) {
-        return 0;
-    }
-    return sess->is_client;
 }
 
 // maybe other thread
@@ -1159,8 +1149,8 @@ static int gquic_session_handle_retry_packet(gquic_session_t *const sess, const 
     }
 
     gquic_str_t odcid = {
-        ((gquic_packet_retry_header_t *) GQUIC_LONG_HEADER_SPEC(header))->odcid_len,
-        ((gquic_packet_retry_header_t *) GQUIC_LONG_HEADER_SPEC(header))->odcid
+        GQUIC_LONG_HEADER_SPEC(gquic_packet_retry_header_t, header)->odcid_len,
+        GQUIC_LONG_HEADER_SPEC(gquic_packet_retry_header_t, header)->odcid
     };
     if (gquic_str_cmp(&odcid, &sess->handshake_dst_conn_id) != 0) {
         ret = 0;
@@ -1725,7 +1715,7 @@ static int gquic_session_send_packed_packet(gquic_session_t *const sess, gquic_p
     if (sess->first_ack_eliciting_packet == 0 && gquic_packed_packet_is_ack_eliciting(packed_packet)) {
         sess->first_ack_eliciting_packet = gquic_time_now();
     }
-    sess->conn_id_manager.packets_since_last_change++;
+    sess->conn_id_manager.packets_count_since_last_change++;
 
     GQUIC_LOG(GQUIC_LOG_DEBUG, "session send packed_packet to send_queue");
     gquic_packet_send_queue_send(&sess->send_queue, packed_packet);

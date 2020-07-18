@@ -27,13 +27,10 @@ struct gquic_closed_local_session_s {
 static int gquic_closed_remote_session_handle_packet(void *const, gquic_received_packet_t *const);
 static int gquic_closed_remote_session_close(void *const);
 static int gquic_closed_remote_session_destory(void *const, const int);
-static int gquic_closed_remote_session_client_is_client(void *const);
-static int gquic_closed_remote_session_server_is_client(void *const);
 
 static int gquic_closed_local_session_handle_packet(void *const, gquic_received_packet_t *const);
 static int gquic_closed_local_session_close(void *const);
 static int gquic_closed_local_session_destory(void *const, const int);
-static int gquic_closed_local_session_is_client(void *const);
 static int gquic_closed_local_session_dtor(gquic_closed_local_session_t *const);
 
 static void *gquic_closed_local_session_thread(void *const);
@@ -49,8 +46,7 @@ int gquic_closed_remote_session_client_alloc(gquic_packet_handler_t **const hand
     (*handler_storage)->destroy.self = (*handler_storage);
     (*handler_storage)->handle_packet.cb = gquic_closed_remote_session_handle_packet;
     (*handler_storage)->handle_packet.self = (*handler_storage);
-    (*handler_storage)->is_client.cb = gquic_closed_remote_session_client_is_client;
-    (*handler_storage)->is_client.self = (*handler_storage);
+    (*handler_storage)->is_client = true;
     
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -67,8 +63,7 @@ int gquic_closed_remote_session_server_alloc(gquic_packet_handler_t **const hand
     (*handler_storage)->destroy.self = (*handler_storage);
     (*handler_storage)->handle_packet.cb = gquic_closed_remote_session_handle_packet;
     (*handler_storage)->handle_packet.self = (*handler_storage);
-    (*handler_storage)->is_client.cb = gquic_closed_remote_session_server_is_client;
-    (*handler_storage)->is_client.self = (*handler_storage);
+    (*handler_storage)->is_client = false;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -97,15 +92,6 @@ static int gquic_closed_remote_session_destory(void *const _, const int __) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_closed_remote_session_client_is_client(void *const _) {
-    (void) _;
-    return 1;
-}
-static int gquic_closed_remote_session_server_is_client(void *const _) {
-    (void) _;
-    return 0;
-}
-
 int gquic_closed_local_session_alloc(gquic_packet_handler_t **const handler_storage,
                                      gquic_net_conn_t *const conn, gquic_str_t *const conn_close_packet, const int is_client) {
     gquic_closed_local_session_t *sess = NULL;
@@ -128,20 +114,11 @@ int gquic_closed_local_session_alloc(gquic_packet_handler_t **const handler_stor
     (*handler_storage)->destroy.self = sess;
     (*handler_storage)->handle_packet.cb = gquic_closed_local_session_handle_packet;
     (*handler_storage)->handle_packet.self = sess;
-    (*handler_storage)->is_client.cb = gquic_closed_local_session_is_client;
-    (*handler_storage)->is_client.self = sess;
+    (*handler_storage)->is_client = sess->is_client;
 
     pthread_create(&sess->thread, NULL, gquic_closed_local_session_thread, sess);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
-}
-
-static int gquic_closed_local_session_is_client(void *const sess_) {
-    gquic_closed_local_session_t *const sess = sess_;
-    if (sess == NULL) {
-        return 0;
-    }
-    return sess->is_client;
 }
 
 static int gquic_closed_local_session_close(void *const sess_) {

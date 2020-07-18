@@ -392,23 +392,23 @@ int gquic_packet_packer_get_long_header(gquic_packet_header_t *const hdr, gquic_
 
     if (enc_lv == GQUIC_ENC_LV_INITIAL) {
         hdr->hdr.l_hdr->flag = 0xc0 | (0x03 & (pn_len - 1));
-        ((gquic_packet_initial_header_t *) GQUIC_LONG_HEADER_SPEC(hdr->hdr.l_hdr))->pn = pn;
-        ((gquic_packet_initial_header_t *) GQUIC_LONG_HEADER_SPEC(hdr->hdr.l_hdr))->len = packer->max_packet_size;
-        ((gquic_packet_initial_header_t *) GQUIC_LONG_HEADER_SPEC(hdr->hdr.l_hdr))->token_len = GQUIC_STR_SIZE(&packer->token);
-        if (GQUIC_ASSERT(gquic_malloc(&((gquic_packet_initial_header_t *) GQUIC_LONG_HEADER_SPEC(hdr->hdr.l_hdr))->token,
+        GQUIC_LONG_HEADER_SPEC(gquic_packet_initial_header_t, gquic_packet_header_long(hdr))->pn = pn;
+        GQUIC_LONG_HEADER_SPEC(gquic_packet_initial_header_t, gquic_packet_header_long(hdr))->len = packer->max_packet_size;
+        GQUIC_LONG_HEADER_SPEC(gquic_packet_initial_header_t, gquic_packet_header_long(hdr))->token_len = GQUIC_STR_SIZE(&packer->token);
+        if (GQUIC_ASSERT(gquic_malloc(&GQUIC_LONG_HEADER_SPEC(gquic_packet_initial_header_t, gquic_packet_header_long(hdr))->token,
                                       GQUIC_STR_SIZE(&packer->token)))) {
             gquic_str_reset(&dcid);
             GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
         }
-        memcpy(((gquic_packet_initial_header_t *) GQUIC_LONG_HEADER_SPEC(hdr->hdr.l_hdr))->token,
+        memcpy(GQUIC_LONG_HEADER_SPEC(gquic_packet_initial_header_t, gquic_packet_header_long(hdr))->token,
                GQUIC_STR_VAL(&packer->token),
                GQUIC_STR_SIZE(&packer->token));
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
     else if (enc_lv == GQUIC_ENC_LV_HANDSHAKE) {
         hdr->hdr.l_hdr->flag = 0xc0 | 0x20 | (0x03 & (pn_len - 1));
-        ((gquic_packet_handshake_header_t *) GQUIC_LONG_HEADER_SPEC(hdr->hdr.l_hdr))->pn = pn;
-        ((gquic_packet_handshake_header_t *) GQUIC_LONG_HEADER_SPEC(hdr->hdr.l_hdr))->len = packer->max_packet_size;
+        GQUIC_LONG_HEADER_SPEC(gquic_packet_handshake_header_t, gquic_packet_header_long(hdr))->pn = pn;
+        GQUIC_LONG_HEADER_SPEC(gquic_packet_handshake_header_t, gquic_packet_header_long(hdr))->len = packer->max_packet_size;
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
 

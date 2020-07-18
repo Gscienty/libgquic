@@ -1,3 +1,11 @@
+/* src/packet/long_header_packet.c 长首部
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "packet/long_header_packet.h"
 #include "util/big_endian.h"
 #include "util/malloc.h"
@@ -6,25 +14,66 @@
 
 #define __Max(x, y) ((x) > (y) ? (x) : (y))
 
-static size_t gquic_packet_initial_header_size(const gquic_packet_initial_header_t *);
-static size_t gquic_packet_0rtt_header_size(const gquic_packet_0rtt_header_t *);
-static size_t gquic_packet_handshake_header_size(const gquic_packet_handshake_header_t *);
-static size_t gquic_packet_retry_header_size(const gquic_packet_retry_header_t *);
+/**
+ * 具体长首部的长度
+ *
+ * @param header: 具体长首部
+ *
+ * @return: 长度
+ */
+static size_t gquic_packet_initial_header_size(const gquic_packet_initial_header_t *const header);
+static size_t gquic_packet_0rtt_header_size(const gquic_packet_0rtt_header_t *const header);
+static size_t gquic_packet_handshake_header_size(const gquic_packet_handshake_header_t *const header);
+static size_t gquic_packet_retry_header_size(const gquic_packet_retry_header_t *const header);
 
-static int gquic_packet_initial_header_serialize(const gquic_packet_initial_header_t *, gquic_writer_str_t *const);
-static int gquic_packet_0rtt_header_serialize(const gquic_packet_0rtt_header_t *, gquic_writer_str_t *const);
-static int gquic_packet_handshake_header_serialize(const gquic_packet_handshake_header_t *, gquic_writer_str_t *const);
-static int gquic_packet_retry_header_serialize(const gquic_packet_retry_header_t *, gquic_writer_str_t *const);
+/**
+ * 具体长首部序列化操作
+ *
+ * @param header: 具体长首部
+ * @param writer: writer
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_packet_initial_header_serialize(const gquic_packet_initial_header_t *const header, gquic_writer_str_t *const writer);
+static gquic_exception_t gquic_packet_0rtt_header_serialize(const gquic_packet_0rtt_header_t *const header, gquic_writer_str_t *const writer);
+static gquic_exception_t gquic_packet_handshake_header_serialize(const gquic_packet_handshake_header_t *const header, gquic_writer_str_t *const writer);
+static gquic_exception_t gquic_packet_retry_header_serialize(const gquic_packet_retry_header_t *const header, gquic_writer_str_t *const writer);
 
-static int gquic_packet_initial_header_deserialize(gquic_packet_initial_header_t *, gquic_reader_str_t *const);
-static int gquic_packet_0rtt_header_deserialize(gquic_packet_0rtt_header_t *, gquic_reader_str_t *const);
-static int gquic_packet_handshake_header_deserialize(gquic_packet_handshake_header_t *, gquic_reader_str_t *const);
-static int gquic_packet_retry_header_deserialize(gquic_packet_retry_header_t *, gquic_reader_str_t *const);
+/**
+ * 长首部反序列化
+ *
+ * @param header: 具体长首部
+ * @param reader: reader
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_packet_initial_header_deserialize(gquic_packet_initial_header_t *const header, gquic_reader_str_t *const reader);
+static gquic_exception_t gquic_packet_0rtt_header_deserialize(gquic_packet_0rtt_header_t *const header, gquic_reader_str_t *const reader);
+static gquic_exception_t gquic_packet_handshake_header_deserialize(gquic_packet_handshake_header_t *const header, gquic_reader_str_t *const reader);
+static gquic_exception_t gquic_packet_retry_header_deserialize(gquic_packet_retry_header_t *const header, gquic_reader_str_t *const reader);
 
-static int gquic_packet_initial_header_deserialize_unseal_part(gquic_packet_initial_header_t *, gquic_reader_str_t *const);
-static int gquic_packet_handshake_header_deserialize_unseal_part(gquic_packet_handshake_header_t *, gquic_reader_str_t *const);
-static int gquic_packet_initial_header_deserialize_seal_part(gquic_packet_initial_header_t *, gquic_reader_str_t *const);
-static int gquic_packet_handshake_header_deserialize_seal_part(gquic_packet_handshake_header_t *, gquic_reader_str_t *const);
+
+/**
+ * 长首部反序列化未加密部分
+ *
+ * @param header: 长首部
+ * @param reader: reader
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_packet_initial_header_deserialize_unseal_part(gquic_packet_initial_header_t *const header, gquic_reader_str_t *const reader);
+static gquic_exception_t gquic_packet_handshake_header_deserialize_unseal_part(gquic_packet_handshake_header_t *const header, gquic_reader_str_t *const reader);
+
+/**
+ * 长首部反序列化加密部分
+ *
+ * @param header: 长首部
+ * @param reader: reader
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_packet_initial_header_deserialize_seal_part(gquic_packet_initial_header_t *const header, gquic_reader_str_t *const reader);
+static gquic_exception_t gquic_packet_handshake_header_deserialize_seal_part(gquic_packet_handshake_header_t *const header, gquic_reader_str_t *const reader);
 
 const static size_t SUB_MAX_SIZE = __Max(
                                          __Max(sizeof(gquic_packet_0rtt_header_t),
@@ -32,7 +81,7 @@ const static size_t SUB_MAX_SIZE = __Max(
                                          __Max(sizeof(gquic_packet_initial_header_t),
                                                sizeof(gquic_packet_handshake_header_t)));
 
-int gquic_packet_long_header_alloc(gquic_packet_long_header_t **const header_storage) {
+gquic_exception_t gquic_packet_long_header_alloc(gquic_packet_long_header_t **const header_storage) {
     if (header_storage == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -46,28 +95,26 @@ size_t gquic_packet_long_header_size(const gquic_packet_long_header_t *const hea
     size_t common = 1 + 4 + 1 + header->dcid_len + 1 + header->scid_len;
     switch ((header->flag & 0x30) >> 4) {
     case 0x00:
-        return common + gquic_packet_initial_header_size(GQUIC_LONG_HEADER_SPEC(header));
+        return common + gquic_packet_initial_header_size(GQUIC_LONG_HEADER_SPEC(void, header));
     case 0x01:
-        return common + gquic_packet_0rtt_header_size(GQUIC_LONG_HEADER_SPEC(header));
+        return common + gquic_packet_0rtt_header_size(GQUIC_LONG_HEADER_SPEC(void, header));
     case 0x02:
-        return common + gquic_packet_handshake_header_size(GQUIC_LONG_HEADER_SPEC(header));
+        return common + gquic_packet_handshake_header_size(GQUIC_LONG_HEADER_SPEC(void, header));
     case 0x03:
-        return common + gquic_packet_retry_header_size(GQUIC_LONG_HEADER_SPEC(header));
+        return common + gquic_packet_retry_header_size(GQUIC_LONG_HEADER_SPEC(void, header));
     }
 
     return 0;
 }
 
-int gquic_packet_long_header_release(gquic_packet_long_header_t *const header) {
-    gquic_packet_initial_header_t *initial_header_spec = NULL;
+gquic_exception_t gquic_packet_long_header_release(gquic_packet_long_header_t *const header) {
     if (header == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     switch ((header->flag & 0x30) >> 4) {
     case 0x00:
-        initial_header_spec = GQUIC_LONG_HEADER_SPEC(header);
-        if (initial_header_spec->token != NULL) {
-            gquic_free(initial_header_spec->token);
+        if (GQUIC_LONG_HEADER_SPEC(gquic_packet_initial_header_t, header)->token != NULL) {
+            gquic_free(GQUIC_LONG_HEADER_SPEC(gquic_packet_initial_header_t, header)->token);
         }
         break;
     }
@@ -76,7 +123,7 @@ int gquic_packet_long_header_release(gquic_packet_long_header_t *const header) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_long_header_serialize(const gquic_packet_long_header_t *const header, gquic_writer_str_t *const writer) {
+gquic_exception_t gquic_packet_long_header_serialize(const gquic_packet_long_header_t *const header, gquic_writer_str_t *const writer) {
     if (header == NULL || writer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -98,16 +145,16 @@ int gquic_packet_long_header_serialize(const gquic_packet_long_header_t *const h
 
     switch ((header->flag & 0x30) >> 4) {
     case 0x00:
-        GQUIC_ASSERT_FAST_RETURN(gquic_packet_initial_header_serialize(GQUIC_LONG_HEADER_SPEC(header), writer));
+        GQUIC_ASSERT_FAST_RETURN(gquic_packet_initial_header_serialize(GQUIC_LONG_HEADER_SPEC(void, header), writer));
         break;
     case 0x01:
-        GQUIC_ASSERT_FAST_RETURN(gquic_packet_0rtt_header_serialize(GQUIC_LONG_HEADER_SPEC(header), writer));
+        GQUIC_ASSERT_FAST_RETURN(gquic_packet_0rtt_header_serialize(GQUIC_LONG_HEADER_SPEC(void, header), writer));
         break;
     case 0x02:
-        GQUIC_ASSERT_FAST_RETURN(gquic_packet_handshake_header_serialize(GQUIC_LONG_HEADER_SPEC(header), writer));
+        GQUIC_ASSERT_FAST_RETURN(gquic_packet_handshake_header_serialize(GQUIC_LONG_HEADER_SPEC(void, header), writer));
         break;
     case 0x03:
-        GQUIC_ASSERT_FAST_RETURN(gquic_packet_retry_header_serialize(GQUIC_LONG_HEADER_SPEC(header), writer));
+        GQUIC_ASSERT_FAST_RETURN(gquic_packet_retry_header_serialize(GQUIC_LONG_HEADER_SPEC(void, header), writer));
         break;
     default:
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INTERNAL_ERROR);
@@ -116,7 +163,7 @@ int gquic_packet_long_header_serialize(const gquic_packet_long_header_t *const h
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_long_header_deserialize(gquic_packet_long_header_t *const header, gquic_reader_str_t *const reader) {
+gquic_exception_t gquic_packet_long_header_deserialize(gquic_packet_long_header_t *const header, gquic_reader_str_t *const reader) {
     if (header == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -134,16 +181,16 @@ int gquic_packet_long_header_deserialize(gquic_packet_long_header_t *const heade
 
     switch ((header->flag & 0x30) >> 4) {
     case 0x00:
-        GQUIC_ASSERT_FAST_RETURN(gquic_packet_initial_header_deserialize(GQUIC_LONG_HEADER_SPEC(header), reader));
+        GQUIC_ASSERT_FAST_RETURN(gquic_packet_initial_header_deserialize(GQUIC_LONG_HEADER_SPEC(void, header), reader));
         break;
     case 0x01:
-        GQUIC_ASSERT_FAST_RETURN(gquic_packet_0rtt_header_deserialize(GQUIC_LONG_HEADER_SPEC(header), reader));
+        GQUIC_ASSERT_FAST_RETURN(gquic_packet_0rtt_header_deserialize(GQUIC_LONG_HEADER_SPEC(void, header), reader));
         break;
     case 0x02:
-        GQUIC_ASSERT_FAST_RETURN(gquic_packet_handshake_header_deserialize(GQUIC_LONG_HEADER_SPEC(header), reader));
+        GQUIC_ASSERT_FAST_RETURN(gquic_packet_handshake_header_deserialize(GQUIC_LONG_HEADER_SPEC(void, header), reader));
         break;
     case 0x03:
-        GQUIC_ASSERT_FAST_RETURN(gquic_packet_retry_header_deserialize(GQUIC_LONG_HEADER_SPEC(header), reader));
+        GQUIC_ASSERT_FAST_RETURN(gquic_packet_retry_header_deserialize(GQUIC_LONG_HEADER_SPEC(void, header), reader));
         break;
     default:
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INTERNAL_ERROR);
@@ -152,7 +199,7 @@ int gquic_packet_long_header_deserialize(gquic_packet_long_header_t *const heade
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_long_header_deserialize_unseal_part(gquic_packet_long_header_t *const header, gquic_reader_str_t *const reader) {
+gquic_exception_t gquic_packet_long_header_deserialize_unseal_part(gquic_packet_long_header_t *const header, gquic_reader_str_t *const reader) {
     if (header == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -170,10 +217,10 @@ int gquic_packet_long_header_deserialize_unseal_part(gquic_packet_long_header_t 
 
     switch ((header->flag & 0x30) >> 4) {
     case 0x00:
-        GQUIC_ASSERT_FAST_RETURN(gquic_packet_initial_header_deserialize_unseal_part(GQUIC_LONG_HEADER_SPEC(header), reader));
+        GQUIC_ASSERT_FAST_RETURN(gquic_packet_initial_header_deserialize_unseal_part(GQUIC_LONG_HEADER_SPEC(void, header), reader));
         break;
     case 0x02:
-        GQUIC_ASSERT_FAST_RETURN(gquic_packet_handshake_header_deserialize_unseal_part(GQUIC_LONG_HEADER_SPEC(header), reader));
+        GQUIC_ASSERT_FAST_RETURN(gquic_packet_handshake_header_deserialize_unseal_part(GQUIC_LONG_HEADER_SPEC(void, header), reader));
         break;
     default:
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_HEADER_TYPE_UNEXCEPTED);
@@ -206,7 +253,7 @@ static size_t gquic_packet_retry_header_size(const gquic_packet_retry_header_t *
     return 1 + header->odcid_len;
 }
 
-static int gquic_packet_initial_header_serialize(const gquic_packet_initial_header_t *header, gquic_writer_str_t *const writer) {
+static gquic_exception_t gquic_packet_initial_header_serialize(const gquic_packet_initial_header_t *header, gquic_writer_str_t *const writer) {
     if (header == NULL || writer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -239,7 +286,7 @@ static int gquic_packet_initial_header_serialize(const gquic_packet_initial_head
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_packet_0rtt_header_serialize(const gquic_packet_0rtt_header_t *header, gquic_writer_str_t *const writer) {
+static gquic_exception_t gquic_packet_0rtt_header_serialize(const gquic_packet_0rtt_header_t *header, gquic_writer_str_t *const writer) {
     if (header == NULL || writer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -267,7 +314,7 @@ static int gquic_packet_0rtt_header_serialize(const gquic_packet_0rtt_header_t *
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_packet_handshake_header_serialize(const gquic_packet_handshake_header_t *header, gquic_writer_str_t *const writer) {
+static gquic_exception_t gquic_packet_handshake_header_serialize(const gquic_packet_handshake_header_t *header, gquic_writer_str_t *const writer) {
     if (header == NULL || writer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -295,7 +342,7 @@ static int gquic_packet_handshake_header_serialize(const gquic_packet_handshake_
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_packet_retry_header_serialize(const gquic_packet_retry_header_t *header, gquic_writer_str_t *const writer) {
+static gquic_exception_t gquic_packet_retry_header_serialize(const gquic_packet_retry_header_t *header, gquic_writer_str_t *const writer) {
     if (header == NULL || writer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -309,7 +356,7 @@ static int gquic_packet_retry_header_serialize(const gquic_packet_retry_header_t
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_packet_initial_header_deserialize(gquic_packet_initial_header_t *header, gquic_reader_str_t *const reader) {
+static gquic_exception_t gquic_packet_initial_header_deserialize(gquic_packet_initial_header_t *header, gquic_reader_str_t *const reader) {
     if (header == NULL || reader == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -342,7 +389,7 @@ static int gquic_packet_initial_header_deserialize(gquic_packet_initial_header_t
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_packet_0rtt_header_deserialize(gquic_packet_0rtt_header_t *header, gquic_reader_str_t *const reader) {
+static gquic_exception_t gquic_packet_0rtt_header_deserialize(gquic_packet_0rtt_header_t *header, gquic_reader_str_t *const reader) {
     if (header == NULL || reader == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -368,7 +415,7 @@ static int gquic_packet_0rtt_header_deserialize(gquic_packet_0rtt_header_t *head
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_packet_handshake_header_deserialize(gquic_packet_handshake_header_t *header, gquic_reader_str_t *const reader) {
+static gquic_exception_t gquic_packet_handshake_header_deserialize(gquic_packet_handshake_header_t *header, gquic_reader_str_t *const reader) {
     if (header == NULL || reader == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -394,7 +441,7 @@ static int gquic_packet_handshake_header_deserialize(gquic_packet_handshake_head
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_packet_retry_header_deserialize(gquic_packet_retry_header_t *header, gquic_reader_str_t *const reader) {
+static gquic_exception_t gquic_packet_retry_header_deserialize(gquic_packet_retry_header_t *header, gquic_reader_str_t *const reader) {
     if (header == NULL || reader == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -425,7 +472,7 @@ u_int8_t gquic_packet_long_header_type(const gquic_packet_long_header_t *const h
     return 0;
 }
 
-static int gquic_packet_initial_header_deserialize_unseal_part(gquic_packet_initial_header_t *header, gquic_reader_str_t *const reader) {
+static gquic_exception_t gquic_packet_initial_header_deserialize_unseal_part(gquic_packet_initial_header_t *header, gquic_reader_str_t *const reader) {
     if (header == NULL || reader == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -442,7 +489,7 @@ static int gquic_packet_initial_header_deserialize_unseal_part(gquic_packet_init
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_packet_handshake_header_deserialize_unseal_part(gquic_packet_handshake_header_t *header, gquic_reader_str_t *const reader) {
+static gquic_exception_t gquic_packet_handshake_header_deserialize_unseal_part(gquic_packet_handshake_header_t *header, gquic_reader_str_t *const reader) {
     if (header == NULL || reader == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -452,16 +499,16 @@ static int gquic_packet_handshake_header_deserialize_unseal_part(gquic_packet_ha
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_long_header_deserialize_seal_part(gquic_packet_long_header_t *const header, gquic_reader_str_t *const reader) {
+gquic_exception_t gquic_packet_long_header_deserialize_seal_part(gquic_packet_long_header_t *const header, gquic_reader_str_t *const reader) {
     if (header == NULL || reader == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     switch ((header->flag & 0x30) >> 4) {
     case 0x00:
-        GQUIC_ASSERT_FAST_RETURN(gquic_packet_initial_header_deserialize_seal_part(GQUIC_LONG_HEADER_SPEC(header), reader));
+        GQUIC_ASSERT_FAST_RETURN(gquic_packet_initial_header_deserialize_seal_part(GQUIC_LONG_HEADER_SPEC(void, header), reader));
         break;
     case 0x02:
-        GQUIC_ASSERT_FAST_RETURN(gquic_packet_handshake_header_deserialize_seal_part(GQUIC_LONG_HEADER_SPEC(header), reader));
+        GQUIC_ASSERT_FAST_RETURN(gquic_packet_handshake_header_deserialize_seal_part(GQUIC_LONG_HEADER_SPEC(void, header), reader));
         break;
     default:
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_HEADER_TYPE_UNEXCEPTED);
@@ -470,7 +517,7 @@ int gquic_packet_long_header_deserialize_seal_part(gquic_packet_long_header_t *c
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_packet_initial_header_deserialize_seal_part(gquic_packet_initial_header_t *header, gquic_reader_str_t *const reader) {
+static gquic_exception_t gquic_packet_initial_header_deserialize_seal_part(gquic_packet_initial_header_t *header, gquic_reader_str_t *const reader) {
     if (header == NULL || reader == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -494,7 +541,7 @@ static int gquic_packet_initial_header_deserialize_seal_part(gquic_packet_initia
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_packet_handshake_header_deserialize_seal_part(gquic_packet_handshake_header_t *header, gquic_reader_str_t *const reader) {
+static gquic_exception_t gquic_packet_handshake_header_deserialize_seal_part(gquic_packet_handshake_header_t *header, gquic_reader_str_t *const reader) {
     if (header == NULL || reader == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }

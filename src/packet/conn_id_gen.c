@@ -1,12 +1,28 @@
+/* src/packet/conn_id_gen.c connection id 生成模块
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "packet/conn_id_gen.h"
-#include "util/conn_id.h"
 #include "frame/new_connection_id.h"
 #include "frame/meta.h"
 #include "exception.h"
+#include <openssl/rand.h>
+#include <string.h>
 
-static int gquic_conn_id_gen_issue_new_conn_id(gquic_conn_id_gen_t *const);
+/**
+ * 发布一个新的connection id
+ *
+ * @param gen: 生成模块
+ *
+ * @return: exception
+ */
+static gquic_exception_t gquic_conn_id_gen_issue_new_conn_id(gquic_conn_id_gen_t *const gen);
 
-int gquic_conn_id_gen_init(gquic_conn_id_gen_t *const gen) {
+gquic_exception_t gquic_conn_id_gen_init(gquic_conn_id_gen_t *const gen) {
     if (gen == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -30,32 +46,27 @@ int gquic_conn_id_gen_init(gquic_conn_id_gen_t *const gen) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_conn_id_gen_ctor(gquic_conn_id_gen_t *const gen,
-                           const gquic_str_t *const initial_conn_id,
-                           const gquic_str_t *const initial_cli_dst_conn_id,
-                           void *const add_conn_id_self,
-                           int (*add_conn_id_cb) (gquic_str_t *const, void *const, const gquic_str_t *const),
-                           void *const remove_conn_id_self,
-                           int (*remove_conn_id_cb) (void *const, const gquic_str_t *const),
-                           void *const retrie_conn_id_self,
-                           int (*retrie_conn_id_cb) (void *const, const gquic_str_t *const),
-                           void *const replace_with_closed_self,
-                           int (*replace_with_closed_cb) (void *const, const gquic_str_t *const, gquic_packet_handler_t *const),
-                           void *const queue_ctrl_frame_self,
-                           int (*queue_ctrl_frame_cb) (void *const, void *const)) {
+gquic_exception_t gquic_conn_id_gen_ctor(gquic_conn_id_gen_t *const gen,
+                                         const gquic_str_t *const initial_conn_id,
+                                         const gquic_str_t *const initial_cli_dst_conn_id,
+                                         void *const add_conn_id_self,
+                                         gquic_exception_t (*add_conn_id_cb) (gquic_str_t *const, void *const, const gquic_str_t *const),
+                                         void *const remove_conn_id_self,
+                                         gquic_exception_t (*remove_conn_id_cb) (void *const, const gquic_str_t *const),
+                                         void *const retrie_conn_id_self,
+                                         gquic_exception_t (*retrie_conn_id_cb) (void *const, const gquic_str_t *const),
+                                         void *const replace_with_closed_self,
+                                         gquic_exception_t (*replace_with_closed_cb) (void *const, const gquic_str_t *const, gquic_packet_handler_t *const),
+                                         void *const queue_ctrl_frame_self,
+                                         gquic_exception_t (*queue_ctrl_frame_cb) (void *const, void *const)) {
     gquic_rbtree_t *rbt = NULL;
     if (gen == NULL
         || initial_conn_id == NULL
-        || add_conn_id_self == NULL
-        || add_conn_id_cb == NULL
-        || remove_conn_id_self == NULL
-        || remove_conn_id_cb == NULL
-        || retrie_conn_id_self == NULL
-        || retrie_conn_id_cb == NULL
-        || replace_with_closed_self == NULL
-        || replace_with_closed_cb == NULL
-        || queue_ctrl_frame_self == NULL
-        || queue_ctrl_frame_cb == NULL) {
+        || add_conn_id_self == NULL || add_conn_id_cb == NULL
+        || remove_conn_id_self == NULL || remove_conn_id_cb == NULL
+        || retrie_conn_id_self == NULL || retrie_conn_id_cb == NULL
+        || replace_with_closed_self == NULL || replace_with_closed_cb == NULL
+        || queue_ctrl_frame_self == NULL || queue_ctrl_frame_cb == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gen->conn_id_len = GQUIC_STR_SIZE(initial_conn_id);
@@ -80,7 +91,7 @@ int gquic_conn_id_gen_ctor(gquic_conn_id_gen_t *const gen,
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_conn_id_gen_set_max_active_conn_ids(gquic_conn_id_gen_t *const gen, const u_int64_t limit) {
+gquic_exception_t gquic_conn_id_gen_set_max_active_conn_ids(gquic_conn_id_gen_t *const gen, const u_int64_t limit) {
     u_int64_t i = 0;
     u_int64_t used_limit = limit;
     if (gen == NULL) {
@@ -99,8 +110,8 @@ int gquic_conn_id_gen_set_max_active_conn_ids(gquic_conn_id_gen_t *const gen, co
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_conn_id_gen_issue_new_conn_id(gquic_conn_id_gen_t *const gen) {
-    int exception = GQUIC_SUCCESS;
+static gquic_exception_t gquic_conn_id_gen_issue_new_conn_id(gquic_conn_id_gen_t *const gen) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     gquic_str_t conn_id = { 0, NULL };
     gquic_str_t token = { 0, NULL };
     gquic_rbtree_t *rbt = NULL;
@@ -150,7 +161,7 @@ failure:
     GQUIC_PROCESS_DONE(exception);
 }
 
-int gquic_conn_id_gen_retire(gquic_conn_id_gen_t *const gen, const u_int64_t seq) {
+gquic_exception_t gquic_conn_id_gen_retire(gquic_conn_id_gen_t *const gen, const u_int64_t seq) {
     gquic_rbtree_t *rbt = NULL;
     if (gen == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -173,20 +184,19 @@ int gquic_conn_id_gen_retire(gquic_conn_id_gen_t *const gen, const u_int64_t seq
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_conn_id_gen_set_handshake_complete(gquic_conn_id_gen_t *const gen) {
+gquic_exception_t gquic_conn_id_gen_set_handshake_complete(gquic_conn_id_gen_t *const gen) {
     if (gen == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (GQUIC_STR_SIZE(&gen->initial_cli_dst_conn_id) != 0) {
         GQUIC_CONN_ID_GEN_RETIRE_CONN_ID(gen, &gen->initial_cli_dst_conn_id);
         gquic_str_reset(&gen->initial_cli_dst_conn_id);
-        gquic_str_init(&gen->initial_cli_dst_conn_id);
     }
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_conn_id_gen_remove_all(gquic_conn_id_gen_t *const gen) {
+gquic_exception_t gquic_conn_id_gen_remove_all(gquic_conn_id_gen_t *const gen) {
     gquic_rbtree_t *payload = NULL;
     if (gen == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -202,8 +212,8 @@ int gquic_conn_id_gen_remove_all(gquic_conn_id_gen_t *const gen) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_conn_id_gen_replace_with_closed(gquic_conn_id_gen_t *const gen,
-                                          int (*closed_handler_alloc) (gquic_packet_handler_t **const handler, void *const self), void *const self) {
+gquic_exception_t gquic_conn_id_gen_replace_with_closed(gquic_conn_id_gen_t *const gen,
+                                                        gquic_exception_t (*closed_handler_alloc) (gquic_packet_handler_t **const handler, void *const self), void *const self) {
     gquic_rbtree_t *payload = NULL;
     gquic_packet_handler_t *handler = NULL;
     if (gen == NULL || closed_handler_alloc == NULL || self == NULL) {
@@ -221,3 +231,16 @@ int gquic_conn_id_gen_replace_with_closed(gquic_conn_id_gen_t *const gen,
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
+
+gquic_exception_t gquic_conn_id_generate(gquic_str_t *const conn_id, const size_t len) {
+    if (conn_id == NULL || len < 0 || len > 20) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+    if (gquic_str_alloc(conn_id, len) != 0) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
+    }
+    RAND_bytes(GQUIC_STR_VAL(conn_id), len);
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}
+

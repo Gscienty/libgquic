@@ -16,7 +16,6 @@ static int gquic_client_establish_sec_conn(void *const);
 static int gquic_client_connect(gquic_client_t *const);
 
 static int gquic_client_handle_packet_wrapper(void *const, gquic_received_packet_t *const);
-static int gquic_client_is_client_wrapper(void *const);
 static int gquic_client_close_wrapper(void *const);
 static int gquic_client_destroy_wrapper(void *const, const int);
 
@@ -234,8 +233,7 @@ static int gquic_client_implement_packet_handler(gquic_packet_handler_t **const 
     GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(result, gquic_packet_handler_t));
     (*result)->handle_packet.cb = gquic_client_handle_packet_wrapper;
     (*result)->handle_packet.self = client;
-    (*result)->is_client.cb = gquic_client_is_client_wrapper;
-    (*result)->is_client.self = client;
+    (*result)->is_client = true;
     (*result)->closer.closer.cb = gquic_client_close_wrapper;
     (*result)->closer.closer.self = client;
     (*result)->destroy.cb = gquic_client_destroy_wrapper;
@@ -246,12 +244,6 @@ static int gquic_client_implement_packet_handler(gquic_packet_handler_t **const 
 
 static int gquic_client_handle_packet_wrapper(void *const client, gquic_received_packet_t *const recv_packet) {
     return gquic_client_handle_packet(client, recv_packet);
-}
-
-static int gquic_client_is_client_wrapper(void *const client) {
-    (void) client;
-
-    return 1;
 }
 
 static int gquic_client_close_wrapper(void *const client) {
