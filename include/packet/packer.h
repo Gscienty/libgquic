@@ -1,3 +1,11 @@
+/* include/packet/packer.h QUIC数据包packet打包模块
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #ifndef _LIBGQUIC_PACKET_PACKER_H
 #define _LIBGQUIC_PACKET_PACKER_H
 
@@ -14,20 +22,44 @@
 #include "streams/framer.h"
 #include "streams/crypto.h"
 #include "util/list.h"
+#include "util/count_pointer.h"
+#include <stdbool.h>
 
+/**
+ * 打包过的packet
+ */
 typedef struct gquic_packed_packet_s gquic_packed_packet_t;
 struct gquic_packed_packet_s {
-    int valid;
+    
+    // 是否是有效packet
+    bool valid;
+
+    // packet头部
     gquic_packet_header_t hdr;
+
+    // 序列化后的packet，含长度
     gquic_str_t raw;
-    gquic_frame_ack_t *ack;
-    gquic_list_t *frames; /* void * */
+
+    // packet中的ACK frame
+    GQUIC_CPTR_TYPE(gquic_frame_ack_t) ack;
+
+    // frame 列表，由于可能在多个实体中
+    GQUIC_CPTR_TYPE(gquic_list_t) frames; /* void * */
+
+    // buffer
     gquic_packet_buffer_t *buffer;
 };
 
-int gquic_packed_packet_init(gquic_packed_packet_t *const packed_packet);
-int gquic_packed_packet_dtor(gquic_packed_packet_t *const packed_packet);
-int gquic_packed_packet_dtor_without_frames(gquic_packed_packet_t *const packed_packet);
+/**
+ * 打包过的packet实体初始化
+ *
+ * @param packed_packet: packed_packet
+ * 
+ * @return: exception
+ */
+gquic_exception_t gquic_packed_packet_init(gquic_packed_packet_t *const packed_packet);
+gquic_exception_t gquic_packed_packet_dtor(gquic_packed_packet_t *const packed_packet);
+gquic_exception_t gquic_packed_packet_dtor_without_frames(gquic_packed_packet_t *const packed_packet);
 u_int8_t gquic_packed_packet_enc_lv(const gquic_packed_packet_t *const packed_packet);
 int gquic_packed_packet_is_ack_eliciting(gquic_packed_packet_t *const packed_packet);
 int gquic_packed_packet_get_ack_packet(gquic_packet_t *const packet,

@@ -65,7 +65,7 @@ int gquic_packet_send_queue_run(gquic_packet_send_queue_t *const queue) {
         GQUIC_LOG(GQUIC_LOG_DEBUG, "send queue send packet");
 
         GQUIC_ASSERT_FAST_RETURN(gquic_net_conn_write(queue->conn, &packed_packet->raw));
-        gquic_packed_packet_dtor_without_frames(packed_packet);
+        gquic_packed_packet_dtor(packed_packet);
         gquic_free(packed_packet);
     }
 

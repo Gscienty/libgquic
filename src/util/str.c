@@ -81,7 +81,7 @@ int gquic_str_test_echo(const gquic_str_t *const str) {
             printf("\n%04X ", off);
             off += 16;
         }
-        printf("%02X ", ((unsigned char *) GQUIC_STR_VAL(str))[i]);
+        printf("%02X ", ((u_int8_t *) GQUIC_STR_VAL(str))[i]);
     }
     printf("\n");
 

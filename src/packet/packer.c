@@ -381,8 +381,9 @@ int gquic_packet_packer_get_long_header(gquic_packet_header_t *const hdr, gquic_
     if (hdr == NULL || packer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    hdr->is_long = 1;
+    hdr->is_long = true;
     GQUIC_ASSERT_FAST_RETURN(gquic_packet_long_header_alloc(&hdr->hdr.l_hdr));
+    gquic_packet_header_long(hdr)->version = 0x00000000; // TODO GQUIC VERSION
     GQUIC_ASSERT_FAST_RETURN(gquic_packet_sent_packet_handler_peek_pn(&pn, &pn_len, packer->pn_gen, enc_lv));
     GQUIC_ASSERT_FAST_RETURN(GQUIC_PACKET_PACKER_GET_CONN_ID(&dcid, packer));
     memcpy(hdr->hdr.l_hdr->dcid, GQUIC_STR_VAL(&dcid), GQUIC_STR_SIZE(&dcid));
@@ -474,13 +475,13 @@ int gquic_packet_packer_pack_with_padding(gquic_packed_packet_t *const packed_pa
     GQUIC_ASSERT_FAST_RETURN(gquic_packet_buffer_get(&buffer));
     gquic_writer_str_t writer = buffer->slice;
     if (payload->hdr.is_long) {
-        pn_len = gquic_packet_number_flag_to_size(payload->hdr.hdr.l_hdr->flag);
-        if (GQUIC_ASSERT_CAUSE(exception, gquic_packet_long_header_serialize(payload->hdr.hdr.l_hdr, &writer))) {
+        pn_len = gquic_packet_number_flag_to_size(gquic_packet_header_long(&payload->hdr)->flag);
+        if (GQUIC_ASSERT_CAUSE(exception, gquic_packet_long_header_serialize(gquic_packet_header_long(&payload->hdr), &writer))) {
             goto failure;
         }
     }
     else {
-        pn_len = gquic_packet_number_flag_to_size(payload->hdr.hdr.s_hdr->flag);
+        pn_len = gquic_packet_number_flag_to_size(gquic_packet_header_short(&payload->hdr)->flag);
         if (GQUIC_ASSERT_CAUSE(exception, gquic_packet_short_header_serialize(payload->hdr.hdr.s_hdr, &writer))) {
             goto failure;
         }
@@ -538,8 +539,8 @@ int gquic_packet_packer_pack_with_padding(gquic_packed_packet_t *const packed_pa
     memcpy(GQUIC_STR_VAL(&buffer->slice) + header_size + GQUIC_STR_SIZE(&tag), GQUIC_STR_VAL(&cipher_text), GQUIC_STR_SIZE(&cipher_text));
 
     // seal header
-    gquic_str_t header = { pn_len, GQUIC_STR_VAL(&buffer->slice) + header_size - pn_len };
-    gquic_str_t sample = { 16, GQUIC_STR_VAL(&buffer->slice) + header_size - pn_len + 4 };
+    gquic_str_t header = { .size = pn_len, .val = GQUIC_STR_VAL(&buffer->slice) + header_size - pn_len };
+    gquic_str_t sample = { .size = 16, .val = GQUIC_STR_VAL(&buffer->slice) + header_size - pn_len + 4 };
     u_int8_t first = GQUIC_STR_FIRST_BYTE(&buffer->slice);
     GQUIC_HEADER_PROTECTOR_SET_KEY(payload->header_sealer, &sample);
     GQUIC_HEADER_PROTECTOR_ENCRYPT(&header, &first, payload->header_sealer);
@@ -554,7 +555,7 @@ int gquic_packet_packer_pack_with_padding(gquic_packed_packet_t *const packed_pa
     buffer->writer.size = GQUIC_STR_SIZE(&buffer->slice) - header_size - GQUIC_STR_SIZE(&cipher_text) - GQUIC_STR_SIZE(&tag);
     buffer->writer.val = GQUIC_STR_VAL(&buffer->slice) + header_size + GQUIC_STR_SIZE(&cipher_text) + GQUIC_STR_SIZE(&tag);
 
-    packed_packet->valid = 1;
+    packed_packet->valid = true;
     packed_packet->ack = payload->ack;
     packed_packet->buffer = buffer;
     packed_packet->hdr = payload->hdr;

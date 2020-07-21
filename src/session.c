@@ -1053,7 +1053,7 @@ static int gquic_session_handle_packet_inner(gquic_session_t *const sess, gquic_
            break;
        }
        if (counter > 0) {
-           gquic_count_pointer_ref(&p->buffer->cptr);
+           gquic_count_pointer_ref(&GQUIC_CPTR_CONTAIN_OF(p->buffer, gquic_cptr_packet_buffer_t, buffer)->cptr);
        }
        counter++;
        processed = gquic_session_handle_single_packet(sess, p);
@@ -1328,6 +1328,8 @@ static int gquic_session_handle_stream_frame(gquic_session_t *const sess, gquic_
     if (sess == NULL || frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
+    GQUIC_LOG(GQUIC_LOG_INFO, "session handle stream frame");
+
     GQUIC_ASSERT_FAST_RETURN(gquic_stream_map_get_or_open_recv_stream(&str, &sess->streams_map, frame->id));
     if (str == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
@@ -1342,6 +1344,8 @@ static int gquic_session_handle_crypto_frame(gquic_session_t *const sess, gquic_
     if (sess == NULL || frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
+    GQUIC_LOG(GQUIC_LOG_INFO, "session handle crypto frame");
+
     GQUIC_ASSERT_FAST_RETURN(gquic_crypto_stream_manager_handle_crypto_frame(&changed, &sess->crypto_stream_manager, frame, enc_lv));
 
     if (changed) {
@@ -1355,6 +1359,8 @@ static int gquic_session_handle_connection_close_frame(gquic_session_t *const se
     if (sess == NULL || frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
+    GQUIC_LOG(GQUIC_LOG_INFO, "session handle connection close frame");
+
     if (GQUIC_FRAME_META(frame).type == 0x1d) {
         // app err
         gquic_session_close_remote(sess, frame->errcode);
@@ -1387,6 +1393,8 @@ static int gquic_session_handle_ack_frame(gquic_session_t *const sess, gquic_fra
     if (sess == NULL || frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
+    GQUIC_LOG(GQUIC_LOG_INFO, "session handle ack frame");
+
     GQUIC_ASSERT_FAST_RETURN(gquic_packet_sent_packet_handler_received_ack(&sess->sent_packet_handler,
                                                                            frame, enc_lv, sess->last_packet_received_time));
     if (enc_lv == GQUIC_ENC_LV_1RTT) {
@@ -1402,6 +1410,8 @@ static int gquic_session_handle_reset_stream_frame(gquic_session_t *const sess, 
     if (sess == NULL || frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
+    GQUIC_LOG(GQUIC_LOG_INFO, "session handle reset stream frame");
+
     GQUIC_ASSERT_FAST_RETURN(gquic_stream_map_get_or_open_recv_stream(&str, &sess->streams_map, frame->id));
     if (str == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
@@ -1415,6 +1425,8 @@ static int gquic_session_handle_max_data_frame(gquic_session_t *const sess, gqui
     if (sess == NULL || frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
+    GQUIC_LOG(GQUIC_LOG_INFO, "session handle max data frame");
+
     GQUIC_ASSERT_FAST_RETURN(gquic_flowcontrol_base_update_swnd(&sess->conn_flow_ctrl.base, frame->max));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
@@ -1438,6 +1450,8 @@ static int gquic_session_handle_max_streams_frame(gquic_session_t *const sess, g
     if (sess == NULL || frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
+    GQUIC_LOG(GQUIC_LOG_INFO, "session handle max streams frame");
+
     GQUIC_ASSERT_FAST_RETURN(gquic_stream_map_handle_max_streams_frame(&sess->streams_map, frame));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
@@ -1448,6 +1462,8 @@ static int gquic_session_handle_stop_sending_frame(gquic_session_t *const sess, 
     if (sess == NULL || frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
+    GQUIC_LOG(GQUIC_LOG_INFO, "session handle stop sending frame");
+
     GQUIC_ASSERT_FAST_RETURN(gquic_stream_map_get_or_open_send_stream(&str, &sess->streams_map, frame->id));
     if (str == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
@@ -1461,6 +1477,8 @@ static int gquic_session_handle_path_challenge_frame(gquic_session_t *const sess
     if (sess == NULL || frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
+    GQUIC_LOG(GQUIC_LOG_INFO, "session handle path challenge frame");
+
     GQUIC_ASSERT_FAST_RETURN(gquic_session_queue_control_frame(sess, frame));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
@@ -1470,6 +1488,8 @@ static int gquic_session_handle_new_token_frame(gquic_session_t *const sess, gqu
     if (sess == NULL || frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
+    GQUIC_LOG(GQUIC_LOG_INFO, "session handle new token frame");
+
     if (!sess->is_client) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ASPECT_ERROR);
     }
@@ -1482,6 +1502,8 @@ static int gquic_session_handle_new_conn_id_frame(gquic_session_t *const sess, g
     if (sess == NULL || frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
+    GQUIC_LOG(GQUIC_LOG_INFO, "session handle new connection id frame");
+
     GQUIC_ASSERT_FAST_RETURN(gquic_conn_id_manager_add(&sess->conn_id_manager, frame));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
@@ -1491,6 +1513,8 @@ static int gquic_session_handle_retire_conn_id_frame(gquic_session_t *const sess
     if (sess == NULL || frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
+    GQUIC_LOG(GQUIC_LOG_INFO, "session handle retire connection id frame");
+
     GQUIC_ASSERT_FAST_RETURN(gquic_conn_id_gen_retire(&sess->conn_id_gen, frame->seq));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
@@ -1500,7 +1524,7 @@ static int gquic_session_handle_handshake_done_frame(gquic_session_t *const sess
     if (sess == NULL || frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    GQUIC_LOG(GQUIC_LOG_INFO, "session received HANDSHAKE_DONE frame");
+    GQUIC_LOG(GQUIC_LOG_INFO, "session handle handshake done frame");
     if (!sess->is_client) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INVALID_FRAME);
     }

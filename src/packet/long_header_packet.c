@@ -130,9 +130,8 @@ gquic_exception_t gquic_packet_long_header_serialize(const gquic_packet_long_hea
     if (gquic_packet_long_header_size(header) > GQUIC_STR_SIZE(writer)) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
-
     gquic_writer_str_write_byte(writer, header->flag);
-    
+
     gquic_big_endian_writer_4byte(writer, header->version);
 
     gquic_writer_str_write_byte(writer, header->dcid_len);

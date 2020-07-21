@@ -16,6 +16,8 @@ int gquic_count_pointer_ref(gquic_count_pointer_t *const cptr);
 int gquic_count_pointer_unref(gquic_count_pointer_t *const cptr);
 int gquic_count_pointer_release(gquic_count_pointer_t *const cptr, void *const obj);
 
+#define GQUIC_CPTR_TYPE(type) type *
+
 #define GQUIC_CPTR_CONTAIN_OF(ptr, type, ptr_mem) ((type *) (((void *) (ptr)) - ((size_t) (&((type *) 0)->ptr_mem))))
 
 #define GQUIC_CPTR_ALLOC_ORIG(exception, result, type, size, cptr_mem, release_cb) \

@@ -35,8 +35,7 @@ static gquic_exception_t gquic_handshake_generate_key_iv(gquic_str_t *const key,
 
 gquic_exception_t gquic_handshake_initial_aead_init(gquic_common_long_header_sealer_t *const sealer,
                                                     gquic_common_long_header_opener_t *const opener,
-                                                    const gquic_str_t *const conn_id,
-                                                    const bool is_client) {
+                                                    const gquic_str_t *const conn_id, const bool is_client) {
     gquic_exception_t exception = GQUIC_SUCCESS;
     gquic_str_t cli_sec = { 0, NULL };
     gquic_str_t ser_sec = { 0, NULL };

@@ -1,3 +1,11 @@
+/* src/packet/multiplexer.c UDP到QUIC的复用模块
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "event/epoll.h"
 #include "packet/multiplexer.h"
 #include "util/rbtree.h"
@@ -5,27 +13,49 @@
 #include "coglobal.h"
 #include "log.h"
 #include <pthread.h>
+#include <stdbool.h>
 
 #define GQUIC_DEFAULT_EPOLL_CONNECTION_SIZE 8
 
 typedef struct gquic_multiplexer_s gquic_multiplexer_t;
 struct gquic_multiplexer_s {
+
     pthread_mutex_t mtx;
+
+    // UDP到QUIC的映射关系表
     gquic_rbtree_t *conns;
 
+    // epoll
     gquic_event_epoll_t epoll;
 
+    // 负责监听epoll传入的事件
     pthread_t thread;
 };
-static void gquic_init_multiplexer();
-static void *gquic_multiplexer_thread(void *const);
-static int gquic_multiplexer_recv_event(void *const, void *const);
 
-static int __inited = 0;
+/**
+ * 初始化复用模块
+ */
+static void gquic_init_multiplexer();
+
+/**
+ * 监听epoll事件的线程
+ */
+static void *gquic_multiplexer_thread(void *const);
+
+/**
+ * 处理epoll事件的操作
+ *
+ * @param handler_: packet handler
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_multiplexer_recv_event(void *const, void *const handler_);
+
+static bool __inited = false;
 static gquic_multiplexer_t __ins;
 
 static void gquic_init_multiplexer() {
-    if (__inited == 0) {
+    if (__inited == false) {
         pthread_mutex_init(&__ins.mtx, NULL);
         gquic_rbtree_root_init(&__ins.conns);
 
@@ -33,12 +63,12 @@ static void gquic_init_multiplexer() {
         gquic_event_epoll_ctor(&__ins.epoll, &__ins, gquic_multiplexer_recv_event);
 
         pthread_create(&__ins.thread, NULL, gquic_multiplexer_thread, NULL);
-        __inited = 1;
+        __inited = true;
     }
 }
 
-int gquic_multiplexer_add_conn(gquic_packet_handler_map_t **const handler_storage,
-                               const int conn_fd, const int conn_id_len, const gquic_str_t *const stateless_reset_token) {
+gquic_exception_t gquic_multiplexer_add_conn(gquic_packet_handler_map_t **const handler_storage,
+                                             const int conn_fd, const int conn_id_len, const gquic_str_t *const stateless_reset_token) {
     int exception = GQUIC_SUCCESS;
     gquic_rbtree_t *rbt = NULL;
     if (handler_storage == NULL) {
@@ -74,8 +104,8 @@ finished:
     GQUIC_PROCESS_DONE(exception);
 }
 
-int gquic_multiplexer_remove_conn(const int conn_fd) {
-    int exception = GQUIC_SUCCESS;
+gquic_exception_t gquic_multiplexer_remove_conn(const int conn_fd) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     gquic_rbtree_t *rbt = NULL;
     gquic_init_multiplexer();
     pthread_mutex_lock(&__ins.mtx);
@@ -105,7 +135,7 @@ static void *gquic_multiplexer_thread(void *const _) {
     return NULL;
 }
 
-static int gquic_multiplexer_recv_event(void *const _, void *const handler_) {
+static gquic_exception_t gquic_multiplexer_recv_event(void *const _, void *const handler_) {
     (void) _;
     gquic_packet_handler_map_t *const handler = handler_;
     if (handler_ == NULL) {

@@ -110,6 +110,7 @@ static gquic_exception_t gquic_aes_header_protector_set_key(void *const self_, g
     if (self == NULL || sample == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
+
     if (GQUIC_STR_SIZE(sample) != GQUIC_STR_SIZE(&self->mask)) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_SIMPLE_MASK_INCONSISTENT);
     }
