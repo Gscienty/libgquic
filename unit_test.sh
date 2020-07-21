@@ -19,4 +19,4 @@ gcc -DDEBUG -DLOG -g -I include/ -I liteco/include/ \
     -lpthread -lm -lcrypto -lliteco -Lliteco \
     -o $2
 
-LD_LIBRARY_PATH=$LD_LIBRARY_PATH:liteco/ ./$2
+LD_LIBRARY_PATH=$LD_LIBRARY_PATH:liteco/ valgrind --tool=memcheck ./$2
