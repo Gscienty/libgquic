@@ -160,6 +160,8 @@ int gquic_crypto_stream_write(gquic_crypto_stream_t *const str, gquic_writer_str
     GQUIC_ASSERT_FAST_RETURN(gquic_writer_str_writed_size(&str->out_reader, out_readed_size));
     GQUIC_ASSERT_FAST_RETURN(gquic_writer_str_writed_size(writer, GQUIC_STR_SIZE(writer)));
 
+    GQUIC_LOG(GQUIC_LOG_INFO, "crypto_stream write data (for sending)");
+
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
@@ -187,6 +189,8 @@ int gquic_crypto_stream_pop_crypto_frame(gquic_frame_crypto_t **frame_storage, g
     GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_read(&tmp, &str->out_reader));
 
     GQUIC_ASSERT_FAST_RETURN(gquic_crypto_stream_calc_writed_bytes(&write_size, str));
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "crypto_stream pop CRYPTO frame (for sending)");
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

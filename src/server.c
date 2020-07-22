@@ -165,6 +165,8 @@ int gquic_server_handle_packet(gquic_server_t *const server, gquic_received_pack
     if (server == NULL || rp == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
+    GQUIC_LOG(GQUIC_LOG_INFO, "server handle packet (unknow_handler)");
+
     GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&handle_packet, gquic_server_handle_packet_t));
     handle_packet->received_packet = rp;
     handle_packet->server = server;
@@ -182,6 +184,8 @@ static int gquic_server_handle_packet_inner_co(void *const handle_packet) {
     if (handle_packet == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
+    GQUIC_LOG(GQUIC_LOG_INFO, "server start handle packet");
+
     gquic_server_t *const server = ((gquic_server_handle_packet_t *) handle_packet)->server;
     gquic_received_packet_t *const rp = ((gquic_server_handle_packet_t *) handle_packet)->received_packet;
 
@@ -241,6 +245,8 @@ static int gquic_server_handle_packet_initial(gquic_session_t **const session_st
         gquic_free(*session_storage);
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "server packet_handler_map add new session");
     GQUIC_ASSERT_FAST_RETURN(gquic_packet_handler_map_add(NULL, server->packet_handlers, &conn_id,
                                                           gquic_session_implement_packet_handler(*session_storage)));
     gquic_coglobal_execute(gquic_server_session_run_co, *session_storage);

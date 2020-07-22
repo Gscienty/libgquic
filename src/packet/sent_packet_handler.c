@@ -669,7 +669,7 @@ int gquic_packet_sent_packet_handler_on_loss_detection_timeout(gquic_packet_sent
 }
 
 static int gquic_packet_sent_packet_handler_on_verified_loss_detection_timeout(gquic_packet_sent_packet_handler_t *const handler) {
-    u_int64_t _;
+    u_int64_t sent_time = 0;
     u_int64_t earliest_loss_time = 0;
     u_int8_t enc_lv = 0;
     if (handler == NULL) {
@@ -679,7 +679,7 @@ static int gquic_packet_sent_packet_handler_on_verified_loss_detection_timeout(g
     if (earliest_loss_time != 0) {
         GQUIC_ASSERT_FAST_RETURN(gquic_packet_sent_packet_handler_detect_lost_packets(handler, gquic_time_now(), enc_lv, handler->infly_bytes));
     }
-    gquic_sent_packet_handler_get_earliest_sent_time_space(&_, &enc_lv, handler);
+    gquic_sent_packet_handler_get_earliest_sent_time_space(&sent_time, &enc_lv, handler);
     handler->pto_count++;
     handler->num_probes_to_send += 2;
     switch (enc_lv) {

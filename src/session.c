@@ -1744,7 +1744,6 @@ static int gquic_session_send_packed_packet(gquic_session_t *const sess, gquic_p
     }
     sess->conn_id_manager.packets_count_since_last_change++;
 
-    GQUIC_LOG(GQUIC_LOG_DEBUG, "session send packed_packet to send_queue");
     gquic_packet_send_queue_send(&sess->send_queue, packed_packet);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);

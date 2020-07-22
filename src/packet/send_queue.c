@@ -36,6 +36,7 @@ int gquic_packet_send_queue_send(gquic_packet_send_queue_t *const queue, gquic_p
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
 
+    GQUIC_LOG(GQUIC_LOG_DEBUG, "send_queue put packed_packet to channel");
     liteco_channel_send(&queue->queue_chain, packed_packet);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
@@ -57,12 +58,13 @@ int gquic_packet_send_queue_run(gquic_packet_send_queue_t *const queue) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     for ( ;; ) {
+        GQUIC_LOG(GQUIC_LOG_DEBUG, "send queue waiting packet");
         packed_packet = NULL;
         GQUIC_COGLOBAL_CHANNEL_RECV(exception, (const void **) &packed_packet, NULL, 0, &queue->queue_chain);
         if (exception == GQUIC_EXCEPTION_CLOSED) {
             break;
         }
-        GQUIC_LOG(GQUIC_LOG_DEBUG, "send queue send packet");
+        GQUIC_LOG(GQUIC_LOG_DEBUG, "send queue sent packet");
 
         GQUIC_ASSERT_FAST_RETURN(gquic_net_conn_write(queue->conn, &packed_packet->raw));
         gquic_packed_packet_dtor(packed_packet);

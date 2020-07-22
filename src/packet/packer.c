@@ -31,7 +31,7 @@ int gquic_packed_packet_init(gquic_packed_packet_t *const packed_packet) {
     if (packed_packet == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    packed_packet->valid = 0;
+    packed_packet->valid = false;
     gquic_packet_header_init(&packed_packet->hdr);
     gquic_str_init(&packed_packet->raw);
     packed_packet->ack = NULL;
@@ -212,10 +212,10 @@ int gquic_packet_packer_init(gquic_packet_packer_t *const packer) {
     gquic_str_init(&packer->conn_id);
     packer->get_conn_id.cb = NULL;
     packer->get_conn_id.self = NULL;
-    packer->is_client = 0;
+    packer->is_client = false;
     packer->est = NULL;
-    packer->droped_initial = 0;
-    packer->droped_handshake = 0;
+    packer->droped_initial = false;
+    packer->droped_handshake = false;
     packer->initial_stream = NULL;
     packer->handshake_stream = NULL;
     gquic_str_init(&packer->token);
@@ -241,7 +241,7 @@ int gquic_packet_packer_ctor(gquic_packet_packer_t *const packer,
                              gquic_handshake_establish_t *const est,
                              gquic_framer_t *const framer,
                              gquic_packet_received_packet_handlers_t *acks,
-                             const int is_client) {
+                             const  bool is_client) {
     if (packer == NULL
         || src_id == NULL
         || get_conn_id_self == NULL
@@ -714,6 +714,8 @@ int gquic_packet_packer_try_pack_handshake_packet(gquic_packed_packet_t *const p
     }
     has_retransmission = gquic_retransmission_queue_has_handshake(packer->retransmission_queue);
     if (!gquic_crypto_stream_has_data(packer->handshake_stream) && !has_retransmission && payload.ack == NULL) {
+        GQUIC_LOG(GQUIC_LOG_WARN, "packer handshake data empty");
+
         gquic_packed_packet_payload_dtor(&payload);
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
@@ -863,11 +865,11 @@ int gquic_packet_packer_try_pack_crypto_packet(gquic_packed_packet_t *const pack
     if (exception == GQUIC_EXCEPTION_KEY_DROPPED) {
         GQUIC_LOG(GQUIC_LOG_DEBUG, "packer initial key dropped");
 
-        packer->droped_initial = 1;
+        packer->droped_initial = true;
     }
-    else if (exception != GQUIC_SUCCESS || packed_packet->valid == 1) {
+    else if (exception != GQUIC_SUCCESS || packed_packet->valid) {
 #if LOG
-        if (packed_packet->valid == 1) {
+        if (packed_packet->valid) {
             GQUIC_LOG(GQUIC_LOG_DEBUG, "packer packed initial packet success");
         }
         else {
@@ -884,7 +886,7 @@ int gquic_packet_packer_try_pack_crypto_packet(gquic_packed_packet_t *const pack
     if (exception == GQUIC_EXCEPTION_KEY_DROPPED) {
         GQUIC_LOG(GQUIC_LOG_DEBUG, "packer handshake key dropped");
 
-        packer->droped_handshake = 1;
+        packer->droped_handshake = true;
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
     if (exception == GQUIC_EXCEPTION_KEY_UNAVAILABLE) {
@@ -893,7 +895,7 @@ int gquic_packet_packer_try_pack_crypto_packet(gquic_packed_packet_t *const pack
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
 #if LOG
-    if (packed_packet->valid == 1) {
+    if (packed_packet->valid) {
         GQUIC_LOG(GQUIC_LOG_DEBUG, "packer packed handshake packet success");
     }
     else {

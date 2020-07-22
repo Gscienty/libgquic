@@ -152,6 +152,7 @@ static int gquic_packet_handler_map_listen(void *const handler_) {
         GQUIC_LOG(GQUIC_LOG_DEBUG, "packet_handler_map recevied event");
 
         if (recv_chan == &handler->close_chain) {
+            GQUIC_LOG(GQUIC_LOG_WARN, "packet_handler_map closed");
             break;
         }
 
@@ -209,19 +210,28 @@ int gquic_packet_handler_map_handle_packet(gquic_packet_handler_map_t *const han
         gquic_packet_buffer_put(recv_packet->buffer);
         gquic_free(recv_packet);
         GQUIC_PROCESS_DONE(exception);
-    }
+    } 
+
+    GQUIC_LOG(GQUIC_LOG_INFO, "packet_handler_map handle packet");
+
     pthread_mutex_lock(&handler->mtx);
     do {
         if (gquic_packet_handler_map_try_handle_stateless_reset(handler, &recv_packet->data)) {
+            GQUIC_LOG(GQUIC_LOG_INFO, "packet_handler_map handle stateless reset");
             gquic_packet_buffer_put(recv_packet->buffer);
             gquic_free(recv_packet);
             break;
         }
         if (gquic_rbtree_find_cmp(&rbt, handler->handlers, &recv_packet->dst_conn_id, gquic_packet_handler_rb_str_cmp) == 0) {
+            GQUIC_LOG(GQUIC_LOG_INFO, "packet_handler_map use dst_conn_id find packet handler");
+
             GQUIC_PACKET_HANDLER_HANDLE_PACKET(*(gquic_packet_handler_t **) GQUIC_RBTREE_VALUE(rbt), recv_packet);
             break;
         }
+
         if ((GQUIC_STR_FIRST_BYTE(&recv_packet->data) & 0x80) == 0x00) {
+            GQUIC_LOG(GQUIC_LOG_INFO, "packet_handler_map handle send stateless reset");
+
             if (GQUIC_ASSERT(GQUIC_MALLOC_STRUCT(&param, __send_stateless_reset_param_t))) {
                 gquic_packet_buffer_put(recv_packet->buffer);
                 gquic_free(recv_packet);
@@ -238,9 +248,15 @@ int gquic_packet_handler_map_handle_packet(gquic_packet_handler_map_t *const han
             }
             break;
         }
+
         if (handler->server != NULL) {
+            GQUIC_LOG(GQUIC_LOG_INFO, "packet_handler_map use unknow_packet_handler handle packet");
+
             GQUIC_PACKET_UNKNOW_PACKET_HANDLER_HANDLE_PACKET(handler->server, recv_packet);
+            break;
         }
+
+        GQUIC_LOG(GQUIC_LOG_ERROR, "packet_handler_map done nothing");
     } while (0);
     pthread_mutex_unlock(&handler->mtx);
 

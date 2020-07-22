@@ -100,11 +100,11 @@ struct gquic_packet_packer_s {
         int (*cb) (gquic_str_t *const, void *const);
     } get_conn_id;
 
-    int is_client;
+    bool is_client;
     gquic_handshake_establish_t *est;
 
-    int droped_initial;
-    int droped_handshake;
+    bool droped_initial;
+    bool droped_handshake;
 
     gquic_crypto_stream_t *initial_stream;
     gquic_crypto_stream_t *handshake_stream;
@@ -133,7 +133,7 @@ int gquic_packet_packer_ctor(gquic_packet_packer_t *const packer,
                              gquic_handshake_establish_t *const est,
                              gquic_framer_t *const framer,
                              gquic_packet_received_packet_handlers_t *acks,
-                             const int is_client);
+                             const bool is_client);
 int gquic_packet_packer_dtor(gquic_packet_packer_t *const packer);
 int gquic_packet_packer_pack_conn_close(gquic_packed_packet_t *const packed_packet,
                                         gquic_packet_packer_t *const packer,
@@ -157,9 +157,9 @@ int gquic_packet_packer_pack_crypto_packet(gquic_packed_packet_t *const packed_p
                                            gquic_packed_packet_payload_t *const payload, const int has_retransmission);
 
 
-inline static int gquic_packet_packer_handshake_confirmed(gquic_packet_packer_t *const packer) {
+inline static bool gquic_packet_packer_handshake_confirmed(gquic_packet_packer_t *const packer) {
     if (packer == NULL) {
-        return 0;
+        return false;
     }
     return packer->droped_initial && packer->droped_handshake;
 }
