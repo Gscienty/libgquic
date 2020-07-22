@@ -19,7 +19,7 @@ struct gquic_list_s {
           gquic_list_t *_$check = NULL;\
           (void) (_$check == (h));\
           (p) = GQUIC_LIST_FIRST((h));\
-          }); (p) != GQUIC_LIST_PAYLOAD((h)); (p) = gquic_list_next((p)))
+          }); &GQUIC_LIST_META((p)) != (h) && (h) != NULL; (p) = gquic_list_next((p)))
 #define GQUIC_LIST_RFOREACH(p, h) \
     for (({\
           gquic_list_t *_$check = NULL;\

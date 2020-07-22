@@ -1019,6 +1019,7 @@ static inline u_int64_t gquic_session_idle_timeout_start_time(gquic_session_t *c
 }
 
 static int gquic_session_handle_packet_inner(gquic_session_t *const sess, gquic_received_packet_t *const rp) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     int counter = 0;
     int processed = 0;
     gquic_reader_str_t data = { 0, NULL };
@@ -1029,7 +1030,7 @@ static int gquic_session_handle_packet_inner(gquic_session_t *const sess, gquic_
     }
     data = rp->data;
     p = rp;
-    buffer = p->buffer;
+    GQUIC_CPTR_ASSIGN(exception, &buffer, p->buffer, gquic_cptr_packet_buffer_t, buffer, cptr);
 
     while (GQUIC_STR_SIZE(&data) != 0) {
         if (counter > 0) {
@@ -1692,43 +1693,45 @@ loop_end:
 
 static int gquic_session_try_send_only_ack_packet(gquic_session_t *const sess) {
     int exception = GQUIC_SUCCESS;
-    gquic_packet_t *packet = NULL;
+    GQUIC_CPTR_TYPE(gquic_packet_t) packet = NULL;
     gquic_packed_packet_t *packed_packet = NULL;
     if (sess == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&packet, gquic_packet_t));
+    GQUIC_CPTR_ALLOC(exception, &packet, gquic_cptr_packet_t, packet, cptr, gquic_cptr_packet_dtor);
+    GQUIC_ASSERT_FAST_RETURN(exception);
     if (GQUIC_ASSERT(GQUIC_MALLOC_STRUCT(&packed_packet, gquic_packed_packet_t))) {
-        gquic_free(packet);
+        GQUIC_CPTR_TRY_RELEASE(exception, packet, gquic_cptr_packet_t, packet, cptr);
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
     }
+    gquic_packet_init(packet);
     gquic_packed_packet_init(packed_packet);
     if (GQUIC_ASSERT_CAUSE(exception, gquic_packet_packer_try_pack_ack_packet(packed_packet, &sess->packer))) {
-        gquic_free(packet);
+        GQUIC_CPTR_TRY_RELEASE(exception, packet, gquic_cptr_packet_t, packet, cptr);
         gquic_free(packed_packet);
         GQUIC_PROCESS_DONE(exception);
     }
     if (!packed_packet->valid) {
-        gquic_free(packet);
+        GQUIC_CPTR_TRY_RELEASE(exception, packet, gquic_cptr_packet_t, packet, cptr);
         gquic_packed_packet_dtor(packed_packet);
         gquic_free(packed_packet);
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
     if (GQUIC_ASSERT_CAUSE(exception, gquic_packed_packet_get_ack_packet(packet, packed_packet, &sess->retransmission))) {
-        gquic_free(packet);
+        GQUIC_CPTR_TRY_RELEASE(exception, packet, gquic_cptr_packet_t, packet, cptr);
         gquic_packed_packet_dtor(packed_packet);
         gquic_free(packed_packet);
         GQUIC_PROCESS_DONE(exception);
     }
     if (GQUIC_ASSERT_CAUSE(exception, gquic_packet_sent_packet_handler_sent_packet(&sess->sent_packet_handler, packet))) {
-        gquic_packet_dtor(packet);
-        gquic_free(packet);
+        GQUIC_CPTR_TRY_RELEASE(exception, packet, gquic_cptr_packet_t, packet, cptr);
         gquic_packed_packet_dtor(packed_packet);
         gquic_free(packed_packet);
         GQUIC_PROCESS_DONE(exception);
     }
     gquic_session_send_packed_packet(sess, packed_packet);
 
+    GQUIC_CPTR_TRY_RELEASE(exception, packet, gquic_cptr_packet_t, packet, cptr);
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
@@ -1752,7 +1755,7 @@ static int gquic_session_send_packet(int *const sent_packet, gquic_session_t *co
     u_int64_t swnd = 0;
     gquic_frame_data_blocked_t *blocked = NULL;
     gquic_packed_packet_t *packed_packet = NULL;
-    gquic_packet_t *packet = NULL;
+    GQUIC_CPTR_TYPE(gquic_packet_t) packet = NULL;
     if (sent_packet == NULL || sess == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -1765,15 +1768,16 @@ static int gquic_session_send_packet(int *const sent_packet, gquic_session_t *co
 
     GQUIC_ASSERT(gquic_wnd_update_queue_queue_all(&sess->wnd_update_queue));
 
-    GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&packet, gquic_packet_t));
+    GQUIC_CPTR_ALLOC(exception, &packet, gquic_cptr_packet_t, packet, cptr, gquic_cptr_packet_dtor);
+    GQUIC_ASSERT_FAST_RETURN(exception);
     if (GQUIC_ASSERT_CAUSE(exception, GQUIC_MALLOC_STRUCT(&packed_packet, gquic_packed_packet_t))) {
-        gquic_free(packet);
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_ALLOCATION_FAILED);
+        GQUIC_CPTR_TRY_RELEASE(exception, packet, gquic_cptr_packet_t, packet, cptr);
+        GQUIC_PROCESS_DONE(exception);
     }
     gquic_packet_init(packet);
     gquic_packed_packet_init(packed_packet);
     if (GQUIC_ASSERT_CAUSE(exception, gquic_packet_packer_pack_packet(packed_packet, &sess->packer))) {
-        gquic_free(packet);
+        GQUIC_CPTR_TRY_RELEASE(exception, packet, gquic_cptr_packet_t, packet, cptr);
         gquic_free(packed_packet);
         GQUIC_PROCESS_DONE(exception);
     }
@@ -1782,7 +1786,7 @@ static int gquic_session_send_packet(int *const sent_packet, gquic_session_t *co
 
         gquic_packed_packet_dtor(packed_packet);
         gquic_free(packed_packet);
-        gquic_free(packet);
+        GQUIC_CPTR_TRY_RELEASE(exception, packet, gquic_cptr_packet_t, packet, cptr);
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
 
@@ -1791,13 +1795,14 @@ static int gquic_session_send_packet(int *const sent_packet, gquic_session_t *co
     gquic_session_send_packed_packet(sess, packed_packet);
     *sent_packet = 1;
 
+    GQUIC_CPTR_TRY_RELEASE(exception, packet, gquic_cptr_packet_t, packet, cptr);
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
 static int gquic_session_send_probe_packet(gquic_session_t *const sess, const u_int8_t enc_lv) {
     int exception = GQUIC_SUCCESS;
     gquic_packed_packet_t *packed_packet = NULL;
-    gquic_packet_t *packet = NULL;
+    GQUIC_CPTR_TYPE(gquic_packet_t) packet = NULL;
     gquic_frame_ping_t *ping = NULL;
     if (sess == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -1852,7 +1857,8 @@ static int gquic_session_send_probe_packet(gquic_session_t *const sess, const u_
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PACKED_PACKET_INVALID);
     }
 
-    if (GQUIC_ASSERT_CAUSE(exception, GQUIC_MALLOC_STRUCT(&packet, gquic_packet_t))) {
+    GQUIC_CPTR_ALLOC(exception, &packet, gquic_cptr_packet_t, packet, cptr, gquic_cptr_packet_dtor);
+    if (GQUIC_ASSERT(exception)) {
         gquic_packed_packet_dtor(packed_packet);
         gquic_free(packed_packet);
         GQUIC_PROCESS_DONE(exception);
@@ -1861,6 +1867,7 @@ static int gquic_session_send_probe_packet(gquic_session_t *const sess, const u_
     gquic_packet_sent_packet_handler_sent_packet(&sess->sent_packet_handler, packet);
     gquic_session_send_packed_packet(sess, packed_packet);
 
+    GQUIC_CPTR_TRY_RELEASE(exception, packet, gquic_cptr_packet_t, packet, cptr);
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 

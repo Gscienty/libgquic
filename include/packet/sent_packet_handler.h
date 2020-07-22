@@ -11,15 +11,16 @@
 typedef struct gquic_packet_sent_mem_s gquic_packet_sent_mem_t;
 struct gquic_packet_sent_mem_s {
     int count;
-    gquic_list_t list; /* gquic_packet_t * */
+    gquic_list_t list; /* GQUIC_CPTR_TYPE(gquic_packet_t) */
     gquic_rbtree_t *root;
 };
 
 int gquic_packet_sent_mem_init(gquic_packet_sent_mem_t *const mem);
 int gquic_packet_sent_mem_dtor(gquic_packet_sent_mem_t *const mem);
-int gquic_packet_sent_mem_sent_packet(gquic_packet_sent_mem_t *const mem, const gquic_packet_t *const packet);
-int gquic_packet_sent_mem_get_packet(const gquic_packet_t **const packet, gquic_packet_sent_mem_t *const mem, const u_int64_t pn);
-int gquic_packet_sent_mem_remove(gquic_packet_sent_mem_t *const mem, const u_int64_t pn, int (*release_packet_func) (gquic_packet_t *const));
+int gquic_packet_sent_mem_sent_packet(gquic_packet_sent_mem_t *const mem, const GQUIC_CPTR_TYPE(gquic_packet_t) const packet);
+int gquic_packet_sent_mem_get_packet(const GQUIC_CPTR_TYPE(gquic_packet_t) *const packet, gquic_packet_sent_mem_t *const mem, const u_int64_t pn);
+int gquic_packet_sent_mem_remove(gquic_packet_sent_mem_t *const mem, const u_int64_t pn,
+                                 int (*release_packet_func) (GQUIC_CPTR_TYPE(gquic_packet_t) const));
 
 typedef struct gquic_packet_sent_pn_s gquic_packet_sent_pn_t;
 struct gquic_packet_sent_pn_s {
@@ -60,7 +61,7 @@ int gquic_packet_sent_packet_handler_dtor(gquic_packet_sent_packet_handler_t *co
 int gquic_packet_sent_packet_handler_drop_packets(gquic_packet_sent_packet_handler_t *const handler,
                                                   const u_int8_t enc_lv);
 int gquic_packet_sent_packet_handler_sent_packet(gquic_packet_sent_packet_handler_t *const handler,
-                                                 gquic_packet_t *const packet);
+                                                 GQUIC_CPTR_TYPE(gquic_packet_t) const packet);
 int gquic_packet_sent_packet_handler_received_ack(gquic_packet_sent_packet_handler_t *const handler,
                                                   const gquic_frame_ack_t *const ack_frame,
                                                   const u_int8_t enc_lv,

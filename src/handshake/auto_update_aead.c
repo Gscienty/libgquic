@@ -215,7 +215,7 @@ gquic_exception_t gquic_auto_update_aead_open(gquic_str_t *const plain_text,
     if (GQUIC_STR_SIZE(&aead->nonce_buf) < 8) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
-    gquic_big_endian_transfer(GQUIC_STR_VAL(&aead->nonce_buf) - 8, &pn, 8);
+    gquic_big_endian_transfer(GQUIC_STR_VAL(&aead->nonce_buf) + GQUIC_STR_SIZE(&aead->nonce_buf) - 8, &pn, 8);
     if (kp != (aead->times % 2 == 1)) {
         if (aead->cur_key_first_recv_pn == GQUIC_INVALID_PACKET_NUMBER || pn < aead->cur_key_first_recv_pn) {
             if (aead->times == 0) {
@@ -267,7 +267,7 @@ gquic_exception_t gquic_auto_update_aead_seal(gquic_str_t *const tag, gquic_str_
     if (GQUIC_STR_SIZE(&aead->nonce_buf) < 8) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INSUFFICIENT_CAPACITY);
     }
-    gquic_big_endian_transfer(GQUIC_STR_VAL(&aead->nonce_buf) - 8, &pn, 8);
+    gquic_big_endian_transfer(GQUIC_STR_VAL(&aead->nonce_buf) + GQUIC_STR_SIZE(&aead->nonce_buf) - 8, &pn, 8);
     GQUIC_ASSERT_FAST_RETURN(GQUIC_TLS_AEAD_SEAL(tag, cipher_text, &aead->send_aead, &aead->nonce_buf, plain_text, addata));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);

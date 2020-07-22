@@ -173,6 +173,7 @@ gquic_exception_t gquic_handshake_sealer_traffic_ctor(gquic_handshake_sealer_t *
     gquic_long_header_sealer_traffic_ctor(&sealer->sealer, suite, traffic_sec);
     sealer->drop_keys.cb = drop_keys_cb;
     sealer->drop_keys.self = drop_keys_self;
+    sealer->dropped = false;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

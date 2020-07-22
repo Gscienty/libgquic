@@ -13,21 +13,18 @@ static inline int gquic_sent_packet_handler_get_sent_pn(gquic_packet_sent_pn_t *
 static inline int gquic_sent_packet_handler_get_earliest_loss_time_space(u_int64_t *const, u_int8_t *const, gquic_packet_sent_packet_handler_t *const);
 static inline int gquic_sent_packet_handler_get_earliest_sent_time_space(u_int64_t *const, u_int8_t *const, gquic_packet_sent_packet_handler_t *const);
 static inline int gquic_sent_packet_handler_set_loss_detection_timer(gquic_packet_sent_packet_handler_t *const);
-static inline int gquic_sent_packet_handler_has_outstanding_crypto_packets(const gquic_packet_sent_packet_handler_t *const);
-static inline int gquic_sent_packet_handler_has_outstanding_packets(const gquic_packet_sent_packet_handler_t *const);
-static inline int gquic_packet_sent_packet_handler_sent_packet_inner(gquic_packet_sent_packet_handler_t *const, gquic_packet_t *const);
+static inline bool gquic_sent_packet_handler_has_outstanding_crypto_packets(const gquic_packet_sent_packet_handler_t *const);
+static inline bool gquic_sent_packet_handler_has_outstanding_packets(const gquic_packet_sent_packet_handler_t *const);
+static inline int gquic_packet_sent_packet_handler_sent_packet_inner(gquic_packet_sent_packet_handler_t *const, GQUIC_CPTR_TYPE(gquic_packet_t) const);
 static int gquic_packet_sent_packet_handler_determine_newly_acked_packets(gquic_list_t *const,
                                                                           gquic_packet_sent_packet_handler_t *const,
-                                                                          const gquic_list_t *const,
-                                                                          const u_int8_t);
+                                                                          const gquic_list_t *const, const u_int8_t);
 static int gquic_packet_sent_packet_handler_on_packet_acked(gquic_packet_sent_packet_handler_t *const,
-                                                            const gquic_packet_t *const);
-static int gquic_packet_sent_packet_handler_packet_release(gquic_packet_t *const);
+                                                            const GQUIC_CPTR_TYPE(gquic_packet_t) const);
+static int gquic_packet_sent_packet_handler_packet_release(GQUIC_CPTR_TYPE(gquic_packet_t) const);
 static int gquic_packet_sent_packet_handler_detect_lost_packets(gquic_packet_sent_packet_handler_t *const,
-                                                                const u_int64_t,
-                                                                const u_int8_t,
-                                                                const u_int64_t);
-static int gquic_packet_sent_packet_handler_queue_frames_for_retrans(gquic_packet_t *const);
+                                                                const u_int64_t, const u_int8_t, const u_int64_t);
+static int gquic_packet_sent_packet_handler_queue_frames_for_retrans(GQUIC_CPTR_TYPE(gquic_packet_t) const);
 static int gquic_packet_sent_packet_handler_on_verified_loss_detection_timeout(gquic_packet_sent_packet_handler_t *const);
 
 
@@ -61,16 +58,18 @@ int gquic_packet_sent_mem_dtor(gquic_packet_sent_mem_t *const mem) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_sent_mem_sent_packet(gquic_packet_sent_mem_t *const mem, const gquic_packet_t *const packet) {
-    const gquic_packet_t **packet_storage = NULL;
+int gquic_packet_sent_mem_sent_packet(gquic_packet_sent_mem_t *const mem, const GQUIC_CPTR_TYPE(gquic_packet_t) const packet) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
+    const GQUIC_CPTR_TYPE(gquic_packet_t) *packet_storage = NULL;
     gquic_rbtree_t *packet_storage_rb_node = NULL;
     if (mem == NULL || packet == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &packet_storage, sizeof(gquic_packet_t *)));
-    GQUIC_ASSERT_FAST_RETURN(gquic_rbtree_alloc(&packet_storage_rb_node, sizeof(u_int64_t), sizeof(gquic_packet_t ***)));
-    *packet_storage = packet;
-    *(const gquic_packet_t ***) GQUIC_RBTREE_VALUE(packet_storage_rb_node) = packet_storage;
+    GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &packet_storage, sizeof(GQUIC_CPTR_TYPE(gquic_packet_t))));
+    GQUIC_ASSERT_FAST_RETURN(gquic_rbtree_alloc(&packet_storage_rb_node, sizeof(u_int64_t), sizeof(GQUIC_CPTR_TYPE(gquic_packet_t) **)));
+
+    GQUIC_CPTR_ASSIGN(exception, packet_storage, packet, gquic_cptr_packet_t, packet, cptr);
+    *(const GQUIC_CPTR_TYPE(gquic_packet_t) **) GQUIC_RBTREE_VALUE(packet_storage_rb_node) = packet_storage;
     *(u_int64_t *) GQUIC_RBTREE_KEY(packet_storage_rb_node) = packet->pn;
 
     gquic_list_insert_before(&mem->list, packet_storage);
@@ -80,7 +79,8 @@ int gquic_packet_sent_mem_sent_packet(gquic_packet_sent_mem_t *const mem, const 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_sent_mem_get_packet(const gquic_packet_t **const packet, gquic_packet_sent_mem_t *const mem, const u_int64_t pn) {
+int gquic_packet_sent_mem_get_packet(const GQUIC_CPTR_TYPE(gquic_packet_t) *const packet, gquic_packet_sent_mem_t *const mem, const u_int64_t pn) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     const gquic_rbtree_t *packet_storage_rb_node = NULL;
     if (packet == NULL || mem == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -89,13 +89,16 @@ int gquic_packet_sent_mem_get_packet(const gquic_packet_t **const packet, gquic_
     if (gquic_rbtree_find(&packet_storage_rb_node, mem->root, &pn, sizeof(u_int64_t)) != 0) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_NOT_FOUND);
     }
-    *packet = **(gquic_packet_t ***) GQUIC_RBTREE_VALUE(packet_storage_rb_node);
+    GQUIC_CPTR_ASSIGN(exception, packet, **(GQUIC_CPTR_TYPE(gquic_packet_t) **) GQUIC_RBTREE_VALUE(packet_storage_rb_node),
+                      gquic_cptr_packet_t, packet, cptr);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_sent_mem_remove(gquic_packet_sent_mem_t *const mem, const u_int64_t pn, int (*release_packet_func) (gquic_packet_t *const)) {
-    gquic_packet_t *packet = NULL;
+int gquic_packet_sent_mem_remove(gquic_packet_sent_mem_t *const mem, const u_int64_t pn,
+                                 int (*release_packet_func) (GQUIC_CPTR_TYPE(gquic_packet_t) const)) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
+    GQUIC_CPTR_TYPE(gquic_packet_t) packet = NULL;
     gquic_rbtree_t *packet_storage_rb_node = NULL;
     if (mem == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -103,10 +106,13 @@ int gquic_packet_sent_mem_remove(gquic_packet_sent_mem_t *const mem, const u_int
     if (gquic_rbtree_find((const gquic_rbtree_t **) &packet_storage_rb_node, mem->root, &pn, sizeof(u_int64_t)) != 0) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_NOT_FOUND);
     }
-    packet = **(gquic_packet_t ***) GQUIC_RBTREE_VALUE(packet_storage_rb_node);
+    // remove it, 
+    packet = **(GQUIC_CPTR_TYPE(gquic_packet_t) **) GQUIC_RBTREE_VALUE(packet_storage_rb_node);
+    GQUIC_CPTR_ASSIGN(exception, &packet, **(GQUIC_CPTR_TYPE(gquic_packet_t) **) GQUIC_RBTREE_VALUE(packet_storage_rb_node),
+                      gquic_cptr_packet_t, packet, cptr);
 
     gquic_rbtree_remove(&mem->root, &packet_storage_rb_node);
-    gquic_list_release(*(gquic_packet_t ***) GQUIC_RBTREE_VALUE(packet_storage_rb_node));
+    gquic_list_release(*(GQUIC_CPTR_TYPE(gquic_packet_t) **) GQUIC_RBTREE_VALUE(packet_storage_rb_node));
     gquic_rbtree_release(packet_storage_rb_node, NULL);
 
     if (packet != NULL && release_packet_func != NULL) {
@@ -214,7 +220,7 @@ int gquic_packet_sent_packet_handler_dtor(gquic_packet_sent_packet_handler_t *co
 
 int gquic_packet_sent_packet_handler_drop_packets(gquic_packet_sent_packet_handler_t *const handler, const u_int8_t enc_lv) {
     gquic_packet_sent_pn_t *sent_pn = NULL;
-    const gquic_packet_t **packet_storage = NULL;
+    const GQUIC_CPTR_TYPE(gquic_packet_t) *packet_storage = NULL;
     if (handler == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -254,7 +260,7 @@ int gquic_packet_sent_packet_handler_drop_packets(gquic_packet_sent_packet_handl
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_sent_packet_handler_sent_packet(gquic_packet_sent_packet_handler_t *const handler, gquic_packet_t *const packet) {
+int gquic_packet_sent_packet_handler_sent_packet(gquic_packet_sent_packet_handler_t *const handler, GQUIC_CPTR_TYPE(gquic_packet_t) const packet) {
     gquic_packet_sent_pn_t *sent_pn = NULL;
     if (handler == NULL || packet == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -271,10 +277,10 @@ int gquic_packet_sent_packet_handler_sent_packet(gquic_packet_sent_packet_handle
 
 int gquic_packet_sent_packet_handler_received_ack(gquic_packet_sent_packet_handler_t *const handler,
                                                   const gquic_frame_ack_t *const ack_frame, const u_int8_t enc_lv, const u_int64_t recv_time) {
-    int exception = GQUIC_SUCCESS;
+    gquic_exception_t exception = GQUIC_SUCCESS;
     gquic_packet_sent_pn_t *pn_spec = NULL;
-    const gquic_packet_t *packet = NULL;
-    const gquic_packet_t **packet_storage = NULL;
+    const GQUIC_CPTR_TYPE(gquic_packet_t) packet = NULL;
+    const GQUIC_CPTR_TYPE(gquic_packet_t) *packet_storage = NULL;
     u_int64_t largest_ack = 0;
     u_int64_t ack_delay = 0;
     gquic_list_t blocks;
@@ -305,6 +311,8 @@ int gquic_packet_sent_packet_handler_received_ack(gquic_packet_sent_packet_handl
         }
         gquic_rtt_update(handler->rtt, recv_time - packet->send_time, ack_delay);
         gquic_cong_cubic_try_exit_slow_start(&handler->cong);
+
+        GQUIC_CPTR_TRY_RELEASE(exception, packet, gquic_cptr_packet_t, packet, cptr);
     }
     if (GQUIC_ASSERT_CAUSE(exception, gquic_packet_sent_packet_handler_determine_newly_acked_packets(&acked_packets, handler, &blocks, enc_lv))) {
         goto failure;
@@ -314,7 +322,7 @@ int gquic_packet_sent_packet_handler_received_ack(gquic_packet_sent_packet_handl
     }
     GQUIC_LIST_FOREACH(packet_storage, &acked_packets) {
         packet = *packet_storage;
-        if (packet->largest_ack != (u_int64_t) -1 && enc_lv == GQUIC_ENC_LV_1RTT) {
+        if (packet->largest_ack != GQUIC_INVALID_PACKET_NUMBER && enc_lv == GQUIC_ENC_LV_1RTT) {
             handler->lowest_not_confirm_acked = handler->lowest_not_confirm_acked > packet->largest_ack + 1
                 ? handler->lowest_not_confirm_acked
                 : packet->largest_ack + 1;
@@ -337,6 +345,8 @@ finished:
         gquic_list_release(GQUIC_LIST_FIRST(&blocks));
     }
     while (!gquic_list_head_empty(&acked_packets)) {
+        GQUIC_CPTR_TRY_RELEASE(exception, *(GQUIC_CPTR_TYPE(gquic_packet_t) *) GQUIC_LIST_FIRST(&acked_packets),
+                               gquic_cptr_packet_t, packet, cptr);
         gquic_list_release(GQUIC_LIST_FIRST(&acked_packets));
     }
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
@@ -345,6 +355,8 @@ failure:
         gquic_list_release(GQUIC_LIST_FIRST(&blocks));
     }
     while (!gquic_list_head_empty(&acked_packets)) {
+        GQUIC_CPTR_TRY_RELEASE(exception, *(GQUIC_CPTR_TYPE(gquic_packet_t) *) GQUIC_LIST_FIRST(&acked_packets),
+                               gquic_cptr_packet_t, packet, cptr);
         gquic_list_release(GQUIC_LIST_FIRST(&acked_packets));
     }
     GQUIC_PROCESS_DONE(exception);
@@ -444,9 +456,9 @@ static inline int gquic_sent_packet_handler_set_loss_detection_timer(gquic_packe
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static inline int gquic_sent_packet_handler_has_outstanding_crypto_packets(const gquic_packet_sent_packet_handler_t *const handler) {
-    int has_initial = 0;
-    int has_handshake = 0;
+static inline bool gquic_sent_packet_handler_has_outstanding_crypto_packets(const gquic_packet_sent_packet_handler_t *const handler) {
+    bool has_initial = 0;
+    bool has_handshake = 0;
     if (handler == NULL) {
         return 0;
     }
@@ -459,12 +471,13 @@ static inline int gquic_sent_packet_handler_has_outstanding_crypto_packets(const
     return has_initial || has_handshake;
 }
 
-static inline int gquic_sent_packet_handler_has_outstanding_packets(const gquic_packet_sent_packet_handler_t *const handler) {
+static inline bool gquic_sent_packet_handler_has_outstanding_packets(const gquic_packet_sent_packet_handler_t *const handler) {
     return (handler->handshake_complete && handler->one_rtt_packets->mem.count > 0)
         || gquic_sent_packet_handler_has_outstanding_crypto_packets(handler);
 }
 
-static inline int gquic_packet_sent_packet_handler_sent_packet_inner(gquic_packet_sent_packet_handler_t *const handler, gquic_packet_t *const packet) {
+static inline int gquic_packet_sent_packet_handler_sent_packet_inner(gquic_packet_sent_packet_handler_t *const handler,
+                                                                     GQUIC_CPTR_TYPE(gquic_packet_t) const packet) {
     int ack_eliciting = 0;
     gquic_packet_sent_pn_t *pn_spc = NULL;
     if (handler == NULL || packet == NULL) {
@@ -477,7 +490,7 @@ static inline int gquic_packet_sent_packet_handler_sent_packet_inner(gquic_packe
     ack_eliciting = !gquic_list_head_empty(packet->frames);
     if (ack_eliciting) {
         pn_spc->last_sent_ack_time = packet->send_time;
-        packet->included_infly = 1;
+        packet->included_infly = true;
         handler->infly_bytes += packet->len;
         if (handler->num_probes_to_send > 0) {
             handler->num_probes_to_send--;
@@ -493,14 +506,13 @@ static inline int gquic_packet_sent_packet_handler_sent_packet_inner(gquic_packe
 
 static int gquic_packet_sent_packet_handler_determine_newly_acked_packets(gquic_list_t *const packets,
                                                                           gquic_packet_sent_packet_handler_t *const handler,
-                                                                          const gquic_list_t *const blocks,
-                                                                          const u_int8_t enc_lv) {
-    int exception = GQUIC_SUCCESS;
-    int has_mission_blocks = 0;
+                                                                          const gquic_list_t *const blocks, const u_int8_t enc_lv) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
+    bool has_mission_blocks = false;
     gquic_packet_sent_pn_t *pn_spec = NULL;
     gquic_frame_ack_block_t *block = NULL;
-    const gquic_packet_t **packet_storage = NULL;
-    const gquic_packet_t **ret_packet_storage = NULL;
+    const GQUIC_CPTR_TYPE(gquic_packet_t) *packet_storage = NULL;
+    const GQUIC_CPTR_TYPE(gquic_packet_t) *ret_packet_storage = NULL;
     u_int64_t lowest_ack = 0;
     u_int64_t largest_ack = 0;
     if (packets == NULL || handler == NULL || blocks == NULL) {
@@ -528,18 +540,18 @@ static int gquic_packet_sent_packet_handler_determine_newly_acked_packets(gquic_
                 if ((*packet_storage)->pn > block->largest) {
                     break;
                 }
-                if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &ret_packet_storage, sizeof(gquic_packet_t *)))) {
+                if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &ret_packet_storage, sizeof(GQUIC_CPTR_TYPE(gquic_packet_t))))) {
                     goto failure;
                 }
-                *ret_packet_storage = *packet_storage;
+                GQUIC_CPTR_ASSIGN(exception, ret_packet_storage, *packet_storage, gquic_cptr_packet_t, packet, cptr);
                 gquic_list_insert_before(packets, ret_packet_storage);
             }
         }
         else {
-            if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &ret_packet_storage, sizeof(gquic_packet_t *)))) {
+            if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &ret_packet_storage, sizeof(GQUIC_CPTR_TYPE(gquic_packet_t))))) {
                 goto failure;
             }
-            *ret_packet_storage = *packet_storage;
+            GQUIC_CPTR_ASSIGN(exception, ret_packet_storage, *packet_storage, gquic_cptr_packet_t, packet, cptr);
             gquic_list_insert_before(packets, ret_packet_storage);
         }
     }
@@ -550,9 +562,10 @@ failure:
 }
 
 static int gquic_packet_sent_packet_handler_on_packet_acked(gquic_packet_sent_packet_handler_t *const handler,
-                                                            const gquic_packet_t *const packet) {
+                                                            const GQUIC_CPTR_TYPE(gquic_packet_t) const packet) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     gquic_packet_sent_pn_t *pn_spec = NULL;
-    const gquic_packet_t *mem_packet = NULL;
+    const GQUIC_CPTR_TYPE(gquic_packet_t) mem_packet = NULL;
     void **frame_storage = NULL;
     if (handler == NULL || packet == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -562,6 +575,7 @@ static int gquic_packet_sent_packet_handler_on_packet_acked(gquic_packet_sent_pa
     if (mem_packet == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
+    GQUIC_CPTR_TRY_RELEASE(exception, mem_packet, gquic_cptr_packet_t, packet, cptr);
     GQUIC_LIST_FOREACH(frame_storage, packet->frames) {
         if (GQUIC_FRAME_META(*frame_storage).on_acked.self != NULL) {
             GQUIC_FRAME_ON_ACKED(*frame_storage);
@@ -575,14 +589,14 @@ static int gquic_packet_sent_packet_handler_on_packet_acked(gquic_packet_sent_pa
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_packet_sent_packet_handler_packet_release(gquic_packet_t *const packet) {
+static int gquic_packet_sent_packet_handler_packet_release(GQUIC_CPTR_TYPE(gquic_packet_t) const packet) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     if (packet == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    gquic_packet_dtor(packet);
-    gquic_free(packet);
+    GQUIC_CPTR_TRY_RELEASE(exception, packet, gquic_cptr_packet_t, packet, cptr);
 
-    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+    GQUIC_PROCESS_DONE(exception);
 }
 
 static int gquic_packet_sent_packet_handler_detect_lost_packets(gquic_packet_sent_packet_handler_t *const handler,
@@ -592,8 +606,8 @@ static int gquic_packet_sent_packet_handler_detect_lost_packets(gquic_packet_sen
     u_int64_t lost_send_time = 0;
     gquic_packet_sent_pn_t *pn_spec = NULL;
     gquic_list_t lost_packets;
-    gquic_packet_t **packet_storage = NULL;
-    gquic_packet_t **lost_packet_storage = NULL;
+    GQUIC_CPTR_TYPE(gquic_packet_t) *packet_storage = NULL;
+    GQUIC_CPTR_TYPE(gquic_packet_t) *lost_packet_storage = NULL;
     if (handler == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -610,6 +624,7 @@ static int gquic_packet_sent_packet_handler_detect_lost_packets(gquic_packet_sen
         }
         if ((*packet_storage)->send_time < lost_send_time || pn_spec->largest_ack >= (*packet_storage)->pn + 3) {
             GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &lost_packet_storage, sizeof(gquic_packet_t *)));
+            // bacause mark remove
             *lost_packet_storage = *packet_storage;
             gquic_list_insert_before(&lost_packets, lost_packet_storage);
         }
@@ -629,7 +644,7 @@ static int gquic_packet_sent_packet_handler_detect_lost_packets(gquic_packet_sen
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_packet_sent_packet_handler_queue_frames_for_retrans(gquic_packet_t *const packet) {
+static int gquic_packet_sent_packet_handler_queue_frames_for_retrans(GQUIC_CPTR_TYPE(gquic_packet_t) const packet) {
     void **frame_storage = NULL;
     if (packet == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -662,10 +677,7 @@ static int gquic_packet_sent_packet_handler_on_verified_loss_detection_timeout(g
     }
     gquic_sent_packet_handler_get_earliest_loss_time_space(&earliest_loss_time, &enc_lv, handler);
     if (earliest_loss_time != 0) {
-        GQUIC_ASSERT_FAST_RETURN(gquic_packet_sent_packet_handler_detect_lost_packets(handler,
-                                                                                      gquic_time_now(),
-                                                                                      enc_lv,
-                                                                                      handler->infly_bytes));
+        GQUIC_ASSERT_FAST_RETURN(gquic_packet_sent_packet_handler_detect_lost_packets(handler, gquic_time_now(), enc_lv, handler->infly_bytes));
     }
     gquic_sent_packet_handler_get_earliest_sent_time_space(&_, &enc_lv, handler);
     handler->pto_count++;
@@ -689,7 +701,7 @@ static int gquic_packet_sent_packet_handler_on_verified_loss_detection_timeout(g
 
 int gquic_packet_sent_packet_handler_peek_pn(u_int64_t *const pn,
                                              int *const pn_len, gquic_packet_sent_packet_handler_t *const handler, const u_int8_t enc_lv) {
-    gquic_packet_t **packet_storage = NULL;
+    const GQUIC_CPTR_TYPE(gquic_packet_t) packet = NULL;
     gquic_packet_sent_pn_t *pn_spec = NULL;
     u_int64_t lowest_unacked = 0;
     if (pn == NULL || pn_len == NULL || handler == NULL) {
@@ -697,10 +709,10 @@ int gquic_packet_sent_packet_handler_peek_pn(u_int64_t *const pn,
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_sent_packet_handler_get_sent_pn(&pn_spec, handler, enc_lv));
     if (!gquic_list_head_empty(&pn_spec->mem.list)) {
-        packet_storage = GQUIC_LIST_FIRST(&pn_spec->mem.list);
+        packet = *(GQUIC_CPTR_TYPE(gquic_packet_t) *) GQUIC_LIST_FIRST(&pn_spec->mem.list);
     }
-    if (packet_storage != NULL) {
-        lowest_unacked = (*packet_storage)->pn;
+    if (packet != NULL) {
+        lowest_unacked = packet->pn;
     }
     else {
         lowest_unacked = pn_spec->largest_ack + 1;
@@ -771,7 +783,7 @@ int gquic_packet_sent_packet_handler_should_send_packets_count(gquic_packet_sent
 
 int gquic_packet_sent_packet_handler_queue_probe_packet(gquic_packet_sent_packet_handler_t *const handler, const u_int8_t enc_lv) {
     gquic_packet_sent_pn_t *pn_spec = NULL;
-    gquic_packet_t **packet_storage = 0;
+    GQUIC_CPTR_TYPE(gquic_packet_t) *packet_storage = NULL;
     if (handler == NULL) {
         return 0;
     }
@@ -786,7 +798,7 @@ int gquic_packet_sent_packet_handler_queue_probe_packet(gquic_packet_sent_packet
     if ((*packet_storage)->included_infly) {
         handler->infly_bytes -= (*packet_storage)->len;
     }
-    if (gquic_packet_sent_mem_remove(&pn_spec->mem, (*packet_storage)->pn, gquic_packet_sent_packet_handler_packet_release) != 0) {
+    if (GQUIC_ASSERT(gquic_packet_sent_mem_remove(&pn_spec->mem, (*packet_storage)->pn, gquic_packet_sent_packet_handler_packet_release))) {
         return 0;
     }
 
@@ -794,7 +806,7 @@ int gquic_packet_sent_packet_handler_queue_probe_packet(gquic_packet_sent_packet
 }
 
 int gquic_packet_sent_packet_handler_reset_for_retry(gquic_packet_sent_packet_handler_t *const handler) {
-    gquic_packet_t **packet_storage = NULL;
+    GQUIC_CPTR_TYPE(gquic_packet_t) *packet_storage = NULL;
     u_int64_t pn = 0;
     if (handler == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);

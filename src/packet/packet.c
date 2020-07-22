@@ -12,7 +12,7 @@ int gquic_packet_init(gquic_packet_t *const packet) {
     packet->len = 0;
     packet->enc_lv = 0;
     packet->send_time = 0;
-    packet->included_infly = 0;
+    packet->included_infly = false;
     packet->frames = NULL;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
@@ -41,4 +41,8 @@ int gquic_cptr_frames_dtor(void *const frames_) {
     }
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}
+
+gquic_exception_t gquic_cptr_packet_dtor(void *const packet) {
+    GQUIC_PROCESS_DONE(gquic_packet_dtor(packet));
 }

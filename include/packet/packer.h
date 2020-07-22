@@ -62,7 +62,7 @@ gquic_exception_t gquic_packed_packet_dtor(gquic_packed_packet_t *const packed_p
 gquic_exception_t gquic_packed_packet_dtor_without_frames(gquic_packed_packet_t *const packed_packet);
 u_int8_t gquic_packed_packet_enc_lv(const gquic_packed_packet_t *const packed_packet);
 int gquic_packed_packet_is_ack_eliciting(gquic_packed_packet_t *const packed_packet);
-int gquic_packed_packet_get_ack_packet(gquic_packet_t *const packet,
+int gquic_packed_packet_get_ack_packet(GQUIC_CPTR_TYPE(gquic_packet_t) const packet,
                                        gquic_packed_packet_t *const packed_packet, gquic_retransmission_queue_t *const queue);
 
 typedef struct gquic_packed_packet_payload_s gquic_packed_packet_payload_t;

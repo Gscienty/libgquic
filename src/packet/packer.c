@@ -113,7 +113,7 @@ int gquic_packed_packet_is_ack_eliciting(gquic_packed_packet_t *const packed_pac
     return gquic_frames_has_frame_ack(packed_packet->frames);
 }
 
-int gquic_packed_packet_get_ack_packet(gquic_packet_t *const packet,
+int gquic_packed_packet_get_ack_packet(GQUIC_CPTR_TYPE(gquic_packet_t) const packet,
                                        gquic_packed_packet_t *const packed_packet, gquic_retransmission_queue_t *const queue) {
     int exception = GQUIC_SUCCESS;
     u_int64_t largest_ack = (u_int64_t) -1;

@@ -286,9 +286,9 @@ gquic_exception_t gquic_frame_ack_ranges_from_blocks(gquic_frame_ack_t *const sp
 }
 
 bool gquic_frames_has_frame_ack(gquic_list_t *const frames) {
-    void *frame = NULL;
-    GQUIC_LIST_FOREACH(frame, frames) {
-        if (GQUIC_FRAME_META(frame).type == 0x02 || GQUIC_FRAME_META(frame).type == 0x03) {
+    void **frame_storage = NULL;
+    GQUIC_LIST_FOREACH(frame_storage, frames) {
+        if (GQUIC_FRAME_META(*frame_storage).type == 0x02 || GQUIC_FRAME_META(*frame_storage).type == 0x03) {
             return true;
         }
     }
