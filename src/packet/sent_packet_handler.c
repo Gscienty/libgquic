@@ -123,6 +123,13 @@ int gquic_packet_sent_mem_remove(gquic_packet_sent_mem_t *const mem, const u_int
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
+bool gquic_packet_sent_mem_empty(const gquic_packet_sent_mem_t *const mem) {
+    if (mem == NULL) {
+        return false;
+    }
+    return mem->count == 0;
+}
+
 int gquic_packet_sent_pn_init(gquic_packet_sent_pn_t *const sent_pn) {
     if (sent_pn == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -164,7 +171,7 @@ int gquic_packet_sent_packet_handler_init(gquic_packet_sent_packet_handler_t *co
     handler->initial_packets = NULL;
     handler->handshake_packets = NULL;
     handler->one_rtt_packets = NULL;
-    handler->handshake_complete = 0;
+    handler->handshake_complete = false;
     handler->lowest_not_confirm_acked = 0;
     handler->infly_bytes = 0;
     gquic_cong_cubic_init(&handler->cong);
@@ -834,8 +841,18 @@ int gquic_packet_sent_packet_handler_set_handshake_complete(gquic_packet_sent_pa
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     GQUIC_LOG(GQUIC_LOG_DEBUG, "sent_packet_handler set handshake complete");
-    handler->handshake_complete = 1;
+    handler->handshake_complete = true;
     gquic_sent_packet_handler_set_loss_detection_timer(handler);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
+}
+
+bool gquic_packet_sent_packet_handler_acked_all(gquic_packet_sent_packet_handler_t *const handler) {
+    if (handler == NULL) {
+        return false;
+    }
+
+    return (handler->initial_packets == NULL || gquic_packet_sent_mem_empty(&handler->initial_packets->mem))
+        && (handler->handshake_packets == NULL || gquic_packet_sent_mem_empty(&handler->handshake_packets->mem))
+        && (handler->one_rtt_packets == NULL || gquic_packet_sent_mem_empty(&handler->one_rtt_packets->mem));
 }

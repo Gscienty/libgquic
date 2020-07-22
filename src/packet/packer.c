@@ -364,7 +364,8 @@ int gquic_packet_packer_get_short_header(gquic_packet_header_t *const hdr, gquic
     }
     hdr->is_long = 0;
     GQUIC_ASSERT_FAST_RETURN(gquic_packet_short_header_alloc(&hdr->hdr.s_hdr));
-    GQUIC_ASSERT_FAST_RETURN(gquic_packet_sent_packet_handler_peek_pn(&hdr->hdr.s_hdr->pn, &pn_len, packer->pn_gen, GQUIC_ENC_LV_1RTT));
+    GQUIC_ASSERT_FAST_RETURN(gquic_packet_sent_packet_handler_peek_pn(&gquic_packet_header_short(hdr)->pn,
+                                                                      &pn_len, packer->pn_gen, GQUIC_ENC_LV_1RTT));
     hdr->hdr.s_hdr->flag = 0x40 | (0x03 & (pn_len - 1)) | (key_phase ? 0x04 : 0);
     GQUIC_ASSERT_FAST_RETURN(GQUIC_PACKET_PACKER_GET_CONN_ID(&dcid, packer));
     hdr->hdr.s_hdr->dcid_len = GQUIC_STR_SIZE(&dcid);

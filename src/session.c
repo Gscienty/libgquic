@@ -155,6 +155,7 @@ int gquic_session_init(gquic_session_t *const sess) {
     liteco_channel_init(&sess->sending_schedule_chain);
     liteco_channel_init(&sess->received_packet_chain);
     liteco_channel_init(&sess->handshake_completed_chain);
+    liteco_channel_init(&sess->ack_chan);
 
     sess->undecryptable_packets_count = 0;
     gquic_list_head_init(&sess->undecryptable_packets);
@@ -1403,6 +1404,8 @@ static int gquic_session_handle_ack_frame(gquic_session_t *const sess, gquic_fra
         sess->est.aead.last_ack_pn = frame->largest_ack;
     }
 
+    liteco_channel_send(&sess->ack_chan, &sess->ack_chan);
+
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
@@ -1957,4 +1960,22 @@ int gquic_session_open_uni_stream_sync(gquic_stream_t **const stream_storage, gq
     }
 
     GQUIC_PROCESS_DONE(gquic_stream_map_open_uni_stream_sync(stream_storage, &sess->streams_map, &sess->done_chain));
+}
+
+gquic_exception_t gquic_session_waiting_acked_all(gquic_session_t *const sess) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
+    const liteco_channel_t *recv_channel = NULL;
+    if (sess == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+
+    for ( ;; ) {
+        GQUIC_COGLOBAL_CHANNEL_RECV(exception, NULL, &recv_channel, 0, &sess->ack_chan, &sess->done_chain, &sess->close_chain);
+
+        if (gquic_packet_sent_packet_handler_acked_all(&sess->sent_packet_handler)) {
+            break;
+        }
+    }
+
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

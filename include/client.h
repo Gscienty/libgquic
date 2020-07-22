@@ -48,4 +48,6 @@ int gquic_client_open_stream_sync(gquic_stream_t **const stream_storage, gquic_c
 int gquic_client_open_uni_stream(gquic_stream_t **const stream_storage, gquic_client_t *const client);
 int gquic_client_open_uni_stream_sync(gquic_stream_t **const stream_storage, gquic_client_t *const client);
 
+int gquic_client_waiting_acked_all(gquic_client_t *const client);
+
 #endif

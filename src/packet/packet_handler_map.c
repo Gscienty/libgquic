@@ -170,6 +170,7 @@ static int gquic_packet_handler_map_listen(void *const handler_) {
                 gquic_packet_handler_map_listen_close(handler, -1002);
                 goto finished;
             }
+
             gquic_received_packet_t *recv_packet;
             if (GQUIC_ASSERT(GQUIC_MALLOC_STRUCT(&recv_packet, gquic_received_packet_t))) {
                 goto finished;
@@ -351,8 +352,7 @@ static int gquic_packet_handler_map_reset_token_destroy_co(void *const param_) {
 }
 
 int gquic_packet_handler_map_get_stateless_reset_token(gquic_str_t *const token,
-                                                       gquic_packet_handler_map_t *const handler,
-                                                       const gquic_str_t *const conn_id) {
+                                                       gquic_packet_handler_map_t *const handler, const gquic_str_t *const conn_id) {
     unsigned int size;
     if (token == NULL || handler == NULL || conn_id == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -414,9 +414,7 @@ int gquic_packet_handler_map_add(gquic_str_t *const token,
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_handler_map_add_if_not_taken(gquic_packet_handler_map_t *handler,
-                                              const gquic_str_t *const conn_id,
-                                              gquic_packet_handler_t *const ph) {
+int gquic_packet_handler_map_add_if_not_taken(gquic_packet_handler_map_t *handler, const gquic_str_t *const conn_id, gquic_packet_handler_t *const ph) {
     gquic_rbtree_t *rbt = NULL;
     if (handler == NULL || conn_id == NULL || ph == NULL) {
         return 0;

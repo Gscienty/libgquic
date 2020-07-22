@@ -262,8 +262,7 @@ int gquic_crypto_stream_manager_ctor(gquic_crypto_stream_manager_t *const manage
 
 int gquic_crypto_stream_manager_handle_crypto_frame(int *const changed,
                                                     gquic_crypto_stream_manager_t *const manager,
-                                                    gquic_frame_crypto_t *const frame,
-                                                    const u_int8_t enc_lv) {
+                                                    gquic_frame_crypto_t *const frame, const u_int8_t enc_lv) {
     int ret = 0;
     gquic_crypto_stream_t *str = NULL;
     gquic_str_t *data = NULL;

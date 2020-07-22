@@ -67,6 +67,7 @@ struct gquic_session_s {
     liteco_channel_t sending_schedule_chain;
     liteco_channel_t received_packet_chain;
     liteco_channel_t client_hello_writen_chain;
+    liteco_channel_t ack_chan;
 
     int undecryptable_packets_count;
     gquic_list_t undecryptable_packets; /* received_packet * */
@@ -138,6 +139,8 @@ int gquic_session_open_stream(gquic_stream_t **const stream_storage, gquic_sessi
 int gquic_session_open_stream_sync(gquic_stream_t **const stream_storage, gquic_session_t *const sess);
 int gquic_session_open_uni_stream(gquic_stream_t **const stream_storage, gquic_session_t *const sess);
 int gquic_session_open_uni_stream_sync(gquic_stream_t **const stream_storage, gquic_session_t *const sess);
+
+gquic_exception_t gquic_session_waiting_acked_all(gquic_session_t *const sess);
 
 gquic_packet_handler_t *gquic_session_implement_packet_handler(gquic_session_t *const sess);
 

@@ -21,6 +21,7 @@ int gquic_packet_sent_mem_sent_packet(gquic_packet_sent_mem_t *const mem, const 
 int gquic_packet_sent_mem_get_packet(const GQUIC_CPTR_TYPE(gquic_packet_t) *const packet, gquic_packet_sent_mem_t *const mem, const u_int64_t pn);
 int gquic_packet_sent_mem_remove(gquic_packet_sent_mem_t *const mem, const u_int64_t pn,
                                  int (*release_packet_func) (GQUIC_CPTR_TYPE(gquic_packet_t) const));
+bool gquic_packet_sent_mem_empty(const gquic_packet_sent_mem_t *const mem);
 
 typedef struct gquic_packet_sent_pn_s gquic_packet_sent_pn_t;
 struct gquic_packet_sent_pn_s {
@@ -44,7 +45,7 @@ struct gquic_packet_sent_packet_handler_s {
     gquic_packet_sent_pn_t *initial_packets;
     gquic_packet_sent_pn_t *handshake_packets;
     gquic_packet_sent_pn_t *one_rtt_packets;
-    int handshake_complete;
+    bool handshake_complete;
     u_int64_t lowest_not_confirm_acked;
     u_int64_t infly_bytes;
     gquic_cong_cubic_t cong;
@@ -77,5 +78,6 @@ int gquic_packet_sent_packet_handler_should_send_packets_count(gquic_packet_sent
 int gquic_packet_sent_packet_handler_queue_probe_packet(gquic_packet_sent_packet_handler_t *const handler, const u_int8_t enc_lv);
 int gquic_packet_sent_packet_handler_reset_for_retry(gquic_packet_sent_packet_handler_t *const handler);
 int gquic_packet_sent_packet_handler_set_handshake_complete(gquic_packet_sent_packet_handler_t *const handler);
+bool gquic_packet_sent_packet_handler_acked_all(gquic_packet_sent_packet_handler_t *const handler);
 
 #endif

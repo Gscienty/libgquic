@@ -90,7 +90,7 @@ static int gquic_tls_new_sess_ticket_msg_serialize(const void *const msg, gquic_
 
 static int gquic_tls_new_sess_ticket_msg_deserialize(void *const msg, gquic_reader_str_t *const reader) {
     gquic_tls_new_sess_ticket_msg_t *const spec = msg;
-    size_t prefix_len;
+    size_t prefix_len = 0;
     if (msg == NULL || reader == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }

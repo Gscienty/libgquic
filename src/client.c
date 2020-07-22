@@ -14,6 +14,7 @@ static int gquic_client_handle_packet(gquic_client_t *const, gquic_received_pack
 static int gquic_client_create_sess(gquic_client_t *const);
 static int gquic_client_establish_sec_conn(void *const);
 static int gquic_client_connect(gquic_client_t *const);
+static int gquic_client_waiting_acked_all_co(void *const);
 
 static int gquic_client_handle_packet_wrapper(void *const, gquic_received_packet_t *const);
 static int gquic_client_close_wrapper(void *const);
@@ -109,16 +110,22 @@ static int gquic_client_establish_sec_conn(void *const client) {
                                 &((gquic_client_t *) client)->err_chain,
                                 &((gquic_client_t *) client)->handshake_complete_chain);
     if (recv_chan == &((gquic_client_t *) client)->done_chain) {
+        GQUIC_LOG(GQUIC_LOG_INFO, "client done");
+
         ((gquic_client_t *) client)->connected++;
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
     else if (recv_chan == &((gquic_client_t *) client)->err_chain) {
+        GQUIC_LOG(GQUIC_LOG_INFO, "client recv a error");
+
         exception = *(int *) recv_event;
         gquic_free((void *) recv_event);
         ((gquic_client_t *) client)->connected++;
         GQUIC_PROCESS_DONE(exception);
     }
     else if (recv_chan == &((gquic_client_t *) client)->handshake_complete_chain) {
+        GQUIC_LOG(GQUIC_LOG_INFO, "client handshake completed");
+
         ((gquic_client_t *) client)->connected++;
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
@@ -311,4 +318,22 @@ int gquic_client_open_uni_stream_sync(gquic_stream_t **const stream_storage, gqu
     }
 
     GQUIC_PROCESS_DONE(gquic_session_open_uni_stream_sync(stream_storage, &client->sess));
+}
+
+int gquic_client_waiting_acked_all(gquic_client_t *const client) {
+    liteco_coroutine_t *co = NULL;
+    if (client == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+
+    gquic_coglobal_currmachine_execute(&co, gquic_client_waiting_acked_all_co, client);
+    GQUIC_PROCESS_DONE(gquic_coglobal_schedule_until_completed(co));
+}
+
+static int gquic_client_waiting_acked_all_co(void *const client_) {
+    gquic_client_t *const client = client_;
+    if (client == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+    GQUIC_PROCESS_DONE(gquic_session_waiting_acked_all(&client->sess));
 }
