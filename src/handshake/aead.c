@@ -243,6 +243,7 @@ gquic_exception_t gquic_handshake_opener_traffic_ctor(gquic_handshake_opener_t *
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_long_header_opener_traffic_ctor(&opener->opener, suite, traffic_sec);
+    opener->dropped = false;
     opener->drop_keys.cb = drop_keys_cb;
     opener->drop_keys.self = drop_keys_self;
 

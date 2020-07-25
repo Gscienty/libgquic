@@ -4,11 +4,12 @@
 #include "handshake/establish.h"
 #include "packet/header.h"
 #include <sys/types.h>
+#include <stdbool.h>
 
 typedef struct gquic_unpacked_packet_payload_s gquic_unpacked_packet_payload_t;
 struct gquic_unpacked_packet_payload_s {
     struct {
-        int is_1rtt;
+        bool is_1rtt;
         void *self;
         union {
             int (*cb) (gquic_str_t *const, void *const, const u_int64_t, const gquic_str_t *const, const gquic_str_t *const, const gquic_str_t *const);

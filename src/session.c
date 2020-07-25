@@ -844,8 +844,11 @@ static int gquic_session_try_reset_deadline(gquic_session_t *const sess) {
     }
     if (!sess->handshake_completed) {
         sess->deadline = sess->session_creation_time + sess->cfg->handshake_timeout;
+
+        GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
-    else if (sess->cfg->keep_alive && !sess->keep_alive_ping_sent) {
+
+    if (sess->cfg->keep_alive && !sess->keep_alive_ping_sent) {
         sess->deadline = gquic_session_idle_timeout_start_time(sess) + sess->keep_alive_interval / 2;
     }
     else {

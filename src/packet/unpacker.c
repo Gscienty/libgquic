@@ -30,7 +30,7 @@ int gquic_unpacked_packet_payload_init(gquic_unpacked_packet_payload_t *const pa
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     payload->data = NULL;
-    payload->opener.is_1rtt = 0;
+    payload->opener.is_1rtt = false;
     payload->opener.cb.cb = NULL;
     payload->opener.cb.one_rtt_cb = NULL;
     payload->opener.self = NULL;
@@ -97,7 +97,7 @@ int gquic_packet_unpacker_unpack(gquic_unpacked_packet_t *const unpacked_packet,
         switch ((GQUIC_STR_FIRST_BYTE(data) & 0x30) >> 4) {
         case 0x00:
             unpacked_packet->enc_lv = GQUIC_ENC_LV_INITIAL;
-            payload.opener.is_1rtt = 0;
+            payload.opener.is_1rtt = false;
             payload.opener.cb.cb = gquic_common_long_header_opener_open_wrapper;
             GQUIC_ASSERT_FAST_RETURN(gquic_handshake_establish_get_initial_opener(&payload.header_opener,
                                                                                   (gquic_common_long_header_opener_t **) &payload.opener.self,
@@ -105,7 +105,7 @@ int gquic_packet_unpacker_unpack(gquic_unpacked_packet_t *const unpacked_packet,
             break;
         case 0x02:
             unpacked_packet->enc_lv = GQUIC_ENC_LV_HANDSHAKE;
-            payload.opener.is_1rtt = 0;
+            payload.opener.is_1rtt = false;
             payload.opener.cb.cb = gquic_common_long_header_opener_open_wrapper;
             GQUIC_ASSERT_FAST_RETURN(gquic_handshake_establish_get_handshake_opener(&payload.header_opener,
                                                                                     (gquic_common_long_header_opener_t **) &payload.opener.self,
@@ -114,17 +114,17 @@ int gquic_packet_unpacker_unpack(gquic_unpacked_packet_t *const unpacked_packet,
         default:
             GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_HEADER_TYPE_UNEXCEPTED);
         }
-        unpacked_packet->hdr.is_long = 1;
+        unpacked_packet->hdr.is_long = true;
     }
     else if ((GQUIC_STR_FIRST_BYTE(data) & 0xc0) == 0x40) {
         unpacked_packet->enc_lv = GQUIC_ENC_LV_1RTT;
-        payload.opener.is_1rtt = 1;
+        payload.opener.is_1rtt = true;
         payload.opener.cb.one_rtt_cb = gquic_1rtt_opener_open_wrapper;
         payload.header_opener = &unpacker->est->aead.header_dec;
         GQUIC_ASSERT_FAST_RETURN(gquic_handshake_establish_get_1rtt_opener(&payload.header_opener,
                                                                            (gquic_auto_update_aead_t **) &payload.opener.self,
                                                                            unpacker->est));
-        unpacked_packet->hdr.is_long = 0;
+        unpacked_packet->hdr.is_long = false;
     }
     else {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_HEADER_TYPE_UNEXCEPTED);
@@ -189,13 +189,10 @@ static int gquic_packet_unpacker_unpack_header_packet(gquic_unpacked_packet_t *c
     gquic_str_t cipher_text = { GQUIC_STR_SIZE(payload->data) - header_len - 16, GQUIC_STR_VAL(payload->data) + header_len + 16 };
     gquic_str_t addata = { header_len, GQUIC_STR_VAL(payload->data) };
 
-
-    // TODO auto_update_aead open error
     GQUIC_ASSERT_FAST_RETURN(GQUIC_UNPACKED_PACKET_PAYLOAD_OPEN(&unpacked_packet->data,
-                                                                payload,
-                                                                payload->recv_time,
-                                                                gquic_packet_header_get_pn(&unpacked_packet->hdr),
-                                                                (unpacked_packet->hdr.is_long == 0 && (unpacked_packet->hdr.hdr.s_hdr->flag & 0x04) != 0),
+                                                                payload, payload->recv_time, gquic_packet_header_get_pn(&unpacked_packet->hdr),
+                                                                (!unpacked_packet->hdr.is_long
+                                                                 && (gquic_packet_header_short(&unpacked_packet->hdr)->flag & 0x04) != 0),
                                                                 &tag, &cipher_text, &addata));
     GQUIC_PROCESS_DONE(exception);
 }

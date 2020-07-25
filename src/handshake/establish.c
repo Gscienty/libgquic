@@ -523,11 +523,7 @@ gquic_exception_t gquic_handshake_establish_set_rkey(gquic_handshake_establish_t
         gquic_common_long_header_opener_dtor(&est->handshake_opener);
         gquic_common_long_header_opener_init(&est->handshake_opener);
         gquic_common_long_header_opener_handshake_traffic_ctor(&est->handshake_opener,
-                                                               suite,
-                                                               traffic_sec,
-                                                               est,
-                                                               gquic_establish_drop_initial_keys_wrap,
-                                                               est->is_client);
+                                                               suite, traffic_sec, est, gquic_establish_drop_initial_keys_wrap, est->is_client);
         break;
 
     case GQUIC_ENC_LV_APP:
@@ -563,11 +559,7 @@ gquic_exception_t gquic_handshake_establish_set_wkey(gquic_handshake_establish_t
         gquic_common_long_header_sealer_dtor(&est->handshake_sealer);
         gquic_common_long_header_sealer_init(&est->handshake_sealer);
         gquic_common_long_header_sealer_handshake_traffic_ctor(&est->handshake_sealer,
-                                                               suite,
-                                                               traffic_sec,
-                                                               est,
-                                                               gquic_establish_drop_initial_keys_wrap,
-                                                               est->is_client);
+                                                               suite, traffic_sec, est, gquic_establish_drop_initial_keys_wrap, est->is_client);
         break;
 
     case GQUIC_ENC_LV_APP:

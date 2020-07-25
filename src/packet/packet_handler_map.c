@@ -115,8 +115,6 @@ int gquic_packet_handler_map_dtor(gquic_packet_handler_map_t *const handler) {
 
     gquic_str_reset(&handler->stateless_reset_key);
 
-    // TODO release unknow packet handler
-
     while (!gquic_rbtree_is_nil(handler->handlers)) {
         rbt = handler->handlers;
         gquic_rbtree_remove(&handler->handlers, &rbt);
