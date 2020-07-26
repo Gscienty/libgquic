@@ -130,7 +130,7 @@ u_int8_t gquic_packet_header_deserlialize_type(const gquic_str_t *const data);
  * 
  * @return: 长头部
  */
-static inline gquic_packet_long_header_t *gquic_packet_header_long(gquic_packet_header_t *const header) {
+static inline gquic_packet_long_header_t *gquic_packet_header_long(const gquic_packet_header_t *const header) {
     if (header == NULL) {
         return NULL;
     }

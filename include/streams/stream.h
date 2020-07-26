@@ -36,7 +36,15 @@ int gquic_stream_set_deadline(gquic_stream_t *const str, const u_int64_t deadlin
 int gquic_stream_close_for_shutdown(gquic_stream_t *const str, const int err);
 int gquic_stream_handle_reset_stream_frame(gquic_stream_t *const str, const gquic_frame_reset_stream_t *const frame);
 
-#define gquic_stream_write(stream, reader) gquic_send_stream_write(&(stream)->send, (reader))
-#define gquic_stream_read(stream, writer) gquic_recv_stream_read(&(stream)->recv, (writer))
+#define gquic_stream_write(stream, buf, size) \
+    ({\
+     gquic_reader_str_t reader = { size, buf }; \
+     gquic_send_stream_write(&(stream)->send, &reader); \
+     })
+#define gquic_stream_read(stream, buf, size) \
+    ({\
+     gquic_writer_str_t writer = { size, buf }; \
+     gquic_recv_stream_read(&(stream)->recv, &writer); \
+     })
 
 #endif
