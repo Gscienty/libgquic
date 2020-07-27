@@ -1,3 +1,11 @@
+/* src/packet/packer.c QUIC数据包packet打包模块
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "packet/packer.h"
 #include "packet/packet.h"
 #include "tls/common.h"
@@ -414,7 +422,8 @@ static int gquic_1rtt_sealer_seal_wrapper(gquic_str_t *const tag,
     return gquic_auto_update_aead_seal(tag, cipher_text, self, pn, plain_text, addata);
 }
 
-static int gquic_packet_packer_get_short_header(gquic_packet_header_t *const hdr, gquic_packet_packer_t *const packer, const bool key_phase) {
+static gquic_exception_t gquic_packet_packer_get_short_header(gquic_packet_header_t *const hdr,
+                                                              gquic_packet_packer_t *const packer, const bool key_phase) {
     int pn_len = 0;
     gquic_str_t dcid = { 0, NULL };
     if (hdr == NULL || packer == NULL) {
@@ -432,7 +441,8 @@ static int gquic_packet_packer_get_short_header(gquic_packet_header_t *const hdr
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_packet_packer_get_long_header(gquic_packet_header_t *const hdr, gquic_packet_packer_t *const packer, const u_int8_t enc_lv) {
+static gquic_exception_t gquic_packet_packer_get_long_header(gquic_packet_header_t *const hdr,
+                                                             gquic_packet_packer_t *const packer, const u_int8_t enc_lv) {
     u_int64_t pn = 0;
     int pn_len = 0;
     gquic_str_t dcid = { 0, NULL };
@@ -474,26 +484,28 @@ static int gquic_packet_packer_get_long_header(gquic_packet_header_t *const hdr,
     GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INVALID_ENC_LV);
 }
 
-static int gquic_packet_packer_pack(gquic_packed_packet_t *const packed_packet,
-                                    gquic_packet_packer_t *const packer, gquic_packed_packet_payload_t *const payload) {
+static gquic_exception_t gquic_packet_packer_pack(gquic_packed_packet_t *const packed_packet,
+                                                  gquic_packet_packer_t *const packer, gquic_packed_packet_payload_t *const payload) {
     int pn_len = 0;
     u_int64_t padding_len = 0;
     u_int8_t header_type = 4; 
     if (packed_packet == NULL || packer == NULL || payload == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
+
+    // 计算padding长度
     if (payload->hdr.is_long) {
-        if (payload->hdr.hdr.l_hdr == NULL) {
+        if (gquic_packet_header_long(&payload->hdr) == NULL) {
             GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_HEADER_NOT_EXIST);
         }
-        pn_len = (0x03 & payload->hdr.hdr.l_hdr->flag) + 1;
-        header_type = (payload->hdr.hdr.l_hdr->flag & 0x30) >> 4;
+        pn_len = (0x03 & gquic_packet_header_long(&payload->hdr)->flag) + 1;
+        header_type = (gquic_packet_header_long(&payload->hdr)->flag & 0x30) >> 4;
     }
     else {
-        if (payload->hdr.hdr.s_hdr == NULL) {
+        if (gquic_packet_header_short(&payload->hdr) == NULL) {
             GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_HEADER_NOT_EXIST);
         }
-        pn_len = (0x03 & payload->hdr.hdr.s_hdr->flag) + 1;
+        pn_len = (0x03 & gquic_packet_header_short(&payload->hdr)->flag) + 1;
     }
 
     if (payload->enc_lv != GQUIC_ENC_LV_1RTT) {
@@ -515,10 +527,10 @@ static int gquic_packet_packer_pack(gquic_packed_packet_t *const packed_packet,
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_packet_packer_pack_with_padding(gquic_packed_packet_t *const packed_packet,
-                                                 gquic_packet_packer_t *const packer,
-                                                 gquic_packed_packet_payload_t *const payload, const u_int64_t padding_len) {
-    int exception = GQUIC_SUCCESS;
+static gquic_exception_t gquic_packet_packer_pack_with_padding(gquic_packed_packet_t *const packed_packet,
+                                                               gquic_packet_packer_t *const packer,
+                                                               gquic_packed_packet_payload_t *const payload, const u_int64_t padding_len) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     int pn_len = 0;
     u_int64_t hdr_pn = 0;
     void **frame_storage = NULL;
@@ -530,8 +542,12 @@ static int gquic_packet_packer_pack_with_padding(gquic_packed_packet_t *const pa
     if (packed_packet == NULL || packer == NULL || payload == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
+
+    // 获取buffer
     GQUIC_ASSERT_FAST_RETURN(gquic_packet_buffer_get(&buffer));
     gquic_writer_str_t writer = buffer->slice;
+
+    // 获取packet number长度，并将数据包头部序列化
     if (payload->hdr.is_long) {
         pn_len = gquic_packet_number_flag_to_size(gquic_packet_header_long(&payload->hdr)->flag);
         if (GQUIC_ASSERT_CAUSE(exception, gquic_packet_long_header_serialize(gquic_packet_header_long(&payload->hdr), &writer))) {
@@ -546,17 +562,22 @@ static int gquic_packet_packer_pack_with_padding(gquic_packed_packet_t *const pa
     }
     hdr_pn = gquic_packet_header_get_pn(&payload->hdr);
     header_size = GQUIC_STR_VAL(&writer) - GQUIC_STR_VAL(&buffer->slice);
+
+    // 如果存在ACK frame， 优先序列化ACK frame
     if (payload->ack != NULL) {
         if (GQUIC_ASSERT_CAUSE(exception, GQUIC_FRAME_SERIALIZE(payload->ack, &writer))) {
             goto failure;
         }
     }
+
+    // 填充padding
     if (padding_len > 0) {
         if (GQUIC_ASSERT_CAUSE(exception, gquic_writer_str_write_padding(&writer, 0, padding_len))) {
             goto failure;
         }
     }
 
+    // 序列化控制frame与stream frame
     if (payload->frames != NULL) {
         GQUIC_LIST_FOREACH(frame_storage, payload->frames) {
             if (GQUIC_ASSERT_CAUSE(exception, GQUIC_FRAME_SERIALIZE(*frame_storage, &writer))) {
@@ -565,21 +586,25 @@ static int gquic_packet_packer_pack_with_padding(gquic_packed_packet_t *const pa
         }
     }
 
+    // 长度检查
     if (GQUIC_STR_VAL(&writer) - GQUIC_STR_VAL(&buffer->slice) - header_size - padding_len != payload->len) {
         GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_INTERNAL_ERROR);
         goto failure;
     }
+    // 16为AEAD加密后的tag部分长度
     if ((u_int64_t) (GQUIC_STR_VAL(&writer) - GQUIC_STR_VAL(&buffer->slice) + 16) > packer->max_packet_size) {
         GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_INTERNAL_ERROR);
         goto failure;
     }
 
+    // 数据包头部部分为addata，数据包载体作为明文部分进行加密操作
     const gquic_str_t plain_text = {
         GQUIC_STR_VAL(&writer) - GQUIC_STR_VAL(&buffer->slice) - header_size,
         GQUIC_STR_VAL(&buffer->slice) + header_size
     };
     const gquic_str_t addata = { header_size, GQUIC_STR_VAL(&buffer->slice) };
 
+    // 加密
     if (GQUIC_ASSERT_CAUSE(exception,
                            GQUIC_PACKED_PACKET_PAYLOAD_SEAL(&tag, &cipher_text,
                                                             payload,
@@ -587,6 +612,7 @@ static int gquic_packet_packer_pack_with_padding(gquic_packed_packet_t *const pa
         goto failure;
     }
 
+    // 加密后的长度检查
     if (header_size + GQUIC_STR_SIZE(&tag) + GQUIC_STR_SIZE(&cipher_text) > GQUIC_STR_SIZE(&buffer->slice)) {
         GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_INTERNAL_ERROR);
         goto failure;
@@ -720,7 +746,7 @@ static int gquic_packet_packer_get_sealer_and_header(gquic_packed_packet_payload
 static gquic_exception_t gquic_packet_packer_try_pack_initial_packet(gquic_packed_packet_t *const packed_packet, gquic_packet_packer_t *const packer) {
     gquic_exception_t exception = GQUIC_SUCCESS;
     gquic_packed_packet_payload_t payload;
-    int has_retransmission = 0;
+    bool has_retransmission = false;
     if (packed_packet == NULL || packer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -753,10 +779,10 @@ static gquic_exception_t gquic_packet_packer_try_pack_initial_packet(gquic_packe
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_packet_packer_try_pack_handshake_packet(gquic_packed_packet_t *const packed_packet, gquic_packet_packer_t *const packer) {
-    int exception = GQUIC_SUCCESS;
+static gquic_exception_t gquic_packet_packer_try_pack_handshake_packet(gquic_packed_packet_t *const packed_packet, gquic_packet_packer_t *const packer) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     gquic_packed_packet_payload_t payload;
-    int has_retransmission = 0;
+    bool has_retransmission = false;
     if (packed_packet == NULL || packer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -792,8 +818,8 @@ static int gquic_packet_packer_try_pack_handshake_packet(gquic_packed_packet_t *
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_packet_packer_try_pack_app_packet(gquic_packed_packet_t *const packed_packet, gquic_packet_packer_t *const packer) {
-    int exception = GQUIC_SUCCESS;
+static gquic_exception_t gquic_packet_packer_try_pack_app_packet(gquic_packed_packet_t *const packed_packet, gquic_packet_packer_t *const packer) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     u_int64_t header_len = 0;
     u_int64_t max_size = 0;
     u_int64_t remain = 0;
@@ -911,8 +937,8 @@ static int gquic_packet_packer_try_pack_app_packet(gquic_packed_packet_t *const 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_packet_packer_try_pack_crypto_packet(gquic_packed_packet_t *const packed_packet, gquic_packet_packer_t *const packer) {
-    int exception = GQUIC_SUCCESS;
+static gquic_exception_t gquic_packet_packer_try_pack_crypto_packet(gquic_packed_packet_t *const packed_packet, gquic_packet_packer_t *const packer) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     if (packed_packet == NULL || packer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -964,9 +990,9 @@ static int gquic_packet_packer_try_pack_crypto_packet(gquic_packed_packet_t *con
     GQUIC_PROCESS_DONE(exception);
 }
 
-static int gquic_packet_packer_pack_crypto_packet(gquic_packed_packet_t *const packed_packet,
-                                                  gquic_packet_packer_t *const packer, gquic_packed_packet_payload_t *const payload,
-                                                  const bool has_retransmission) {
+static gquic_exception_t gquic_packet_packer_pack_crypto_packet(gquic_packed_packet_t *const packed_packet,
+                                                                gquic_packet_packer_t *const packer, gquic_packed_packet_payload_t *const payload,
+                                                                const bool has_retransmission) {
     gquic_crypto_stream_t *str = NULL;
     u_int64_t header_len = 0;
     u_int64_t remain = 0;
@@ -1019,7 +1045,7 @@ static int gquic_packet_packer_pack_crypto_packet(gquic_packed_packet_t *const p
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_packer_pack_packet(gquic_packed_packet_t *const packed_packet, gquic_packet_packer_t *const packer) {
+gquic_exception_t gquic_packet_packer_pack_packet(gquic_packed_packet_t *const packed_packet, gquic_packet_packer_t *const packer) {
     if (packed_packet == NULL || packer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }

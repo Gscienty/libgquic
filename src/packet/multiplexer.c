@@ -143,7 +143,7 @@ static gquic_exception_t gquic_multiplexer_recv_event(void *const _, void *const
     }
     GQUIC_LOG(GQUIC_LOG_DEBUG, "multiplexer received event");
 
-    liteco_channel_send(&handler->recv_event_chain, &handler->recv_event_chain);
+    liteco_channel_send(&handler->recv_event_chan, &handler->recv_event_chan);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

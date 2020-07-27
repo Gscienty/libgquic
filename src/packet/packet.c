@@ -1,14 +1,23 @@
+/* src/packet/packet.c 存储发送的数据包实体
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "packet/packet.h"
+#include "packet/packet_number.h"
 #include "frame/meta.h"
 #include "exception.h"
 #include "util/count_pointer.h"
 
-int gquic_packet_init(gquic_packet_t *const packet) {
+gquic_exception_t gquic_packet_init(gquic_packet_t *const packet) {
     if (packet == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    packet->pn = 0;
-    packet->largest_ack = 0;
+    packet->pn = GQUIC_INVALID_PACKET_NUMBER;
+    packet->largest_ack = GQUIC_INVALID_PACKET_NUMBER;
     packet->len = 0;
     packet->enc_lv = 0;
     packet->send_time = 0;
@@ -18,8 +27,8 @@ int gquic_packet_init(gquic_packet_t *const packet) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_dtor(gquic_packet_t *const packet) {
-    int exception = GQUIC_SUCCESS;
+gquic_exception_t gquic_packet_dtor(gquic_packet_t *const packet) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     if (packet == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }

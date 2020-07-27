@@ -239,7 +239,7 @@ static int gquic_server_handle_packet_initial(gquic_session_t **const session_st
     GQUIC_ASSERT_FAST_RETURN(gquic_session_init(*session_storage));
     GQUIC_ASSERT_FAST_RETURN(gquic_session_ctor(*session_storage, remote_conn, server->packet_handlers,
                                                 NULL, &cli_dst_conn_id, &cli_src_conn_id, &conn_id, NULL, server->config, 0, 0));
-    int added = gquic_packet_handler_map_add_if_not_taken(server->packet_handlers, &cli_dst_conn_id,
+    bool added = gquic_packet_handler_map_add_if_not_taken(server->packet_handlers, &cli_dst_conn_id,
                                                           gquic_session_implement_packet_handler(*session_storage));
     if (!added) {
         gquic_free(*session_storage);

@@ -1,32 +1,16 @@
+/* src/packet/packet_number.c packet number
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "packet/packet_number.h"
 #include "exception.h"
 #include <openssl/rand.h>
 
-size_t gquic_packet_number_size(const u_int64_t pn) {
-    if (pn <= 0xFF) {
-        return 1;
-    }
-    else if (pn <= 0xFFFF) {
-        return 2;
-    }
-    else if (pn <= 0xFFFFFF) {
-        return 3;
-    }
-    else if (pn <= 0x3FFFFFFF) {
-        return 4;
-    }
-    return 0;
-}
-
-unsigned char gquic_packet_number_flag(const u_int64_t pn) {
-    return gquic_packet_number_size(pn) - 1;
-}
-
-size_t gquic_packet_number_flag_to_size(const u_int8_t flag) {
-    return (flag & 0x03) + 1;
-}
-
-int gquic_packet_number_gen_init(gquic_packet_number_gen_t *const gen) {
+gquic_exception_t gquic_packet_number_gen_init(gquic_packet_number_gen_t *const gen) {
     if (gen == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -39,7 +23,7 @@ int gquic_packet_number_gen_init(gquic_packet_number_gen_t *const gen) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_number_gen_ctor(gquic_packet_number_gen_t *const gen, const u_int64_t init_pn, const u_int64_t average) {
+gquic_exception_t gquic_packet_number_gen_ctor(gquic_packet_number_gen_t *const gen, const u_int64_t init_pn, const u_int64_t average) {
     if (gen == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -50,7 +34,7 @@ int gquic_packet_number_gen_ctor(gquic_packet_number_gen_t *const gen, const u_i
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_number_gen_dtor(gquic_packet_number_gen_t *const gen) {
+gquic_exception_t gquic_packet_number_gen_dtor(gquic_packet_number_gen_t *const gen) {
     if (gen == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -61,7 +45,7 @@ int gquic_packet_number_gen_dtor(gquic_packet_number_gen_t *const gen) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_number_gen_new_skip(gquic_packet_number_gen_t *const gen) {
+gquic_exception_t gquic_packet_number_gen_new_skip(gquic_packet_number_gen_t *const gen) {
     u_int16_t num;
     u_int64_t skip;
     if (gen == NULL) {
@@ -74,7 +58,7 @@ int gquic_packet_number_gen_new_skip(gquic_packet_number_gen_t *const gen) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_number_gen_next(u_int64_t *const pn, gquic_packet_number_gen_t *const gen) {
+gquic_exception_t gquic_packet_number_gen_next(u_int64_t *const pn, gquic_packet_number_gen_t *const gen) {
     u_int64_t *mem_pn = NULL;
     if (gen == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -97,15 +81,15 @@ int gquic_packet_number_gen_next(u_int64_t *const pn, gquic_packet_number_gen_t 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_number_gen_valid(gquic_packet_number_gen_t *const gen, const gquic_list_t *const blocks) {
+bool gquic_packet_number_gen_valid(gquic_packet_number_gen_t *const gen, const gquic_list_t *const blocks) {
     u_int64_t *pn = NULL;
     if (gen == NULL || blocks == NULL) {
-        return 0;
+        return false;
     }
     GQUIC_LIST_FOREACH(pn, &gen->mem) {
         if (gquic_frame_ack_blocks_contain_packet(blocks, *pn)) {
-            return 0;
+            return false;
         }
     }
-    return 1;
+    return true;
 }
