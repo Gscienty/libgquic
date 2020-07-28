@@ -1,3 +1,11 @@
+/* include/packet/send_mode.h
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #ifndef _LIBGQUIC_PACKET_SEND_MODE_H
 #define _LIBGQUIC_PACKET_SEND_MODE_H
 

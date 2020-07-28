@@ -1,15 +1,24 @@
+/* src/packet/received_packet_handler.c 接收数据包处理模块
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "packet/received_packet_handler.h"
+#include "packet/packet_number.h"
 #include "frame/meta.h"
 #include "tls/common.h"
 #include "util/time.h"
 #include "exception.h"
 
-static int gquic_packet_received_mem_add(gquic_packet_received_mem_t *const, const u_int64_t);
+static gquic_exception_t gquic_packet_received_mem_add(gquic_packet_received_mem_t *const, const u_int64_t);
 
-static int gquic_packet_received_packet_handler_miss(const gquic_packet_received_packet_handler_t *const, const u_int64_t);
-static int gquic_packet_received_packet_handler_has_miss_packet(const gquic_packet_received_packet_handler_t *const);
+static bool gquic_packet_received_packet_handler_miss(const gquic_packet_received_packet_handler_t *const, const u_int64_t);
+static bool gquic_packet_received_packet_handler_has_miss_packet(const gquic_packet_received_packet_handler_t *const);
 
-int gquic_packet_received_mem_init(gquic_packet_received_mem_t *const mem) {
+gquic_exception_t gquic_packet_received_mem_init(gquic_packet_received_mem_t *const mem) {
     if (mem == NULL) {
          GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -20,7 +29,7 @@ int gquic_packet_received_mem_init(gquic_packet_received_mem_t *const mem) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_received_mem_dtor(gquic_packet_received_mem_t *const mem) {
+gquic_exception_t gquic_packet_received_mem_dtor(gquic_packet_received_mem_t *const mem) {
     if (mem == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -31,7 +40,7 @@ int gquic_packet_received_mem_dtor(gquic_packet_received_mem_t *const mem) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_reveived_mem_received(gquic_packet_received_mem_t *const mem, const u_int64_t pn) {
+gquic_exception_t gquic_packet_reveived_mem_received(gquic_packet_received_mem_t *const mem, const u_int64_t pn) {
     if (mem == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -48,7 +57,7 @@ int gquic_packet_reveived_mem_received(gquic_packet_received_mem_t *const mem, c
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_packet_received_mem_add(gquic_packet_received_mem_t *const mem, const u_int64_t pn) {
+static gquic_exception_t gquic_packet_received_mem_add(gquic_packet_received_mem_t *const mem, const u_int64_t pn) {
     gquic_packet_interval_t *interval = NULL;
     gquic_packet_interval_t *prev_interval = NULL;
     if (mem == NULL) {
@@ -59,9 +68,7 @@ static int gquic_packet_received_mem_add(gquic_packet_received_mem_t *const mem,
         interval->end = pn;
         interval->start = pn;
         mem->ranges_count++;
-        if (gquic_list_insert_before(&mem->ranges, interval) != 0) {
-            return GQUIC_EXCEPTION_INTERNAL_ERROR;
-        }
+        GQUIC_ASSERT_FAST_RETURN(gquic_list_insert_before(&mem->ranges, interval));
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
 
@@ -70,13 +77,13 @@ static int gquic_packet_received_mem_add(gquic_packet_received_mem_t *const mem,
             GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
         }
 
-        int extended = 0;
+        bool extended = false;
         if (interval->end + 1 == pn) {
-            extended = 1;
+            extended = true;
             interval->end++;
         }
         else if (interval->start - 1 == pn) {
-            extended = 1;
+            extended = true;
             interval->start--;
         }
 
@@ -110,7 +117,7 @@ static int gquic_packet_received_mem_add(gquic_packet_received_mem_t *const mem,
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_received_mem_delete_below(gquic_packet_received_mem_t *const mem, const u_int64_t pn) {
+gquic_exception_t gquic_packet_received_mem_delete_below(gquic_packet_received_mem_t *const mem, const u_int64_t pn) {
     gquic_packet_interval_t *prev = NULL;
     gquic_packet_interval_t *cur = NULL;
     if (mem == NULL) {
@@ -140,7 +147,7 @@ int gquic_packet_received_mem_delete_below(gquic_packet_received_mem_t *const me
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_received_packet_handler_init(gquic_packet_received_packet_handler_t *const handler) {
+gquic_exception_t gquic_packet_received_packet_handler_init(gquic_packet_received_packet_handler_t *const handler) {
     if (handler == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -153,14 +160,14 @@ int gquic_packet_received_packet_handler_init(gquic_packet_received_packet_handl
     handler->rtt = NULL;
     handler->since_last_ack.ack_eliciting_count = 0;
     handler->since_last_ack.packets_count = 0;
-    handler->ack_queued = 0;
+    handler->ack_queued = false;
     handler->ack_alarm = 0;
     handler->last_ack = NULL;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_received_packet_handler_ctor(gquic_packet_received_packet_handler_t *const handler, gquic_rtt_t *const rtt) {
+gquic_exception_t gquic_packet_received_packet_handler_ctor(gquic_packet_received_packet_handler_t *const handler, gquic_rtt_t *const rtt) {
     if (handler == NULL || rtt == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -170,7 +177,7 @@ int gquic_packet_received_packet_handler_ctor(gquic_packet_received_packet_handl
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_received_packet_handler_dtor(gquic_packet_received_packet_handler_t *const handler) {
+gquic_exception_t gquic_packet_received_packet_handler_dtor(gquic_packet_received_packet_handler_t *const handler) {
     if (handler == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -182,10 +189,8 @@ int gquic_packet_received_packet_handler_dtor(gquic_packet_received_packet_handl
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_received_packet_handler_received_packet(gquic_packet_received_packet_handler_t *const handler,
-                                                         const u_int64_t pn,
-                                                         const u_int64_t recv_time,
-                                                         const int should_inst_ack) {
+gquic_exception_t gquic_packet_received_packet_handler_received_packet(gquic_packet_received_packet_handler_t *const handler,
+                                                                       const u_int64_t pn, const u_int64_t recv_time, const bool should_inst_ack) {
     if (handler == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -200,17 +205,17 @@ int gquic_packet_received_packet_handler_received_packet(gquic_packet_received_p
 
     handler->since_last_ack.packets_count++;
     if (handler->last_ack == NULL) {
-        handler->ack_queued = 1;
+        handler->ack_queued = true;
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
     if (gquic_packet_received_packet_handler_miss(handler, pn)) {
-        handler->ack_queued = 1;
+        handler->ack_queued = true;
     }
     if (!handler->ack_queued && should_inst_ack) {
         handler->since_last_ack.ack_eliciting_count++;
         if (pn > 100) {
             if (handler->since_last_ack.ack_eliciting_count >= 10) {
-                handler->ack_queued = 1;
+                handler->ack_queued = true;
             }
             else if (handler->ack_alarm == 0) {
                 u_int64_t ack_delay = handler->rtt->min / 4;
@@ -220,7 +225,7 @@ int gquic_packet_received_packet_handler_received_packet(gquic_packet_received_p
         }
         else {
             if (handler->since_last_ack.ack_eliciting_count >= 2) {
-                handler->ack_queued = 1;
+                handler->ack_queued = true;
             }
             else if (handler->ack_alarm == 0) {
                 handler->ack_alarm = recv_time + handler->max_ack_delay;
@@ -241,7 +246,7 @@ int gquic_packet_received_packet_handler_received_packet(gquic_packet_received_p
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_received_mem_get_blocks(gquic_list_t *const blocks, const gquic_packet_received_mem_t *const mem) {
+gquic_exception_t gquic_packet_received_mem_get_blocks(gquic_list_t *const blocks, const gquic_packet_received_mem_t *const mem) {
     gquic_packet_interval_t *interval = NULL;
     gquic_frame_ack_block_t *block = NULL;
     if (blocks == NULL || mem == NULL) {
@@ -261,9 +266,10 @@ int gquic_packet_received_mem_get_blocks(gquic_list_t *const blocks, const gquic
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_received_packet_handler_get_ack_frame(gquic_frame_ack_t **const ack, gquic_packet_received_packet_handler_t *const handler) {
+gquic_exception_t gquic_packet_received_packet_handler_get_ack_frame(gquic_frame_ack_t **const ack,
+                                                                     gquic_packet_received_packet_handler_t *const handler) {
     u_int64_t now;
-    int exception = GQUIC_SUCCESS;
+    gquic_exception_t exception = GQUIC_SUCCESS;
     gquic_list_t blocks;
     if (ack == NULL || handler == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -293,7 +299,7 @@ int gquic_packet_received_packet_handler_get_ack_frame(gquic_frame_ack_t **const
     }
     handler->last_ack = (gquic_frame_ack_t *) gquic_frame_assign(*ack);
     handler->ack_alarm = 0;
-    handler->ack_queued = 0;
+    handler->ack_queued = false;
     handler->since_last_ack.ack_eliciting_count = 0;
     handler->since_last_ack.packets_count = 0;
 
@@ -303,7 +309,7 @@ int gquic_packet_received_packet_handler_get_ack_frame(gquic_frame_ack_t **const
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_received_packet_handler_ignore_below(gquic_packet_received_packet_handler_t *const handler, const u_int64_t pn) {
+gquic_exception_t gquic_packet_received_packet_handler_ignore_below(gquic_packet_received_packet_handler_t *const handler, const u_int64_t pn) {
     if (handler == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -315,14 +321,14 @@ int gquic_packet_received_packet_handler_ignore_below(gquic_packet_received_pack
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_packet_received_packet_handler_miss(const gquic_packet_received_packet_handler_t *const handler, const u_int64_t pn) {
-    int ret = 0;
+static bool gquic_packet_received_packet_handler_miss(const gquic_packet_received_packet_handler_t *const handler, const u_int64_t pn) {
+    bool ret = false;
     gquic_list_t blocks;
     if (handler == NULL) {
-        return 0;
+        return true;
     }
     if (handler->last_ack == NULL || pn < handler->ignore_below) {
-        return 0;
+        return true;
     }
     gquic_list_head_init(&blocks);
     gquic_frame_ack_ranges_to_blocks(&blocks, handler->last_ack);
@@ -334,68 +340,66 @@ static int gquic_packet_received_packet_handler_miss(const gquic_packet_received
     return ret;
 }
 
-static int gquic_packet_received_packet_handler_has_miss_packet(const gquic_packet_received_packet_handler_t *const handler) {
+static bool gquic_packet_received_packet_handler_has_miss_packet(const gquic_packet_received_packet_handler_t *const handler) {
     if (handler == NULL) {
-        return 0;
+        return false;
     }
     if (handler->last_ack == NULL) {
-        return 0;
+        return false;
     }
     if (gquic_list_head_empty(&handler->mem.ranges)) {
-        return 0;
+        return false;
     }
     gquic_packet_interval_t *interval = GQUIC_LIST_LAST(&handler->mem.ranges);
 
     return interval->start >= handler->last_ack->largest_ack && interval->end - interval->start + 1 <= 4;
 }
 
-int gquic_packet_received_packet_handlers_init(gquic_packet_received_packet_handlers_t *const handlers) {
+gquic_exception_t gquic_packet_received_packet_handlers_init(gquic_packet_received_packet_handlers_t *const handlers) {
     if (handlers == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_packet_received_packet_handler_init(&handlers->initial);
     gquic_packet_received_packet_handler_init(&handlers->handshake);
     gquic_packet_received_packet_handler_init(&handlers->one_rtt);
-    handlers->handshake_dropped = 1;
-    handlers->initial_dropped = 1;
-    handlers->one_rtt_dropped = 1;
+    handlers->handshake_dropped = true;
+    handlers->initial_dropped = true;
+    handlers->one_rtt_dropped = true;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_received_packet_handlers_ctor(gquic_packet_received_packet_handlers_t *const handlers, gquic_rtt_t *const rtt) {
+gquic_exception_t gquic_packet_received_packet_handlers_ctor(gquic_packet_received_packet_handlers_t *const handlers, gquic_rtt_t *const rtt) {
     if (handlers == NULL || rtt == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_packet_received_packet_handler_ctor(&handlers->initial, rtt);
     gquic_packet_received_packet_handler_ctor(&handlers->handshake, rtt);
     gquic_packet_received_packet_handler_ctor(&handlers->one_rtt, rtt);
-    handlers->handshake_dropped = 0;
-    handlers->initial_dropped = 0;
-    handlers->one_rtt_dropped = 0;
+    handlers->handshake_dropped = false;
+    handlers->initial_dropped = false;
+    handlers->one_rtt_dropped = false;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_received_packet_handlers_dtor(gquic_packet_received_packet_handlers_t *const handlers) {
+gquic_exception_t gquic_packet_received_packet_handlers_dtor(gquic_packet_received_packet_handlers_t *const handlers) {
     if (handlers == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     gquic_packet_received_packet_handler_dtor(&handlers->initial);
     gquic_packet_received_packet_handler_dtor(&handlers->handshake);
     gquic_packet_received_packet_handler_dtor(&handlers->one_rtt);
-    handlers->handshake_dropped = 0;
-    handlers->initial_dropped = 0;
-    handlers->one_rtt_dropped = 0;
+    handlers->handshake_dropped = true;
+    handlers->initial_dropped = true;
+    handlers->one_rtt_dropped = true;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_received_packet_handlers_received_packet(gquic_packet_received_packet_handlers_t *const handlers,
-                                                          const u_int64_t pn,
-                                                          const u_int64_t recv_time,
-                                                          const int should_inst_ack,
-                                                          const u_int8_t enc_lv) {
+gquic_exception_t gquic_packet_received_packet_handlers_received_packet(gquic_packet_received_packet_handlers_t *const handlers,
+                                                                        const u_int64_t pn, const u_int64_t recv_time, const bool should_inst_ack,
+                                                                        const u_int8_t enc_lv) {
     if (handlers == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -428,14 +432,14 @@ int gquic_packet_received_packet_handlers_received_packet(gquic_packet_received_
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_received_packet_handlers_ignore_below(gquic_packet_received_packet_handlers_t *const handlers, const u_int64_t pn) {
+gquic_exception_t gquic_packet_received_packet_handlers_ignore_below(gquic_packet_received_packet_handlers_t *const handlers, const u_int64_t pn) {
     if (handlers == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     return gquic_packet_received_packet_handler_ignore_below(&handlers->one_rtt, pn);
 }
 
-int gquic_packet_received_packet_handlers_drop_packets(gquic_packet_received_packet_handlers_t *const handlers, const u_int8_t enc_lv) {
+gquic_exception_t gquic_packet_received_packet_handlers_drop_packets(gquic_packet_received_packet_handlers_t *const handlers, const u_int8_t enc_lv) {
     if (handlers == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -482,9 +486,8 @@ u_int64_t gquic_packet_received_packet_handlers_get_alarm_timeout(gquic_packet_r
     return ret;
 }
 
-int gquic_packet_received_packet_handlers_get_ack_frame(gquic_frame_ack_t **const ack,
-                                                        gquic_packet_received_packet_handlers_t *const handlers,
-                                                        const u_int8_t enc_lv) {
+gquic_exception_t gquic_packet_received_packet_handlers_get_ack_frame(gquic_frame_ack_t **const ack,
+                                                                      gquic_packet_received_packet_handlers_t *const handlers, const u_int8_t enc_lv) {
     if (ack == NULL || handlers == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }

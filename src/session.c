@@ -1023,7 +1023,6 @@ static inline u_int64_t gquic_session_idle_timeout_start_time(gquic_session_t *c
 }
 
 static int gquic_session_handle_packet_inner(gquic_session_t *const sess, gquic_received_packet_t *const rp) {
-    gquic_exception_t exception = GQUIC_SUCCESS;
     int counter = 0;
     int processed = 0;
     gquic_reader_str_t data = { 0, NULL };
@@ -1034,12 +1033,16 @@ static int gquic_session_handle_packet_inner(gquic_session_t *const sess, gquic_
     }
     data = rp->data;
     p = rp;
-    GQUIC_CPTR_ASSIGN(exception, &buffer, p->buffer, gquic_cptr_packet_buffer_t, buffer, cptr);
+    buffer = rp->buffer;
 
-    while (GQUIC_STR_SIZE(&data) != 0) {
+    for (counter = 0; GQUIC_STR_SIZE(&data) != 0; counter++) {
+        // 保证循环中至少buffer被引用一次
+        gquic_count_pointer_ref(&GQUIC_CPTR_CONTAIN_OF(buffer, gquic_cptr_packet_buffer_t, buffer)->cptr);
+
         if (counter > 0) {
             gquic_received_packet_t *prev_p = p;
-            gquic_received_packet_copy(&p, p);
+            GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(&p, gquic_received_packet_t));
+            *p = *prev_p;
             p->data = data;
 
             if (prev_p != rp) {
@@ -1047,6 +1050,7 @@ static int gquic_session_handle_packet_inner(gquic_session_t *const sess, gquic_
             }
         }
        if (GQUIC_ASSERT(gquic_packet_header_deserialize_packet_len(&p->data.size, &data, sess->src_conn_id_len))) {
+           gquic_packet_buffer_put(buffer);
            break;
        }
        if (gquic_packet_header_deserlialize_type(&p->data) == GQUIC_LONG_HEADER_RETRY) {
@@ -1057,15 +1061,12 @@ static int gquic_session_handle_packet_inner(gquic_session_t *const sess, gquic_
        if (GQUIC_ASSERT(gquic_packet_header_deserialize_conn_id(&p->dst_conn_id, &p->data, sess->src_conn_id_len))) {
            break;
        }
-       if (counter > 0) {
-           gquic_count_pointer_ref(&GQUIC_CPTR_CONTAIN_OF(p->buffer, gquic_cptr_packet_buffer_t, buffer)->cptr);
-       }
-       counter++;
        processed = gquic_session_handle_single_packet(sess, p);
+
+       gquic_packet_buffer_put(buffer);
     }
 
-    gquic_packet_buffer_put(buffer);
-
+    gquic_packet_buffer_put(rp->buffer);
     if (p != rp) {
         gquic_free(p);
     }
@@ -1076,7 +1077,7 @@ static int gquic_session_handle_packet_inner(gquic_session_t *const sess, gquic_
 static int gquic_session_handle_single_packet(gquic_session_t *const sess, gquic_received_packet_t *const rp) {
     int ret = 0;
     int exception = GQUIC_SUCCESS;
-    int was_queued = 0;
+    bool was_queued = false;
     gquic_packet_buffer_t *buffer = NULL;
     gquic_unpacked_packet_t packet;
     if (sess == NULL || rp == NULL) {
@@ -1109,7 +1110,7 @@ static int gquic_session_handle_single_packet(gquic_session_t *const sess, gquic
         case GQUIC_EXCEPTION_KEY_DROPPED:
             break;
         case GQUIC_EXCEPTION_KEY_UNAVAILABLE:
-            was_queued = 1;
+            was_queued = true;
             gquic_session_try_queue_undecryptable_packet(sess, rp);
             goto finished;
         case GQUIC_EXCEPTION_INVALID_RESERVED_BITS:
@@ -1127,8 +1128,8 @@ static int gquic_session_handle_single_packet(gquic_session_t *const sess, gquic
 
 finished:
     gquic_unpacked_packet_dtor(&packet);
-    if (!was_queued) {
-        gquic_packet_buffer_put(buffer);
+    if (was_queued) {
+        gquic_count_pointer_ref(&GQUIC_CPTR_CONTAIN_OF(buffer, gquic_cptr_packet_buffer_t, buffer)->cptr);
     }
 
     return ret;

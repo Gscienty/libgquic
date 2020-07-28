@@ -1,9 +1,17 @@
+/* src/packet/retransmission_queue.c 超时重发队列
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "packet/retransmission_queue.h"
 #include "frame/meta.h"
 #include "tls/common.h"
 #include "exception.h"
 
-int gquic_retransmission_queue_init(gquic_retransmission_queue_t *const queue) {
+gquic_exception_t gquic_retransmission_queue_init(gquic_retransmission_queue_t *const queue) {
     if (queue == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -16,7 +24,7 @@ int gquic_retransmission_queue_init(gquic_retransmission_queue_t *const queue) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_retransmission_queue_add_initial(gquic_retransmission_queue_t *const queue, void *const frame) {
+gquic_exception_t gquic_retransmission_queue_add_initial(gquic_retransmission_queue_t *const queue, void *const frame) {
     const void **frame_storage = NULL;
     if (queue == NULL || frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -33,7 +41,7 @@ int gquic_retransmission_queue_add_initial(gquic_retransmission_queue_t *const q
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_retransmission_queue_add_handshake(gquic_retransmission_queue_t *const queue, void *const frame) {
+gquic_exception_t gquic_retransmission_queue_add_handshake(gquic_retransmission_queue_t *const queue, void *const frame) {
     const void **frame_storage = NULL;
     if (queue == NULL || frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -50,7 +58,7 @@ int gquic_retransmission_queue_add_handshake(gquic_retransmission_queue_t *const
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_retransmission_queue_add_app(gquic_retransmission_queue_t *const queue, void *const frame) {
+gquic_exception_t gquic_retransmission_queue_add_app(gquic_retransmission_queue_t *const queue, void *const frame) {
     const void **frame_storage = NULL;
     if (queue == NULL || frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -62,21 +70,7 @@ int gquic_retransmission_queue_add_app(gquic_retransmission_queue_t *const queue
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_retransmission_queue_has_initial(gquic_retransmission_queue_t *const queue) {
-    if (queue == NULL) {
-        return 0;
-    }
-    return !gquic_list_head_empty(&queue->initial) || !gquic_list_head_empty(&queue->initial_crypto);
-}
-
-int gquic_retransmission_queue_has_handshake(gquic_retransmission_queue_t *const queue) {
-    if (queue == NULL) {
-        return 0;
-    }
-    return !gquic_list_head_empty(&queue->handshake) || !gquic_list_head_empty(&queue->handshake_crypto);
-}
-
-int gquic_retransmission_queue_get_initial(void **const frame, gquic_retransmission_queue_t *const queue, const u_int64_t size) {
+gquic_exception_t gquic_retransmission_queue_get_initial(void **const frame, gquic_retransmission_queue_t *const queue, const u_int64_t size) {
     if (frame == NULL || queue == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -99,7 +93,7 @@ int gquic_retransmission_queue_get_initial(void **const frame, gquic_retransmiss
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_retransmission_queue_get_handshake(void **const frame, gquic_retransmission_queue_t *const queue, const u_int64_t size) {
+gquic_exception_t gquic_retransmission_queue_get_handshake(void **const frame, gquic_retransmission_queue_t *const queue, const u_int64_t size) {
     if (frame == NULL || queue == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -122,7 +116,7 @@ int gquic_retransmission_queue_get_handshake(void **const frame, gquic_retransmi
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_retransmission_queue_get_app(void **const frame, gquic_retransmission_queue_t *const queue, const u_int64_t size) {
+gquic_exception_t gquic_retransmission_queue_get_app(void **const frame, gquic_retransmission_queue_t *const queue, const u_int64_t size) {
     if (frame == NULL || queue == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -137,7 +131,7 @@ int gquic_retransmission_queue_get_app(void **const frame, gquic_retransmission_
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_retransmission_queue_drop_packets(gquic_retransmission_queue_t *const queue, const u_int8_t enc_lv) {
+gquic_exception_t gquic_retransmission_queue_drop_packets(gquic_retransmission_queue_t *const queue, const u_int8_t enc_lv) {
     if (queue == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }

@@ -1,8 +1,16 @@
+/* src/packet/received_packet.c 接收到的数据包
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "packet/received_packet.h"
 #include "util/malloc.h"
 #include "exception.h"
 
-int gquic_received_packet_init(gquic_received_packet_t *const recv_packet) {
+gquic_exception_t gquic_received_packet_init(gquic_received_packet_t *const recv_packet) {
     if (recv_packet == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -11,17 +19,6 @@ int gquic_received_packet_init(gquic_received_packet_t *const recv_packet) {
     gquic_str_init(&recv_packet->data);
     recv_packet->buffer = NULL;
     gquic_str_init(&recv_packet->dst_conn_id);
-
-    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
-}
-
-int gquic_received_packet_copy(gquic_received_packet_t **const target, gquic_received_packet_t *const recv_packet) {
-    if (target == NULL || recv_packet == NULL) {
-        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
-    }
-    GQUIC_ASSERT_FAST_RETURN(GQUIC_MALLOC_STRUCT(target, gquic_received_packet_t));
-    **target = *recv_packet;
-    *(*target)->buffer = *recv_packet->buffer;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }

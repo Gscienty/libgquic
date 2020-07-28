@@ -3,9 +3,9 @@
 #include "exception.h"
 #include <stddef.h>
 
-static int gquic_packet_buffer_release(void *const);
+static gquic_exception_t gquic_packet_buffer_release(void *const);
 
-int gquic_packet_buffer_get(gquic_packet_buffer_t **const buffer_storage) {
+gquic_exception_t gquic_packet_buffer_get(gquic_packet_buffer_t **const buffer_storage) {
     gquic_exception_t exception = GQUIC_SUCCESS;
     if (buffer_storage == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -19,8 +19,8 @@ int gquic_packet_buffer_get(gquic_packet_buffer_t **const buffer_storage) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_buffer_put(gquic_packet_buffer_t *const buffer) {
-    int exception = GQUIC_SUCCESS;
+gquic_exception_t gquic_packet_buffer_put(gquic_packet_buffer_t *const buffer) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     if (buffer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -29,8 +29,8 @@ int gquic_packet_buffer_put(gquic_packet_buffer_t *const buffer) {
     GQUIC_PROCESS_DONE(exception);
 }
 
-int gquic_packet_buffer_assign(gquic_packet_buffer_t **const buffer_storage, gquic_packet_buffer_t *const buffer) {
-    int exception = GQUIC_SUCCESS;
+gquic_exception_t gquic_packet_buffer_assign(gquic_packet_buffer_t **const buffer_storage, gquic_packet_buffer_t *const buffer) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     if (buffer_storage == NULL || buffer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -39,7 +39,7 @@ int gquic_packet_buffer_assign(gquic_packet_buffer_t **const buffer_storage, gqu
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_packet_buffer_release(void *const buffer_) {
+static gquic_exception_t gquic_packet_buffer_release(void *const buffer_) {
     if (buffer_ == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
