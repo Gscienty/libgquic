@@ -243,9 +243,9 @@ gquic_exception_t gquic_handshake_establish_init(gquic_handshake_establish_t *co
  * @return: exception
  */
 gquic_exception_t gquic_handshake_establish_ctor(gquic_handshake_establish_t *const est,
-                                                 void *initial_stream_self, int (*initial_stream_cb) (void *const, gquic_writer_str_t *const),
-                                                 void *handshake_stream_self, int (*handshake_stream_cb) (void *const, gquic_writer_str_t *const),
-                                                 void *one_rtt_self, int (*one_rtt_cb) (void *const, gquic_writer_str_t *const),
+                                                 void *initial_stream_self, int (*initial_stream_cb) (void *const, gquic_reader_str_t *const),
+                                                 void *handshake_stream_self, int (*handshake_stream_cb) (void *const, gquic_reader_str_t *const),
+                                                 void *one_rtt_self, int (*one_rtt_cb) (void *const, gquic_reader_str_t *const),
                                                  void *chello_written_self, int (*chello_written_cb) (void *const),
                                                  gquic_tls_config_t *const cfg,
                                                  const gquic_str_t *const conn_id,
@@ -308,9 +308,9 @@ gquic_exception_t gquic_handshake_establish_close(gquic_handshake_establish_t *c
  * @param data: data
  * @param env_level: 加密级别
  *
- * @return: exception
+ * @return: establish是否产生更迭
  */
-gquic_exception_t gquic_handshake_establish_handle_msg(gquic_handshake_establish_t *const est, const gquic_str_t *const data, const u_int8_t enc_level);
+bool gquic_handshake_establish_handle_msg(gquic_handshake_establish_t *const est, const gquic_str_t *const data, const u_int8_t enc_level);
 
 /**
  * 从安全信道建立过程中获取message（用于发送）

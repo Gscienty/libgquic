@@ -94,11 +94,11 @@ static int gquic_packet_handler_map_replace_with_closed_wrapper(void *const, con
 
 static int gquic_session_implement_stream_sender(gquic_stream_sender_t *const, void *const);
 
-static int gquic_initial_stream_write_wrapper(void *const, gquic_writer_str_t *const);
-static int gquic_handshake_stream_write_wrapper(void *const, gquic_writer_str_t *const);
-static int gquic_one_rtt_stream_write_wrapper(void *const, gquic_writer_str_t *const);
+static int gquic_initial_stream_write_wrapper(void *const, gquic_reader_str_t *const);
+static int gquic_handshake_stream_write_wrapper(void *const, gquic_reader_str_t *const);
+static int gquic_one_rtt_stream_write_wrapper(void *const, gquic_reader_str_t *const);
 
-static int gquic_handshake_establish_handle_msg_wrapper(void *const, const gquic_str_t *const, const u_int8_t);
+static bool gquic_handshake_establish_handle_msg_wrapper(void *const, const gquic_str_t *const, const u_int8_t);
 static int gquic_conn_id_manager_get_wrapper(gquic_str_t *const, void *const);
 static int gquic_framer_queue_control_frame_wrapper(void *const, void *const);
 
@@ -407,19 +407,19 @@ static int gquic_packet_handler_map_replace_with_closed_wrapper(void *const hand
     return gquic_packet_handler_map_replace_with_closed(handler, conn_id, ph);
 }
 
-static int gquic_initial_stream_write_wrapper(void *const str, gquic_writer_str_t *const writer) {
-    return gquic_crypto_stream_write(str, writer);
+static int gquic_initial_stream_write_wrapper(void *const str, gquic_reader_str_t *const reader) {
+    return gquic_crypto_stream_write(str, reader);
 }
 
-static int gquic_handshake_stream_write_wrapper(void *const str, gquic_writer_str_t *const writer) {
-    return gquic_crypto_stream_write(str, writer);
+static int gquic_handshake_stream_write_wrapper(void *const str, gquic_reader_str_t *const reader) {
+    return gquic_crypto_stream_write(str, reader);
 }
 
-static int gquic_one_rtt_stream_write_wrapper(void *const str, gquic_writer_str_t *const writer) {
-    return gquic_post_handshake_crypto_write(str, writer);
+static int gquic_one_rtt_stream_write_wrapper(void *const str, gquic_reader_str_t *const reader) {
+    return gquic_post_handshake_crypto_write(str, reader);
 }
 
-static int gquic_handshake_establish_handle_msg_wrapper(void *const est, const gquic_str_t *const data, const u_int8_t enc_lv) {
+static bool gquic_handshake_establish_handle_msg_wrapper(void *const est, const gquic_str_t *const data, const u_int8_t enc_lv) {
     return gquic_handshake_establish_handle_msg(est, data, enc_lv);
 }
 
@@ -1346,7 +1346,7 @@ static int gquic_session_handle_stream_frame(gquic_session_t *const sess, gquic_
 }
 
 static int gquic_session_handle_crypto_frame(gquic_session_t *const sess, gquic_frame_crypto_t *const frame, const u_int8_t enc_lv) {
-    int changed = 0;
+    bool changed = false;
     if (sess == NULL || frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }

@@ -3,10 +3,10 @@
 #include "exception.h"
 #include "util/malloc.h"
 
-static int gquic_crypto_stream_calc_readed_bytes(u_int64_t *const, gquic_crypto_stream_t *const);
-static int gquic_crypto_stream_calc_writed_bytes(u_int64_t *const, gquic_crypto_stream_t *const);
+static gquic_exception_t gquic_crypto_stream_calc_readed_bytes(u_int64_t *const readed_size, gquic_crypto_stream_t *const str);
+static gquic_exception_t gquic_crypto_stream_calc_writed_bytes(u_int64_t *const writed_size, gquic_crypto_stream_t *const str);
 
-int gquic_crypto_stream_init(gquic_crypto_stream_t *const str) {
+gquic_exception_t gquic_crypto_stream_init(gquic_crypto_stream_t *const str) {
     if (str == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -15,14 +15,14 @@ int gquic_crypto_stream_init(gquic_crypto_stream_t *const str) {
     gquic_str_init(&str->in_buf);
     str->highest_off = 0;
     str->out_off = 0;
-    str->finished = 0;
+    str->finished = false;
     gquic_str_init(&str->out_reader);
     gquic_str_init(&str->out_buf);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_crypto_stream_ctor(gquic_crypto_stream_t *const str) {
+gquic_exception_t gquic_crypto_stream_ctor(gquic_crypto_stream_t *const str) {
     if (str == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -31,7 +31,7 @@ int gquic_crypto_stream_ctor(gquic_crypto_stream_t *const str) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_crypto_stream_handle_crypto_frame(gquic_crypto_stream_t *const str, gquic_frame_crypto_t *const frame) {
+gquic_exception_t gquic_crypto_stream_handle_crypto_frame(gquic_crypto_stream_t *const str, gquic_frame_crypto_t *const frame) {
     u_int64_t highest_off = 0;
     if (str == NULL || frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -77,7 +77,7 @@ int gquic_crypto_stream_handle_crypto_frame(gquic_crypto_stream_t *const str, gq
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_crypto_stream_calc_readed_bytes(u_int64_t *const ret, gquic_crypto_stream_t *const str) {
+static gquic_exception_t gquic_crypto_stream_calc_readed_bytes(u_int64_t *const ret, gquic_crypto_stream_t *const str) {
     gquic_str_t tmp = { 0, NULL };
     if (ret == NULL || str == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -95,7 +95,7 @@ static int gquic_crypto_stream_calc_readed_bytes(u_int64_t *const ret, gquic_cry
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_crypto_stream_calc_writed_bytes(u_int64_t *const ret, gquic_crypto_stream_t *const str) {
+static gquic_exception_t gquic_crypto_stream_calc_writed_bytes(u_int64_t *const ret, gquic_crypto_stream_t *const str) {
     gquic_str_t tmp = { 0, NULL };
     if (ret == NULL || str == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -113,7 +113,7 @@ static int gquic_crypto_stream_calc_writed_bytes(u_int64_t *const ret, gquic_cry
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_crypto_stream_get_data(gquic_str_t *const data, gquic_crypto_stream_t *const str) {
+gquic_exception_t gquic_crypto_stream_get_data(gquic_str_t *const data, gquic_crypto_stream_t *const str) {
     u_int64_t slice_len = 0;
     if (data == NULL || str == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -135,45 +135,46 @@ int gquic_crypto_stream_get_data(gquic_str_t *const data, gquic_crypto_stream_t 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_crypto_stream_finish(gquic_crypto_stream_t *const str) {
+gquic_exception_t gquic_crypto_stream_finish(gquic_crypto_stream_t *const str) {
     if (str == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (!gquic_rbtree_is_nil(str->sorter.root)) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_CRYPTO_HAS_MORE_DATA_TO_READ);
     }
-    str->finished = 1;
+    str->finished = true;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_crypto_stream_write(gquic_crypto_stream_t *const str, gquic_writer_str_t *const writer) {
+gquic_exception_t gquic_crypto_stream_write(gquic_crypto_stream_t *const str, gquic_reader_str_t *const reader) {
     u_int64_t out_readed_size = 0;
     gquic_str_t concated = { 0, NULL };
-    if (str == NULL || writer == NULL) {
+    if (str == NULL || reader == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_crypto_stream_calc_writed_bytes(&out_readed_size, str));
-    GQUIC_ASSERT_FAST_RETURN(gquic_str_concat(&concated, &str->out_buf, writer));
+    GQUIC_ASSERT_FAST_RETURN(gquic_str_concat(&concated, &str->out_buf, reader));
     str->out_buf = concated;
     str->out_reader = str->out_buf;
     GQUIC_ASSERT_FAST_RETURN(gquic_writer_str_writed_size(&str->out_reader, out_readed_size));
-    GQUIC_ASSERT_FAST_RETURN(gquic_writer_str_writed_size(writer, GQUIC_STR_SIZE(writer)));
+    GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_readed_size(reader, GQUIC_STR_SIZE(reader)));
 
     GQUIC_LOG(GQUIC_LOG_INFO, "crypto_stream write data (for sending)");
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_crypto_stream_has_data(gquic_crypto_stream_t *const str) {
+bool gquic_crypto_stream_has_data(gquic_crypto_stream_t *const str) {
     if (str == NULL) {
-        return 0;
+        return false;
     }
 
     return GQUIC_STR_SIZE(&str->out_reader) != 0;
 }
 
-int gquic_crypto_stream_pop_crypto_frame(gquic_frame_crypto_t **frame_storage, gquic_crypto_stream_t *const str, const u_int64_t max_len) {
+gquic_exception_t gquic_crypto_stream_pop_crypto_frame(gquic_frame_crypto_t **frame_storage,
+                                                       gquic_crypto_stream_t *const str, const u_int64_t max_len) {
     u_int64_t write_size = max_len;
     if (frame_storage == NULL || str == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -195,7 +196,7 @@ int gquic_crypto_stream_pop_crypto_frame(gquic_frame_crypto_t **frame_storage, g
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_post_handshake_crypto_stream_init(gquic_post_handshake_crypto_stream_t *const str) {
+gquic_exception_t gquic_post_handshake_crypto_stream_init(gquic_post_handshake_crypto_stream_t *const str) {
     if (str == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -205,7 +206,7 @@ int gquic_post_handshake_crypto_stream_init(gquic_post_handshake_crypto_stream_t
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_post_handshake_crypto_ctor(gquic_post_handshake_crypto_stream_t *const str, gquic_framer_t *const framer) {
+gquic_exception_t gquic_post_handshake_crypto_ctor(gquic_post_handshake_crypto_stream_t *const str, gquic_framer_t *const framer) {
     if (str == NULL || framer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -215,12 +216,12 @@ int gquic_post_handshake_crypto_ctor(gquic_post_handshake_crypto_stream_t *const
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_post_handshake_crypto_write(gquic_post_handshake_crypto_stream_t *const str, gquic_writer_str_t *const writer) {
+gquic_exception_t gquic_post_handshake_crypto_write(gquic_post_handshake_crypto_stream_t *const str, gquic_reader_str_t *const reader) {
     gquic_frame_crypto_t *frame = NULL;
-    if (str == NULL || writer == NULL) {
+    if (str == NULL || reader == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    GQUIC_ASSERT_FAST_RETURN(gquic_crypto_stream_write(&str->stream, writer));
+    GQUIC_ASSERT_FAST_RETURN(gquic_crypto_stream_write(&str->stream, reader));
     while (gquic_crypto_stream_has_data(&str->stream)) {
         gquic_crypto_stream_pop_crypto_frame(&frame, &str->stream, 1000);
         gquic_framer_queue_ctrl_frame(str->framer, frame);
@@ -229,7 +230,7 @@ int gquic_post_handshake_crypto_write(gquic_post_handshake_crypto_stream_t *cons
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_crypto_stream_manager_init(gquic_crypto_stream_manager_t *const manager) {
+gquic_exception_t gquic_crypto_stream_manager_init(gquic_crypto_stream_manager_t *const manager) {
     if (manager == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -242,12 +243,12 @@ int gquic_crypto_stream_manager_init(gquic_crypto_stream_manager_t *const manage
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_crypto_stream_manager_ctor(gquic_crypto_stream_manager_t *const manager,
-                                     void *handle_msg_self,
-                                     int (*handle_msg_cb) (void *const, const gquic_str_t *const, const u_int8_t),
-                                     gquic_crypto_stream_t *const initial_stream,
-                                     gquic_crypto_stream_t *const handshake_stream,
-                                     gquic_post_handshake_crypto_stream_t *const one_rtt_stream) {
+gquic_exception_t gquic_crypto_stream_manager_ctor(gquic_crypto_stream_manager_t *const manager,
+                                                   void *handle_msg_self,
+                                                   bool (*handle_msg_cb) (void *const, const gquic_str_t *const, const u_int8_t),
+                                                   gquic_crypto_stream_t *const initial_stream,
+                                                   gquic_crypto_stream_t *const handshake_stream,
+                                                   gquic_post_handshake_crypto_stream_t *const one_rtt_stream) {
     if (manager == NULL || handle_msg_self == NULL || handle_msg_cb == NULL || initial_stream == NULL || handshake_stream == NULL || one_rtt_stream == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -260,16 +261,15 @@ int gquic_crypto_stream_manager_ctor(gquic_crypto_stream_manager_t *const manage
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_crypto_stream_manager_handle_crypto_frame(int *const changed,
-                                                    gquic_crypto_stream_manager_t *const manager,
-                                                    gquic_frame_crypto_t *const frame, const u_int8_t enc_lv) {
-    int ret = 0;
+gquic_exception_t gquic_crypto_stream_manager_handle_crypto_frame(bool *const changed,
+                                                                  gquic_crypto_stream_manager_t *const manager,
+                                                                  gquic_frame_crypto_t *const frame, const u_int8_t enc_lv) {
     gquic_crypto_stream_t *str = NULL;
     gquic_str_t *data = NULL;
     if (changed == NULL || manager == NULL || frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    *changed = 0;
+    *changed = false;
     switch (enc_lv) {
     case GQUIC_ENC_LV_INITIAL:
         str = manager->initial_stream;
@@ -294,11 +294,8 @@ int gquic_crypto_stream_manager_handle_crypto_frame(int *const changed,
             gquic_free(data);
             GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
         }
-        if ((ret = GQUIC_CRYPTO_STREAM_MANAGER_HANDLE_MSG(manager, data, enc_lv)) < 0) {
-            return ret;
-        }
-        else if (ret) {
-            *changed = 1;
+        if ((GQUIC_CRYPTO_STREAM_MANAGER_HANDLE_MSG(manager, data, enc_lv))) {
+            *changed = true;
             GQUIC_ASSERT_FAST_RETURN(gquic_crypto_stream_finish(str));
             GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
         }

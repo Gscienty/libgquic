@@ -14,7 +14,7 @@ int gquic_io_init(gquic_io_t *const io) {
 
 int gquic_io_writer_implement(gquic_io_t *const output,
                               void *const self,
-                              int (*cb) (void *const, gquic_writer_str_t *const)) {
+                              int (*cb) (void *const, gquic_reader_str_t *const)) {
     if (output == NULL || self == NULL || cb == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
