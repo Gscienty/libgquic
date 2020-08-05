@@ -105,7 +105,7 @@ static int gquic_framer_queue_control_frame_wrapper(void *const, void *const);
 static int gquic_session_client_written_callback(void *const);
 static int gquic_session_run_handshake_co(void *const);
 static int gquic_session_run_send_queue_co(void *const);
-
+static int gquic_session_waiting_acked_all_co(void *const);
 
 typedef struct gquic_session_close_event_s gquic_session_close_event_t;
 struct gquic_session_close_event_s {
@@ -1967,6 +1967,17 @@ int gquic_session_open_uni_stream_sync(gquic_stream_t **const stream_storage, gq
 }
 
 gquic_exception_t gquic_session_waiting_acked_all(gquic_session_t *const sess) {
+    liteco_coroutine_t *co = NULL;
+    if (sess == NULL) {
+        GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
+    }
+
+    gquic_coglobal_currmachine_execute(&co, gquic_session_waiting_acked_all_co, sess);
+    GQUIC_PROCESS_DONE(gquic_coglobal_schedule_until_completed(co));
+}
+
+static int gquic_session_waiting_acked_all_co(void *const sess_) {
+    gquic_session_t *const sess = sess_;
     gquic_exception_t exception = GQUIC_SUCCESS;
     const liteco_channel_t *recv_channel = NULL;
     if (sess == NULL) {
@@ -1975,6 +1986,10 @@ gquic_exception_t gquic_session_waiting_acked_all(gquic_session_t *const sess) {
 
     for ( ;; ) {
         GQUIC_COGLOBAL_CHANNEL_RECV(exception, NULL, &recv_channel, 0, &sess->ack_chan, &sess->done_chain, &sess->close_chain);
+
+        if (recv_channel == &sess->close_chain || recv_channel == &sess->done_chain) {
+            break;
+        }
 
         if (gquic_packet_sent_packet_handler_acked_all(&sess->sent_packet_handler)) {
             break;
