@@ -108,9 +108,10 @@ int gquic_inbidi_stream_map_get_or_open_stream(gquic_stream_t **const str, gquic
         GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_GREATE_THAN_MAX_STREAM);
         goto finished;
     }
+
     if (num < str_map->next_stream_open) {
         if (gquic_rbtree_find((const gquic_rbtree_t **) &rb_str, str_map->del_streams, &num, sizeof(u_int64_t)) != 0) {
-            if (gquic_rbtree_find((const gquic_rbtree_t **) &rb_str, str_map->del_streams, &num, sizeof(u_int64_t)) == 0) {
+            if (gquic_rbtree_find((const gquic_rbtree_t **) &rb_str, str_map->streams, &num, sizeof(u_int64_t)) == 0) {
                 *str = GQUIC_RBTREE_VALUE(rb_str);
             }
         }

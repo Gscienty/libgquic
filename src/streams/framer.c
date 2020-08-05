@@ -1,9 +1,17 @@
+/* src/stream/framer.c 数据帧发送队列
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "streams/framer.h"
 #include "frame/meta.h"
 #include "exception.h"
 #include "log.h"
 
-int gquic_framer_init(gquic_framer_t *const framer) {
+gquic_exception_t gquic_framer_init(gquic_framer_t *const framer) {
     if (framer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -18,7 +26,7 @@ int gquic_framer_init(gquic_framer_t *const framer) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_framer_ctor(gquic_framer_t *const framer, gquic_stream_map_t *const stream_getter) {
+gquic_exception_t gquic_framer_ctor(gquic_framer_t *const framer, gquic_stream_map_t *const stream_getter) {
     if (framer == NULL || stream_getter == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -27,7 +35,7 @@ int gquic_framer_ctor(gquic_framer_t *const framer, gquic_stream_map_t *const st
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_framer_queue_ctrl_frame(gquic_framer_t *const framer, void *const frame) {
+gquic_exception_t gquic_framer_queue_ctrl_frame(gquic_framer_t *const framer, void *const frame) {
     void **frame_storage = NULL;
     if (framer == NULL || frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -42,8 +50,8 @@ int gquic_framer_queue_ctrl_frame(gquic_framer_t *const framer, void *const fram
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_framer_append_ctrl_frame(gquic_list_t *const frames, u_int64_t *const length, gquic_framer_t *const framer, const u_int64_t max_len) {
-    int exception = GQUIC_SUCCESS;
+gquic_exception_t gquic_framer_append_ctrl_frame(gquic_list_t *const frames, u_int64_t *const length, gquic_framer_t *const framer, const u_int64_t max_len) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     void **ctrl_frame_storage = NULL;
     const void **frame_storage = NULL;
     u_int64_t frame_size = 0;
@@ -77,8 +85,8 @@ int gquic_framer_append_ctrl_frame(gquic_list_t *const frames, u_int64_t *const 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_framer_add_active_stream(gquic_framer_t *const framer, const u_int64_t id) {
-    int exception = GQUIC_SUCCESS;
+gquic_exception_t gquic_framer_add_active_stream(gquic_framer_t *const framer, const u_int64_t id) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     gquic_rbtree_t *rb_id = NULL;
     u_int64_t *id_storage = NULL;
     if (framer == NULL) {
@@ -107,10 +115,10 @@ int gquic_framer_add_active_stream(gquic_framer_t *const framer, const u_int64_t
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_framer_append_stream_frames(gquic_list_t *const frames, u_int64_t *const length, gquic_framer_t *const framer, const u_int64_t max_len) {
-    int exception = GQUIC_SUCCESS;
+gquic_exception_t gquic_framer_append_stream_frames(gquic_list_t *const frames, u_int64_t *const length, gquic_framer_t *const framer, const u_int64_t max_len) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     int i = 0;
-    int active_streams_count = 0;
+    int  active_streams_count = 0;
     gquic_stream_t *str = NULL;
     gquic_rbtree_t *id_rb = NULL;
     u_int64_t id = 0;
@@ -136,7 +144,7 @@ int gquic_framer_append_stream_frames(gquic_list_t *const frames, u_int64_t *con
         gquic_list_release(GQUIC_LIST_FIRST(&framer->stream_queue));
         framer->stream_queue_count--;
 
-        if (gquic_stream_map_get_or_open_send_stream(&str, framer->stream_getter, id) != 0) {
+        if (GQUIC_ASSERT(gquic_stream_map_get_or_open_send_stream(&str, framer->stream_getter, id))) {
             if (gquic_rbtree_find((const gquic_rbtree_t **) &id_rb, framer->active_streams_root, &id, sizeof(u_int64_t)) == 0) {
                 gquic_rbtree_remove(&framer->active_streams_root, &id_rb);
                 gquic_rbtree_release(id_rb, NULL);
@@ -187,3 +195,4 @@ int gquic_framer_append_stream_frames(gquic_list_t *const frames, u_int64_t *con
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
+
