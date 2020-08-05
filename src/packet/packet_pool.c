@@ -1,3 +1,11 @@
+/* src/packet/packet_pool.c 数据包内存池
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "packet/packet_pool.h"
 #include "util/malloc.h"
 #include "exception.h"

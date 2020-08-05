@@ -1,3 +1,11 @@
+/* src/packet/sent_packet_handler.c 数据包发送处理模块
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "packet/sent_packet_handler.h"
 #include "tls/common.h"
 #include "packet/send_mode.h"

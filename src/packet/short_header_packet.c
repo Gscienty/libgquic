@@ -1,3 +1,11 @@
+/* src/packet/short_header_packet.c 短首部
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "packet/short_header_packet.h"
 #include "packet/packet_number.h"
 #include "util/big_endian.h"
@@ -5,7 +13,7 @@
 #include "exception.h"
 #include <string.h>
 
-int gquic_packet_short_header_alloc(gquic_packet_short_header_t **const header_storage) {
+gquic_exception_t gquic_packet_short_header_alloc(gquic_packet_short_header_t **const header_storage) {
     if (header_storage == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -26,7 +34,7 @@ ssize_t gquic_packet_short_header_size(const gquic_packet_short_header_t *const 
     return 1 + header->dcid_len + gquic_packet_number_flag_to_size(header->flag);
 }
 
-int gquic_packet_short_header_serialize(const gquic_packet_short_header_t *const header, gquic_writer_str_t *const writer) {
+gquic_exception_t gquic_packet_short_header_serialize(const gquic_packet_short_header_t *const header, gquic_writer_str_t *const writer) {
     if (header == NULL || writer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -57,7 +65,7 @@ int gquic_packet_short_header_serialize(const gquic_packet_short_header_t *const
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_short_header_deserialize(gquic_packet_short_header_t *const header, gquic_reader_str_t *const reader) {
+gquic_exception_t gquic_packet_short_header_deserialize(gquic_packet_short_header_t *const header, gquic_reader_str_t *const reader) {
     if (header == NULL || reader == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -85,7 +93,7 @@ int gquic_packet_short_header_deserialize(gquic_packet_short_header_t *const hea
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_short_header_deserialize_unseal_part(gquic_packet_short_header_t *const header, gquic_reader_str_t *const reader) {
+gquic_exception_t gquic_packet_short_header_deserialize_unseal_part(gquic_packet_short_header_t *const header, gquic_reader_str_t *const reader) {
     if (header == NULL || reader == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -97,7 +105,7 @@ int gquic_packet_short_header_deserialize_unseal_part(gquic_packet_short_header_
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_packet_short_header_deserialize_seal_part(gquic_packet_short_header_t *const header, gquic_reader_str_t *const reader) {
+gquic_exception_t gquic_packet_short_header_deserialize_seal_part(gquic_packet_short_header_t *const header, gquic_reader_str_t *const reader) {
     if (header == NULL || reader == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }

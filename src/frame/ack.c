@@ -214,11 +214,11 @@ static gquic_exception_t gquic_frame_ack_dtor(void *const frame) {
 bool gquic_frame_ack_blocks_contain_packet(const gquic_list_t *const blocks, const u_int64_t pn) {
     gquic_frame_ack_block_t *block = NULL;
     if (blocks == NULL) {
-        return 0;
+        return false;
     }
     if (pn < ((gquic_frame_ack_block_t *) GQUIC_LIST_LAST(&blocks))->smallest
         || ((gquic_frame_ack_block_t *) GQUIC_LIST_FIRST(&blocks))->largest < pn) {
-        return 0;
+        return false;
     }
     GQUIC_LIST_FOREACH(block, blocks) {
         if (pn >= block->smallest) {
@@ -226,7 +226,7 @@ bool gquic_frame_ack_blocks_contain_packet(const gquic_list_t *const blocks, con
         }
     }
 
-    return 0;
+    return false;
 }
 
 gquic_exception_t gquic_frame_ack_ranges_to_blocks(gquic_list_t *const blocks, const gquic_frame_ack_t *const spec) {

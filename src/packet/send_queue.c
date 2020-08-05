@@ -1,3 +1,11 @@
+/* src/packet/send_queue.c 发送队列
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "packet/send_queue.h"
 #include "util/malloc.h"
 #include "exception.h"

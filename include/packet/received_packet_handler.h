@@ -123,7 +123,7 @@ struct gquic_packet_received_packet_handler_s {
         int ack_eliciting_count;
     } since_last_ack;
 
-    // 确认
+    // 确认是否要发送ACK frame
     bool ack_queued;
 
     // 确认超时时间

@@ -13,10 +13,34 @@
 #include "util/time.h"
 #include "exception.h"
 
-static gquic_exception_t gquic_packet_received_mem_add(gquic_packet_received_mem_t *const, const u_int64_t);
+/**
+ * 向接收记录中添加确认接收packet number
+ *
+ * @param mem: 接收记录
+ * @param pn: packet number
+ * 
+ * @return: exception
+ */
+static gquic_exception_t gquic_packet_received_mem_add(gquic_packet_received_mem_t *const mem, const u_int64_t pn);
 
-static bool gquic_packet_received_packet_handler_miss(const gquic_packet_received_packet_handler_t *const, const u_int64_t);
-static bool gquic_packet_received_packet_handler_has_miss_packet(const gquic_packet_received_packet_handler_t *const);
+/**
+ * 查看最后发送的ACK frame中是否确认丢失对应的数据包
+ *
+ * @param handler: 接收数据包处理模块（主要使用其中的last_ack）
+ * @param pn: packet number
+ * 
+ * @return: 是否在ACK frame中确认丢失
+ */
+static bool gquic_packet_received_packet_handler_miss(const gquic_packet_received_packet_handler_t *const handler, const u_int64_t pn);
+
+/**
+ * 接收记录中是否存在确认丢失的数据包
+ *
+ * @param handler: 接收数据包处理模块
+ *
+ * @return: 是否存在确认丢失的数据包
+ */
+static bool gquic_packet_received_packet_handler_has_miss_packet(const gquic_packet_received_packet_handler_t *const handler);
 
 gquic_exception_t gquic_packet_received_mem_init(gquic_packet_received_mem_t *const mem) {
     if (mem == NULL) {
@@ -49,6 +73,7 @@ gquic_exception_t gquic_packet_reveived_mem_received(gquic_packet_received_mem_t
     }
 
     gquic_packet_received_mem_add(mem, pn);
+    // 接收数据包处理模块只记录最多500个块
     if (mem->ranges_count > 500) {
         mem->ranges_count--;
         gquic_list_release(GQUIC_LIST_FIRST(&mem->ranges));
@@ -64,6 +89,7 @@ static gquic_exception_t gquic_packet_received_mem_add(gquic_packet_received_mem
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (gquic_list_head_empty(&mem->ranges)) {
+        // 当记录为空时，添加一个新的块
         GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &interval, sizeof(gquic_packet_interval_t)));
         interval->end = pn;
         interval->start = pn;
@@ -72,11 +98,14 @@ static gquic_exception_t gquic_packet_received_mem_add(gquic_packet_received_mem
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
 
+    // 从大到小进行遍历
     GQUIC_LIST_RFOREACH(interval, &mem->ranges) {
         if (interval->start <= pn && pn <= interval->end) {
+            // 当前packet number已确认在块中
             GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
         }
 
+        // 对原本已存在的块进行扩展
         bool extended = false;
         if (interval->end + 1 == pn) {
             extended = true;
@@ -90,6 +119,7 @@ static gquic_exception_t gquic_packet_received_mem_add(gquic_packet_received_mem
         if (extended) {
             prev_interval = gquic_list_prev(interval);
             if (prev_interval != GQUIC_LIST_PAYLOAD(&mem->ranges) && prev_interval->end + 1 == interval->start) {
+                // 由于连续，合并两个块
                 prev_interval->end = interval->end;
                 gquic_list_release(interval);
                 GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
@@ -98,6 +128,7 @@ static gquic_exception_t gquic_packet_received_mem_add(gquic_packet_received_mem
         }
 
         if (pn > interval->end) {
+            // 新增一个块
             prev_interval = interval;
             GQUIC_ASSERT_FAST_RETURN(gquic_list_alloc((void **) &interval, sizeof(gquic_packet_interval_t)));
             interval->start = pn;
@@ -191,24 +222,30 @@ gquic_exception_t gquic_packet_received_packet_handler_dtor(gquic_packet_receive
 
 gquic_exception_t gquic_packet_received_packet_handler_received_packet(gquic_packet_received_packet_handler_t *const handler,
                                                                        const u_int64_t pn, const u_int64_t recv_time, const bool should_inst_ack) {
+    bool is_missing = false;
     if (handler == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     if (pn < handler->ignore_below) {
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
+
+    is_missing = gquic_packet_received_packet_handler_miss(handler, pn);
+
     if (pn >= handler->largest_observed) {
         handler->largest_observed = pn;
         handler->largest_obeserved_time = recv_time;
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_packet_reveived_mem_received(&handler->mem, pn));
 
+    // 判断是否要发送ACK frame
     handler->since_last_ack.packets_count++;
     if (handler->last_ack == NULL) {
         handler->ack_queued = true;
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
-    if (gquic_packet_received_packet_handler_miss(handler, pn)) {
+    if (is_missing) {
+        // 若根据当前packet number判断为缺失数据包时，则应发送ACK frame
         handler->ack_queued = true;
     }
     if (!handler->ack_queued && should_inst_ack) {
@@ -332,7 +369,9 @@ static bool gquic_packet_received_packet_handler_miss(const gquic_packet_receive
     }
     gquic_list_head_init(&blocks);
     gquic_frame_ack_ranges_to_blocks(&blocks, handler->last_ack);
-    ret = pn < ((gquic_frame_ack_block_t *) GQUIC_LIST_FIRST(&blocks))->largest && gquic_frame_ack_blocks_contain_packet(&blocks, pn);
+
+    ret = pn < ((gquic_frame_ack_block_t *) GQUIC_LIST_FIRST(&blocks))->largest && !gquic_frame_ack_blocks_contain_packet(&blocks, pn);
+
     while (!gquic_list_head_empty(&blocks)) {
         gquic_list_release(GQUIC_LIST_FIRST(&blocks));
     }
@@ -446,11 +485,11 @@ gquic_exception_t gquic_packet_received_packet_handlers_drop_packets(gquic_packe
     switch (enc_lv) {
     case GQUIC_ENC_LV_INITIAL:
         gquic_packet_received_packet_handler_dtor(&handlers->initial);
-        handlers->initial_dropped = 1;
+        handlers->initial_dropped = true;
         break;
     case GQUIC_ENC_LV_HANDSHAKE:
         gquic_packet_received_packet_handler_dtor(&handlers->handshake);
-        handlers->handshake_dropped = 1;
+        handlers->handshake_dropped = true;
         break;
     default:
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INVALID_ENC_LV);
@@ -517,3 +556,4 @@ gquic_exception_t gquic_packet_received_packet_handlers_get_ack_frame(gquic_fram
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
+
