@@ -1,12 +1,20 @@
+/* src/stream/inbidi_stream_map.c 用于输出操作的单向数据流管理模块
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "streams/outuni_stream_map.h"
 #include "frame/meta.h"
 #include "frame/streams_blocked.h"
 
-static int gquic_outuni_stream_map_try_send_blocked_frame(gquic_outuni_stream_map_t *const);
-static int gquic_outuni_stream_map_open_stream_inner(gquic_stream_t **const, gquic_outuni_stream_map_t *const);
-static int gquic_outuni_stream_map_unblock_open_sync(gquic_outuni_stream_map_t *const);
+static gquic_exception_t gquic_outuni_stream_map_try_send_blocked_frame(gquic_outuni_stream_map_t *const);
+static gquic_exception_t gquic_outuni_stream_map_open_stream_inner(gquic_stream_t **const, gquic_outuni_stream_map_t *const);
+static gquic_exception_t gquic_outuni_stream_map_unblock_open_sync(gquic_outuni_stream_map_t *const);
 
-int gquic_outuni_stream_map_init(gquic_outuni_stream_map_t *const str_map) {
+gquic_exception_t gquic_outuni_stream_map_init(gquic_outuni_stream_map_t *const str_map) {
     if (str_map == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -17,23 +25,25 @@ int gquic_outuni_stream_map_init(gquic_outuni_stream_map_t *const str_map) {
     str_map->highest_in_queue = 0;
     str_map->max_stream = 0;
     str_map->next_stream = 0;
-    str_map->block_sent = 0;
+    str_map->block_sent = false;
     str_map->stream_ctor.self = NULL;
     str_map->stream_ctor.cb = NULL;
     str_map->queue_stream_id_blocked.self = NULL;
     str_map->queue_stream_id_blocked.cb = NULL;
-    str_map->closed = 0;
-    str_map->closed_reason = 0;
+    str_map->closed = false;
+    str_map->closed_reason = GQUIC_SUCCESS;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_outuni_stream_map_ctor(gquic_outuni_stream_map_t *const str_map,
+gquic_exception_t gquic_outuni_stream_map_ctor(gquic_outuni_stream_map_t *const str_map,
                                  void *const stream_ctor_self,
-                                 int (*stream_ctor_cb) (gquic_stream_t *const, void *const, const u_int64_t),
+                                 gquic_exception_t (*stream_ctor_cb) (gquic_stream_t *const, void *const, const u_int64_t),
                                  void *const queue_stream_id_blocked_self,
-                                 int (*queue_stream_id_blocked_cb) (void *const, void *const)) {
-    if (str_map == NULL || stream_ctor_self == NULL || stream_ctor_cb == NULL || queue_stream_id_blocked_self == NULL || queue_stream_id_blocked_cb == NULL) {
+                                 gquic_exception_t (*queue_stream_id_blocked_cb) (void *const, void *const)) {
+    if (str_map == NULL
+        || stream_ctor_self == NULL || stream_ctor_cb == NULL
+        || queue_stream_id_blocked_self == NULL || queue_stream_id_blocked_cb == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     str_map->max_stream = (u_int64_t) -1;
@@ -46,17 +56,17 @@ int gquic_outuni_stream_map_ctor(gquic_outuni_stream_map_t *const str_map,
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_outuni_stream_map_open_stream(gquic_stream_t **const str, gquic_outuni_stream_map_t *const str_map) {
-    int exception = GQUIC_SUCCESS;
+gquic_exception_t gquic_outuni_stream_map_open_stream(gquic_stream_t **const str, gquic_outuni_stream_map_t *const str_map) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     if (str == NULL || str_map == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     pthread_mutex_lock(&str_map->mtx);
-    if (str_map->closed != GQUIC_SUCCESS) {
+    if (str_map->closed) {
         GQUIC_EXCEPTION_ASSIGN(exception, str_map->closed_reason);
         goto finished;
     }
-    if (!gquic_rbtree_is_nil(str_map->open_queue) || str_map->next_stream > str_map->max_stream) {
+    if (!gquic_rbtree_is_nil(str_map->open_queue) || str_map->next_stream > str_map->max_stream || str_map->max_stream == (u_int64_t) -1) {
         gquic_outuni_stream_map_try_send_blocked_frame(str_map);
         GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_TOO_MANY_OPEN_STREAMS);
         goto finished;
@@ -69,7 +79,7 @@ finished:
     GQUIC_PROCESS_DONE(exception);
 }
 
-static int gquic_outuni_stream_map_try_send_blocked_frame(gquic_outuni_stream_map_t *const str_map) {
+static gquic_exception_t gquic_outuni_stream_map_try_send_blocked_frame(gquic_outuni_stream_map_t *const str_map) {
     u_int64_t str_num = 0;
     gquic_frame_streams_blocked_t *frame = NULL;
     if (str_map == NULL) {
@@ -86,13 +96,13 @@ static int gquic_outuni_stream_map_try_send_blocked_frame(gquic_outuni_stream_ma
     GQUIC_FRAME_META(frame).type = 0x17;
     frame->limit = str_num;
     GQUIC_OUTUNI_STREAM_MAP_QUEUE_STREAM_ID_BLOCKED(frame, str_map);
-    str_map->block_sent = 1;
+    str_map->block_sent = true;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_outuni_stream_map_open_stream_inner(gquic_stream_t **const str, gquic_outuni_stream_map_t *const str_map) {
-    int exception = GQUIC_SUCCESS;
+static gquic_exception_t gquic_outuni_stream_map_open_stream_inner(gquic_stream_t **const str, gquic_outuni_stream_map_t *const str_map) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     gquic_rbtree_t *rb_str = NULL;
     if (str == NULL || str_map == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -114,8 +124,9 @@ static int gquic_outuni_stream_map_open_stream_inner(gquic_stream_t **const str,
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_outuni_stream_map_open_stream_sync(gquic_stream_t **const str, gquic_outuni_stream_map_t *const str_map, liteco_channel_t *const done_chan) {
-    int exception = GQUIC_SUCCESS;
+gquic_exception_t gquic_outuni_stream_map_open_stream_sync(gquic_stream_t **const str,
+                                                           gquic_outuni_stream_map_t *const str_map, liteco_channel_t *const done_chan) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     gquic_rbtree_t *queue_pos_rbt = NULL;
     const liteco_channel_t *recv_channel = NULL;
     liteco_channel_t wait_chan;
@@ -125,11 +136,11 @@ int gquic_outuni_stream_map_open_stream_sync(gquic_stream_t **const str, gquic_o
     liteco_channel_init(&wait_chan);
 
     pthread_mutex_lock(&str_map->mtx);
-    if (str_map->closed != GQUIC_SUCCESS) {
+    if (str_map->closed) {
         GQUIC_EXCEPTION_ASSIGN(exception, str_map->closed_reason);
         goto finished;
     }
-    if (gquic_rbtree_is_nil(str_map->open_queue) && str_map->next_stream <= str_map->max_stream) {
+    if (gquic_rbtree_is_nil(str_map->open_queue) && str_map->next_stream <= str_map->max_stream && str_map->max_stream != (u_int64_t) -1) {
         GQUIC_ASSERT_CAUSE(exception, gquic_outuni_stream_map_open_stream_inner(str, str_map));
         goto finished;
     }
@@ -154,11 +165,11 @@ int gquic_outuni_stream_map_open_stream_sync(gquic_stream_t **const str, gquic_o
             GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_DONE);
         }
         pthread_mutex_unlock(&str_map->mtx);
-        if (str_map->closed != GQUIC_SUCCESS) {
+        if (str_map->closed) {
             GQUIC_EXCEPTION_ASSIGN(exception, str_map->closed_reason);
             goto finished;
         }
-        if (str_map->next_stream > str_map->max_stream) {
+        if (str_map->next_stream > str_map->max_stream || str_map->max_stream == (u_int64_t) -1) {
             continue;
         }
         gquic_outuni_stream_map_open_stream_inner(str, str_map);
@@ -173,7 +184,7 @@ finished:
     GQUIC_PROCESS_DONE(exception);
 }
 
-static int gquic_outuni_stream_map_unblock_open_sync(gquic_outuni_stream_map_t *const str_map) {
+static gquic_exception_t gquic_outuni_stream_map_unblock_open_sync(gquic_outuni_stream_map_t *const str_map) {
     u_int64_t oq = 0;
     gquic_rbtree_t *rbt = NULL;
     if (str_map == NULL) {
@@ -195,8 +206,9 @@ static int gquic_outuni_stream_map_unblock_open_sync(gquic_outuni_stream_map_t *
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_outuni_stream_map_get_stream(gquic_stream_t **const str, gquic_outuni_stream_map_t *const str_map, const u_int64_t num) {
-    int exception = GQUIC_SUCCESS;
+gquic_exception_t gquic_outuni_stream_map_get_stream(gquic_stream_t **const str,
+                                                     gquic_outuni_stream_map_t *const str_map, const u_int64_t num) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     const gquic_rbtree_t *rbt = NULL;
     if (str == NULL || str_map == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -217,8 +229,8 @@ finished:
     GQUIC_PROCESS_DONE(exception);
 }
 
-int gquic_outuni_stream_map_release_stream(gquic_outuni_stream_map_t *const str_map, const u_int64_t num) {
-    int exception = GQUIC_SUCCESS;
+gquic_exception_t gquic_outuni_stream_map_release_stream(gquic_outuni_stream_map_t *const str_map, const u_int64_t num) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     gquic_rbtree_t *rbt = NULL;
     if (str_map == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -237,28 +249,28 @@ finished:
     GQUIC_PROCESS_DONE(exception);
 }
 
-int gquic_outuni_stream_map_set_max_stream(gquic_outuni_stream_map_t *const str_map, const u_int64_t num) {
+gquic_exception_t gquic_outuni_stream_map_set_max_stream(gquic_outuni_stream_map_t *const str_map, const u_int64_t num) {
     if (str_map == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     pthread_mutex_lock(&str_map->mtx);
-    if (num <= str_map->max_stream) {
+    if (num <= str_map->max_stream && str_map->max_stream != (u_int64_t) -1) {
         goto finished;
     }
     str_map->max_stream = num;
-    str_map->block_sent = 0;
+    str_map->block_sent = false;
 finished:
     pthread_mutex_unlock(&str_map->mtx);
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_outuni_stream_map_close(gquic_outuni_stream_map_t *const str_map, const int err) {
+gquic_exception_t gquic_outuni_stream_map_close(gquic_outuni_stream_map_t *const str_map, const int err) {
     gquic_rbtree_t *payload = NULL;
     if (str_map == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     pthread_mutex_lock(&str_map->mtx);
-    str_map->closed = 1;
+    str_map->closed = true;
     str_map->closed_reason = err;
 
     GQUIC_RBTREE_EACHOR_BEGIN(payload, str_map->streams)

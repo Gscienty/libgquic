@@ -1,10 +1,18 @@
+/* src/stream/inuni_stream_map.c 用于读操作的单向数据流管理模块
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "streams/inuni_stream_map.h"
 #include "frame/meta.h"
 #include "frame/max_streams.h"
 
-static int gquic_inuni_stream_map_release_stream_inner(gquic_inuni_stream_map_t *const, const u_int64_t);
+static gquic_exception_t gquic_inuni_stream_map_release_stream_inner(gquic_inuni_stream_map_t *const, const u_int64_t);
 
-int gquic_inuni_stream_map_init(gquic_inuni_stream_map_t *const str_map) {
+gquic_exception_t gquic_inuni_stream_map_init(gquic_inuni_stream_map_t *const str_map) {
     if (str_map == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -26,18 +34,18 @@ int gquic_inuni_stream_map_init(gquic_inuni_stream_map_t *const str_map) {
     str_map->queue_max_stream_id.cb = NULL;
     str_map->queue_max_stream_id.self = NULL;
 
-    str_map->closed = 0;
-    str_map->closed_reason = 0;
+    str_map->closed = false;
+    str_map->closed_reason = GQUIC_SUCCESS;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_inuni_stream_map_ctor(gquic_inuni_stream_map_t *const str_map,
-                                void *const new_stream_self,
-                                int (*new_stream_cb) (gquic_stream_t *const, void *const, const u_int64_t),
-                                u_int64_t max_stream_count,
-                                void *const queue_max_stream_id_self,
-                                int (*queue_max_stream_id_cb) (void *const, void *const)) {
+gquic_exception_t gquic_inuni_stream_map_ctor(gquic_inuni_stream_map_t *const str_map,
+                                              void *const new_stream_self,
+                                              gquic_exception_t (*new_stream_cb) (gquic_stream_t *const, void *const, const u_int64_t),
+                                              u_int64_t max_stream_count,
+                                              void *const queue_max_stream_id_self,
+                                              gquic_exception_t (*queue_max_stream_id_cb) (void *const, void *const)) {
     if (str_map == NULL || new_stream_self == NULL || new_stream_cb == NULL || queue_max_stream_id_self == NULL || queue_max_stream_id_cb == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -53,12 +61,13 @@ int gquic_inuni_stream_map_ctor(gquic_inuni_stream_map_t *const str_map,
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_inuni_stream_map_accept_stream(gquic_stream_t **const str, gquic_inuni_stream_map_t *const str_map, liteco_channel_t *const done_chan) {
+gquic_exception_t gquic_inuni_stream_map_accept_stream(gquic_stream_t **const str,
+                                                       gquic_inuni_stream_map_t *const str_map, liteco_channel_t *const done_chan) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     u_int64_t num = 0;
     const gquic_rbtree_t *rb_str = NULL;
     const gquic_rbtree_t *rb_del_str = NULL;
     const liteco_channel_t *recv_channel = NULL;
-    int exception = GQUIC_SUCCESS;
     if (str == NULL || str_map == NULL || done_chan == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -66,7 +75,7 @@ int gquic_inuni_stream_map_accept_stream(gquic_stream_t **const str, gquic_inuni
 
     for ( ;; ) {
         num = str_map->next_stream_accept;
-        if (str_map->closed != GQUIC_SUCCESS) {
+        if (str_map->closed) {
             GQUIC_EXCEPTION_ASSIGN(exception, str_map->closed_reason);
             goto finished;
         }
@@ -94,10 +103,10 @@ finished:
     GQUIC_PROCESS_DONE(exception);
 }
 
-int gquic_inuni_stream_map_get_or_open_stream(gquic_stream_t **const str, gquic_inuni_stream_map_t *const str_map, const u_int64_t num) {
+gquic_exception_t gquic_inuni_stream_map_get_or_open_stream(gquic_stream_t **const str, gquic_inuni_stream_map_t *const str_map, const u_int64_t num) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     u_int64_t new_num = 0;
     gquic_rbtree_t *rb_str = NULL;
-    int exception = GQUIC_SUCCESS;
     if (str == NULL || str_map == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -144,8 +153,8 @@ finished:
     GQUIC_PROCESS_DONE(exception);
 }
 
-int gquic_inuni_stream_map_release_stream(gquic_inuni_stream_map_t *const str_map, const u_int64_t num) {
-    int exception = GQUIC_SUCCESS;
+gquic_exception_t gquic_inuni_stream_map_release_stream(gquic_inuni_stream_map_t *const str_map, const u_int64_t num) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     if (str_map == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -156,7 +165,7 @@ int gquic_inuni_stream_map_release_stream(gquic_inuni_stream_map_t *const str_ma
     GQUIC_PROCESS_DONE(exception);
 }
 
-static int gquic_inuni_stream_map_release_stream_inner(gquic_inuni_stream_map_t *const str_map, const u_int64_t num) {
+static gquic_exception_t gquic_inuni_stream_map_release_stream_inner(gquic_inuni_stream_map_t *const str_map, const u_int64_t num) {
     gquic_rbtree_t *rb_str = NULL;
     gquic_rbtree_t *rb_del_str = NULL;
     gquic_frame_max_streams_t *frame = NULL;
@@ -194,13 +203,13 @@ static int gquic_inuni_stream_map_release_stream_inner(gquic_inuni_stream_map_t 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_inuni_stream_map_close(gquic_inuni_stream_map_t *const str_map, const int err) {
+gquic_exception_t gquic_inuni_stream_map_close(gquic_inuni_stream_map_t *const str_map, const gquic_exception_t err) {
     gquic_rbtree_t *payload = NULL;
     if (str_map == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     pthread_mutex_lock(&str_map->mtx);
-    str_map->closed = 1;
+    str_map->closed = true;
     str_map->closed_reason = err;
 
     GQUIC_RBTREE_EACHOR_BEGIN(payload, str_map->streams)
@@ -212,3 +221,4 @@ int gquic_inuni_stream_map_close(gquic_inuni_stream_map_t *const str_map, const 
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
+
