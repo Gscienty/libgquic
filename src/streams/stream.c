@@ -1,3 +1,11 @@
+/* src/stream/stream.h 数据流
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "streams/stream.h"
 
 static gquic_exception_t gquic_stream_sender_for_recv_stream_on_completed(void *const);

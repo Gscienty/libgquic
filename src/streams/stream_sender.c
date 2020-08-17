@@ -1,10 +1,18 @@
+/* src/stream/stream_sender.c 数据流处理接口
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "streams/stream_sender.h"
 #include "exception.h"
 #include <stddef.h>
 
-static int uni_stream_sender_on_stream_completed(void *const, const u_int64_t);
+static gquic_exception_t uni_stream_sender_on_stream_completed(void *const, const u_int64_t);
 
-int gquic_stream_sender_init(gquic_stream_sender_t *const sender) {
+gquic_exception_t gquic_stream_sender_init(gquic_stream_sender_t *const sender) {
     if (sender == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -18,7 +26,7 @@ int gquic_stream_sender_init(gquic_stream_sender_t *const sender) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_uni_stream_sender_init(gquic_uni_stream_sender_t *const sender) {
+gquic_exception_t gquic_uni_stream_sender_init(gquic_uni_stream_sender_t *const sender) {
     if (sender == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -29,7 +37,7 @@ int gquic_uni_stream_sender_init(gquic_uni_stream_sender_t *const sender) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_uni_stream_sender_prototype(gquic_stream_sender_t *const prototype, gquic_uni_stream_sender_t *const sender) {
+gquic_exception_t gquic_uni_stream_sender_prototype(gquic_stream_sender_t *const prototype, gquic_uni_stream_sender_t *const sender) {
     if (prototype == NULL || sender == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -41,7 +49,7 @@ int gquic_uni_stream_sender_prototype(gquic_stream_sender_t *const prototype, gq
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int uni_stream_sender_on_stream_completed(void *const sender, const u_int64_t _) {
+static gquic_exception_t uni_stream_sender_on_stream_completed(void *const sender, const u_int64_t _) {
     (void) _;
     gquic_uni_stream_sender_t *uni_sender = sender;
     if (sender == NULL) {

@@ -1,3 +1,11 @@
+/* src/stream/crypto.c QUIC握手阶段数据流控制模块
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "streams/crypto.h"
 #include "tls/common.h"
 #include "exception.h"
