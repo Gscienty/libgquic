@@ -11,7 +11,24 @@
 #include "exception.h"
 #include "util/malloc.h"
 
+/**
+ * 计算读取缓冲区中已经读取出的字节数
+ *
+ * @param str: 数据流
+ *
+ * @return writed_size: 读取出的字节数
+ * @return: exception
+ */
 static gquic_exception_t gquic_crypto_stream_calc_readed_bytes(u_int64_t *const readed_size, gquic_crypto_stream_t *const str);
+
+/**
+ * 计算发送缓冲区中已经发送出的字节数
+ *
+ * @param str: 数据流
+ *
+ * @return writed_size: 发送出的字节数
+ * @return: exception
+ */
 static gquic_exception_t gquic_crypto_stream_calc_writed_bytes(u_int64_t *const writed_size, gquic_crypto_stream_t *const str);
 
 gquic_exception_t gquic_crypto_stream_init(gquic_crypto_stream_t *const str) {
@@ -49,16 +66,22 @@ gquic_exception_t gquic_crypto_stream_handle_crypto_frame(gquic_crypto_stream_t 
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_CRYPTO_BUFFER_EXCEEDED);
     }
     if (str->finished) {
+        // 当CRYPTO阶段结束时，忽略该数据帧
         if (highest_off > str->highest_off) {
             GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_CRYPTO_RECV_DATA_AFTER_CHANGE_ENC_LV);
         }
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
+
     if (highest_off > str->highest_off) {
+        // 更新接收到的数据偏移量
         str->highest_off = highest_off;
     }
+
+    // 将frame中的数据填充到frame_sorter中
     gquic_str_t data = { frame->len, frame->data };
     GQUIC_ASSERT_FAST_RETURN(gquic_frame_sorter_push(&str->sorter, &data, frame->off, NULL, NULL));
+
     for ( ;; ) {
         u_int64_t off_useless;
         u_int64_t readed_size = 0;
@@ -73,6 +96,8 @@ gquic_exception_t gquic_crypto_stream_handle_crypto_frame(gquic_crypto_stream_t 
         if (GQUIC_STR_SIZE(&data) == 0) {
             GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
         }
+
+        // 拼接排序后的数据流，并设置为in_buf
         GQUIC_ASSERT_FAST_RETURN(gquic_str_concat(&concated, &str->in_buf, &data));
         gquic_str_reset(&data);
         gquic_str_reset(&str->in_buf);
@@ -91,6 +116,8 @@ static gquic_exception_t gquic_crypto_stream_calc_readed_bytes(u_int64_t *const 
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     *ret = GQUIC_STR_VAL(&str->in_reader) - GQUIC_STR_VAL(&str->in_buf);
+
+    // 当读取缓冲区已经读取出超过指定字节的数据时，应释放掉已读取的字节部分
     if (*ret > 2048) {
         *ret = 0;
         GQUIC_ASSERT_FAST_RETURN(gquic_str_alloc(&tmp, GQUIC_STR_SIZE(&str->in_reader)));
@@ -109,6 +136,8 @@ static gquic_exception_t gquic_crypto_stream_calc_writed_bytes(u_int64_t *const 
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     *ret = GQUIC_STR_VAL(&str->out_reader) - GQUIC_STR_VAL(&str->out_buf);
+
+    // 当输出缓冲区已经发送出超过指定字节的数据时，应释放掉已发送的字节部分
     if (*ret > 2048) {
         *ret = 0;
         GQUIC_ASSERT_FAST_RETURN(gquic_str_alloc(&tmp, GQUIC_STR_SIZE(&str->out_reader)));
@@ -129,6 +158,8 @@ gquic_exception_t gquic_crypto_stream_get_data(gquic_str_t *const data, gquic_cr
     if (GQUIC_STR_SIZE(&str->in_reader) < 4) {
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
+
+    // 读取出符合TLS 1.3要求的record大小的数据
     slice_len = 4
         + (((u_int64_t) ((u_int8_t *) GQUIC_STR_VAL(&str->in_reader))[1]) << 16)
         + (((u_int64_t) ((u_int8_t *) GQUIC_STR_VAL(&str->in_reader))[2]) << 8)

@@ -12,54 +12,44 @@ struct gquic_tls_aead_ctx_s {
     gquic_str_t nonce;
     gquic_str_t key;
 
-    int (*nonce_wrapper) (gquic_str_t *const, const gquic_str_t *const, const gquic_str_t *const);
+    gquic_exception_t (*nonce_wrapper) (gquic_str_t *const, const gquic_str_t *const, const gquic_str_t *const);
 };
 
-static int gquic_tls_aead_ctx_init(gquic_tls_aead_ctx_t *const ctx);
-static int gquic_tls_aead_ctx_dtor(gquic_tls_aead_ctx_t *const ctx);
+static gquic_exception_t gquic_tls_aead_ctx_init(gquic_tls_aead_ctx_t *const ctx);
+static gquic_exception_t gquic_tls_aead_ctx_dtor(gquic_tls_aead_ctx_t *const ctx);
 
-static int ecdhe_rsa_ka(gquic_tls_key_agreement_t *const, const u_int16_t);
-static int ecdhe_ecdsa_ka(gquic_tls_key_agreement_t *const, const u_int16_t);
-static int rsa_ka(gquic_tls_key_agreement_t *const, const u_int16_t);
+static gquic_exception_t ecdhe_rsa_ka(gquic_tls_key_agreement_t *const, const u_int16_t);
+static gquic_exception_t ecdhe_ecdsa_ka(gquic_tls_key_agreement_t *const, const u_int16_t);
+static gquic_exception_t rsa_ka(gquic_tls_key_agreement_t *const, const u_int16_t);
 
-static int cipher_common(gquic_tls_cipher_t *const,
-                         const EVP_CIPHER *const,
-                         const gquic_str_t *const,
-                         const gquic_str_t *const,
-                         const int);
-static int cipher_rc4(gquic_tls_cipher_t *const, const gquic_str_t *const, const gquic_str_t *const, const int);
-static int cipher_3des(gquic_tls_cipher_t *const, const gquic_str_t *const, const gquic_str_t *const, const int);
-static int cipher_aes(gquic_tls_cipher_t *const, const gquic_str_t *const, const gquic_str_t *const, const int);
+static gquic_exception_t cipher_common(gquic_tls_cipher_t *const,
+                                       const EVP_CIPHER *const,
+                                       const gquic_str_t *const,
+                                       const gquic_str_t *const,
+                                       const int);
+static gquic_exception_t cipher_rc4(gquic_tls_cipher_t *const, const gquic_str_t *const, const gquic_str_t *const, const int);
+static gquic_exception_t cipher_3des(gquic_tls_cipher_t *const, const gquic_str_t *const, const gquic_str_t *const, const int);
+static gquic_exception_t cipher_aes(gquic_tls_cipher_t *const, const gquic_str_t *const, const gquic_str_t *const, const int);
 
-static int mac_common_init(gquic_tls_mac_t *const, const u_int16_t, const EVP_MD *const, const gquic_str_t *const);
-static int mac_sha1_init(gquic_tls_mac_t *const, const u_int16_t, const gquic_str_t *const);
-static int mac_sha256_init(gquic_tls_mac_t *const, const u_int16_t, const gquic_str_t *const);
-static int mac_sha384_init(gquic_tls_mac_t *const, const u_int16_t, const gquic_str_t *const);
+static gquic_exception_t mac_common_init(gquic_tls_mac_t *const, const u_int16_t, const EVP_MD *const, const gquic_str_t *const);
+static gquic_exception_t mac_sha1_init(gquic_tls_mac_t *const, const u_int16_t, const gquic_str_t *const);
+static gquic_exception_t mac_sha256_init(gquic_tls_mac_t *const, const u_int16_t, const gquic_str_t *const);
+static gquic_exception_t mac_sha384_init(gquic_tls_mac_t *const, const u_int16_t, const gquic_str_t *const);
 
-static int aead_seal(gquic_str_t *const,
-                     gquic_str_t *const,
-                     EVP_CIPHER_CTX *const,
-                     const gquic_str_t *const,
-                     const gquic_str_t *const);
-static int aead_open(gquic_str_t *const,
-                     EVP_CIPHER_CTX *const,
-                     const gquic_str_t *const,
-                     const gquic_str_t *const,
-                     const gquic_str_t *const);
+static gquic_exception_t aead_seal(gquic_str_t *const, gquic_str_t *const,
+                                   EVP_CIPHER_CTX *const,
+                                   const gquic_str_t *const, const gquic_str_t *const);
+static gquic_exception_t aead_open(gquic_str_t *const,
+                                   EVP_CIPHER_CTX *const,
+                                   const gquic_str_t *const, const gquic_str_t *const, const gquic_str_t *const);
 
-static int gquic_tls_aead_seal(gquic_str_t *const,
-                               gquic_str_t *const,
-                               void *const,
-                               const gquic_str_t *const,
-                               const gquic_str_t *const,
-                               const gquic_str_t *const);
+static gquic_exception_t gquic_tls_aead_seal(gquic_str_t *const, gquic_str_t *const,
+                                             void *const,
+                                             const gquic_str_t *const, const gquic_str_t *const, const gquic_str_t *const);
 
-static int gquic_tls_aead_open(gquic_str_t *const,
-                               void *const,
-                               const gquic_str_t *const,
-                               const gquic_str_t *const,
-                               const gquic_str_t *const,
-                               const gquic_str_t *const);
+static gquic_exception_t gquic_tls_aead_open(gquic_str_t *const,
+                                             void *const,
+                                             const gquic_str_t *const, const gquic_str_t *const, const gquic_str_t *const, const gquic_str_t *const);
 
 static int aead_prefix_nonce_wrapper(gquic_str_t *const, const gquic_str_t *const, const gquic_str_t *const);
 static int aead_xor_nonce_wrapper(gquic_str_t *const, const gquic_str_t *const, const gquic_str_t *const);
@@ -103,7 +93,7 @@ static gquic_tls_cipher_suite_t cipher_suites[] = {
 };
 static const int cipher_suites_count = sizeof(cipher_suites) / sizeof(gquic_tls_cipher_suite_t);
 
-int gquic_tls_get_cipher_suite(const gquic_tls_cipher_suite_t **const cipher, const u_int16_t cipher_suite_id) {
+gquic_exception_t gquic_tls_get_cipher_suite(const gquic_tls_cipher_suite_t **const cipher, const u_int16_t cipher_suite_id) {
     if (cipher == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -118,7 +108,8 @@ int gquic_tls_get_cipher_suite(const gquic_tls_cipher_suite_t **const cipher, co
     GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_NOT_FOUND);
 }
 
-int gquic_tls_choose_cipher_suite(const gquic_tls_cipher_suite_t **const cipher_suite, const gquic_list_t *const have, const u_int16_t want) {
+gquic_exception_t gquic_tls_choose_cipher_suite(const gquic_tls_cipher_suite_t **const cipher_suite,
+                                                const gquic_list_t *const have, const u_int16_t want) {
     u_int16_t *have_cipher_suite_id;
     if (cipher_suite == NULL || have == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -132,8 +123,9 @@ int gquic_tls_choose_cipher_suite(const gquic_tls_cipher_suite_t **const cipher_
     GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_NOT_FOUND);
 }
 
-int gquic_tls_create_aead(gquic_tls_aead_t *const aead, const gquic_tls_cipher_suite_t *const suite, const gquic_str_t *const traffic_sec) {
-    int exception = GQUIC_SUCCESS;
+gquic_exception_t gquic_tls_create_aead(gquic_tls_aead_t *const aead,
+                                        const gquic_tls_cipher_suite_t *const suite, const gquic_str_t *const traffic_sec) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     gquic_str_t key = { 0, NULL };
     gquic_str_t iv = { 0, NULL };
     gquic_tls_mac_t hash;
@@ -166,12 +158,10 @@ failure:
     GQUIC_PROCESS_DONE(exception);
 }
 
-int gquic_tls_mac_hmac_hash(gquic_str_t *const ret,
-                            gquic_tls_mac_t *const mac,
-                            const gquic_str_t *const seq,
-                            const gquic_str_t *const header,
-                            const gquic_str_t *const data,
-                            const gquic_str_t *const extra) {
+gquic_exception_t gquic_tls_mac_hmac_hash(gquic_str_t *const ret,
+                                          gquic_tls_mac_t *const mac,
+                                          const gquic_str_t *const seq, const gquic_str_t *const header,
+                                          const gquic_str_t *const data, const gquic_str_t *const extra) {
     unsigned int size;
     (void) extra;
     if (ret == NULL || mac == NULL || mac->mac == NULL || data == NULL) {
@@ -194,9 +184,7 @@ int gquic_tls_mac_hmac_hash(gquic_str_t *const ret,
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_mac_md_hash(gquic_str_t *const ret,
-                          gquic_tls_mac_t *const mac,
-                          const gquic_str_t *const data) {
+gquic_exception_t gquic_tls_mac_md_hash(gquic_str_t *const ret, gquic_tls_mac_t *const mac, const gquic_str_t *const data) {
     unsigned int size;
     if (ret == NULL || mac == NULL || mac->md_ctx == NULL || data == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -208,8 +196,7 @@ int gquic_tls_mac_md_hash(gquic_str_t *const ret,
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_mac_md_update(gquic_tls_mac_t *const mac,
-                            const gquic_str_t *const data) {
+gquic_exception_t gquic_tls_mac_md_update(gquic_tls_mac_t *const mac, const gquic_str_t *const data) {
     if (mac == NULL || mac->md_ctx == NULL || data == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -220,7 +207,7 @@ int gquic_tls_mac_md_update(gquic_tls_mac_t *const mac,
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_mac_md_reset(gquic_tls_mac_t *const mac) {
+gquic_exception_t gquic_tls_mac_md_reset(gquic_tls_mac_t *const mac) {
     if (mac == NULL || mac->md_ctx == NULL) {
         GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED;
     }
@@ -235,8 +222,7 @@ int gquic_tls_mac_md_reset(gquic_tls_mac_t *const mac) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_mac_md_sum(gquic_str_t *const ret,
-                         gquic_tls_mac_t *const mac) {
+gquic_exception_t gquic_tls_mac_md_sum(gquic_str_t *const ret, gquic_tls_mac_t *const mac) {
     unsigned int size = 0;
     EVP_MD_CTX *output_ctx = NULL;
     if (ret == NULL || mac == NULL || mac->md_ctx == NULL) {
@@ -257,8 +243,7 @@ int gquic_tls_mac_md_sum(gquic_str_t *const ret,
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_mac_md_copy(gquic_tls_mac_t *const ret,
-                          gquic_tls_mac_t *const origin) {
+gquic_exception_t gquic_tls_mac_md_copy(gquic_tls_mac_t *const ret, gquic_tls_mac_t *const origin) {
     if (ret == NULL || origin == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -273,7 +258,7 @@ int gquic_tls_mac_md_copy(gquic_tls_mac_t *const ret,
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_aead_dtor(gquic_tls_aead_t *const aead) {
+gquic_exception_t gquic_tls_aead_dtor(gquic_tls_aead_t *const aead) {
     if (aead == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -286,7 +271,7 @@ int gquic_tls_aead_dtor(gquic_tls_aead_t *const aead) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_aead_init(gquic_tls_aead_t *const aead) {
+gquic_exception_t gquic_tls_aead_init(gquic_tls_aead_t *const aead) {
     if (aead == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -298,7 +283,7 @@ int gquic_tls_aead_init(gquic_tls_aead_t *const aead) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_aead_copy(gquic_tls_aead_t *const aead, const gquic_tls_aead_t *const ref) {
+gquic_exception_t gquic_tls_aead_copy(gquic_tls_aead_t *const aead, const gquic_tls_aead_t *const ref) {
     if (aead == NULL || ref == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -517,10 +502,8 @@ int gquic_tls_mac_dtor(gquic_tls_mac_t *const mac) {
 
 int gquic_tls_suite_hmac_hash(gquic_str_t *const hash,
                               gquic_tls_suite_t *const suite,
-                              const gquic_str_t *const seq,
-                              const gquic_str_t *const header,
-                              const gquic_str_t *const data,
-                              const gquic_str_t *const extra) {
+                              const gquic_str_t *const seq, const gquic_str_t *const header,
+                              const gquic_str_t *const data, const gquic_str_t *const extra) {
     if (hash == NULL || suite == NULL || data == NULL || suite->mac.mac == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -769,11 +752,8 @@ static int mac_sha384_init(gquic_tls_mac_t *const mac, const u_int16_t ver, cons
     return mac_common_init(mac, ver, EVP_sha3_384(), key);
 }
 
-static int aead_seal(gquic_str_t *const tag,
-                     gquic_str_t *const cipher_text,
-                     EVP_CIPHER_CTX *const ctx,
-                     const gquic_str_t *const plain_text,
-                     const gquic_str_t *const addata) {
+static int aead_seal(gquic_str_t *const tag, gquic_str_t *const cipher_text,
+                     EVP_CIPHER_CTX *const ctx, const gquic_str_t *const plain_text, const gquic_str_t *const addata) {
     int outlen = 0;
     if (tag == NULL || cipher_text == NULL || ctx == NULL || plain_text == NULL || addata == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -791,9 +771,7 @@ static int aead_seal(gquic_str_t *const tag,
 
 static int aead_open(gquic_str_t *const ret,
                      EVP_CIPHER_CTX *const ctx,
-                     const gquic_str_t *const tag,
-                     const gquic_str_t *const cipher_text,
-                     const gquic_str_t *const addata) {
+                     const gquic_str_t *const tag, const gquic_str_t *const cipher_text, const gquic_str_t *const addata) {
     int outlen = 0;
     if (ret == NULL || tag == NULL || cipher_text == NULL || ctx == NULL || cipher_text == NULL || addata == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);

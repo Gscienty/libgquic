@@ -136,6 +136,7 @@ static gquic_exception_t gquic_conn_id_gen_issue_new_conn_id(gquic_conn_id_gen_t
     if (GQUIC_ASSERT_CAUSE(exception, gquic_frame_new_connection_id_alloc(&frame))) {
         goto failure;
     }
+    GQUIC_FRAME_INIT(frame);
     memcpy(frame->conn_id, GQUIC_STR_VAL(&conn_id), GQUIC_STR_SIZE(&conn_id));
     frame->len = GQUIC_STR_SIZE(&conn_id);
     frame->seq = *(u_int64_t *) GQUIC_RBTREE_KEY(rbt); 
@@ -143,7 +144,6 @@ static gquic_exception_t gquic_conn_id_gen_issue_new_conn_id(gquic_conn_id_gen_t
 
     GQUIC_CONN_ID_GEN_QUEUE_CTRL_FRAME(gen, frame);
 
-    gquic_frame_release(frame);
     gquic_str_reset(&conn_id);
     gquic_str_reset(&token);
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);

@@ -4,6 +4,7 @@
 #include "frame/meta.h"
 #include "frame/max_data.h"
 #include "frame/path_challenge.h"
+#include "frame/path_response.h"
 #include "frame/new_token.h"
 #include "frame/retire_connection_id.h"
 #include "frame/data_blocked.h"
@@ -14,6 +15,7 @@
 #include "exception.h"
 #include "coglobal.h"
 #include "log.h"
+#include <string.h>
 
 static int gquic_session_config_transfer_tls_config(gquic_tls_config_t *const, gquic_config_t *const);
 static int gquic_session_add_reset_token_wrapper(void *const, const gquic_str_t *const);
@@ -761,6 +763,7 @@ int gquic_session_run(gquic_session_t *const sess) {
             && now - sess->last_packet_received_time >= sess->keep_alive_interval / 2) {
             gquic_frame_ping_t *ping = NULL;
             gquic_frame_ping_alloc(&ping);
+            GQUIC_FRAME_INIT(ping);
             gquic_framer_queue_ctrl_frame(&sess->framer, ping);
             sess->keep_alive_ping_sent = 1;
         }
@@ -1010,6 +1013,7 @@ static int gquic_session_handle_handshake_completed(gquic_session_t *const sess)
 
         GQUIC_LOG(GQUIC_LOG_INFO, "session send HANDSHAKE_DONE frame");
         GQUIC_ASSERT_FAST_RETURN(gquic_frame_handshake_done_alloc(&frame));
+        GQUIC_FRAME_INIT(frame);
         GQUIC_ASSERT_FAST_RETURN(gquic_session_queue_control_frame(sess, frame));
     }
 
@@ -1482,12 +1486,17 @@ static int gquic_session_handle_stop_sending_frame(gquic_session_t *const sess, 
 }
 
 static int gquic_session_handle_path_challenge_frame(gquic_session_t *const sess, gquic_frame_path_challenge_t *const frame) {
+    gquic_frame_path_response_t *response_frame = NULL;
     if (sess == NULL || frame == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     GQUIC_LOG(GQUIC_LOG_INFO, "session handle path challenge frame");
 
-    GQUIC_ASSERT_FAST_RETURN(gquic_session_queue_control_frame(sess, frame));
+    GQUIC_ASSERT_FAST_RETURN(gquic_frame_path_response_alloc(&response_frame));
+    GQUIC_FRAME_INIT(response_frame);
+    memcpy(response_frame->data, frame->data, 8);
+
+    GQUIC_ASSERT_FAST_RETURN(gquic_session_queue_control_frame(sess, response_frame));
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -1768,6 +1777,7 @@ static int gquic_session_send_packet(int *const sent_packet, gquic_session_t *co
     *sent_packet = 0;
     if (gquic_flowcontrol_base_is_newly_blocked(&swnd, &sess->conn_flow_ctrl.base)) {
         GQUIC_ASSERT_FAST_RETURN(gquic_frame_data_blocked_alloc(&blocked));
+        GQUIC_FRAME_INIT(blocked);
         blocked->limit = swnd;
         gquic_framer_queue_ctrl_frame(&sess->framer, blocked);
     }

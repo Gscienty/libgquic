@@ -1,3 +1,11 @@
+/* include/tls/cipher_suite.h TLS 加密套件
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #ifndef _LIBGQUIC_TLS_CIPHER_SUITE_H
 #define _LIBGQUIC_TLS_CIPHER_SUITE_H
 
@@ -43,24 +51,19 @@
 #define GQUIC_TLS_HASH_SHA256 0x0001
 #define GQUIC_TLS_HASH_SHA384 0x0002
 
-
-
+/**
+ * AEAD
+ */
 typedef struct gquic_tls_aead_s gquic_tls_aead_t;
 struct gquic_tls_aead_s {
     void *self;
-    int (*seal)(gquic_str_t *const,
-                gquic_str_t *const,
-                void *const,
-                const gquic_str_t *const,
-                const gquic_str_t *const,
-                const gquic_str_t *const);
-    int (*open)(gquic_str_t *const,
-                void *const,
-                const gquic_str_t *const,
-                const gquic_str_t *const,
-                const gquic_str_t *const,
-                const gquic_str_t *const);
-    int (*dtor) (void *const);
+    gquic_exception_t (*seal)(gquic_str_t *const, gquic_str_t *const,
+                              void *const,
+                              const gquic_str_t *const, const gquic_str_t *const, const gquic_str_t *const);
+    gquic_exception_t (*open)(gquic_str_t *const,
+                              void *const,
+                              const gquic_str_t *const, const gquic_str_t *const, const gquic_str_t *const, const gquic_str_t *const);
+    gquic_exception_t (*dtor) (void *const);
 };
 
 #define GQUIC_TLS_AEAD_SEAL(tag, cipher_text, aead, nonce, plain_text, addata) \
@@ -77,21 +80,86 @@ struct gquic_tls_aead_s {
      ? GQUIC_EXCEPTION_NOT_IMPLEMENTED \
      : ((aead)->dtor((aead)->self)))
 
-int gquic_tls_aead_init(gquic_tls_aead_t *const aead);
-int gquic_tls_aead_dtor(gquic_tls_aead_t *const aead);
-int gquic_tls_aead_copy(gquic_tls_aead_t *const aead, const gquic_tls_aead_t *const ref);
+/**
+ * 初始化AEAD
+ *
+ * @param aead: AEAD
+ *
+ * @return: exception
+ */
+gquic_exception_t gquic_tls_aead_init(gquic_tls_aead_t *const aead);
 
+/**
+ * 析构AEAD
+ * 
+ * @param aead: AEAD
+ *
+ * @return: exception
+ */
+gquic_exception_t gquic_tls_aead_dtor(gquic_tls_aead_t *const aead);
+
+/**
+ * 复制一个AEAD
+ *
+ * @param aead: AEAD
+ *
+ * @return: exception
+ */
+gquic_exception_t gquic_tls_aead_copy(gquic_tls_aead_t *const aead, const gquic_tls_aead_t *const ref);
+
+/**
+ * 加密模块
+ */
 typedef struct gquic_tls_cipher_s gquic_tls_cipher_t;
 struct gquic_tls_cipher_s {
     EVP_CIPHER_CTX *cipher;
     gquic_str_t key;
     gquic_str_t iv;
 };
-int gquic_tls_cipher_init(gquic_tls_cipher_t *const cipher);
-int gquic_tls_cipher_dtor(gquic_tls_cipher_t *const cipher);
-int gquic_tls_cipher_encrypt(gquic_str_t *const ret, gquic_tls_cipher_t *const cipher, const gquic_str_t *const plain_text);
-int gquic_tls_cipher_decrypt(gquic_str_t *const ret, gquic_tls_cipher_t *const cipher, const gquic_str_t *const cipher_text);
 
+/**
+ * 初始化加密模块
+ *
+ * @param cipher: 加密模块
+ *
+ * @return: exception
+ */
+gquic_exception_t gquic_tls_cipher_init(gquic_tls_cipher_t *const cipher);
+
+/**
+ * 析构加密模块
+ *
+ * @param cipher: 加密模块
+ *
+ * @return: exception
+ */
+gquic_exception_t gquic_tls_cipher_dtor(gquic_tls_cipher_t *const cipher);
+
+/**
+ * 加密操作
+ *
+ * @param ret: 存放密文的容器
+ * @param cipher: 加密模块
+ * @param plain_text: 明文
+ *
+ * @return: exception
+ */
+gquic_exception_t gquic_tls_cipher_encrypt(gquic_str_t *const ret, gquic_tls_cipher_t *const cipher, const gquic_str_t *const plain_text);
+
+/**
+ * 解密操作
+ *
+ * @param ret: 存放明文的容器
+ * @param cipher: 加密模块
+ * @param cipher_text: 密文
+ *
+ * @return: exception
+ */
+gquic_exception_t gquic_tls_cipher_decrypt(gquic_str_t *const ret, gquic_tls_cipher_t *const cipher, const gquic_str_t *const cipher_text);
+
+/**
+ * MAC
+ */
 typedef struct gquic_tls_mac_s gquic_tls_mac_t;
 struct gquic_tls_mac_s {
     const EVP_MD *md;
@@ -99,56 +167,147 @@ struct gquic_tls_mac_s {
     EVP_MD_CTX *md_ctx;
     gquic_str_t key;
 };
-int gquic_tls_mac_init(gquic_tls_mac_t *const mac);
-int gquic_tls_mac_dtor(gquic_tls_mac_t *const mac);
-int gquic_tls_mac_hmac_hash(gquic_str_t *const ret,
-                            gquic_tls_mac_t *const mac,
-                            const gquic_str_t *const seq,
-                            const gquic_str_t *const header,
-                            const gquic_str_t *const data,
-                            const gquic_str_t *const extra);
-int gquic_tls_mac_md_hash(gquic_str_t *const ret,
-                          gquic_tls_mac_t *const mac,
-                          const gquic_str_t *const data);
-int gquic_tls_mac_md_update(gquic_tls_mac_t *const mac,
-                            const gquic_str_t *const data);
-int gquic_tls_mac_md_reset(gquic_tls_mac_t *const mac);
-int gquic_tls_mac_md_sum(gquic_str_t *const ret,
-                         gquic_tls_mac_t *const mac);
-int gquic_tls_mac_md_copy(gquic_tls_mac_t *const ret,
-                          gquic_tls_mac_t *const origin);
 
+/**
+ * 初始化MAC
+ *
+ * @param mac: MAC
+ *
+ * @return: exception
+ */
+gquic_exception_t gquic_tls_mac_init(gquic_tls_mac_t *const mac);
+
+/**
+ * 析构MAC
+ * 
+ * @param mac: MAC
+ *
+ * @return: exception
+ */
+gquic_exception_t gquic_tls_mac_dtor(gquic_tls_mac_t *const mac);
+
+/**
+ * 计算HMAC
+ *
+ * @param ret: 存放最终哈希结果的容器
+ * @param mac: MAC
+ * @param seq: seq
+ * @param header: header
+ * @param data: data
+ * @param extra: extra
+ *
+ * @return: exception
+ */
+gquic_exception_t gquic_tls_mac_hmac_hash(gquic_str_t *const ret,
+                                          gquic_tls_mac_t *const mac,
+                                          const gquic_str_t *const seq, const gquic_str_t *const header, const gquic_str_t *const data, const gquic_str_t *const extra);
+
+/**
+ * 计算哈希值
+ *
+ * @param ret: 存放最终哈希结果的容器
+ * @param mac: MAC
+ * @param data: data
+ *
+ * @return: exception
+ */
+gquic_exception_t gquic_tls_mac_md_hash(gquic_str_t *const ret, gquic_tls_mac_t *const mac, const gquic_str_t *const data);
+
+/**
+ * 填充MAC
+ *
+ * @param mac: MAC
+ * @param data: data
+ *
+ * @return: exception
+ */
+gquic_exception_t gquic_tls_mac_md_update(gquic_tls_mac_t *const mac, const gquic_str_t *const data);
+
+/**
+ * 重置MAC
+ *
+ * @param mac: MAC
+ *
+ * @return: exception
+ */
+gquic_exception_t gquic_tls_mac_md_reset(gquic_tls_mac_t *const mac);
+
+/**
+ * 计算MAC结果
+ *
+ * @param ret: 存放哈希结果的容器
+ * @param mac: MAC
+ *
+ * @return: exception
+ */
+gquic_exception_t gquic_tls_mac_md_sum(gquic_str_t *const ret, gquic_tls_mac_t *const mac);
+
+/**
+ * 复制MAC
+ * 
+ * @param ret: 被复制的MAC容器
+ * @param origin: 复制的MAC容器
+ *
+ * @return: exception
+ */
+gquic_exception_t gquic_tls_mac_md_copy(gquic_tls_mac_t *const ret, gquic_tls_mac_t *const origin);
+
+/**
+ * 加密套件
+ */
 typedef struct gquic_tls_cipher_suite_s gquic_tls_cipher_suite_t;
 struct gquic_tls_cipher_suite_s {
     u_int16_t id;
     size_t key_len;
     size_t mac_len;
     size_t iv_len;
-    int (*ka) (gquic_tls_key_agreement_t *const, const u_int16_t);
+    gquic_exception_t (*ka) (gquic_tls_key_agreement_t *const, const u_int16_t);
     int flags;
     u_int16_t hash;
 
-    int (*cipher_encrypt) (gquic_tls_cipher_t *const, const gquic_str_t *const, const gquic_str_t *const, const int);
-    int (*mac) (gquic_tls_mac_t *const, const u_int16_t, const gquic_str_t *const);
-    int (*aead) (gquic_tls_aead_t *const, const gquic_str_t *const, const gquic_str_t *const);
+    gquic_exception_t (*cipher_encrypt) (gquic_tls_cipher_t *const, const gquic_str_t *const, const gquic_str_t *const, const int);
+    gquic_exception_t (*mac) (gquic_tls_mac_t *const, const u_int16_t, const gquic_str_t *const);
+    gquic_exception_t (*aead) (gquic_tls_aead_t *const, const gquic_str_t *const, const gquic_str_t *const);
 };
 
-int gquic_tls_get_cipher_suite(const gquic_tls_cipher_suite_t **const cipher_suite, const u_int16_t cipher_suite_id);
-int gquic_tls_choose_cipher_suite(const gquic_tls_cipher_suite_t **const cipher_suite, const gquic_list_t *const have, const u_int16_t want);
+/**
+ * 根据加密套件ID获取加密套件
+ *
+ * @param cipher_suite_id: 加密套件ID
+ * 
+ * @return cipher_suite: 加密套件
+ * @return: exception
+ */
+gquic_exception_t gquic_tls_get_cipher_suite(const gquic_tls_cipher_suite_t **const cipher_suite, const u_int16_t cipher_suite_id);
 
-int gquic_tls_create_aead(gquic_tls_aead_t *const aead, const gquic_tls_cipher_suite_t *const suite, const gquic_str_t *const traffic_sec);
+/**
+ * 从允许的加密套件列表中选择对应的加密套件
+ *
+ * @param have: 加密套件ID列表
+ * @param want: 加密套件ID
+ *
+ * @return cipher_suite: 加密套件
+ * @return: exception
+ */
+gquic_exception_t gquic_tls_choose_cipher_suite(const gquic_tls_cipher_suite_t **const cipher_suite, const gquic_list_t *const have, const u_int16_t want);
 
-int gquic_tls_cipher_suite_expand_label(gquic_str_t *const ret,
-                                        const gquic_tls_cipher_suite_t *const cipher_suite,
-                                        const gquic_str_t *const secret,
-                                        const gquic_str_t *const label,
-                                        const gquic_str_t *const content,
-                                        const size_t length);
-int gquic_tls_cipher_suite_derive_secret(gquic_str_t *const ret,
-                                         const gquic_tls_cipher_suite_t *const cipher_suite,
-                                         gquic_tls_mac_t *const mac,
-                                         const gquic_str_t *const secret,
-                                         const gquic_str_t *const label);
+/**
+ * 根据加密套件构造AEAD
+ *
+ * @param aead: 构造的AEAD
+ * @param suite: 加密套件
+ * @param traffic_sec: traffic secret
+ *
+ * @return: exception
+ */
+gquic_exception_t gquic_tls_create_aead(gquic_tls_aead_t *const aead, const gquic_tls_cipher_suite_t *const suite, const gquic_str_t *const traffic_sec);
+
+gquic_exception_t gquic_tls_cipher_suite_expand_label(gquic_str_t *const ret,
+                                                      const gquic_tls_cipher_suite_t *const cipher_suite,
+                                                      const gquic_str_t *const secret, const gquic_str_t *const label, const gquic_str_t *const content, const size_t length);
+gquic_exception_t gquic_tls_cipher_suite_derive_secret(gquic_str_t *const ret,
+                                                       const gquic_tls_cipher_suite_t *const cipher_suite,
+                                                       gquic_tls_mac_t *const mac, const gquic_str_t *const secret, const gquic_str_t *const label);
 int gquic_tls_cipher_suite_extract(gquic_str_t *const ret,
                                    const gquic_tls_cipher_suite_t *const cipher_suite,
                                    const gquic_str_t *const secret,
@@ -178,30 +337,20 @@ struct gquic_tls_suite_s {
 int gquic_tls_suite_init(gquic_tls_suite_t *const suite);
 int gquic_tls_suite_ctor(gquic_tls_suite_t *const suite,
                          const gquic_tls_cipher_suite_t *const cipher_suite,
-                         const gquic_str_t *const iv,
-                         const gquic_str_t *const cipher_key,
-                         const gquic_str_t *const mac_key,
-                         const int is_read);
+                         const gquic_str_t *const iv, const gquic_str_t *const cipher_key, const gquic_str_t *const mac_key, const int is_read);
 int gquic_tls_suite_encrypt(gquic_str_t *const result, gquic_tls_suite_t *const suite, const gquic_str_t *const plain_text);
-int gquic_tls_suite_aead_encrypt(gquic_str_t *const tag,
-                                 gquic_str_t *const cipher_text,
+int gquic_tls_suite_aead_encrypt(gquic_str_t *const tag, gquic_str_t *const cipher_text,
                                  gquic_tls_suite_t *const suite,
-                                 const gquic_str_t *const nonce,
-                                 const gquic_str_t *const plain_text,
-                                 const gquic_str_t *const addata);
+                                 const gquic_str_t *const nonce, const gquic_str_t *const plain_text, const gquic_str_t *const addata);
 int gquic_tls_suite_decrypt(gquic_str_t *const result, gquic_tls_suite_t *const suite, const gquic_str_t *const cipher_text);
 int gquic_tls_suite_aead_decrypt(gquic_str_t *const plain_text,
                                  gquic_tls_suite_t *const suite,
-                                 const gquic_str_t *const nonce,
-                                 const gquic_str_t *const tag,
-                                 const gquic_str_t *const cipher_text,
-                                 const gquic_str_t *const addata);
+                                 const gquic_str_t *const nonce, const gquic_str_t *const tag,
+                                 const gquic_str_t *const cipher_text, const gquic_str_t *const addata);
 int gquic_tls_suite_hmac_hash(gquic_str_t *const hash,
                               gquic_tls_suite_t *const suite,
-                              const gquic_str_t *const seq,
-                              const gquic_str_t *const header,
-                              const gquic_str_t *const data,
-                              const gquic_str_t *const extra);
+                              const gquic_str_t *const seq, const gquic_str_t *const header,
+                              const gquic_str_t *const data, const gquic_str_t *const extra);
 size_t gquic_tls_suite_nonce_size(const gquic_tls_suite_t *const suite);
 size_t gquic_tls_suite_mac_size(const gquic_tls_suite_t *const suite);
 

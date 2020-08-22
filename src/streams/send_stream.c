@@ -281,6 +281,7 @@ static bool gquic_send_stream_pop_new_stream_frame(gquic_frame_stream_t *const f
             if (GQUIC_ASSERT(gquic_frame_stream_data_blocked_alloc(&data_blocked_frame))) {
                 return false;
             }
+            GQUIC_FRAME_INIT(data_blocked_frame);
             data_blocked_frame->id = str->stream_id;
             data_blocked_frame->limit = off;
             GQUIC_SENDER_QUEUE_CTRL_FRAME(str->sender, data_blocked_frame);

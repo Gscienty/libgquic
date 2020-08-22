@@ -80,10 +80,10 @@ gquic_exception_t gquic_conn_id_manager_add(gquic_conn_id_manager_t *const manag
     // 当接收到的新的connection id的序号小于最大丢弃的序号时，该connection id应该通知对端失效
     if (frame->seq < manager->highest_retired) {
         GQUIC_ASSERT_FAST_RETURN(gquic_frame_retire_connection_id_alloc(&retire_frame));
+        GQUIC_FRAME_INIT(retire_frame);
         retire_frame->seq = frame->seq;
         GQUIC_CONN_ID_MANAGER_QUEUE_CTRL_FRAME(manager, retire_frame);
 
-        gquic_frame_release(retire_frame);
         goto added;
     }
 
@@ -97,10 +97,10 @@ gquic_exception_t gquic_conn_id_manager_add(gquic_conn_id_manager_t *const manag
             }
             next_new_conn_id = gquic_list_next(new_conn_id);
             GQUIC_ASSERT_FAST_RETURN(gquic_frame_retire_connection_id_alloc(&retire_frame));
+            GQUIC_FRAME_INIT(retire_frame);
             retire_frame->seq = frame->seq;
             GQUIC_CONN_ID_MANAGER_QUEUE_CTRL_FRAME(manager, retire_frame);
 
-            gquic_frame_release(retire_frame);
             gquic_list_remove(new_conn_id);
             manager->queue_len--;
             gquic_str_reset(&new_conn_id->conn_id);
@@ -172,11 +172,10 @@ static gquic_exception_t gquic_conn_id_update_conn_id(gquic_conn_id_manager_t *c
 
     // 将当前激活的connection id失效处理
     GQUIC_ASSERT_FAST_RETURN(gquic_frame_retire_connection_id_alloc(&retire_frame));
+    GQUIC_FRAME_INIT(retire_frame);
     retire_frame->seq = manager->active_seq;
     GQUIC_CONN_ID_MANAGER_QUEUE_CTRL_FRAME(manager, retire_frame);
 
-    gquic_frame_release(retire_frame);
-    
     // 尝试更新最大失效connection id序号
     if (manager->highest_retired < manager->active_seq) {
         manager->highest_retired = manager->active_seq;

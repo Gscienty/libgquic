@@ -1237,7 +1237,7 @@ static int gquic_tls_client_handshake_state_send_cli_cert(gquic_tls_handshake_cl
         goto finished;
     }
 
-    if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_sig_schemes_from_cert(&supported_algs, cli_state->cert))) {
+    if (GQUIC_ASSERT_CAUSE(exception, gquic_tls_sigalg_from_cert(&supported_algs, cli_state->cert))) {
         gquic_tls_conn_send_alert(cli_state->conn, GQUIC_TLS_ALERT_INTERNAL_ERROR);
         goto failure;
     }

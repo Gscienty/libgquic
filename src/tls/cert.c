@@ -1,3 +1,11 @@
+/* src/tls/auth.c TLS 认证过程
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "tls/cert.h"
 #include "tls/_msg_serialize_util.h"
 #include "tls/_msg_deserialize_util.h"
@@ -5,8 +13,9 @@
 #include "exception.h"
 #include <openssl/x509.h>
 #include <unistd.h>
+#include <stdbool.h>
 
-int gquic_tls_cert_init(gquic_tls_cert_t *const msg) {
+gquic_exception_t gquic_tls_cert_init(gquic_tls_cert_t *const msg) {
     if (msg == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -17,7 +26,7 @@ int gquic_tls_cert_init(gquic_tls_cert_t *const msg) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_cert_dtor(gquic_tls_cert_t *const msg) {
+gquic_exception_t gquic_tls_cert_dtor(gquic_tls_cert_t *const msg) {
     if (msg == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -39,14 +48,14 @@ ssize_t gquic_tls_cert_size(const gquic_tls_cert_t *const msg) {
     size_t off = 0;
     X509 **cert_storage = NULL;
     gquic_str_t *sct;
-    int leaf_flag = 1;
+    bool leaf = true;
     if (msg == NULL) {
         return 0;
     }
     off += 3;
     GQUIC_LIST_FOREACH(cert_storage, &msg->certs) {
         off += 3 + i2d_X509(*cert_storage, NULL) + 2;
-        if (leaf_flag == 0) {
+        if (!leaf) {
             continue;
         }
         if (msg->ocsp_staple.size > 0) {
@@ -58,16 +67,16 @@ ssize_t gquic_tls_cert_size(const gquic_tls_cert_t *const msg) {
                 off += 2 + sct->size;
             }
         }
-        leaf_flag = 0;
+        leaf = false;
     }
     return off;
 }
 
-int gquic_tls_cert_serialize(const gquic_tls_cert_t *const msg, gquic_writer_str_t *const writer) {
+gquic_exception_t gquic_tls_cert_serialize(const gquic_tls_cert_t *const msg, gquic_writer_str_t *const writer) {
     gquic_list_t prefix_len_stack;
     X509 **cert_storage = NULL;
     gquic_str_t *sct;
-    int leaf_flag = 1;
+    bool leaf = true;
     if (msg == NULL || writer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -79,7 +88,7 @@ int gquic_tls_cert_serialize(const gquic_tls_cert_t *const msg, gquic_writer_str
     GQUIC_LIST_FOREACH(cert_storage, &msg->certs) {
         GQUIC_ASSERT_FAST_RETURN(__gquic_fill_x509(writer, *cert_storage, 3));
         GQUIC_ASSERT_FAST_RETURN(__gquic_store_prefix_len(&prefix_len_stack, writer, 2));
-        if (leaf_flag == 1) {
+        if (leaf) {
             if (msg->ocsp_staple.size > 0) {
                 GQUIC_ASSERT_FAST_RETURN(gquic_big_endian_writer_2byte(writer, GQUIC_TLS_EXTENSION_STATUS_REQUEST));
                 GQUIC_ASSERT_FAST_RETURN(__gquic_store_prefix_len(&prefix_len_stack, writer, 2));
@@ -97,7 +106,7 @@ int gquic_tls_cert_serialize(const gquic_tls_cert_t *const msg, gquic_writer_str
                 GQUIC_ASSERT_FAST_RETURN(__gquic_fill_prefix_len(&prefix_len_stack, writer));
                 GQUIC_ASSERT_FAST_RETURN(__gquic_fill_prefix_len(&prefix_len_stack, writer));
             }
-            leaf_flag = 0;
+            leaf = false;
         }
         GQUIC_ASSERT_FAST_RETURN(__gquic_fill_prefix_len(&prefix_len_stack, writer));
     }
@@ -106,7 +115,7 @@ int gquic_tls_cert_serialize(const gquic_tls_cert_t *const msg, gquic_writer_str
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_cert_deserialize(gquic_tls_cert_t *const msg, gquic_reader_str_t *const reader) {
+gquic_exception_t gquic_tls_cert_deserialize(gquic_tls_cert_t *const msg, gquic_reader_str_t *const reader) {
     size_t payload_len = 0;
     size_t ext_prefix_len = 0;
     size_t sct_prefix_len = 0;
@@ -114,7 +123,7 @@ int gquic_tls_cert_deserialize(gquic_tls_cert_t *const msg, gquic_reader_str_t *
     void * ext_start_position = NULL;
     void * sct_start_position = NULL;
     u_int16_t opt_type = 0;
-    int leaf_flag = 1;
+    bool leaf = true;
     gquic_str_t *field;
     X509 *x509 = NULL;
     X509 **x509_storage = NULL;
@@ -129,8 +138,8 @@ int gquic_tls_cert_deserialize(gquic_tls_cert_t *const msg, gquic_reader_str_t *
         *x509_storage = x509;
         GQUIC_ASSERT_FAST_RETURN(gquic_list_insert_before(&msg->certs, x509_storage));
         
-        if (leaf_flag == 1) {
-            leaf_flag = 0;
+        if (leaf) {
+            leaf = false;
             GQUIC_ASSERT_FAST_RETURN(__gquic_recovery_bytes(&ext_prefix_len, 2, reader));
             ext_start_position = GQUIC_STR_VAL(reader);
             while ((size_t) (GQUIC_STR_VAL(reader) - ext_start_position) < ext_prefix_len) {

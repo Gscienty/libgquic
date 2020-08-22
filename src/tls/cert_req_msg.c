@@ -6,13 +6,13 @@
 #include "util/str.h"
 #include "exception.h"
 
-static int gquic_tls_cert_req_msg_init(void *const msg);
-static int gquic_tls_cert_req_msg_dtor(void *const msg);
+static gquic_exception_t gquic_tls_cert_req_msg_init(void *const msg);
+static gquic_exception_t gquic_tls_cert_req_msg_dtor(void *const msg);
 static ssize_t gquic_tls_cert_req_msg_size(const void *const msg);
-static int gquic_tls_cert_req_msg_serialize(const void *const msg, gquic_writer_str_t *const);
-static int gquic_tls_cert_req_msg_deserialize(void *const msg, gquic_reader_str_t *const);
+static gquic_exception_t gquic_tls_cert_req_msg_serialize(const void *const msg, gquic_writer_str_t *const);
+static gquic_exception_t gquic_tls_cert_req_msg_deserialize(void *const msg, gquic_reader_str_t *const);
 
-int gquic_tls_cert_req_msg_alloc(gquic_tls_cert_req_msg_t **const result) {
+gquic_exception_t gquic_tls_cert_req_msg_alloc(gquic_tls_cert_req_msg_t **const result) {
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_msg_alloc((void **) result, sizeof(gquic_tls_cert_req_msg_t)));
 
     GQUIC_TLS_MSG_META(*result).deserialize_func = gquic_tls_cert_req_msg_deserialize;
@@ -25,13 +25,13 @@ int gquic_tls_cert_req_msg_alloc(gquic_tls_cert_req_msg_t **const result) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_tls_cert_req_msg_init(void *const msg) {
+static gquic_exception_t gquic_tls_cert_req_msg_init(void *const msg) {
     gquic_tls_cert_req_msg_t *const spec = msg;
     if (msg == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
-    spec->ocsp_stapling = 0;
-    spec->scts = 0;
+    spec->ocsp_stapling = false;
+    spec->scts = false;
     gquic_list_head_init(&spec->supported_sign_algo);
     gquic_list_head_init(&spec->supported_sign_algo_cert);
     gquic_list_head_init(&spec->cert_auths);
@@ -39,7 +39,7 @@ static int gquic_tls_cert_req_msg_init(void *const msg) {
     return GQUIC_SUCCESS;
 }
 
-static int gquic_tls_cert_req_msg_dtor(void *const msg) {
+static gquic_exception_t gquic_tls_cert_req_msg_dtor(void *const msg) {
     gquic_tls_cert_req_msg_t *const spec = msg;
     if (msg == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -94,7 +94,7 @@ static ssize_t gquic_tls_cert_req_msg_size(const void *const msg) {
 
     return off;
 }
-static int gquic_tls_cert_req_msg_serialize(const void *const msg, gquic_writer_str_t *const writer) {
+static gquic_exception_t gquic_tls_cert_req_msg_serialize(const void *const msg, gquic_writer_str_t *const writer) {
     const gquic_tls_cert_req_msg_t *const spec = msg;
     gquic_list_t prefix_len_stack;
     if (msg == NULL || writer == NULL) {
@@ -155,7 +155,7 @@ static int gquic_tls_cert_req_msg_serialize(const void *const msg, gquic_writer_
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_tls_cert_req_msg_deserialize(void *const msg, gquic_reader_str_t *const reader) {
+static gquic_exception_t gquic_tls_cert_req_msg_deserialize(void *const msg, gquic_reader_str_t *const reader) {
     gquic_tls_cert_req_msg_t *const spec = msg;
     size_t prefix_len = 0;
     void * _ = NULL;
@@ -182,12 +182,12 @@ static int gquic_tls_cert_req_msg_deserialize(void *const msg, gquic_reader_str_
         switch (opt_type) {
         case GQUIC_TLS_EXTENSION_STATUS_REQUEST:
             GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_readed_size(reader, 2));
-            spec->ocsp_stapling = 1;
+            spec->ocsp_stapling = true;
             break;
 
         case GQUIC_TLS_EXTENSION_SCT:
             GQUIC_ASSERT_FAST_RETURN(gquic_reader_str_readed_size(reader, 2));
-            spec->scts = 1;
+            spec->scts = true;
             break;
 
         case GQUIC_TLS_EXTENSION_SIGN_ALGOS:
