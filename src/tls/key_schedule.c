@@ -212,10 +212,7 @@ int gquic_tls_hkdf_extract(gquic_str_t *const ret, gquic_tls_mac_t *const hash, 
 
 int gquic_tls_hkdf_expand_label(gquic_str_t *const ret,
                                 gquic_tls_mac_t *const hash,
-                                const gquic_str_t *const secret,
-                                const gquic_str_t *const content,
-                                const gquic_str_t *const label,
-                                const size_t length) {
+                                const gquic_str_t *const secret, const gquic_str_t *const content, const gquic_str_t *const label, const size_t length) {
     static const gquic_str_t default_label = { 6, (void *) "tls13 " };
     EVP_PKEY_CTX *ctx = NULL;
     gquic_str_t info = { 0, NULL };
