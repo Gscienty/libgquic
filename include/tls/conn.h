@@ -20,7 +20,7 @@
 #include "net/addr.h"
 #include <sys/types.h>
 #include <stdatomic.h>
-#include <semaphore.h>
+#include <stdbool.h>
 
 /**
  * TLS 连接管理
@@ -111,7 +111,7 @@ struct gquic_tls_conn_s {
     u_int16_t ver;
     int have_vers;
     int handshakes;
-    int did_resume;
+    bool did_resume;
     u_int16_t cipher_suite;
     gquic_str_t ocsp_resp;
     gquic_list_t scts;

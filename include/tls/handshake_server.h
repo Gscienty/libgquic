@@ -1,3 +1,11 @@
+/* include/tls/handshake_server.h 服务器握手执行规则模块
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #ifndef _LIBGQUIC_TLS_HANDSHAKE_SERVER_H
 #define _LIBGQUIC_TLS_HANDSHAKE_SERVER_H
 

@@ -204,7 +204,7 @@ int gquic_tls_conn_init(gquic_tls_conn_t *const conn) {
     conn->ver = 0;
     conn->have_vers = 0;
     conn->handshakes = 0;
-    conn->did_resume = 0;
+    conn->did_resume = false;
     conn->cipher_suite = 0;
     gquic_str_init(&conn->ocsp_resp);
     gquic_list_head_init(&conn->scts);
