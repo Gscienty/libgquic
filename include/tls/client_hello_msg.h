@@ -1,10 +1,22 @@
+/* include/tls/client_hello_msg.h TLS CHELLO record
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #ifndef _LIBGQUIC_TLS_CLIENT_HELLO_MSG_H
 #define _LIBGQUIC_TLS_CLIENT_HELLO_MSG_H
 
 #include <sys/types.h>
 #include "util/list.h"
 #include "util/str.h"
+#include "exception.h"
 
+/**
+ * TLS CHELLO record
+ */
 typedef struct gquic_tls_client_hello_msg_s gquic_tls_client_hello_msg_t;
 struct gquic_tls_client_hello_msg_s {
     u_int16_t vers;
@@ -35,7 +47,21 @@ struct gquic_tls_client_hello_msg_s {
     gquic_list_t extensions;
 };
 
-int gquic_tls_client_hello_msg_alloc(gquic_tls_client_hello_msg_t **const result);
+/**
+ * 申请一个CHELLO record
+ *
+ * @return result: CHELLO record
+ * @return: exception
+ */
+gquic_exception_t gquic_tls_client_hello_msg_alloc(gquic_tls_client_hello_msg_t **const result);
+
+/**
+ * 获取移除掉binders的CHELLO record长度
+ *
+ * @param msg: CHELLO record
+ *
+ * @return: 长度
+ */
 ssize_t gquic_tls_client_hello_msg_size_without_binders(gquic_tls_client_hello_msg_t *msg);
 
 #endif

@@ -1,3 +1,11 @@
+/* include/tls/config.h TLS 配置
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #ifndef _LIBGQUIC_TLS_CONFIG_H
 #define _LIBGQUIC_TLS_CONFIG_H
 
@@ -12,15 +20,29 @@
 #include <openssl/x509.h>
 #include <openssl/pkcs12.h>
 #include <sys/types.h>
+#include <stdbool.h>
 
+/**
+ * TLS回调函数
+ */
 typedef struct gquic_tls_record_layer_s gquic_tls_record_layer_t;
 struct gquic_tls_record_layer_s {
     void *self;
-    int (*set_rkey) (void *const, const u_int8_t, const gquic_tls_cipher_suite_t *const, const gquic_str_t *const);
-    int (*set_wkey) (void *const, const u_int8_t, const gquic_tls_cipher_suite_t *const, const gquic_str_t *const);
-    int (*read_handshake_msg) (gquic_str_t *const, void *const);
-    int (*write_record) (size_t *const, void *const, const gquic_str_t *const);
-    int (*send_alert) (void *const, const u_int8_t);
+
+    // 设定读密钥
+    gquic_exception_t (*set_rkey) (void *const, const u_int8_t, const gquic_tls_cipher_suite_t *const, const gquic_str_t *const);
+
+    // 设定写密钥
+    gquic_exception_t (*set_wkey) (void *const, const u_int8_t, const gquic_tls_cipher_suite_t *const, const gquic_str_t *const);
+
+    // 读取握手数据
+    gquic_exception_t (*read_handshake_msg) (gquic_str_t *const, void *const);
+
+    // 写record
+    gquic_exception_t (*write_record) (size_t *const, void *const, const gquic_str_t *const);
+
+    // 发送Alert
+    gquic_exception_t (*send_alert) (void *const, const u_int8_t);
 };
 
 int gquic_tls_record_layer_init(gquic_tls_record_layer_t *const record_layer);
@@ -56,16 +78,38 @@ struct gquic_tls_config_s {
     u_int8_t cli_auth;
 };
 
+/**
+ * 获取服务端证书
+ *
+ * @param config: TLS 配置
+ * @param chello: CHELLO record
+ *
+ * @return cert: 证书
+ * @return: exception
+ */
 #define GQUIC_TLS_CONFIG_GET_SER_CERT(cert, config, chello) \
     ((config)->get_ser_cert == NULL \
      ? GQUIC_EXCEPTION_NOT_IMPLEMENTED \
      : (config)->get_ser_cert(cert, chello))
 
+/**
+ * 获取客户端证书
+ *
+ * @param config: TLS 配置
+ * @param cert_req: CERT_REQ record
+ *
+ * @return cert: 证书
+ * @return: exception
+ */
 #define GQUIC_TLS_CONFIG_GET_CLI_CERT(cert, config, cert_req) \
     ((config)->get_cli_cert == NULL \
      ? GQUIC_EXCEPTION_NOT_IMPLEMENTED \
      : (config)->get_cli_cert(cert, cert_req))
 
+
+/**
+ * ticket
+ */
 typedef struct gquic_tls_ticket_key_s gquic_tls_ticket_key_t;
 struct gquic_tls_ticket_key_s {
     u_int8_t name[16];
@@ -73,14 +117,68 @@ struct gquic_tls_ticket_key_s {
     u_int8_t hmac_key[16];
 };
 
-int gquic_tls_config_init(gquic_tls_config_t *const cfg);
-// TODO config release
-int gquic_tls_config_default(gquic_tls_config_t **const cfg);
-int gquic_tls_config_supported_versions(gquic_list_t *ret, const gquic_tls_config_t *cfg, int is_client);
-int gquic_tls_config_curve_preferences(gquic_list_t *ret);
+/**
+ * 初始化TLS配置
+ *
+ * @param cfg: TLS配置
+ *
+ * @return: exception
+ */
+gquic_exception_t gquic_tls_config_init(gquic_tls_config_t *const cfg);
 
-int gquic_tls_ticket_key_deserialize(gquic_tls_ticket_key_t *ticket_key, const void *buf, const size_t size);
-int gquic_tls_sig_trans(u_int8_t *const sig, const u_int16_t sigsche);
-int gquic_tls_supported_sigalgs_tls12(gquic_list_t *const sigsches);
+/**
+ * 获取一个默认的TLS配置
+ *
+ * @return cfg: TLS配置
+ * @return: exception
+ */
+gquic_exception_t gquic_tls_config_default(gquic_tls_config_t **const cfg);
+
+/**
+ * 从TLS配置中获取支持的版本
+ *
+ * @param ret: 存储支持的版本
+ * @param cfg: 配置文件
+ * @param is_client: 是否为客户端
+ *
+ * @return: exception
+ */
+gquic_exception_t gquic_tls_config_supported_versions(gquic_list_t *ret, const gquic_tls_config_t *cfg, bool is_client);
+
+/**
+ * 获取支持的椭圆曲线加密
+ *
+ * @param ret: 存储支持的椭圆曲线加密
+ *
+ * @return: exception
+ */
+gquic_exception_t gquic_tls_config_curve_preferences(gquic_list_t *ret);
+
+/**
+ * 解析ticket
+ * TODO: 需要将buf和size更改为gquic_str_reader_t
+ *
+ * @param ticket_key: 解析后的ticket
+ * @param buf: 数据buf
+ * @param size: 数据长度
+ *
+ * @return: exception
+ */
+gquic_exception_t gquic_tls_ticket_key_deserialize(gquic_tls_ticket_key_t *ticket_key, const void *buf, const size_t size);
+
+/**
+ * 从签名算法中获取签名类型
+ *
+ * @param sigsche: 签名算法
+ *
+ * @return sig: 签名类型
+ * @return: exception
+ */
+gquic_exception_t gquic_tls_sig_trans(u_int8_t *const sig, const u_int16_t sigsche);
+
+/**
+ * TODO: 待废弃
+ */
+gquic_exception_t gquic_tls_supported_sigalgs_tls12(gquic_list_t *const sigsches);
 
 #endif

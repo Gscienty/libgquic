@@ -11,7 +11,7 @@ static u_int16_t __supported_versions[] = {
     GQUIC_TLS_VERSION_13
 };
 
-int gquic_tls_record_layer_init(gquic_tls_record_layer_t *const record_layer) {
+gquic_exception_t gquic_tls_record_layer_init(gquic_tls_record_layer_t *const record_layer) {
     if (record_layer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -24,7 +24,7 @@ int gquic_tls_record_layer_init(gquic_tls_record_layer_t *const record_layer) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_config_init(gquic_tls_config_t *const cfg) {
+gquic_exception_t gquic_tls_config_init(gquic_tls_config_t *const cfg) {
     if (cfg == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -64,7 +64,7 @@ int gquic_tls_config_init(gquic_tls_config_t *const cfg) {
 static int empty_config_inited = 0;
 static gquic_tls_config_t empty_config;
 
-int gquic_tls_config_default(gquic_tls_config_t **const cfg) {
+gquic_exception_t gquic_tls_config_default(gquic_tls_config_t **const cfg) {
     if (cfg == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -77,7 +77,7 @@ int gquic_tls_config_default(gquic_tls_config_t **const cfg) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_ticket_key_deserialize(gquic_tls_ticket_key_t *ticket_key, const void *buf, const size_t size) {
+gquic_exception_t gquic_tls_ticket_key_deserialize(gquic_tls_ticket_key_t *ticket_key, const void *buf, const size_t size) {
     if (ticket_key == NULL || buf == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -96,7 +96,7 @@ int gquic_tls_ticket_key_deserialize(gquic_tls_ticket_key_t *ticket_key, const v
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_config_supported_versions(gquic_list_t *ret, const gquic_tls_config_t *cfg, int is_client) {
+gquic_exception_t gquic_tls_config_supported_versions(gquic_list_t *ret, const gquic_tls_config_t *cfg, bool is_client) {
     if (ret == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -121,12 +121,14 @@ int gquic_tls_config_supported_versions(gquic_list_t *ret, const gquic_tls_confi
 
 static u_int16_t __default_curve_preferences[] = {
     GQUIC_TLS_CURVE_X25519,
+
+    // dose not support them, damn!
     /*GQUIC_TLS_CURVE_P256,*/
     /*GQUIC_TLS_CURVE_P384,*/
     /*GQUIC_TLS_CURVE_P521*/
 };
 
-int gquic_tls_config_curve_preferences(gquic_list_t *ret) {
+gquic_exception_t gquic_tls_config_curve_preferences(gquic_list_t *ret) {
     if (ret == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -141,7 +143,7 @@ int gquic_tls_config_curve_preferences(gquic_list_t *ret) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_sig_trans(u_int8_t *const sig, const u_int16_t sigsche) {
+gquic_exception_t gquic_tls_sig_trans(u_int8_t *const sig, const u_int16_t sigsche) {
     if (sig == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -185,7 +187,7 @@ static u_int16_t __supported_sigalgs_tls12[] = {
     GQUIC_SIGALG_ECDSA_SHA1
 };
 
-int gquic_tls_supported_sigalgs_tls12(gquic_list_t *const sigsches) {
+gquic_exception_t gquic_tls_supported_sigalgs_tls12(gquic_list_t *const sigsches) {
     size_t i;
     u_int16_t *payload;
     if (sigsches == NULL) {

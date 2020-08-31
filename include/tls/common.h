@@ -1,3 +1,11 @@
+/* include/tls/common.h TLS 常量定义
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #ifndef _LIBGQUIC_TLS_COMMON_H
 #define _LIBGQUIC_TLS_COMMON_H
 
@@ -87,8 +95,8 @@
 #define GQUIC_ENC_LV_1RTT 3
 #define GQUIC_ENC_LV_APP 4
 
-#if LOG
 const char *gquic_enc_lv_to_string_inner(const int enc_lv);
+#if LOG
 #define gquic_enc_lv_to_string(enc_lv) gquic_enc_lv_to_string_inner(enc_lv)
 #else
 #define gquic_enc_lv_to_string(enc_lv)

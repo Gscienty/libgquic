@@ -58,8 +58,7 @@ int gquic_tls_half_conn_init(gquic_tls_half_conn_t *const half_conn) {
 
 int gquic_tls_half_conn_encrypt(gquic_str_t *const ret_record,
                                 gquic_tls_half_conn_t *const half_conn,
-                                const gquic_str_t *const record,
-                                const gquic_str_t *const payload) {
+                                const gquic_str_t *const record, const gquic_str_t *const payload) {
     int exception = GQUIC_SUCCESS;
     gquic_str_t msg = { 0, NULL };
     gquic_str_t mac = { 0, NULL };
@@ -160,10 +159,8 @@ failure:
     GQUIC_PROCESS_DONE(exception);
 }
 
-int gquic_tls_half_conn_set_key(gquic_tls_half_conn_t *const half_conn,
-                                const u_int8_t enc_lv,
-                                const gquic_tls_cipher_suite_t *const cipher_suite,
-                                const gquic_str_t *const secret) {
+int gquic_tls_half_conn_set_key(gquic_tls_half_conn_t *const half_conn, const u_int8_t enc_lv,
+                                const gquic_tls_cipher_suite_t *const cipher_suite, const gquic_str_t *const secret) {
     if (half_conn == NULL || cipher_suite == NULL || secret == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -175,10 +172,8 @@ int gquic_tls_half_conn_set_key(gquic_tls_half_conn_t *const half_conn,
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_half_conn_set_traffic_sec(gquic_tls_half_conn_t *const half_conn,
-                                        const gquic_tls_cipher_suite_t *const cipher_suite,
-                                        const gquic_str_t *const secret,
-                                        int is_read) {
+gquic_exception_t gquic_tls_half_conn_set_traffic_sec(gquic_tls_half_conn_t *const half_conn,
+                                                      const gquic_tls_cipher_suite_t *const cipher_suite, const gquic_str_t *const secret, bool is_read) {
     size_t i;
     gquic_str_t key = { 0, NULL };
     gquic_str_t iv = { 0, NULL };
@@ -299,12 +294,9 @@ int gquic_tls_half_conn_decrypt(gquic_str_t *const ret,
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_conn_load_session(gquic_str_t *const cache_key,
-                                gquic_tls_client_sess_state_t **const sess,
-                                gquic_str_t *const early_sec,
-                                gquic_str_t *const binder_key,
-                                const gquic_tls_conn_t *const conn,
-                                gquic_tls_client_hello_msg_t *const hello) {
+gquic_exception_t gquic_tls_conn_load_session(gquic_str_t *const cache_key, gquic_tls_client_sess_state_t **const sess,
+                                              gquic_str_t *const early_sec, gquic_str_t *const binder_key,
+                                              const gquic_tls_conn_t *const conn, gquic_tls_client_hello_msg_t *const hello) {
     if (conn == NULL || cache_key == NULL || sess == NULL || early_sec == NULL || binder_key == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -861,11 +853,8 @@ failure:
     GQUIC_PROCESS_DONE(exception);
 }
 
-int gquic_tls_conn_decrypt_ticket(gquic_str_t *const plain,
-                                  int *const is_oldkey,
-                                  gquic_tls_conn_t *const conn,
-                                  const gquic_str_t *const encrypted) {
-    int exception = GQUIC_SUCCESS;
+gquic_exception_t gquic_tls_conn_decrypt_ticket(gquic_str_t *const plain, bool *const is_oldkey, gquic_tls_conn_t *const conn, const gquic_str_t *const encrypted) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     const gquic_str_t key_name = { 16, GQUIC_STR_VAL(encrypted) };
     const gquic_str_t iv = { 16, GQUIC_STR_VAL(encrypted) + 16 };
     const gquic_str_t mac = { 32, GQUIC_STR_VAL(encrypted) + GQUIC_STR_SIZE(encrypted) - 32 };
@@ -900,7 +889,7 @@ int gquic_tls_conn_decrypt_ticket(gquic_str_t *const plain,
         }
     }
     if (key == NULL) {
-        *is_oldkey = 0;
+        *is_oldkey = false;
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
     if (HMAC_Init_ex(hmac, key->hmac_key, 16, EVP_sha256(), NULL) <= 0) {
@@ -916,7 +905,7 @@ int gquic_tls_conn_decrypt_ticket(gquic_str_t *const plain,
         goto failure;
     }
     if (gquic_str_cmp(&mac_expect, &mac) != 0) {
-        *is_oldkey = 0;
+        *is_oldkey = false;
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
     if (EVP_DecryptInit_ex(ctx, EVP_aes_128_ctr(), NULL, key->aes_key, GQUIC_STR_VAL(&iv)) <= 0) {
@@ -934,7 +923,7 @@ int gquic_tls_conn_decrypt_ticket(gquic_str_t *const plain,
         GQUIC_EXCEPTION_ASSIGN(exception, GQUIC_EXCEPTION_DECRYPT_FAILED);
         goto failure;
     }
-    *is_oldkey = 1;
+    *is_oldkey = true;
 
     if (ctx != NULL) {
         EVP_CIPHER_CTX_free(ctx);
@@ -944,7 +933,7 @@ int gquic_tls_conn_decrypt_ticket(gquic_str_t *const plain,
     }
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 failure:
-    *is_oldkey = 0;
+    *is_oldkey = false;
     if (ctx != NULL) {
         EVP_CIPHER_CTX_free(ctx);
     }
