@@ -25,7 +25,7 @@ static int hash_for_ser_key_exchange(gquic_str_t *const,
 typedef struct gquic_tls_ecdhe_key_agreement_s gquic_tls_ecdhe_key_agreement_t;
 struct gquic_tls_ecdhe_key_agreement_s {
     u_int16_t ver;
-    int is_rsa;
+    bool is_rsa;
     gquic_tls_ecdhe_params_t params;
 
     gquic_tls_client_key_exchange_msg_t *ckex_msg;
@@ -129,7 +129,7 @@ int gquic_tls_key_agreement_ecdhe_set_version(gquic_tls_key_agreement_t *const k
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_key_agreement_ecdhe_set_is_rsa(gquic_tls_key_agreement_t *const key_agreement, const int is_rsa) {
+int gquic_tls_key_agreement_ecdhe_set_is_rsa(gquic_tls_key_agreement_t *const key_agreement, const bool is_rsa) {
     gquic_tls_ecdhe_key_agreement_t *ecdhe_self = key_agreement->self;
     if (key_agreement == NULL || key_agreement->self == NULL || key_agreement->type != GQUIC_TLS_KEY_AGREEMENT_TYPE_ECDHE) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);

@@ -19,7 +19,7 @@
 #include <stdbool.h>
 
 /**
- * 客户端握手执行规则模块
+ * 客户端握手状态
  */
 typedef struct gquic_tls_handshake_client_state_s gquic_tls_handshake_client_state_t;
 struct gquic_tls_handshake_client_state_s {
