@@ -1,10 +1,18 @@
+/* src/util/str.c 串
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "util/str.h"
 #include "util/malloc.h"
 #include "exception.h"
 #include <unistd.h>
 #include <string.h>
 
-int gquic_str_init(gquic_str_t *str) {
+gquic_exception_t gquic_str_init(gquic_str_t *str) {
     if (str == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -14,7 +22,7 @@ int gquic_str_init(gquic_str_t *str) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_str_alloc(gquic_str_t *str, size_t size) {
+gquic_exception_t gquic_str_alloc(gquic_str_t *str, size_t size) {
     if (str == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -26,7 +34,7 @@ int gquic_str_alloc(gquic_str_t *str, size_t size) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_str_reset(gquic_str_t *str) {
+gquic_exception_t gquic_str_reset(gquic_str_t *str) {
     if (str == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -38,7 +46,7 @@ int gquic_str_reset(gquic_str_t *str) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_str_copy(gquic_str_t *str, const gquic_str_t *ref) {
+gquic_exception_t gquic_str_copy(gquic_str_t *str, const gquic_str_t *ref) {
     if (str == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -54,7 +62,7 @@ int gquic_str_copy(gquic_str_t *str, const gquic_str_t *ref) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_str_set(gquic_str_t *const str, const char *const val) {
+gquic_exception_t gquic_str_set(gquic_str_t *const str, const char *const val) {
     if (str == NULL || val == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -66,7 +74,7 @@ int gquic_str_set(gquic_str_t *const str, const char *const val) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_str_test_echo(const gquic_str_t *const str) {
+gquic_exception_t gquic_str_test_echo(const gquic_str_t *const str) {
     if (str == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -99,7 +107,7 @@ int gquic_str_cmp(const gquic_str_t *const str_a, const gquic_str_t *const str_b
     return memcmp(GQUIC_STR_VAL(str_a), GQUIC_STR_VAL(str_b), GQUIC_STR_SIZE(str_a));
 }
 
-int gquic_str_concat(gquic_str_t *const ret, const gquic_str_t *const a, const gquic_str_t *const b) {
+gquic_exception_t gquic_str_concat(gquic_str_t *const ret, const gquic_str_t *const a, const gquic_str_t *const b) {
     if (ret == NULL || a == NULL || b == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -117,7 +125,7 @@ int gquic_str_concat(gquic_str_t *const ret, const gquic_str_t *const a, const g
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_str_clear(gquic_str_t *const str) {
+gquic_exception_t gquic_str_clear(gquic_str_t *const str) {
     if (str == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -126,7 +134,7 @@ int gquic_str_clear(gquic_str_t *const str) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_reader_str_readed_size(gquic_reader_str_t *const reader, const size_t n) {
+gquic_exception_t gquic_reader_str_readed_size(gquic_reader_str_t *const reader, const size_t n) {
     if (reader == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -153,7 +161,7 @@ u_int8_t gquic_reader_str_read_byte(gquic_reader_str_t *const reader) {
     return ret;
 }
 
-int gquic_reader_str_read(gquic_str_t *const out, gquic_reader_str_t *const reader) {
+gquic_exception_t gquic_reader_str_read(gquic_str_t *const out, gquic_reader_str_t *const reader) {
     if (out == NULL || reader == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -163,10 +171,10 @@ int gquic_reader_str_read(gquic_str_t *const out, gquic_reader_str_t *const read
     memcpy(GQUIC_STR_VAL(out), GQUIC_STR_VAL(reader), GQUIC_STR_SIZE(out));
     gquic_reader_str_readed_size(reader, GQUIC_STR_SIZE(out));
 
-    return 0;
+    GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_writer_str_writed_size(gquic_writer_str_t *const writer, const size_t n) {
+gquic_exception_t gquic_writer_str_writed_size(gquic_writer_str_t *const writer, const size_t n) {
     if (writer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -179,7 +187,7 @@ int gquic_writer_str_writed_size(gquic_writer_str_t *const writer, const size_t 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_writer_str_write(gquic_writer_str_t *const writer, const gquic_str_t *const buf) {
+gquic_exception_t gquic_writer_str_write(gquic_writer_str_t *const writer, const gquic_str_t *const buf) {
     u_int64_t writer_size = 0;
     if (writer == NULL || buf == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -194,7 +202,7 @@ int gquic_writer_str_write(gquic_writer_str_t *const writer, const gquic_str_t *
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_writer_str_write_byte(gquic_writer_str_t *const writer, u_int8_t b) {
+gquic_exception_t gquic_writer_str_write_byte(gquic_writer_str_t *const writer, u_int8_t b) {
     if (writer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -206,7 +214,7 @@ int gquic_writer_str_write_byte(gquic_writer_str_t *const writer, u_int8_t b) {
     return gquic_writer_str_write(writer, &bbuf);
 }
 
-int gquic_writer_str_write_padding(gquic_writer_str_t *const writer, u_int8_t padding_cnt, const u_int64_t padding_len) {
+gquic_exception_t gquic_writer_str_write_padding(gquic_writer_str_t *const writer, u_int8_t padding_cnt, const u_int64_t padding_len) {
     if (writer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -219,7 +227,7 @@ int gquic_writer_str_write_padding(gquic_writer_str_t *const writer, u_int8_t pa
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_writer_str_write_x509(gquic_writer_str_t *const writer, X509 *const x509) {
+gquic_exception_t gquic_writer_str_write_x509(gquic_writer_str_t *const writer, X509 *const x509) {
     unsigned char *buf = NULL;
     size_t size = 0;
     if (writer == NULL || x509 == NULL) {

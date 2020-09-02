@@ -1,9 +1,17 @@
+/* src/util/list.c 双向链表
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "util/list.h"
 #include "util/malloc.h"
 #include <string.h>
 #include "exception.h"
 
-int gquic_list_alloc(void **const result, size_t size) {
+gquic_exception_t gquic_list_alloc(void **const result, size_t size) {
     if (result == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -16,7 +24,7 @@ int gquic_list_alloc(void **const result, size_t size) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_list_head_init(gquic_list_t *head) {
+gquic_exception_t gquic_list_head_init(gquic_list_t *head) {
     if (head == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -26,15 +34,15 @@ int gquic_list_head_init(gquic_list_t *head) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_list_head_empty(const gquic_list_t *head) {
+bool gquic_list_head_empty(const gquic_list_t *head) {
     if (head == NULL) {
-        return 1;
+        return true;
     }
 
     return head->next == head;
 }
 
-int gquic_list_release(void *const list) {
+gquic_exception_t gquic_list_release(void *const list) {
     if (list == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -44,7 +52,7 @@ int gquic_list_release(void *const list) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_list_insert_after(gquic_list_t *ref, void *const node) {
+gquic_exception_t gquic_list_insert_after(gquic_list_t *ref, void *const node) {
     if (ref == NULL || node == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -56,7 +64,7 @@ int gquic_list_insert_after(gquic_list_t *ref, void *const node) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_list_insert_before(gquic_list_t *ref, void *const node) {
+gquic_exception_t gquic_list_insert_before(gquic_list_t *ref, void *const node) {
     if (ref == NULL || node == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -84,7 +92,7 @@ void *gquic_list_prev(void *const node) {
     return GQUIC_LIST_PAYLOAD(GQUIC_LIST_META(node).prev);
 }
 
-int gquic_list_remove(void *const node) {
+gquic_exception_t gquic_list_remove(void *const node) {
     if (node == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -96,10 +104,9 @@ int gquic_list_remove(void *const node) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_list_copy(gquic_list_t *list, const gquic_list_t *ref, int (*fptr) (void *const, const void *const)) {
+gquic_exception_t gquic_list_copy(gquic_list_t *list, const gquic_list_t *ref, gquic_exception_t (*fptr) (void *const, const void *const)) {
     void *field;
     void *ref_field;
-    int ret = 0;
     if (list == NULL || ref == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -111,8 +118,8 @@ int gquic_list_copy(gquic_list_t *list, const gquic_list_t *ref, int (*fptr) (vo
         if (fptr == NULL) {
             memcpy(field, ref_field, GQUIC_LIST_META(ref_field).payload_size);
         }
-        else if (GQUIC_ASSERT_CAUSE(ret, fptr(field, ref_field))) {
-            return ret;
+        else {
+            GQUIC_ASSERT_FAST_RETURN(fptr(field, ref_field));
         }
         gquic_list_insert_before(list, field);
     }

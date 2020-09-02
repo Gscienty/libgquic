@@ -1,3 +1,11 @@
+/* include/util/rbtree.h 红黑树
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #ifndef _LIBGQUIC_UTIL_RBTREE_H
 #define _LIBGQUIC_UTIL_RBTREE_H
 
@@ -8,6 +16,9 @@
 #define GQUIC_RBTREE_COLOR_BLACK 0x01
 typedef u_int8_t gquic_rbtree_color_t;
 
+/**
+ * 红黑树节点
+ */
 typedef struct gquic_rbtree_s gquic_rbtree_t;
 struct gquic_rbtree_s {
     gquic_rbtree_color_t color;
@@ -52,15 +63,74 @@ struct gquic_rbtree_s {
     } \
 }
 
-int gquic_rbtree_root_init(gquic_rbtree_t **const root);
-int gquic_rbtree_alloc(gquic_rbtree_t **const rb, const size_t key_len, const size_t val_len);
-int gquic_rbtree_release(gquic_rbtree_t *const rb, int (*release_val)(void *const));
-int gquic_rbtree_insert(gquic_rbtree_t **const root, gquic_rbtree_t *const node);
-int gquic_rbtree_insert_cmp(gquic_rbtree_t **const root, gquic_rbtree_t *const node, int (*key_cmp) (void *const, void *const));
-int gquic_rbtree_remove(gquic_rbtree_t **const root, gquic_rbtree_t **const node);
-int gquic_rbtree_is_nil(gquic_rbtree_t *const node);
-int gquic_rbtree_find(const gquic_rbtree_t **const ret, const gquic_rbtree_t *const root, const void *key, const size_t key_len);
-int gquic_rbtree_find_cmp(const gquic_rbtree_t **const ret, const gquic_rbtree_t *const root, void *key, int (key_cmp) (void *const, void *const));
+/**
+ * 初始化红黑树根节点
+ *
+ * @param root: 红黑树根节点
+ *
+ * @return: exception
+ */
+gquic_exception_t gquic_rbtree_root_init(gquic_rbtree_t **const root);
+
+/**
+ * 申请一个红黑树节点
+ *
+ * @param key_len: 键长度
+ * @param val_len: 值长度
+ *
+ * @return rb: 红黑树节点
+ * @return: exception
+ */
+gquic_exception_t gquic_rbtree_alloc(gquic_rbtree_t **const rb, const size_t key_len, const size_t val_len);
+
+/**
+ * 释放一个红黑树节点
+ *
+ * @param rb: 红黑树节点
+ * @param release_val: 对值释放的回调函数
+ *
+ * @return: exception
+ */
+gquic_exception_t gquic_rbtree_release(gquic_rbtree_t *const rb, gquic_exception_t (*release_val)(void *const));
+
+/**
+ * 向红黑树中插入一个节点
+ *
+ * @param root: 红黑树根节点
+ * @param node: 待插入的红黑树节点
+ *
+ * @return: exception
+ */
+gquic_exception_t gquic_rbtree_insert(gquic_rbtree_t **const root, gquic_rbtree_t *const node);
+gquic_exception_t gquic_rbtree_insert_cmp(gquic_rbtree_t **const root, gquic_rbtree_t *const node, gquic_exception_t (*key_cmp) (void *const, void *const));
+
+/**
+ * 从红黑树中删除一个节点
+ *
+ * @param root: 红黑树根节点
+ * @param node: 待删除的红黑树节点
+ */
+gquic_exception_t gquic_rbtree_remove(gquic_rbtree_t **const root, gquic_rbtree_t **const node);
+
+/**
+ * 判断红黑树是否为空
+ *
+ * @param node: 红黑树根节点
+ */
+bool gquic_rbtree_is_nil(gquic_rbtree_t *const node);
+
+/**
+ * 根据key值查找红黑树中的某个节点
+ *
+ * @param root: 红黑树根节点
+ * @param key: 键
+ * @param key_len: 键长
+ *
+ * @return ret: 查找到的红黑树节点
+ * @return: exception
+ */
+gquic_exception_t gquic_rbtree_find(const gquic_rbtree_t **const ret, const gquic_rbtree_t *const root, const void *key, const size_t key_len);
+gquic_exception_t gquic_rbtree_find_cmp(const gquic_rbtree_t **const ret, const gquic_rbtree_t *const root, void *key, gquic_exception_t (key_cmp) (void *const, void *const));
 
 
 #endif

@@ -1,9 +1,17 @@
+/* include/util/rtt.h RTT
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "util/rtt.h"
 #include "exception.h"
 #include <math.h>
 #include <unistd.h>
 
-int gquic_rtt_init(gquic_rtt_t *rtt) {
+gquic_exception_t gquic_rtt_init(gquic_rtt_t *rtt) {
     if (rtt == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -16,7 +24,7 @@ int gquic_rtt_init(gquic_rtt_t *rtt) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_rtt_update(gquic_rtt_t *rtt, const u_int64_t send, const u_int64_t ack) {
+gquic_exception_t gquic_rtt_update(gquic_rtt_t *rtt, const u_int64_t send, const u_int64_t ack) {
     if (rtt == NULL || send <= 0) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }

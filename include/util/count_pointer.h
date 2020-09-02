@@ -1,3 +1,11 @@
+/* include/util/count_pointer.h 计数指针
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #ifndef _LIBGQUIC_UTIL_COUNT_POINTER_H
 #define _LIBGQUIC_UTIL_COUNT_POINTER_H
 
@@ -5,16 +13,52 @@
 #include "exception.h"
 #include <stddef.h>
 
+/**
+ * 计数指针
+ */
 typedef struct gquic_count_pointer_s gquic_count_pointer_t;
 struct gquic_count_pointer_s {
     int ref_count;
-    int (*release_cb) (void *const);
+    gquic_exception_t (*release_cb) (void *const);
 };
 
-int gquic_count_pointer_ctor(gquic_count_pointer_t *const cptr, int (*release_cb) (void *const));
-int gquic_count_pointer_ref(gquic_count_pointer_t *const cptr);
-int gquic_count_pointer_unref(gquic_count_pointer_t *const cptr);
-int gquic_count_pointer_release(gquic_count_pointer_t *const cptr, void *const obj);
+/**
+ * 构造一个技术指针
+ *
+ * @param cptr: 计数指针
+ * @param release_cb: 释放内存的回调函数
+ *
+ * @return: exception
+ */
+gquic_exception_t gquic_count_pointer_ctor(gquic_count_pointer_t *const cptr, gquic_exception_t (*release_cb) (void *const));
+
+/**
+ * 计数指针添加一次引用
+ *
+ * @param cptr: 计数指针
+ *
+ * @return: exception
+ */
+gquic_exception_t gquic_count_pointer_ref(gquic_count_pointer_t *const cptr);
+
+/**
+ * 计数指针取消一次引用
+ *
+ * @param cptr: 计数指针
+ *
+ * @return: exception
+ */
+gquic_exception_t gquic_count_pointer_unref(gquic_count_pointer_t *const cptr);
+
+/**
+ * 尝试释放引用指针
+ *
+ * @param cptr: 引用指针
+ * @param obj: 引用指针指向的对象
+ *
+ * @return: exception
+ */
+gquic_exception_t gquic_count_pointer_release(gquic_count_pointer_t *const cptr, void *const obj);
 
 #define GQUIC_CPTR_TYPE(type) type *
 
