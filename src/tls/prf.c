@@ -1,8 +1,16 @@
+/* src/tls/prf.c 通过签名算法获取OpenSSL MD
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "tls/prf.h"
 #include "tls/common.h"
 #include "exception.h"
 
-int gquic_tls_hash_from_sigalg(const EVP_MD **const hash, u_int16_t sigalg) {
+gquic_exception_t gquic_tls_hash_from_sigalg(const EVP_MD **const hash, u_int16_t sigalg) {
     if (hash == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }

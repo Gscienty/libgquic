@@ -1,3 +1,11 @@
+/* src/tls/conn.c TLS 连接管理
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "tls/conn.h"
 #include "tls/common.h"
 #include "tls/alert.h"
@@ -32,15 +40,15 @@
 #include <openssl/rand.h>
 #include <string.h>
 
-static int gquic_tls_conn_cli_sess_cache_key(gquic_str_t *const, const gquic_net_addr_t *const, const gquic_tls_config_t *const);
+static gquic_exception_t gquic_tls_conn_cli_sess_cache_key(gquic_str_t *const, const gquic_net_addr_t *const, const gquic_tls_config_t *const);
 
-static int gquic_compare_now_asn1_time(const ASN1_TIME *const);
-static int gquic_equal_common_name(const gquic_str_t *const, X509_NAME *const);
+static gquic_exception_t gquic_compare_now_asn1_time(const ASN1_TIME *const);
+static gquic_exception_t gquic_equal_common_name(const gquic_str_t *const, X509_NAME *const);
 
-static int gquic_tls_half_conn_inc_seq(gquic_tls_half_conn_t *const);
+static gquic_exception_t gquic_tls_half_conn_inc_seq(gquic_tls_half_conn_t *const);
 
 
-int gquic_tls_half_conn_init(gquic_tls_half_conn_t *const half_conn) {
+gquic_exception_t gquic_tls_half_conn_init(gquic_tls_half_conn_t *const half_conn) {
     if (half_conn == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -56,10 +64,10 @@ int gquic_tls_half_conn_init(gquic_tls_half_conn_t *const half_conn) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_half_conn_encrypt(gquic_str_t *const ret_record,
-                                gquic_tls_half_conn_t *const half_conn,
-                                const gquic_str_t *const record, const gquic_str_t *const payload) {
-    int exception = GQUIC_SUCCESS;
+gquic_exception_t gquic_tls_half_conn_encrypt(gquic_str_t *const ret_record,
+                                              gquic_tls_half_conn_t *const half_conn,
+                                              const gquic_str_t *const record, const gquic_str_t *const payload) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     gquic_str_t msg = { 0, NULL };
     gquic_str_t mac = { 0, NULL };
     gquic_str_t sealed = { 0, NULL };
@@ -159,8 +167,8 @@ failure:
     GQUIC_PROCESS_DONE(exception);
 }
 
-int gquic_tls_half_conn_set_key(gquic_tls_half_conn_t *const half_conn, const u_int8_t enc_lv,
-                                const gquic_tls_cipher_suite_t *const cipher_suite, const gquic_str_t *const secret) {
+gquic_exception_t gquic_tls_half_conn_set_key(gquic_tls_half_conn_t *const half_conn, const u_int8_t enc_lv,
+                                              const gquic_tls_cipher_suite_t *const cipher_suite, const gquic_str_t *const secret) {
     if (half_conn == NULL || cipher_suite == NULL || secret == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -193,13 +201,13 @@ gquic_exception_t gquic_tls_half_conn_set_traffic_sec(gquic_tls_half_conn_t *con
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_conn_init(gquic_tls_conn_t *const conn) {
+gquic_exception_t gquic_tls_conn_init(gquic_tls_conn_t *const conn) {
     if (conn == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     conn->addr = NULL;
     conn->cfg = NULL;
-    conn->is_client = 0;
+    conn->is_client = false;
     conn->handshake_status = 0;
     conn->ver = 0;
     conn->have_vers = 0;
@@ -228,10 +236,8 @@ int gquic_tls_conn_init(gquic_tls_conn_t *const conn) {
 
 }
 
-int gquic_tls_half_conn_decrypt(gquic_str_t *const ret,
-                                u_int8_t *const record_type,
-                                gquic_tls_half_conn_t *const half_conn,
-                                const gquic_str_t *const record) {
+gquic_exception_t gquic_tls_half_conn_decrypt(gquic_str_t *const ret, u_int8_t *const record_type,
+                                              gquic_tls_half_conn_t *const half_conn, const gquic_str_t *const record) {
     gquic_str_t payload = { GQUIC_STR_SIZE(record) - 5, GQUIC_STR_VAL(record) + 5 };
     if (ret == NULL || record_type == NULL || half_conn == NULL || record == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -307,7 +313,7 @@ gquic_exception_t gquic_tls_conn_load_session(gquic_str_t *const cache_key, gqui
     if (conn->cfg->sess_ticket_disabled || conn->cfg->cli_sess_cache == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
-    hello->ticket_supported = 1;
+    hello->ticket_supported = true;
     if ((*(u_int16_t *) GQUIC_LIST_FIRST(&hello->supported_versions)) == GQUIC_TLS_VERSION_13) {
         GQUIC_ASSERT_FAST_RETURN(gquic_str_alloc(&hello->psk_modes, 1));
         *(u_int8_t *) GQUIC_STR_VAL(&hello->psk_modes) = 1;
@@ -319,15 +325,15 @@ gquic_exception_t gquic_tls_conn_load_session(gquic_str_t *const cache_key, gqui
     if (conn->cfg->cli_sess_cache->get(sess, conn->cfg->cli_sess_cache->self, cache_key) != 0 && *sess == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
-    int ver_avail = 0;
+    bool ver_avail = false;
     u_int16_t *supported_ver;
     GQUIC_LIST_FOREACH(supported_ver, &hello->supported_versions) {
         if (*supported_ver == (*sess)->ver) {
-            ver_avail = 1;
+            ver_avail = true;
             break;
         }
     }
-    if (ver_avail == 0) {
+    if (!ver_avail) {
         GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
     }
 
@@ -386,7 +392,7 @@ gquic_exception_t gquic_tls_conn_load_session(gquic_str_t *const cache_key, gqui
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_conn_set_alt_record(gquic_tls_conn_t *const conn) {
+gquic_exception_t gquic_tls_conn_set_alt_record(gquic_tls_conn_t *const conn) {
     if (conn == NULL || conn->cfg == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -398,8 +404,8 @@ int gquic_tls_conn_set_alt_record(gquic_tls_conn_t *const conn) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_conn_read_handshake(void **const msg, gquic_tls_conn_t *const conn) {
-    int exception = GQUIC_SUCCESS;
+gquic_exception_t gquic_tls_conn_read_handshake(void **const msg, gquic_tls_conn_t *const conn) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     gquic_str_t data = { 0, NULL };
     if (msg == NULL || conn == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -528,7 +534,7 @@ failure:
     GQUIC_PROCESS_DONE(exception);
 }
 
-static int gquic_tls_conn_cli_sess_cache_key(gquic_str_t *const ret, const gquic_net_addr_t *const addr, const gquic_tls_config_t *const cfg) {
+static gquic_exception_t gquic_tls_conn_cli_sess_cache_key(gquic_str_t *const ret, const gquic_net_addr_t *const addr, const gquic_tls_config_t *const cfg) {
     if (ret == NULL || addr == NULL || cfg == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -540,8 +546,8 @@ static int gquic_tls_conn_cli_sess_cache_key(gquic_str_t *const ret, const gquic
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_compare_now_asn1_time(const ASN1_TIME *const ref_time) {
-    int cmp;
+static gquic_exception_t gquic_compare_now_asn1_time(const ASN1_TIME *const ref_time) {
+    gquic_exception_t cmp;
     ASN1_TIME *cur = ASN1_TIME_new();
     ASN1_TIME_set(cur, time(NULL));
     cmp = ASN1_TIME_compare(cur, ref_time);
@@ -549,7 +555,7 @@ static int gquic_compare_now_asn1_time(const ASN1_TIME *const ref_time) {
     return cmp;
 }
 
-static int gquic_equal_common_name(const gquic_str_t *const n1, X509_NAME *const n2) {
+static gquic_exception_t gquic_equal_common_name(const gquic_str_t *const n1, X509_NAME *const n2) {
     gquic_str_t n2_str;
     int ret = X509_NAME_get_text_by_NID(n2, NID_commonName, NULL, 0);
     if ((size_t) ret != GQUIC_STR_SIZE(n1)) {
@@ -564,7 +570,7 @@ static int gquic_equal_common_name(const gquic_str_t *const n1, X509_NAME *const
     return ret == 0;
 }
 
-int gquic_tls_conn_write_record(size_t *writed_size, gquic_tls_conn_t *const conn, u_int8_t record_type, const gquic_str_t *const data) {
+gquic_exception_t gquic_tls_conn_write_record(size_t *writed_size, gquic_tls_conn_t *const conn, u_int8_t record_type, const gquic_str_t *const data) {
     if (conn == NULL || data == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -580,7 +586,7 @@ int gquic_tls_conn_write_record(size_t *writed_size, gquic_tls_conn_t *const con
     GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INTERNAL_ERROR);
 }
 
-int gquic_tls_conn_write_max_write_size(size_t *const ret, const gquic_tls_conn_t *const conn, const u_int8_t record_type) {
+gquic_exception_t gquic_tls_conn_write_max_write_size(size_t *const ret, const gquic_tls_conn_t *const conn, const u_int8_t record_type) {
     if (ret == NULL || conn == NULL || conn->cfg == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -614,7 +620,7 @@ int gquic_tls_conn_write_max_write_size(size_t *const ret, const gquic_tls_conn_
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_conn_send_alert(gquic_tls_conn_t *const conn, u_int8_t alert) {
+gquic_exception_t gquic_tls_conn_send_alert(gquic_tls_conn_t *const conn, u_int8_t alert) {
     if (conn == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -626,12 +632,12 @@ int gquic_tls_conn_send_alert(gquic_tls_conn_t *const conn, u_int8_t alert) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_tls_half_conn_inc_seq(gquic_tls_half_conn_t *const half_conn) {
+static gquic_exception_t gquic_tls_half_conn_inc_seq(gquic_tls_half_conn_t *const half_conn) {
     if (half_conn == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     size_t i;
-    for (i = 7; i >= 0; i++) {
+    for (i = 7; i > 0; i--) {
         if (++((unsigned char *) GQUIC_STR_VAL(&half_conn->seq))[i] != 0) {
             GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
         }
@@ -640,10 +646,10 @@ static int gquic_tls_half_conn_inc_seq(gquic_tls_half_conn_t *const half_conn) {
     GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_INTERNAL_ERROR);
 }
 
-int gquic_tls_conn_verify_ser_cert(gquic_tls_conn_t *const conn, const gquic_list_t *const certs) {
+gquic_exception_t gquic_tls_conn_verify_ser_cert(gquic_tls_conn_t *const conn, const gquic_list_t *const certs) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     X509 **cert_storage = NULL;
-    int first = 1;
-    int exception = GQUIC_SUCCESS;
+    bool first = true;
     if (conn == NULL || certs == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -659,7 +665,7 @@ int gquic_tls_conn_verify_ser_cert(gquic_tls_conn_t *const conn, const gquic_lis
                 gquic_tls_conn_send_alert(conn, GQUIC_TLS_ALERT_BAD_CERT);
                 GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_BAD_X509);
             }
-            first = 0;
+            first = false;
         }
         X509 **peer_cert = NULL;
         if (GQUIC_ASSERT_CAUSE(exception, gquic_list_alloc((void **) &peer_cert, sizeof(X509 *)))) {
@@ -682,9 +688,9 @@ int gquic_tls_conn_verify_ser_cert(gquic_tls_conn_t *const conn, const gquic_lis
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_conn_process_cli_cert(gquic_tls_conn_t *const conn, const gquic_list_t *const certs) {
+gquic_exception_t gquic_tls_conn_process_cli_cert(gquic_tls_conn_t *const conn, const gquic_list_t *const certs) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     X509 **cert_storage = NULL;
-    int exception = GQUIC_SUCCESS;
     if (conn == NULL || certs == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -718,7 +724,7 @@ int gquic_tls_conn_process_cli_cert(gquic_tls_conn_t *const conn, const gquic_li
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_conn_handshake(gquic_tls_conn_t *const conn) {
+gquic_exception_t gquic_tls_conn_handshake(gquic_tls_conn_t *const conn) {
     if (conn == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -735,8 +741,8 @@ int gquic_tls_conn_handshake(gquic_tls_conn_t *const conn) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_conn_get_sess_ticket(gquic_str_t *const msg, gquic_tls_conn_t *const conn) {
-    int exception = GQUIC_SUCCESS;
+gquic_exception_t gquic_tls_conn_get_sess_ticket(gquic_str_t *const msg, gquic_tls_conn_t *const conn) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     gquic_tls_sess_state_t state;
     X509 **peer_cert = NULL;
     X509 **cert = NULL;
@@ -782,8 +788,8 @@ failure:
     GQUIC_PROCESS_DONE(exception);
 }
 
-int gquic_tls_conn_encrypt_ticket(gquic_str_t *const encrypted, gquic_tls_conn_t *const conn, const gquic_str_t *const state) {
-    int exception = GQUIC_SUCCESS;
+gquic_exception_t gquic_tls_conn_encrypt_ticket(gquic_str_t *const encrypted, gquic_tls_conn_t *const conn, const gquic_str_t *const state) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     EVP_CIPHER_CTX *ctx = NULL;
     HMAC_CTX *hmac = NULL;
     int size = 0;
@@ -943,7 +949,7 @@ failure:
     GQUIC_PROCESS_DONE(exception);
 }
 
-int gquic_tls_conn_handle_post_handshake_msg(gquic_tls_conn_t *const conn) {
+gquic_exception_t gquic_tls_conn_handle_post_handshake_msg(gquic_tls_conn_t *const conn) {
     void *msg = NULL;
     if (conn == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);

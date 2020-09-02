@@ -1,4 +1,4 @@
-/* include/tls/conn.h TLS END_OF_EARLY_DATA record
+/* include/tls/end_of_early_data_msg.h TLS END_OF_EARLY_DATA record
  *
  * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
  *

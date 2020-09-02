@@ -1,8 +1,16 @@
+/* src/tls/meta.c TLS record base
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "tls/meta.h"
 #include "util/malloc.h"
 #include "exception.h"
 
-int gquic_tls_msg_alloc(void **const result, const size_t size) {
+gquic_exception_t gquic_tls_msg_alloc(void **const result, const size_t size) {
     if (result == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -20,7 +28,7 @@ int gquic_tls_msg_alloc(void **const result, const size_t size) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_msg_release(void *const msg) {
+gquic_exception_t gquic_tls_msg_release(void *const msg) {
     if (msg == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }

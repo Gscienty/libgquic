@@ -1,3 +1,11 @@
+/* include/tls/key_agreement.h 密钥协商模块
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "tls/key_agreement.h"
 #include "tls/key_schedule.h"
 #include "tls/client_key_exchange_msg.h"
@@ -13,11 +21,9 @@
 #include <openssl/rand.h>
 #include <openssl/err.h>
 
-static int hash_for_ser_key_exchange(gquic_str_t *const,
-                                     const u_int8_t,
-                                     const EVP_MD *const,
-                                     const u_int16_t,
-                                     const gquic_list_t *const);
+static gquic_exception_t hash_for_ser_key_exchange(gquic_str_t *const, const u_int8_t,
+                                                   const EVP_MD *const,
+                                                   const u_int16_t, const gquic_list_t *const);
 
 #define GQUIC_TLS_KEY_AGREEMENT_TYPE_RSA 0x00
 #define GQUIC_TLS_KEY_AGREEMENT_TYPE_ECDHE 0x01
@@ -32,48 +38,48 @@ struct gquic_tls_ecdhe_key_agreement_s {
     gquic_str_t pre_master_sec;
 };
 
-static int gquic_tls_ecdhe_key_agreement_init(gquic_tls_ecdhe_key_agreement_t *const);
-static int gquic_tls_ecdhe_key_agreement_dtor(void *const);
+static gquic_exception_t gquic_tls_ecdhe_key_agreement_init(gquic_tls_ecdhe_key_agreement_t *const);
+static gquic_exception_t gquic_tls_ecdhe_key_agreement_dtor(void *const);
 
-static int rsa_ka_process_cli_key_exchange(gquic_str_t *const,
-                                           void *const,
-                                           const gquic_tls_config_t *const,
-                                           PKCS12 *const,
-                                           const gquic_tls_client_key_exchange_msg_t *const,
-                                           u_int16_t);
-static int rsa_ka_generate_cli_key_exchange(gquic_str_t *const,
-                                            gquic_tls_client_key_exchange_msg_t *const,
-                                            void *const,
-                                            const gquic_tls_config_t *const,
-                                            const gquic_tls_client_hello_msg_t *const,
-                                            X509 *const);
+static gquic_exception_t rsa_ka_process_cli_key_exchange(gquic_str_t *const,
+                                                         void *const,
+                                                         const gquic_tls_config_t *const,
+                                                         PKCS12 *const,
+                                                         const gquic_tls_client_key_exchange_msg_t *const,
+                                                         u_int16_t);
+static gquic_exception_t rsa_ka_generate_cli_key_exchange(gquic_str_t *const,
+                                                          gquic_tls_client_key_exchange_msg_t *const,
+                                                          void *const,
+                                                          const gquic_tls_config_t *const,
+                                                          const gquic_tls_client_hello_msg_t *const,
+                                                          X509 *const);
 
-static int ecdhe_ka_generate_ser_key_exchange(gquic_tls_server_key_exchange_msg_t *const,
-                                              void *const,
-                                              const gquic_tls_config_t *const,
-                                              PKCS12 *const,
-                                              const gquic_tls_client_hello_msg_t *const,
-                                              const gquic_tls_server_hello_msg_t *const);
-static int ecdhe_ka_process_cli_key_exchange(gquic_str_t *const,
-                                             void *const,
-                                             const gquic_tls_config_t *const,
-                                             PKCS12 *const,
-                                             const gquic_tls_client_key_exchange_msg_t *const,
-                                             u_int16_t);
-static int ecdhe_ka_process_ser_key_exchange(void *const,
-                                             const gquic_tls_config_t *const,
-                                             const gquic_tls_client_hello_msg_t *const,
-                                             const gquic_tls_server_hello_msg_t *const,
-                                             X509 *const,
-                                             const gquic_tls_server_key_exchange_msg_t *const);
-static int ecdhe_ka_generate_cli_key_exchange(gquic_str_t *const,
-                                              gquic_tls_client_key_exchange_msg_t *const,
-                                              void *const,
-                                              const gquic_tls_config_t *const,
-                                              const gquic_tls_client_hello_msg_t *const,
-                                              X509 *const);
+static gquic_exception_t ecdhe_ka_generate_ser_key_exchange(gquic_tls_server_key_exchange_msg_t *const,
+                                                            void *const,
+                                                            const gquic_tls_config_t *const,
+                                                            PKCS12 *const,
+                                                            const gquic_tls_client_hello_msg_t *const,
+                                                            const gquic_tls_server_hello_msg_t *const);
+static gquic_exception_t ecdhe_ka_process_cli_key_exchange(gquic_str_t *const,
+                                                           void *const,
+                                                           const gquic_tls_config_t *const,
+                                                           PKCS12 *const,
+                                                           const gquic_tls_client_key_exchange_msg_t *const,
+                                                           u_int16_t);
+static gquic_exception_t ecdhe_ka_process_ser_key_exchange(void *const,
+                                                           const gquic_tls_config_t *const,
+                                                           const gquic_tls_client_hello_msg_t *const,
+                                                           const gquic_tls_server_hello_msg_t *const,
+                                                           X509 *const,
+                                                           const gquic_tls_server_key_exchange_msg_t *const);
+static gquic_exception_t ecdhe_ka_generate_cli_key_exchange(gquic_str_t *const,
+                                                            gquic_tls_client_key_exchange_msg_t *const,
+                                                            void *const,
+                                                            const gquic_tls_config_t *const,
+                                                            const gquic_tls_client_hello_msg_t *const,
+                                                            X509 *const);
 
-int gquic_tls_key_agreement_dtor(gquic_tls_key_agreement_t *const key_agreement) {
+gquic_exception_t gquic_tls_key_agreement_dtor(gquic_tls_key_agreement_t *const key_agreement) {
     if (key_agreement == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -88,7 +94,7 @@ int gquic_tls_key_agreement_dtor(gquic_tls_key_agreement_t *const key_agreement)
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_key_agreement_rsa_init(gquic_tls_key_agreement_t *const key_agreement) {
+gquic_exception_t gquic_tls_key_agreement_rsa_init(gquic_tls_key_agreement_t *const key_agreement) {
     if (key_agreement == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -103,7 +109,7 @@ int gquic_tls_key_agreement_rsa_init(gquic_tls_key_agreement_t *const key_agreem
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_key_agreement_ecdhe_init(gquic_tls_key_agreement_t *const key_agreement) {
+gquic_exception_t gquic_tls_key_agreement_ecdhe_init(gquic_tls_key_agreement_t *const key_agreement) {
     if (key_agreement == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -119,7 +125,7 @@ int gquic_tls_key_agreement_ecdhe_init(gquic_tls_key_agreement_t *const key_agre
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_key_agreement_ecdhe_set_version(gquic_tls_key_agreement_t *const key_agreement, const u_int16_t ver) {
+gquic_exception_t gquic_tls_key_agreement_ecdhe_set_version(gquic_tls_key_agreement_t *const key_agreement, const u_int16_t ver) {
     gquic_tls_ecdhe_key_agreement_t *ecdhe_self = key_agreement->self;
     if (key_agreement == NULL || key_agreement->self == NULL || key_agreement->type != GQUIC_TLS_KEY_AGREEMENT_TYPE_ECDHE) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -129,7 +135,7 @@ int gquic_tls_key_agreement_ecdhe_set_version(gquic_tls_key_agreement_t *const k
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_key_agreement_ecdhe_set_is_rsa(gquic_tls_key_agreement_t *const key_agreement, const bool is_rsa) {
+gquic_exception_t gquic_tls_key_agreement_ecdhe_set_is_rsa(gquic_tls_key_agreement_t *const key_agreement, const bool is_rsa) {
     gquic_tls_ecdhe_key_agreement_t *ecdhe_self = key_agreement->self;
     if (key_agreement == NULL || key_agreement->self == NULL || key_agreement->type != GQUIC_TLS_KEY_AGREEMENT_TYPE_ECDHE) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -139,7 +145,7 @@ int gquic_tls_key_agreement_ecdhe_set_is_rsa(gquic_tls_key_agreement_t *const ke
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_tls_ecdhe_key_agreement_dtor(void *const self) {
+static gquic_exception_t gquic_tls_ecdhe_key_agreement_dtor(void *const self) {
     if (self == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -152,7 +158,7 @@ static int gquic_tls_ecdhe_key_agreement_dtor(void *const self) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_tls_ecdhe_key_agreement_init(gquic_tls_ecdhe_key_agreement_t *const ka) {
+static gquic_exception_t gquic_tls_ecdhe_key_agreement_init(gquic_tls_ecdhe_key_agreement_t *const ka) {
     if (ka == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -166,12 +172,12 @@ static int gquic_tls_ecdhe_key_agreement_init(gquic_tls_ecdhe_key_agreement_t *c
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int rsa_ka_process_cli_key_exchange(gquic_str_t *const pre_master_sec,
-                                           void *const self,
-                                           const gquic_tls_config_t *const cfg,
-                                           PKCS12 *const p12,
-                                           const gquic_tls_client_key_exchange_msg_t *const ckex_msg,
-                                           u_int16_t ver) {
+static gquic_exception_t rsa_ka_process_cli_key_exchange(gquic_str_t *const pre_master_sec,
+                                                         void *const self,
+                                                         const gquic_tls_config_t *const cfg,
+                                                         PKCS12 *const p12,
+                                                         const gquic_tls_client_key_exchange_msg_t *const ckex_msg,
+                                                         u_int16_t ver) {
     (void) ver;
     (void) self;
     const gquic_str_t *cipher = &ckex_msg->cipher;
@@ -229,12 +235,12 @@ failure:
     GQUIC_PROCESS_DONE(exception);
 }
 
-static int rsa_ka_generate_cli_key_exchange(gquic_str_t *const pre_master_sec,
-                                            gquic_tls_client_key_exchange_msg_t *const ckex_msg,
-                                            void *const self,
-                                            const gquic_tls_config_t *const cfg,
-                                            const gquic_tls_client_hello_msg_t *const hello,
-                                            X509 *const x509_cert) {
+static gquic_exception_t rsa_ka_generate_cli_key_exchange(gquic_str_t *const pre_master_sec,
+                                                          gquic_tls_client_key_exchange_msg_t *const ckex_msg,
+                                                          void *const self,
+                                                          const gquic_tls_config_t *const cfg,
+                                                          const gquic_tls_client_hello_msg_t *const hello,
+                                                          X509 *const x509_cert) {
     (void) self;
     EVP_PKEY *pkey = NULL;
     EVP_PKEY_CTX *ctx = NULL;
@@ -289,12 +295,12 @@ failure:
     GQUIC_PROCESS_DONE(exception);
 }
 
-static int ecdhe_ka_generate_ser_key_exchange(gquic_tls_server_key_exchange_msg_t *const skex_msg,
-                                              void *const self,
-                                              const gquic_tls_config_t *const cfg,
-                                              PKCS12 *const p12,
-                                              const gquic_tls_client_hello_msg_t *const c_hello,
-                                              const gquic_tls_server_hello_msg_t *const s_hello) {
+static gquic_exception_t ecdhe_ka_generate_ser_key_exchange(gquic_tls_server_key_exchange_msg_t *const skex_msg,
+                                                            void *const self,
+                                                            const gquic_tls_config_t *const cfg,
+                                                            PKCS12 *const p12,
+                                                            const gquic_tls_client_hello_msg_t *const c_hello,
+                                                            const gquic_tls_server_hello_msg_t *const s_hello) {
     gquic_tls_ecdhe_key_agreement_t *ecdhe_self = self;
     u_int16_t *cand_curve_id;
     u_int16_t *c_hello_curve_id;
@@ -465,12 +471,12 @@ failure:
     }
     GQUIC_PROCESS_DONE(exception);
 }
-static int ecdhe_ka_process_cli_key_exchange(gquic_str_t *const pre_master_sec,
-                                             void *const self,
-                                             const gquic_tls_config_t *const cfg,
-                                             PKCS12 *const p12_d,
-                                             const gquic_tls_client_key_exchange_msg_t *const ckex_msg,
-                                             u_int16_t ver) {
+static gquic_exception_t ecdhe_ka_process_cli_key_exchange(gquic_str_t *const pre_master_sec,
+                                                           void *const self,
+                                                           const gquic_tls_config_t *const cfg,
+                                                           PKCS12 *const p12_d,
+                                                           const gquic_tls_client_key_exchange_msg_t *const ckex_msg,
+                                                           u_int16_t ver) {
     (void) ver;
     (void) cfg;
     (void) p12_d;
@@ -491,12 +497,13 @@ static int ecdhe_ka_process_cli_key_exchange(gquic_str_t *const pre_master_sec,
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int ecdhe_ka_process_ser_key_exchange(void *const self,
-                                             const gquic_tls_config_t *const cfg,
-                                             const gquic_tls_client_hello_msg_t *const c_hello,
-                                             const gquic_tls_server_hello_msg_t *const s_hello,
-                                             X509 *const cert,
-                                             const gquic_tls_server_key_exchange_msg_t *const skex_msg) {
+static gquic_exception_t ecdhe_ka_process_ser_key_exchange(void *const self,
+                                                           const gquic_tls_config_t *const cfg,
+                                                           const gquic_tls_client_hello_msg_t *const c_hello,
+                                                           const gquic_tls_server_hello_msg_t *const s_hello,
+                                                           X509 *const cert,
+                                                           const gquic_tls_server_key_exchange_msg_t *const skex_msg) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     gquic_tls_ecdhe_key_agreement_t *ecdhe_self = self;
     u_int16_t curve_id = 0;
     gquic_str_t ser_ecdh_params;
@@ -511,7 +518,6 @@ static int ecdhe_ka_process_ser_key_exchange(void *const self,
     gquic_list_t slices;
     const EVP_MD *hash = NULL;
     EVP_PKEY *cert_pubkey = NULL;
-    int exception = GQUIC_SUCCESS;
     if (self == NULL || cfg == NULL || c_hello == NULL || s_hello == NULL || cert == NULL || skex_msg == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -639,12 +645,12 @@ failure:
     GQUIC_PROCESS_DONE(exception);
 }
 
-static int ecdhe_ka_generate_cli_key_exchange(gquic_str_t *const pre_master_sec,
-                                              gquic_tls_client_key_exchange_msg_t *const ckex_msg,
-                                              void *const self,
-                                              const gquic_tls_config_t *const cfg,
-                                              const gquic_tls_client_hello_msg_t *const c_hello,
-                                              X509 *const cert) {
+static gquic_exception_t ecdhe_ka_generate_cli_key_exchange(gquic_str_t *const pre_master_sec,
+                                                            gquic_tls_client_key_exchange_msg_t *const ckex_msg,
+                                                            void *const self,
+                                                            const gquic_tls_config_t *const cfg,
+                                                            const gquic_tls_client_hello_msg_t *const c_hello,
+                                                            X509 *const cert) {
     (void) cfg;
     (void) c_hello;
     (void) cert;
@@ -660,16 +666,14 @@ static int ecdhe_ka_generate_cli_key_exchange(gquic_str_t *const pre_master_sec,
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int hash_for_ser_key_exchange(gquic_str_t *const ret,
-                                     const u_int8_t sig_type,
-                                     const EVP_MD *const hash,
-                                     const u_int16_t ver,
-                                     const gquic_list_t *const slices) {
+static gquic_exception_t hash_for_ser_key_exchange(gquic_str_t *const ret, const u_int8_t sig_type,
+                                                   const EVP_MD *const hash,
+                                                   const u_int16_t ver, const gquic_list_t *const slices) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     gquic_str_init(ret);
     size_t slices_size = 0;
     gquic_str_t **slice;
     gquic_str_t mid;
-    int exception = GQUIC_SUCCESS;
     if (ret == NULL || slices == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }

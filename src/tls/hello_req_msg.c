@@ -1,3 +1,11 @@
+/* src/tls/hello_req_msg.c TLS HELLO_REQ record
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "tls/hello_req_msg.h"
 #include "tls/_msg_serialize_util.h"
 #include "tls/_msg_deserialize_util.h"
@@ -5,13 +13,13 @@
 #include "tls/meta.h"
 #include <unistd.h>
 
-static int gquic_tls_hello_req_msg_init(void *const msg);
-static int gquic_tls_hello_req_msg_dtor(void *const msg);
+static gquic_exception_t gquic_tls_hello_req_msg_init(void *const msg);
+static gquic_exception_t gquic_tls_hello_req_msg_dtor(void *const msg);
 static ssize_t gquic_tls_hello_req_msg_size(const void *const msg);
-static int gquic_tls_hello_req_msg_serialize(const void *const msg, gquic_writer_str_t *const);
-static int gquic_tls_hello_req_msg_deserialize(void *const msg, gquic_reader_str_t *const);
+static gquic_exception_t gquic_tls_hello_req_msg_serialize(const void *const msg, gquic_writer_str_t *const);
+static gquic_exception_t gquic_tls_hello_req_msg_deserialize(void *const msg, gquic_reader_str_t *const);
 
-int gquic_tls_hello_req_msg_alloc(gquic_tls_hello_req_msg_t **const result) {
+gquic_exception_t gquic_tls_hello_req_msg_alloc(gquic_tls_hello_req_msg_t **const result) {
     GQUIC_ASSERT_FAST_RETURN(gquic_tls_msg_alloc((void **) result, sizeof(gquic_tls_hello_req_msg_t)));
 
     GQUIC_TLS_MSG_META(*result).deserialize_func = gquic_tls_hello_req_msg_deserialize;
@@ -24,14 +32,14 @@ int gquic_tls_hello_req_msg_alloc(gquic_tls_hello_req_msg_t **const result) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_tls_hello_req_msg_init(void *const msg) {
+static gquic_exception_t gquic_tls_hello_req_msg_init(void *const msg) {
     if (msg == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_tls_hello_req_msg_dtor(void *const msg) {
+static gquic_exception_t gquic_tls_hello_req_msg_dtor(void *const msg) {
     if (msg == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -45,7 +53,7 @@ static ssize_t gquic_tls_hello_req_msg_size(const void *const msg) {
     return 4;
 }
 
-static int gquic_tls_hello_req_msg_serialize(const void *const msg, gquic_writer_str_t *const writer) {
+static gquic_exception_t gquic_tls_hello_req_msg_serialize(const void *const msg, gquic_writer_str_t *const writer) {
     if (msg == NULL || writer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -59,7 +67,7 @@ static int gquic_tls_hello_req_msg_serialize(const void *const msg, gquic_writer
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_tls_hello_req_msg_deserialize(void *const msg, gquic_reader_str_t *const reader) {
+static gquic_exception_t gquic_tls_hello_req_msg_deserialize(void *const msg, gquic_reader_str_t *const reader) {
     if (msg == NULL || reader == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }

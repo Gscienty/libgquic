@@ -106,7 +106,7 @@ typedef struct gquic_tls_conn_s gquic_tls_conn_t;
 struct gquic_tls_conn_s {
     const gquic_net_addr_t *addr;
     gquic_tls_config_t *cfg;
-    int is_client;
+    bool is_client;
     _Atomic(u_int32_t) handshake_status;
     u_int16_t ver;
     int have_vers;

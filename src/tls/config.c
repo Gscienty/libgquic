@@ -1,3 +1,11 @@
+/* src/tls/config.c TLS 配置
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include <openssl/sha.h>
 #include <string.h>
 #include "tls/config.h"

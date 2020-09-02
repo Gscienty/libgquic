@@ -1,4 +1,4 @@
-/* include/tls/conn.h TLS FINISHED record
+/* include/tls/finished_msg.h TLS FINISHED record
  *
  * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
  *

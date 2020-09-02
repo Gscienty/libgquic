@@ -1,3 +1,11 @@
+/* src/tls/cert_req_msg.c TLS CERT_REQ record
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "tls/cert_req_msg.h"
 #include "tls/_msg_deserialize_util.h"
 #include "tls/_msg_serialize_util.h"

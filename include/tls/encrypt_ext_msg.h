@@ -1,4 +1,4 @@
-/* include/tls/conn.h TLS ENCRYPT_EXT record
+/* include/tls/encrypt_ext_msg.h TLS ENCRYPT_EXT record
  *
  * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
  *

@@ -1,3 +1,11 @@
+/* src/tls/common.c TLS 常量定义
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "tls/common.h"
 #include <unistd.h>
 
@@ -13,18 +21,18 @@ const gquic_str_t *gquic_tls_hello_retry_request_random() {
     return &hello_retry_request_random;
 }
 
-int gquic_tls_is_supported_sigalg(const u_int16_t sigalg, const gquic_list_t *const sigalgs) {
+bool gquic_tls_is_supported_sigalg(const u_int16_t sigalg, const gquic_list_t *const sigalgs) {
     u_int16_t *sigalg_supported;
     if (sigalgs == NULL) {
-        return 0;
+        return false;
     }
 
     GQUIC_LIST_FOREACH(sigalg_supported, sigalgs) {
         if (*sigalg_supported == sigalg) {
-            return 1;
+            return true;
         }
     }
-    return 0;
+    return false;
 }
 
 u_int8_t gquic_tls_sig_from_sigalg(const u_int16_t sigalg) {
@@ -49,13 +57,13 @@ u_int8_t gquic_tls_sig_from_sigalg(const u_int16_t sigalg) {
     return 0xFF;
 }
 
-int gquic_tls_requires_cli_cert(u_int8_t c) {
+bool gquic_tls_requires_cli_cert(u_int8_t c) {
     switch (c) {
     case GQUIC_CLI_AUTH_REQ_ANY:
     case GQUIC_CLI_AUTH_REQ_VERIFY:
-        return 1;
+        return true;
     default:
-        return 0;
+        return false;
     }
 }
 

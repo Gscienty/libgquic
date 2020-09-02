@@ -1,3 +1,11 @@
+/* src/tls/handshake_client.c 客户端握手执行规则模块
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "tls/handshake_client.h"
 #include "tls/common.h"
 #include "tls/key_schedule.h"
@@ -51,25 +59,24 @@ static u_int16_t __supported_sign_algos[] = {
     GQUIC_SIGALG_ECDSA_SHA1
 };
 
-static int gquic_tls_handshake_client_hello_edch_params_init(gquic_tls_ecdhe_params_t *const,
-                                                             gquic_tls_client_hello_msg_t *const,
-                                                             const gquic_tls_config_t *const);
+static gquic_exception_t gquic_tls_handshake_client_hello_edch_params_init(gquic_tls_ecdhe_params_t *const,
+                                                                           gquic_tls_client_hello_msg_t *const, const gquic_tls_config_t *const);
 
 
-static int gquic_tls_client_handshake_state_check_ser_hello_or_hello_retry_req(gquic_tls_handshake_client_state_t *const);
-static int gquic_tls_client_handshake_state_send_dummy_change_cipher_spec(gquic_tls_handshake_client_state_t *const);
-static int gquic_tls_client_handshake_state_process_hello_retry_request(gquic_tls_handshake_client_state_t *const);
-static int gquic_tls_client_handshake_state_process_server_hello(gquic_tls_handshake_client_state_t *const);
-static int gquic_tls_client_handshake_state_establish_handshake_keys(gquic_tls_handshake_client_state_t *const);
-static int gquic_tls_client_handshake_state_read_ser_params(gquic_tls_handshake_client_state_t *const);
-static int gquic_tls_client_handshake_state_read_ser_cert(gquic_tls_handshake_client_state_t *const);
-static int gquic_tls_client_handshake_state_read_ser_finished(gquic_tls_handshake_client_state_t *const);
-static int gquic_tls_client_handshake_state_send_cli_cert(gquic_tls_handshake_client_state_t *const);
-static int gquic_tls_client_handshake_state_send_cli_finished(gquic_tls_handshake_client_state_t *const);
+static gquic_exception_t gquic_tls_client_handshake_state_check_ser_hello_or_hello_retry_req(gquic_tls_handshake_client_state_t *const);
+static gquic_exception_t gquic_tls_client_handshake_state_send_dummy_change_cipher_spec(gquic_tls_handshake_client_state_t *const);
+static gquic_exception_t gquic_tls_client_handshake_state_process_hello_retry_request(gquic_tls_handshake_client_state_t *const);
+static gquic_exception_t gquic_tls_client_handshake_state_process_server_hello(gquic_tls_handshake_client_state_t *const);
+static gquic_exception_t gquic_tls_client_handshake_state_establish_handshake_keys(gquic_tls_handshake_client_state_t *const);
+static gquic_exception_t gquic_tls_client_handshake_state_read_ser_params(gquic_tls_handshake_client_state_t *const);
+static gquic_exception_t gquic_tls_client_handshake_state_read_ser_cert(gquic_tls_handshake_client_state_t *const);
+static gquic_exception_t gquic_tls_client_handshake_state_read_ser_finished(gquic_tls_handshake_client_state_t *const);
+static gquic_exception_t gquic_tls_client_handshake_state_send_cli_cert(gquic_tls_handshake_client_state_t *const);
+static gquic_exception_t gquic_tls_client_handshake_state_send_cli_finished(gquic_tls_handshake_client_state_t *const);
 
-static int mutual_protocol(const gquic_str_t *const, const gquic_list_t *const);
+static gquic_exception_t mutual_protocol(const gquic_str_t *const, const gquic_list_t *const);
 
-int gquic_tls_handshake_client_state_init(gquic_tls_handshake_client_state_t *const cli_state) {
+gquic_exception_t gquic_tls_handshake_client_state_init(gquic_tls_handshake_client_state_t *const cli_state) {
     if (cli_state == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -92,12 +99,12 @@ int gquic_tls_handshake_client_state_init(gquic_tls_handshake_client_state_t *co
 }
 
 
-int gquic_tls_handshake_client_hello_init(gquic_tls_client_hello_msg_t **const msg, gquic_tls_ecdhe_params_t *const params,
-                                          const gquic_tls_conn_t *conn) {
+gquic_exception_t gquic_tls_handshake_client_hello_init(gquic_tls_client_hello_msg_t **const msg, gquic_tls_ecdhe_params_t *const params,
+                                                        const gquic_tls_conn_t *conn) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     gquic_str_t *proto;
     size_t next_protos_len = 0;
     gquic_list_t supported_versions;
-    int exception = GQUIC_SUCCESS;
     size_t count;
     size_t i;
 
@@ -214,7 +221,7 @@ failure:
     GQUIC_PROCESS_DONE(exception);
 }
 
-static int gquic_proto_copy(void *proto, const void *ref_proto) {
+static gquic_exception_t gquic_proto_copy(void *proto, const void *ref_proto) {
     if (proto == NULL || ref_proto == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -223,11 +230,10 @@ static int gquic_proto_copy(void *proto, const void *ref_proto) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_tls_handshake_client_hello_edch_params_init(gquic_tls_ecdhe_params_t *const params,
-                                                             gquic_tls_client_hello_msg_t *const msg,
-                                                             const gquic_tls_config_t *const cfg) {
+static gquic_exception_t gquic_tls_handshake_client_hello_edch_params_init(gquic_tls_ecdhe_params_t *const params,
+                                                                           gquic_tls_client_hello_msg_t *const msg, const gquic_tls_config_t *const cfg) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     gquic_tls_key_share_t *ks = NULL;
-    int exception = GQUIC_SUCCESS;
     if (params == NULL || msg == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -263,13 +269,13 @@ failure:
     GQUIC_PROCESS_DONE(exception);
 }
 
-int gquic_tls_client_handshake(gquic_tls_conn_t *const conn) {
+gquic_exception_t gquic_tls_client_handshake(gquic_tls_conn_t *const conn) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     gquic_tls_handshake_client_state_t cli_state;
     gquic_str_t buf = { 0, NULL };
     gquic_str_t cache_key = { 0, NULL };
     gquic_tls_client_sess_state_t *sess = NULL;
     size_t _ = 0;
-    int exception = GQUIC_SUCCESS;
     if (conn == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -404,7 +410,7 @@ failure:
     GQUIC_PROCESS_DONE(exception);
 }
 
-static int gquic_tls_client_handshake_state_check_ser_hello_or_hello_retry_req(gquic_tls_handshake_client_state_t *const cli_state) {
+static gquic_exception_t gquic_tls_client_handshake_state_check_ser_hello_or_hello_retry_req(gquic_tls_handshake_client_state_t *const cli_state) {
     const gquic_tls_cipher_suite_t *cipher_suite = NULL;
     if (cli_state == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -454,7 +460,7 @@ static int gquic_tls_client_handshake_state_check_ser_hello_or_hello_retry_req(g
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_handshake_client_state_dtor(gquic_tls_handshake_client_state_t *const cli_state) {
+gquic_exception_t gquic_tls_handshake_client_state_dtor(gquic_tls_handshake_client_state_t *const cli_state) {
     if (cli_state == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -477,7 +483,7 @@ int gquic_tls_handshake_client_state_dtor(gquic_tls_handshake_client_state_t *co
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_tls_client_handshake_state_send_dummy_change_cipher_spec(gquic_tls_handshake_client_state_t *const cli_state) {
+static gquic_exception_t gquic_tls_client_handshake_state_send_dummy_change_cipher_spec(gquic_tls_handshake_client_state_t *const cli_state) {
     u_int8_t record_payload[] = { 0x01 };
     gquic_str_t record = { sizeof(record_payload), record_payload };
     size_t _;
@@ -493,12 +499,12 @@ static int gquic_tls_client_handshake_state_send_dummy_change_cipher_spec(gquic_
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_tls_client_handshake_state_process_hello_retry_request(gquic_tls_handshake_client_state_t *const cli_state) {
+static gquic_exception_t gquic_tls_client_handshake_state_process_hello_retry_request(gquic_tls_handshake_client_state_t *const cli_state) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     u_int16_t curve_id = 0;
     int supported_curve = 0;
     u_int16_t *c_curve_id = NULL;
     gquic_tls_key_share_t *key_share = NULL;
-    int exception = GQUIC_SUCCESS;
     gquic_str_t sh_buf = { 0, NULL };
     gquic_str_t ch_buf = { 0, NULL };
     gquic_str_t ch_hash = { 0, NULL };
@@ -668,8 +674,8 @@ failure:
     GQUIC_PROCESS_DONE(exception);
 }
 
-static int gquic_tls_client_handshake_state_process_server_hello(gquic_tls_handshake_client_state_t *const cli_state) {
-    int exception = GQUIC_SUCCESS;
+static gquic_exception_t gquic_tls_client_handshake_state_process_server_hello(gquic_tls_handshake_client_state_t *const cli_state) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     const gquic_tls_cipher_suite_t *psk_suite = NULL;
     if (cli_state == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -829,10 +835,10 @@ failure:
     GQUIC_PROCESS_DONE(exception);
 }
 
-static int gquic_tls_client_handshake_state_read_ser_params(gquic_tls_handshake_client_state_t *const cli_state) {
+static gquic_exception_t gquic_tls_client_handshake_state_read_ser_params(gquic_tls_handshake_client_state_t *const cli_state) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     gquic_tls_encrypt_ext_msg_t *msg = NULL;
     gquic_str_t buf = { 0, NULL };
-    int exception = GQUIC_SUCCESS;
     if (cli_state == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -896,9 +902,9 @@ failure:
     GQUIC_PROCESS_DONE(exception);
 }
 
-static int gquic_tls_client_handshake_state_read_ser_cert(gquic_tls_handshake_client_state_t *const cli_state) {
+static gquic_exception_t gquic_tls_client_handshake_state_read_ser_cert(gquic_tls_handshake_client_state_t *const cli_state) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     static const gquic_str_t ser_sign_cnt = { 38, "GQUIC-TLSv1.3, server SignatureContent" };
-    int exception = GQUIC_SUCCESS;
     void *msg = NULL;
     gquic_str_t buf = { 0, NULL };
     gquic_str_t sign = { 0, NULL };
@@ -1078,8 +1084,8 @@ failure:
     GQUIC_PROCESS_DONE(exception);
 }
 
-static int gquic_tls_client_handshake_state_read_ser_finished(gquic_tls_handshake_client_state_t *const cli_state) {
-    int exception = GQUIC_SUCCESS;
+static gquic_exception_t gquic_tls_client_handshake_state_read_ser_finished(gquic_tls_handshake_client_state_t *const cli_state) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     static const gquic_str_t cli_app_traffic_label = { 12, "c ap traffic" };
     static const gquic_str_t ser_app_traffic_label = { 12, "s ap traffic" };
     gquic_tls_finished_msg_t *msg = NULL;
@@ -1171,8 +1177,8 @@ failure:
     GQUIC_PROCESS_DONE(exception);
 }
 
-static int gquic_tls_client_handshake_state_send_cli_cert(gquic_tls_handshake_client_state_t *const cli_state) {
-    int exception = GQUIC_SUCCESS;
+static gquic_exception_t gquic_tls_client_handshake_state_send_cli_cert(gquic_tls_handshake_client_state_t *const cli_state) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     gquic_tls_cert_msg_t *cert_msg = NULL;
     gquic_tls_cert_verify_msg_t *verify_msg = NULL;
     gquic_str_t buf = { 0, NULL };
@@ -1336,9 +1342,9 @@ failure:
     GQUIC_PROCESS_DONE(exception);
 }
 
-static int gquic_tls_client_handshake_state_send_cli_finished(gquic_tls_handshake_client_state_t *const cli_state) {
+static gquic_exception_t gquic_tls_client_handshake_state_send_cli_finished(gquic_tls_handshake_client_state_t *const cli_state) {
+    gquic_exception_t exception = GQUIC_SUCCESS;
     size_t len = 0;
-    int exception = GQUIC_SUCCESS;
     gquic_tls_finished_msg_t *finished = NULL;
     gquic_str_t buf = { 0, NULL };
     static const gquic_str_t resumption_label = { 10, "res master" };
@@ -1392,7 +1398,7 @@ failure:
     GQUIC_PROCESS_DONE(exception);
 }
 
-static int mutual_protocol(const gquic_str_t *const proto, const gquic_list_t *const perfer_protos) {
+static gquic_exception_t mutual_protocol(const gquic_str_t *const proto, const gquic_list_t *const perfer_protos) {
     if (proto == NULL || perfer_protos == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }

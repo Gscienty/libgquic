@@ -1,3 +1,11 @@
+/* src/tls/cipher_suite.c TLS 加密套件
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "tls/cipher_suite.h"
 #include "tls/key_agreement.h"
 #include "tls/key_schedule.h"

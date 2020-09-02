@@ -9,10 +9,11 @@
 #ifndef _LIBGQUIC_TLS_CLIENT_HELLO_MSG_H
 #define _LIBGQUIC_TLS_CLIENT_HELLO_MSG_H
 
-#include <sys/types.h>
 #include "util/list.h"
 #include "util/str.h"
 #include "exception.h"
+#include <sys/types.h>
+#include <stdbool.h>
 
 /**
  * TLS CHELLO record
@@ -29,7 +30,7 @@ struct gquic_tls_client_hello_msg_s {
     int ocsp_stapling;
     gquic_list_t supported_curves;
     gquic_str_t supported_points;
-    int ticket_supported;
+    bool ticket_supported;
     gquic_str_t sess_ticket;
     gquic_list_t supported_sign_algos;
     gquic_list_t supported_sign_algos_cert;

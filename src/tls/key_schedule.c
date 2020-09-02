@@ -1,3 +1,11 @@
+/* src/tls/key_schedule.c 密钥模块
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "tls/common.h"
 #include "tls/key_schedule.h"
 #include "util/str.h"
@@ -16,13 +24,13 @@ struct gquic_tls_x25519_params_s {
 };
 
 static u_int16_t gquic_x25519_params_curve_id(const void *const);
-static int gquic_x25519_params_public_key(const void *const, gquic_str_t *);
-static int gquic_x25519_params_shared_key(const void *const, gquic_str_t *, const gquic_str_t *);
+static gquic_exception_t gquic_x25519_params_public_key(const void *const, gquic_str_t *);
+static gquic_exception_t gquic_x25519_params_shared_key(const void *const, gquic_str_t *, const gquic_str_t *);
 
-static int gquic_tls_ecdhe_params_x25519_generate(gquic_tls_ecdhe_params_t *param);
-static int gquic_tls_ecdhe_params_x25519_dtor(void *const);
+static gquic_exception_t gquic_tls_ecdhe_params_x25519_generate(gquic_tls_ecdhe_params_t *param);
+static gquic_exception_t gquic_tls_ecdhe_params_x25519_dtor(void *const);
 
-int gquic_tls_ecdhe_params_generate(gquic_tls_ecdhe_params_t *param, const u_int16_t curve_id) {
+gquic_exception_t gquic_tls_ecdhe_params_generate(gquic_tls_ecdhe_params_t *param, const u_int16_t curve_id) {
     if (param == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -34,7 +42,7 @@ int gquic_tls_ecdhe_params_generate(gquic_tls_ecdhe_params_t *param, const u_int
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_ecdhe_params_init(gquic_tls_ecdhe_params_t *param) {
+gquic_exception_t gquic_tls_ecdhe_params_init(gquic_tls_ecdhe_params_t *param) {
     if (param == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -47,7 +55,7 @@ int gquic_tls_ecdhe_params_init(gquic_tls_ecdhe_params_t *param) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_ecdhe_params_dtor(gquic_tls_ecdhe_params_t *param) {
+gquic_exception_t gquic_tls_ecdhe_params_dtor(gquic_tls_ecdhe_params_t *param) {
     if (param == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -62,7 +70,7 @@ int gquic_tls_ecdhe_params_dtor(gquic_tls_ecdhe_params_t *param) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_tls_ecdhe_params_x25519_generate(gquic_tls_ecdhe_params_t *param) {
+static gquic_exception_t gquic_tls_ecdhe_params_x25519_generate(gquic_tls_ecdhe_params_t *param) {
     if (param == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -104,7 +112,7 @@ static u_int16_t gquic_x25519_params_curve_id(const void *const param) {
     return GQUIC_TLS_CURVE_X25519;
 }
 
-static int gquic_x25519_params_public_key(const void *const self, gquic_str_t *ret) {
+static gquic_exception_t gquic_x25519_params_public_key(const void *const self, gquic_str_t *ret) {
     const gquic_tls_x25519_params_t *const param = self;
     if (self == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -115,7 +123,7 @@ static int gquic_x25519_params_public_key(const void *const self, gquic_str_t *r
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_x25519_params_shared_key(const void *const self, gquic_str_t *ret, const gquic_str_t *ref) {
+static gquic_exception_t gquic_x25519_params_shared_key(const void *const self, gquic_str_t *ret, const gquic_str_t *ref) {
     const gquic_tls_x25519_params_t *const param = self;
     if (ret == NULL || ref == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
@@ -150,7 +158,7 @@ static int gquic_x25519_params_shared_key(const void *const self, gquic_str_t *r
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-static int gquic_tls_ecdhe_params_x25519_dtor(void *const self) {
+static gquic_exception_t gquic_tls_ecdhe_params_x25519_dtor(void *const self) {
     if (self == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -161,7 +169,7 @@ static int gquic_tls_ecdhe_params_x25519_dtor(void *const self) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_hkdf_extract(gquic_str_t *const ret, gquic_tls_mac_t *const hash, const gquic_str_t *const secret, const gquic_str_t *const salt) {
+gquic_exception_t gquic_tls_hkdf_extract(gquic_str_t *const ret, gquic_tls_mac_t *const hash, const gquic_str_t *const secret, const gquic_str_t *const salt) {
     gquic_str_t default_secret = { 0, NULL };
     EVP_PKEY_CTX *ctx = NULL;
     int exception = GQUIC_SUCCESS;
@@ -210,9 +218,9 @@ int gquic_tls_hkdf_extract(gquic_str_t *const ret, gquic_tls_mac_t *const hash, 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_hkdf_expand_label(gquic_str_t *const ret,
-                                gquic_tls_mac_t *const hash,
-                                const gquic_str_t *const secret, const gquic_str_t *const content, const gquic_str_t *const label, const size_t length) {
+gquic_exception_t gquic_tls_hkdf_expand_label(gquic_str_t *const ret,
+                                              gquic_tls_mac_t *const hash,
+                                              const gquic_str_t *const secret, const gquic_str_t *const content, const gquic_str_t *const label, const size_t length) {
     static const gquic_str_t default_label = { 6, (void *) "tls13 " };
     EVP_PKEY_CTX *ctx = NULL;
     gquic_str_t info = { 0, NULL };

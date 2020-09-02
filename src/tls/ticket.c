@@ -1,10 +1,18 @@
+/* src/tls/ticket.c TLS票证
+ *
+ * Copyright (c) 2019-2020 Gscienty <gaoxiaochuan@hotmail.com>
+ *
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or https://www.opensource.org/licenses/mit-license.php .
+ */
+
 #include "tls/ticket.h"
 #include "tls/_msg_serialize_util.h"
 #include "tls/_msg_deserialize_util.h"
 #include "tls/common.h"
 #include <stddef.h>
 
-int gquic_tls_sess_state_init(gquic_tls_sess_state_t *const state) {
+gquic_exception_t gquic_tls_sess_state_init(gquic_tls_sess_state_t *const state) {
     if (state == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -16,7 +24,7 @@ int gquic_tls_sess_state_init(gquic_tls_sess_state_t *const state) {
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_sess_state_dtor(gquic_tls_sess_state_t *const state) {
+gquic_exception_t gquic_tls_sess_state_dtor(gquic_tls_sess_state_t *const state) {
     if (state == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -33,7 +41,7 @@ ssize_t gquic_tls_sess_state_size(const gquic_tls_sess_state_t *const state) {
     return 2 + 1 + 2 + 8 + 1 + GQUIC_STR_SIZE(&state->resumption_sec) + gquic_tls_cert_size(&state->cert);
 }
 
-int gquic_tls_sess_state_serialize(const gquic_tls_sess_state_t *const state, gquic_writer_str_t *const writer) {
+gquic_exception_t gquic_tls_sess_state_serialize(const gquic_tls_sess_state_t *const state, gquic_writer_str_t *const writer) {
     if (state == NULL || writer == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
@@ -50,7 +58,7 @@ int gquic_tls_sess_state_serialize(const gquic_tls_sess_state_t *const state, gq
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
 
-int gquic_tls_sess_state_deserialize(gquic_tls_sess_state_t *const state, gquic_reader_str_t *const reader) {
+gquic_exception_t gquic_tls_sess_state_deserialize(gquic_tls_sess_state_t *const state, gquic_reader_str_t *const reader) {
     if (state == NULL || reader == NULL) {
         GQUIC_PROCESS_DONE(GQUIC_EXCEPTION_PARAMETER_UNEXCEPTED);
     }
