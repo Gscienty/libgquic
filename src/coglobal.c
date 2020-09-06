@@ -5,10 +5,8 @@
 #include <stdbool.h>
 #include <pthread.h>
 
-#include <stdio.h>
-
 static int __GQUIC_CO_DEFAULT_STACK__ = 128 * 1024;
-static liteco_machine_t __GQUIC_MACHINES__;
+static liteco_runtime_t __GQUIC_RUNTIMES__;
 typedef struct gquic_coroutine_s gquic_coroutine_t;
 struct gquic_coroutine_s {
     liteco_coroutine_t co;
@@ -22,25 +20,25 @@ static int gquic_coroutine_finished(liteco_coroutine_t *const);
 static bool inited = false;
 static int gquic_coroutine_create(gquic_coroutine_t **const, int (*)(void *const), void *const);
 
-__thread liteco_machine_t *__GQUIC_CURR_MACHINE__ = NULL;
+__thread liteco_runtime_t *__GQUIC_CURR_RUNTIME__ = NULL;
 
-static liteco_machine_t *gquic_coglobal_select_machine() {
+static liteco_runtime_t *gquic_coglobal_select_runtime() {
     if (inited == false) {
-        liteco_machine_init(&__GQUIC_MACHINES__);
+        liteco_runtime_init(&__GQUIC_RUNTIMES__);
         inited = true;
     }
 
-    return &__GQUIC_MACHINES__;
+    return &__GQUIC_RUNTIMES__;
 }
 
 int gquic_coglobal_thread_init(int ith) {
     (void) ith;
     if (inited == false) {
-        liteco_machine_init(&__GQUIC_MACHINES__);
+        liteco_runtime_init(&__GQUIC_RUNTIMES__);
         inited = true;
     }
 
-    __GQUIC_CURR_MACHINE__ = &__GQUIC_MACHINES__ + ith;
+    __GQUIC_CURR_RUNTIME__ = &__GQUIC_RUNTIMES__ + ith;
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -52,7 +50,7 @@ int gquic_coglobal_execute(int (*func) (void *const), void *const args) {
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_create(&co, func, args));
 
-    liteco_machine_join(gquic_coglobal_select_machine(), &co->co);
+    liteco_runtime_join(gquic_coglobal_select_runtime(), &co->co);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -68,7 +66,7 @@ int gquic_coglobal_currmachine_execute(liteco_coroutine_t **const co_storage, in
         *co_storage = &co->co;
     }
 
-    liteco_machine_join(__GQUIC_CURR_MACHINE__, &co->co);
+    liteco_runtime_join(__GQUIC_CURR_RUNTIME__, &co->co);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -80,7 +78,7 @@ int gquic_coglobal_delay_execute(const u_int64_t timeout, int (*func) (void *con
     }
     GQUIC_ASSERT_FAST_RETURN(gquic_coroutine_create(&co, func, args));
 
-    liteco_machine_delay_join(gquic_coglobal_select_machine(), timeout, &co->co);
+    liteco_runtime_delay_join(gquic_coglobal_select_runtime(), timeout, &co->co);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
@@ -93,8 +91,8 @@ int gquic_coglobal_channel_recv(const void **const event, const liteco_channel_t
 
     int result = liteco_channel_recv(event, recv_channel,
                                      ((gquic_coroutine_t *) __CURR_CO__->args)->lock_machine
-                                     ? __GQUIC_CURR_MACHINE__
-                                     : gquic_coglobal_select_machine(),
+                                     ? __GQUIC_CURR_RUNTIME__
+                                     : gquic_coglobal_select_runtime(),
                                      channels, timeout);
 
     // spec tips: ignore closed channel exception
@@ -122,7 +120,7 @@ static int gquic_coroutine_finished(liteco_coroutine_t *const co) {
 }
 
 int gquic_coglobal_schedule() {
-    liteco_machine_schedule(__GQUIC_CURR_MACHINE__);
+    liteco_runtime_schedule(__GQUIC_CURR_RUNTIME__);
 
     GQUIC_PROCESS_DONE(GQUIC_SUCCESS);
 }
